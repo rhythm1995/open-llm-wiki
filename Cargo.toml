@@ -1,0 +1,5 @@
+# OpenObsidian workspace.
+# Phase 0:空骨架(仅设计文档)。core 内核在 feat/phase1-core 分支接入。
+[workspace]
+members = []
+resolver = "2"
