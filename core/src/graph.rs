@@ -15,7 +15,7 @@ use crate::parse::Link;
 /// 节点 id = 笔记在输入 `Vec` 里的下标。
 pub type NodeId = usize;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum EdgeKind {
     /// 正文 `[[...]]` wikilink。
     Wiki,
@@ -24,13 +24,13 @@ pub enum EdgeKind {
 }
 
 /// 边的指向:解析到的节点,或悬空。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum Target {
     Resolved(NodeId),
     Unresolved(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Edge {
     pub from: NodeId,
     pub to: Target,

@@ -5,7 +5,7 @@
 
 /// 一条 wikilink。解析阶段只产出"原始文本目标";解析为具体 VaultPath 的工作在 `graph` 模块
 /// (那里才知道全 vault 有哪些标题/路径可匹配)。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Link {
     /// `[[target]]` 里的 target(已 trim)。如 "Alpha"、"projects/beta"。
     pub target: String,
@@ -16,7 +16,7 @@ pub struct Link {
 }
 
 /// 解析后的笔记(IO-free 数据载体)。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ParsedNote {
     pub path: String,
     pub title: String,

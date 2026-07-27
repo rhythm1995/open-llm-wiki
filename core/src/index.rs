@@ -13,7 +13,7 @@ use crate::parse::{extract_wikilinks, Link, ParsedNote};
 pub type Frontmatter = BTreeMap<String, Value>;
 
 /// Enriched note:图谱、查询、搜索的统一数据载体。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Note {
     pub path: String,
     pub title: String,

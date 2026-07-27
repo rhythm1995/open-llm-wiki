@@ -12,6 +12,11 @@ dist/
 # Tauri
 src-tauri/target/
 src-tauri/gen/schemas/
+app/src-tauri/target/
+app/src-tauri/gen/schemas/
+# mobile 不在 v1 范围;`tauri icon` 会重新生成
+app/src-tauri/icons/ios/
+app/src-tauri/icons/android/
 
 # IDE / OS
 .vscode/

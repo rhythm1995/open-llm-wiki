@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* ───────────────────────────────────────────────────────────────
+   OpenObsidian 主题 —— 深色优先(桌面 PKM 暗色是默认体验)。
+   配色取自 Catppuccin Mocha 调色板(柔和、低对比疲劳),与 Tolaria
+   的视觉取向一致但不照抄具体值。后续可拆出 light 变体。
+   ─────────────────────────────────────────────────────────────── */
+@theme {
+  --color-base: #1e1e2e;
+  --color-mantle: #181825;
+  --color-crust: #11111b;
+  --color-surface: #313244;
+  --color-surface2: #45475a;
+  --color-overlay: #6c7086;
+  --color-text: #cdd6f4;
+  --color-subtext: #a6adc8;
+  --color-blue: #89b4fa;
+  --color-lavender: #b4befe;
+  --color-green: #a6e3a1;
+  --color-red: #f38ba8;
+  --color-yellow: #f9e2af;
+  --color-mauve: #cba6f7;
+  --color-teal: #94e2d5;
+
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+  --font-sans: "Inter", system-ui, -apple-system, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* 滚动条:细而低存在感,与深色面板贴合。 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface2) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-surface2);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* CodeMirror 撑满容器;字体随系统等宽字体。 */
+.cm-editor {
+  height: 100%;
+}
+.cm-scroller {
+  font-family: var(--font-mono) !important;
+}
