@@ -1,5 +1,5 @@
 # OpenObsidian workspace.
-# Phase 0:空骨架(仅设计文档)。core 内核在 feat/phase1-core 分支接入。
+# 现仅 core;Phase 2 起加入 app/src-tauri。
 [workspace]
-members = []
+members = ["core"]
 resolver = "2"
