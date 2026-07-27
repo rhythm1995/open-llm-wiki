@@ -1,0 +1,19 @@
+[package]
+name = "openobs-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "OpenObsidian core: pure, IO-free parsing / graph / query logic"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# index 切片起需要:YAML 解析(serde_yaml)。
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+
+[dev-dependencies]
+# 属性测试(解析器防 panic)。
+proptest = "1"
