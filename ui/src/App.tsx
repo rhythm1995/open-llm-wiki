@@ -33,10 +33,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⌘K / Ctrl+K 唤起命令面板。
+  // ⌘K 命令面板 / ⌘P·⌘O 快速打开笔记(三种键位都唤起同一面板)。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && /^[kpo]$/.test(e.key.toLowerCase())) {
         e.preventDefault();
         setPaletteOpen((v) => !v);
       }
