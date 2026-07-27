@@ -330,6 +330,9 @@ export function useVault() {
     };
   }, []);
 
+  /** 清除错误态(错误横幅关闭时调用)。 */
+  const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
+
   // ────────── 派生:当前节点 + 反链 ──────────
   const currentNode = useMemo<NodeOut | null>(() => {
     if (!state.snapshot || !state.currentPath) return null;
@@ -362,6 +365,7 @@ export function useVault() {
       closeTab,
       closeOthers,
       closeAllTabs,
+      clearError,
       saveNow,
       refreshIndex: () => state.root && refreshIndex(state.root),
     },

@@ -8,6 +8,7 @@
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
 import { useEffect, useState } from "react";
+import { Warning, X } from "@phosphor-icons/react";
 import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
 import { TabBar } from "./components/TabBar";
@@ -47,6 +48,19 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col">
+      {state.error && (
+        <div className="flex items-center gap-2 border-b border-red/40 bg-red/10 px-3 py-1.5 text-[12px] text-red">
+          <Warning size={14} weight="bold" className="shrink-0" />
+          <pre className="min-w-0 flex-1 truncate font-sans">{state.error}</pre>
+          <button
+            onClick={actions.clearError}
+            className="shrink-0 rounded p-0.5 hover:bg-red/20"
+            title="关闭"
+          >
+            <X size={13} weight="bold" />
+          </button>
+        </div>
+      )}
       <Toolbar
         view={view}
         onNavigate={setView}
