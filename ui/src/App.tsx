@@ -20,6 +20,7 @@ import { Toolbar } from "./components/Toolbar";
 import { StatusBar } from "./components/StatusBar";
 import { useVault } from "./lib/store";
 import { ipc } from "./lib/ipc";
+import { resolveWikiTarget } from "./lib/wikilink";
 
 export default function App() {
   const { state, currentNode, backlinks, actions } = useVault();
@@ -76,6 +77,14 @@ export default function App() {
                     value={state.content}
                     onChange={actions.setContent}
                     hasNote={state.currentPath !== null}
+                    noteTitles={state.snapshot?.nodes.map((n) => n.title) ?? []}
+                    onFollow={(target) => {
+                      const path = resolveWikiTarget(
+                        target,
+                        state.snapshot?.nodes ?? [],
+                      );
+                      if (path) actions.selectNote(path);
+                    }}
                   />
                 </div>
               </div>

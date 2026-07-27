@@ -71,3 +71,27 @@ body {
 .cm-scroller {
   font-family: var(--font-mono) !important;
 }
+
+/* F-WIKILINK:正文 `[[wikilink]]` 标记为可点击的蓝色下划线(Cmd/Ctrl+点击跟随)。 */
+.cm-wikilink {
+  color: var(--color-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* `[[` 自动补全弹层:贴合深色主题(oneDark 不覆盖补全弹层)。 */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface2);
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+.cm-tooltip-autocomplete > ul > li {
+  color: var(--color-subtext);
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--color-surface2);
+  color: var(--color-text);
+}
