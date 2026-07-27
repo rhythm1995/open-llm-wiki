@@ -290,9 +290,9 @@ export async function handle<T>(
       return buildSnapshot() as unknown as T;
 
     case "run_qql":
-      // core 的重活不在浏览器里复刻;真机走 Rust。
-      console.info("[mock] run_qql 在 mock 模式下返回空,请用 Tauri 构建。");
-      return [] as unknown as T;
+      // core 的重活不在浏览器里复刻;返回空 List 形态保持类型一致。真机走 Rust。
+      console.info("[mock] run_qql 在 mock 模式下返回空,请用 Tauri 构建以获得完整求值。");
+      return { List: [] } as unknown as T;
 
     case "search_notes":
       console.info(

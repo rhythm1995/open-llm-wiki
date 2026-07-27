@@ -8,7 +8,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use openobs_core::{parse_query, tags as note_tags, type_of, EdgeKind, Target, VaultIndex};
+use openobs_core::{
+    parse_query, tags as note_tags, type_of, EdgeKind, ResultSet, Target, VaultIndex,
+};
 use serde::Serialize;
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
@@ -52,12 +54,6 @@ pub struct VaultSnapshot {
     pub root: String,
     pub nodes: Vec<NodeOut>,
     pub edges: Vec<EdgeOut>,
-}
-
-#[derive(Serialize)]
-pub struct QqlRow {
-    pub id: usize,
-    pub fields: Option<Vec<Option<String>>>,
 }
 
 #[derive(Serialize)]
@@ -226,19 +222,12 @@ fn index_vault(root: String) -> Result<VaultSnapshot, String> {
     Ok(VaultSnapshot { root, nodes, edges })
 }
 
-/// QQL 文本查询 → 结果行(节点 id + 投影字段)。MVP 每次重建索引(可缓存优化)。
+/// QQL 文本查询 → ResultSet(列表/表格/计数/分组/求和)。直接序列化 core 的 ResultSet。
 #[tauri::command]
-fn run_qql(root: String, qql: String) -> Result<Vec<QqlRow>, String> {
+fn run_qql(root: String, qql: String) -> Result<ResultSet, String> {
     let idx = build_index(&root)?;
     let query = parse_query(&qql).map_err(|e| e.to_string())?;
-    Ok(idx
-        .query(&query)
-        .into_iter()
-        .map(|r| QqlRow {
-            id: r.id,
-            fields: r.fields,
-        })
-        .collect())
+    Ok(idx.query(&query))
 }
 
 /// 全文检索(AND)。返回按分降序的 (节点 id, 分数)。

@@ -52,11 +52,11 @@ fn main() {
         println!("  #{tag:<16} {}", ids.len());
     }
 
-    // ---- QQL:文本 → AST → 结果(证明 layer-1 文本解析器)----
+    // ---- QQL:文本 → AST → 结果(展示过滤 / 投影 / 聚合)----
     let dql = if v.by_type.is_empty() {
         r#"WHERE body ~ "source" SORT title ASC LIMIT 5"#
     } else {
-        r#"WHERE type = "Concept" SORT title ASC SHOW type, status"#
+        r#"WHERE type = "Concept" SORT mentioned_in.len() DESC SHOW title, status, mentioned_in.len() AS depth"#
     };
     println!("\n── QQL 文本查询 ──\n  {dql}");
     let q = match parse_query(dql) {
@@ -66,20 +66,13 @@ fn main() {
             return;
         }
     };
-    println!("  解析为(filter):{:?}", q.filter);
-    for row in v.query(&q) {
-        let note = &v.notes()[row.id];
-        match &row.fields {
-            Some(fs) => println!(
-                "  · {:<24} [{}]",
-                note.title,
-                fs.iter()
-                    .map(|f| f.clone().unwrap_or("—".into()))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-            None => println!("  · {}", note.title),
-        }
+    print_resultset(&v, &v.query(&q));
+
+    // 聚合:按类型分组计数
+    let agg = r#"RENDER group_by(type)"#;
+    println!("\n── QQL 聚合 ──\n  {agg}");
+    if let Ok(q) = parse_query(agg) {
+        print_resultset(&v, &v.query(&q));
     }
 
     // ---- 全文检索 ----
@@ -121,6 +114,41 @@ fn main() {
     }
 
     println!("\n✓ 端到端 OK:parse → enrich → graph → query → search 全链路在纯内核上跑通。\n");
+}
+
+/// 打印 ResultSet(各渲染模式)。
+fn print_resultset(v: &VaultIndex, rs: &openobs_core::ResultSet) {
+    use openobs_core::ResultSet;
+    match rs {
+        ResultSet::List(ids) => {
+            for &id in ids {
+                println!("  · {}", v.notes()[id].title);
+            }
+        }
+        ResultSet::Table(rows) => {
+            for row in rows {
+                let note = &v.notes()[row.id];
+                match &row.fields {
+                    Some(fs) => println!(
+                        "  · {:<24} [{}]",
+                        note.title,
+                        fs.iter()
+                            .map(|f| f.clone().unwrap_or_else(|| "—".into()))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                    None => println!("  · {}", note.title),
+                }
+            }
+        }
+        ResultSet::Count(n) => println!("  计数 = {n}"),
+        ResultSet::Sum(x) => println!("  求和 = {x}"),
+        ResultSet::Groups(groups) => {
+            for g in groups {
+                println!("  · {:<16} {}", g.key, g.count);
+            }
+        }
+    }
 }
 
 /// 递归读取目录下所有 `.md`,返回 (相对路径, 内容)。

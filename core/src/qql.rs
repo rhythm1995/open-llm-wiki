@@ -1,31 +1,38 @@
 //! QQL 文本解析器(layer 1):DQL 风格字符串 → `Query` AST。
-//! 解析出的 `Query` 交给 `query::eval` 求值。两层分离的好处:语法可换、求值器不变。
+//! 解析出的 `Query` 交给 `query::eval` 求值。两层分离:语法可换、求值器不变。
 //!
 //! # 语法(子集;关键字大小写不敏感)
 //!
 //! ```text
-//! WHERE  <谓词>                       -- 不写 = 全量
-//! SORT   <键> [ASC|DESC] [, ...]      -- 键:title | path | <字段名>;缺省 ASC
-//! LIMIT  <n>                          -- 非负整数
-//! SHOW   <字段> [, ...]               -- 不写 = 只返回节点 id
+//! WHERE   <谓词>                          -- 不写 = 全量
+//! SORT    <字段> [ASC|DESC] [, ...]       -- 字段:title | body | path | type | <键> | <键>.len()
+//! LIMIT   <n>                             -- 非负整数
+//! SHOW    <字段> [AS <别名>] [, ...]      -- 不写 = 只返回节点 id
+//! RENDER  list | table | count | group_by(<字段>) | sum(<字段>)
 //! ```
 //!
-//! 子句顺序不限,可跨行;首 token 不是子句关键字时按隐式 `WHERE` 处理(可只写谓词)。
+//! 子句顺序不限,可跨行;首 token 不是子句关键字时按隐式 `WHERE` 处理。
 //!
-//! # 谓词(`<谓词>`)
+//! # 谓词
 //!
 //! | 写法 | AST |
 //! |---|---|
 //! | `#tag` | `HasTag` |
 //! | `has <字段>` | `HasField` |
-//! | `type = "X"` | `HasType("X")`(`type` 键特化) |
-//! | `<字段> = "字"\|3\|true` | `FieldIs` |
-//! | `title ~ "x"` / `body ~ "x"` / `path ~ "x"` | `TitleContains` / `BodyContains` / `PathMatches` |
+//! | `<字段> = / != / > / >= / < / <=  "字"\|3\|true` | `Cmp` |
+//! | `<字段> ~ "x"` | `Contains`(子串,大小写不敏感) |
 //! | `NOT <原子>` / `<a> AND <b>` / `<a> OR <b>` / `( <谓词> )` | 逻辑组合,优先级 NOT > AND > OR |
+//!
+//! # 字段(`<字段>`)
+//!
+//! `title` / `body` / `path` / `type` 为内置;`<键>` 取 frontmatter;`<键>.len()` 取长度。
+//! 特例:`tags.len()`、`mentioned_in.len()`(反链入度)、`links.len()`(出度)。
 //!
 //! 字符串值必须加引号;数字 / `true` / `false` 不加。
 
-use crate::query::{Direction, Literal, OrderKey, Predicate, Query, Select};
+use crate::query::{
+    Cmp, Column, Direction, FieldRef, LenSrc, Literal, OrderKey, Predicate, Query, Render, Select,
+};
 
 /// 解析错误(带人话信息)。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,28 +47,23 @@ impl std::error::Error for ParseError {}
 
 type R<T> = Result<T, ParseError>;
 
-/// 解析 QQL 文本为 `Query`。空串 → `Query::new()`(全量、不排序、不投影)。
+/// 解析 QQL 文本为 `Query`。空串 → `Query::new()`(全量、列表)。
 pub fn parse(input: &str) -> R<Query> {
     let mut toks = lex(input)?;
     if toks.is_empty() {
         return Ok(Query::new());
     }
-    // 隐式 WHERE:首 token 非子句关键字 → 当作裸谓词,前插 WHERE。
     if !matches!(toks[0], Tok::Clause(_)) {
         toks.insert(0, Tok::Clause(Clause::Where));
     }
     let bodies = split_clauses(&toks)?;
 
     let mut q = Query::new();
+    let mut render_set = false;
     if let Some(b) = bodies.where_ {
         let mut c = PCursor { toks: b, pos: 0 };
         q.filter = parse_or(&mut c)?;
-        if c.pos != c.toks.len() {
-            return Err(ParseError(format!(
-                "WHERE 有多余 token:{:?}",
-                &c.toks[c.pos..]
-            )));
-        }
+        expect_end(&c, "WHERE")?;
     }
     if let Some(b) = bodies.sort {
         q.order = parse_sort(b)?;
@@ -69,8 +71,19 @@ pub fn parse(input: &str) -> R<Query> {
     if let Some(b) = bodies.limit {
         q.limit = parse_limit(b)?;
     }
+    if let Some(b) = bodies.render {
+        q.render = parse_render(b)?;
+        render_set = true;
+    }
     if let Some(b) = bodies.show {
         q.select = parse_show(b)?;
+    }
+    // 未显式 RENDER 时:有投影 → 表格;否则列表。
+    if !render_set {
+        q.render = match &q.select {
+            Select::Fields(_) => Render::Table,
+            Select::Notes => Render::List,
+        };
     }
     Ok(q)
 }
@@ -83,6 +96,7 @@ enum Clause {
     Sort,
     Limit,
     Show,
+    Render,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,12 +105,21 @@ enum Tok {
     Comma,
     LParen,
     RParen,
+    Dot,
+    // 比较运算符
     Eq,
+    BangEq,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+    // 子串
     Tilde,
     And,
     Or,
     Not,
     Has,
+    As,
     Asc,
     Desc,
     Str(String),
@@ -145,12 +168,42 @@ fn lex(input: &str) -> R<Vec<Tok>> {
                 out.push(Tok::Str(s));
                 i = j + 1;
             }
+            '!' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    out.push(Tok::BangEq);
+                    i += 2;
+                } else {
+                    return Err(ParseError(format!("'!' 后应为 '='(位置 {i})")));
+                }
+            }
             '=' => {
                 out.push(Tok::Eq);
                 i += 1;
             }
             '~' => {
                 out.push(Tok::Tilde);
+                i += 1;
+            }
+            '>' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    out.push(Tok::Ge);
+                    i += 2;
+                } else {
+                    out.push(Tok::Gt);
+                    i += 1;
+                }
+            }
+            '<' => {
+                if i + 1 < chars.len() && chars[i + 1] == '=' {
+                    out.push(Tok::Le);
+                    i += 2;
+                } else {
+                    out.push(Tok::Lt);
+                    i += 1;
+                }
+            }
+            '.' => {
+                out.push(Tok::Dot);
                 i += 1;
             }
             '(' => {
@@ -191,10 +244,12 @@ fn lex(input: &str) -> R<Vec<Tok>> {
                     "SORT" => Tok::Clause(Clause::Sort),
                     "LIMIT" => Tok::Clause(Clause::Limit),
                     "SHOW" => Tok::Clause(Clause::Show),
+                    "RENDER" => Tok::Clause(Clause::Render),
                     "AND" => Tok::And,
                     "OR" => Tok::Or,
                     "NOT" => Tok::Not,
                     "HAS" => Tok::Has,
+                    "AS" => Tok::As,
                     "ASC" => Tok::Asc,
                     "DESC" => Tok::Desc,
                     "TRUE" => Tok::Bool(true),
@@ -218,6 +273,7 @@ struct ClauseBodies<'a> {
     sort: Option<&'a [Tok]>,
     limit: Option<&'a [Tok]>,
     show: Option<&'a [Tok]>,
+    render: Option<&'a [Tok]>,
 }
 
 fn split_clauses(toks: &[Tok]) -> R<ClauseBodies<'_>> {
@@ -239,6 +295,7 @@ fn split_clauses(toks: &[Tok]) -> R<ClauseBodies<'_>> {
             Clause::Sort => set_clause(&mut b.sort, body, "SORT")?,
             Clause::Limit => set_clause(&mut b.limit, body, "LIMIT")?,
             Clause::Show => set_clause(&mut b.show, body, "SHOW")?,
+            Clause::Render => set_clause(&mut b.render, body, "RENDER")?,
         }
     }
     Ok(b)
@@ -252,7 +309,7 @@ fn set_clause<'a>(slot: &mut Option<&'a [Tok]>, body: &'a [Tok], name: &str) -> 
     Ok(())
 }
 
-// ─────────────────────── 谓词解析 ────────────────────────
+// ─────────────────────── 字段引用解析 ────────────────────
 
 struct PCursor<'a> {
     toks: &'a [Tok],
@@ -271,6 +328,44 @@ impl<'a> PCursor<'a> {
         t
     }
 }
+
+fn parse_field_ref(c: &mut PCursor) -> R<FieldRef> {
+    let name = match c.bump() {
+        Some(Tok::Ident(n)) => n,
+        other => return Err(ParseError(format!("期望字段名,得到 {other:?}"))),
+    };
+    // `.len()`(括号可选)
+    if matches!(c.peek(), Some(Tok::Dot)) {
+        c.bump(); // dot
+        let m = match c.bump() {
+            Some(Tok::Ident(m)) => m,
+            other => return Err(ParseError(format!("'.' 后期望 'len',得到 {other:?}"))),
+        };
+        if m.to_lowercase() != "len" {
+            return Err(ParseError(format!("仅支持 .len(),得到 '.{m}'")));
+        }
+        // 可选空括号
+        if matches!(c.peek(), Some(Tok::LParen)) {
+            c.bump();
+            expect(c, Tok::RParen)?;
+        }
+        return Ok(match name.to_lowercase().as_str() {
+            "tags" => FieldRef::Len(LenSrc::Tags),
+            "mentioned_in" => FieldRef::Len(LenSrc::Backlinks),
+            "links" => FieldRef::Len(LenSrc::Links),
+            _ => FieldRef::Len(LenSrc::KeyList(name)),
+        });
+    }
+    Ok(match name.to_lowercase().as_str() {
+        "title" => FieldRef::Title,
+        "body" => FieldRef::Body,
+        "path" => FieldRef::Path,
+        "type" => FieldRef::Type,
+        _ => FieldRef::Key(name),
+    })
+}
+
+// ─────────────────────── 谓词解析 ────────────────────────
 
 fn parse_or(c: &mut PCursor) -> R<Predicate> {
     let mut terms = vec![parse_and(c)?];
@@ -325,53 +420,45 @@ fn parse_atom(c: &mut PCursor) -> R<Predicate> {
         }
         Tok::Has => {
             c.bump();
-            match c.bump() {
-                Some(Tok::Tag(t)) => Ok(Predicate::HasTag(t)),
-                Some(Tok::Ident(k)) => Ok(Predicate::HasField(k)),
-                other => Err(ParseError(format!(
-                    "`has` 后应为字段名或 #tag,得到 {other:?}"
-                ))),
-            }
+            let rf = parse_field_ref(c)?;
+            Ok(Predicate::HasField(rf))
         }
-        Tok::Ident(key) => {
-            c.bump();
-            match c.peek() {
-                Some(Tok::Eq) => {
+        _ => {
+            let rf = parse_field_ref(c)?;
+            match c.peek().cloned() {
+                Some(op @ (Tok::Eq | Tok::BangEq | Tok::Gt | Tok::Ge | Tok::Lt | Tok::Le)) => {
                     c.bump();
                     let lit = parse_literal(c)?;
-                    if key.to_lowercase() == "type" {
-                        match lit {
-                            Literal::Str(s) => Ok(Predicate::HasType(s)),
-                            _ => Err(ParseError("`type =` 后须为字符串".into())),
-                        }
-                    } else {
-                        Ok(Predicate::FieldIs(key, lit))
-                    }
+                    Ok(Predicate::Cmp(rf, tok_to_cmp(&op)?, lit))
                 }
                 Some(Tok::Tilde) => {
                     c.bump();
                     let s = match c.bump() {
                         Some(Tok::Str(s)) => s,
                         other => {
-                            return Err(ParseError(format!("`~` 后须为字符串,得到 {other:?}")))
+                            return Err(ParseError(format!("'~' 后须为字符串,得到 {other:?}")))
                         }
                     };
-                    match key.to_lowercase().as_str() {
-                        "title" => Ok(Predicate::TitleContains(s)),
-                        "body" => Ok(Predicate::BodyContains(s)),
-                        "path" => Ok(Predicate::PathMatches(s)),
-                        _ => Err(ParseError(format!(
-                            "`~` 仅支持 title/body/path,得到 '{key}'"
-                        ))),
-                    }
+                    Ok(Predicate::Contains(rf, s))
                 }
                 other => Err(ParseError(format!(
-                    "字段 '{key}' 后应为 '=' 或 '~',得到 {other:?}"
+                    "字段后应为比较运算符 / '~',得到 {other:?}"
                 ))),
             }
         }
-        other => Err(ParseError(format!("无法解析谓词原子:{other:?}"))),
     }
+}
+
+fn tok_to_cmp(t: &Tok) -> R<Cmp> {
+    Ok(match t {
+        Tok::Eq => Cmp::Eq,
+        Tok::BangEq => Cmp::Ne,
+        Tok::Gt => Cmp::Gt,
+        Tok::Ge => Cmp::Ge,
+        Tok::Lt => Cmp::Lt,
+        Tok::Le => Cmp::Le,
+        _ => return Err(ParseError(format!("非比较运算符 {t:?}"))),
+    })
 }
 
 fn parse_literal(c: &mut PCursor) -> R<Literal> {
@@ -392,6 +479,16 @@ fn expect(c: &mut PCursor, expected: Tok) -> R<()> {
     }
 }
 
+fn expect_end(c: &PCursor, name: &str) -> R<()> {
+    if c.pos != c.toks.len() {
+        return Err(ParseError(format!(
+            "{name} 有多余 token:{:?}",
+            &c.toks[c.pos..]
+        )));
+    }
+    Ok(())
+}
+
 // ─────────────────────── 其它子句解析 ────────────────────
 
 fn parse_sort(body: &[Tok]) -> R<Vec<OrderKey>> {
@@ -399,24 +496,15 @@ fn parse_sort(body: &[Tok]) -> R<Vec<OrderKey>> {
     for seg in split_on_comma(body) {
         let seg = seg.ok_or_else(|| ParseError("SORT:空排序键".into()))?;
         let mut c = PCursor { toks: &seg, pos: 0 };
-        let name = match c.bump() {
-            Some(Tok::Ident(n)) => n,
-            other => return Err(ParseError(format!("SORT 键应为标识符,得到 {other:?}"))),
-        };
+        let rf = parse_field_ref(&mut c)?;
         let dir = match c.bump() {
             None => Direction::Asc,
             Some(Tok::Asc) => Direction::Asc,
             Some(Tok::Desc) => Direction::Desc,
             other => return Err(ParseError(format!("SORT 方向应为 ASC/DESC,得到 {other:?}"))),
         };
-        if c.pos != c.toks.len() {
-            return Err(ParseError("SORT 键有多余 token".into()));
-        }
-        keys.push(match name.to_lowercase().as_str() {
-            "title" => OrderKey::Title(dir),
-            "path" => OrderKey::Path(dir),
-            _ => OrderKey::Field(name, dir),
-        });
+        expect_end(&c, "SORT 键")?;
+        keys.push(OrderKey(rf, dir));
     }
     Ok(keys)
 }
@@ -429,15 +517,60 @@ fn parse_limit(body: &[Tok]) -> R<Option<usize>> {
 }
 
 fn parse_show(body: &[Tok]) -> R<Select> {
-    let mut fields = Vec::new();
+    let mut cols: Vec<Column> = Vec::new();
     for seg in split_on_comma(body) {
-        let seg = seg.ok_or_else(|| ParseError("SHOW:空字段名".into()))?;
-        match seg.as_slice() {
-            [Tok::Ident(f)] => fields.push(f.clone()),
-            other => return Err(ParseError(format!("SHOW 字段名非法:{other:?}"))),
-        }
+        let seg = seg.ok_or_else(|| ParseError("SHOW:空列".into()))?;
+        let mut c = PCursor { toks: &seg, pos: 0 };
+        let rf = parse_field_ref(&mut c)?;
+        let alias = if matches!(c.peek(), Some(Tok::As)) {
+            c.bump();
+            match c.bump() {
+                Some(Tok::Ident(a)) => Some(a),
+                other => return Err(ParseError(format!("AS 后应为别名,得到 {other:?}"))),
+            }
+        } else {
+            None
+        };
+        expect_end(&c, "SHOW 列")?;
+        cols.push((rf, alias));
     }
-    Ok(Select::Fields(fields))
+    Ok(Select::Fields(cols))
+}
+
+fn parse_render(body: &[Tok]) -> R<Render> {
+    let mut c = PCursor { toks: body, pos: 0 };
+    let mode = match c.bump() {
+        Some(Tok::Ident(m)) => m.to_lowercase(),
+        other => return Err(ParseError(format!("RENDER 后应为模式名,得到 {other:?}"))),
+    };
+    let render = match mode.as_str() {
+        "list" => Render::List,
+        "table" => Render::Table,
+        "count" => Render::Count,
+        "group_by" | "groupby" => {
+            let rf = parse_render_field(&mut c)?;
+            Render::GroupBy(rf)
+        }
+        "sum" => {
+            let rf = parse_render_field(&mut c)?;
+            Render::Sum(rf)
+        }
+        _ => return Err(ParseError(format!("未知 RENDER 模式:{mode}"))),
+    };
+    expect_end(&c, "RENDER")?;
+    Ok(render)
+}
+
+/// RENDER 的 group_by/sum 字段:允许 `group_by(field)` 或 `group_by field`。
+fn parse_render_field(c: &mut PCursor) -> R<FieldRef> {
+    if matches!(c.peek(), Some(Tok::LParen)) {
+        c.bump();
+        let rf = parse_field_ref(c)?;
+        expect(c, Tok::RParen)?;
+        Ok(rf)
+    } else {
+        parse_field_ref(c)
+    }
 }
 
 /// 按逗号切分;返回每段的 Option(None 表示空段,如尾随逗号)。
@@ -458,72 +591,107 @@ fn split_on_comma(body: &[Tok]) -> Vec<Option<Vec<Tok>>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::query::{Direction as D, Literal as L};
+    use crate::query::{FieldRef as F, LenSrc};
 
     fn p(s: &str) -> Predicate {
         parse(s).unwrap().filter
     }
 
-    // ---- 谓词原子 ----
+    // ---- 字段引用 ----
 
     #[test]
-    fn atom_tag() {
-        assert_eq!(p("#idea"), Predicate::HasTag("idea".into()));
-    }
-
-    #[test]
-    fn atom_has_field() {
-        assert_eq!(p("has rank"), Predicate::HasField("rank".into()));
-    }
-
-    #[test]
-    fn atom_type_eq() {
+    fn fieldref_builtins_and_key() {
+        // 通过 Cmp 间接验证。
+        assert_eq!(
+            p(r#"title = "x""#),
+            Predicate::Cmp(F::Title, Cmp::Eq, Literal::Str("x".into()))
+        );
         assert_eq!(
             p(r#"type = "Concept""#),
-            Predicate::HasType("Concept".into())
+            Predicate::Cmp(F::Type, Cmp::Eq, Literal::Str("Concept".into()))
         );
-    }
-
-    #[test]
-    fn atom_field_eq_str_int_bool() {
         assert_eq!(
             p(r#"status = "active""#),
-            Predicate::FieldIs("status".into(), L::Str("active".into()))
-        );
-        assert_eq!(p("rank = 3"), Predicate::FieldIs("rank".into(), L::Int(3)));
-        assert_eq!(
-            p("done = true"),
-            Predicate::FieldIs("done".into(), L::Bool(true))
+            Predicate::Cmp(F::Key("status".into()), Cmp::Eq, Literal::Str("active".into()))
         );
     }
 
     #[test]
-    fn atom_contains() {
+    fn fieldref_len_variants() {
+        assert_eq!(
+            p("tags.len() > 1"),
+            Predicate::Cmp(F::Len(LenSrc::Tags), Cmp::Gt, Literal::Int(1))
+        );
+        assert_eq!(
+            p("mentioned_in.len() < 3"),
+            Predicate::Cmp(F::Len(LenSrc::Backlinks), Cmp::Lt, Literal::Int(3))
+        );
+        assert_eq!(
+            p("links.len() >= 2"),
+            Predicate::Cmp(F::Len(LenSrc::Links), Cmp::Ge, Literal::Int(2))
+        );
+        // 任意键 .len
+        assert_eq!(
+            p("mentions.len() = 2"),
+            Predicate::Cmp(
+                F::Len(LenSrc::KeyList("mentions".into())),
+                Cmp::Eq,
+                Literal::Int(2)
+            )
+        );
+        // 不带括号
+        assert_eq!(
+            p("tags.len > 0"),
+            Predicate::Cmp(F::Len(LenSrc::Tags), Cmp::Gt, Literal::Int(0))
+        );
+    }
+
+    // ---- 比较运算符 ----
+
+    #[test]
+    fn all_comparison_operators() {
+        assert!(matches!(
+            p(r#"status != "done""#),
+            Predicate::Cmp(_, Cmp::Ne, _)
+        ));
+        assert!(matches!(p("rank > 1"), Predicate::Cmp(_, Cmp::Gt, _)));
+        assert!(matches!(p("rank >= 1"), Predicate::Cmp(_, Cmp::Ge, _)));
+        assert!(matches!(p("rank < 1"), Predicate::Cmp(_, Cmp::Lt, _)));
+        assert!(matches!(p("rank <= 1"), Predicate::Cmp(_, Cmp::Le, _)));
+    }
+
+    #[test]
+    fn contains_via_tilde() {
         assert_eq!(
             p(r#"title ~ "cap""#),
-            Predicate::TitleContains("cap".into())
+            Predicate::Contains(F::Title, "cap".into())
         );
+        // ~ 也允许任意字段(如字符串键)
         assert_eq!(
-            p(r#"body ~ "rust""#),
-            Predicate::BodyContains("rust".into())
+            p(r#"status ~ "act""#),
+            Predicate::Contains(F::Key("status".into()), "act".into())
         );
-        assert_eq!(p(r#"path ~ "dir""#), Predicate::PathMatches("dir".into()));
     }
 
+    // ---- 逻辑 ----
+
     #[test]
-    fn bool_and_or_not() {
+    fn bool_and_or_not_parens() {
         assert_eq!(
             p(r#"type = "A" AND #x"#),
             Predicate::And(vec![
-                Predicate::HasType("A".into()),
+                Predicate::Cmp(F::Type, Cmp::Eq, Literal::Str("A".into())),
                 Predicate::HasTag("x".into())
             ])
         );
         assert_eq!(
-            p(r#"has a OR has b"#),
-            Predicate::Or(vec![
-                Predicate::HasField("a".into()),
-                Predicate::HasField("b".into())
+            p("(has a OR has b) AND has c"),
+            Predicate::And(vec![
+                Predicate::Or(vec![
+                    Predicate::HasField(F::Key("a".into())),
+                    Predicate::HasField(F::Key("b".into()))
+                ]),
+                Predicate::HasField(F::Key("c".into()))
             ])
         );
         assert_eq!(
@@ -532,92 +700,74 @@ mod tests {
         );
     }
 
-    #[test]
-    fn precedence_not_and_or() {
-        // a OR b AND c  ==  a OR (b AND c)
-        assert_eq!(
-            p("has a OR has b AND has c"),
-            Predicate::Or(vec![
-                Predicate::HasField("a".into()),
-                Predicate::And(vec![
-                    Predicate::HasField("b".into()),
-                    Predicate::HasField("c".into())
-                ]),
-            ])
-        );
-    }
-
-    #[test]
-    fn parens_override() {
-        assert_eq!(
-            p("(has a OR has b) AND has c"),
-            Predicate::And(vec![
-                Predicate::Or(vec![
-                    Predicate::HasField("a".into()),
-                    Predicate::HasField("b".into())
-                ]),
-                Predicate::HasField("c".into()),
-            ])
-        );
-    }
-
     // ---- 子句 ----
 
     #[test]
-    fn sort_basic() {
-        let q = parse("SORT title").unwrap();
-        assert_eq!(q.order, vec![OrderKey::Title(D::Asc)]);
-        let q = parse("SORT rank DESC, title ASC").unwrap();
+    fn sort_by_fieldref_and_len() {
+        let q = parse("SORT title DESC, rank ASC").unwrap();
         assert_eq!(
             q.order,
             vec![
-                OrderKey::Field("rank".into(), D::Desc),
-                OrderKey::Title(D::Asc)
+                OrderKey(F::Title, Direction::Desc),
+                OrderKey(F::Key("rank".into()), Direction::Asc)
             ]
         );
-    }
-
-    #[test]
-    fn limit_and_show() {
-        let q = parse("LIMIT 5").unwrap();
-        assert_eq!(q.limit, Some(5));
-        let q = parse("SHOW type, status").unwrap();
+        let q = parse("SORT mentioned_in.len() DESC").unwrap();
         assert_eq!(
-            q.select,
-            Select::Fields(vec!["type".into(), "status".into()])
+            q.order,
+            vec![OrderKey(F::Len(LenSrc::Backlinks), Direction::Desc)]
         );
     }
 
     #[test]
-    fn full_query_multiline() {
-        let q = parse(
-            r#"WHERE type = "Concept" AND #idea
-               SORT title ASC
-               LIMIT 10
-               SHOW type, status"#,
-        )
-        .unwrap();
+    fn show_with_alias() {
+        let q = parse("SHOW title, status AS st, mentioned_in.len() AS depth").unwrap();
         assert_eq!(
-            q.filter,
-            Predicate::And(vec![
-                Predicate::HasType("Concept".into()),
-                Predicate::HasTag("idea".into())
+            q.select,
+            Select::Fields(vec![
+                (F::Title, None),
+                (F::Key("status".into()), Some("st".into())),
+                (F::Len(LenSrc::Backlinks), Some("depth".into()))
             ])
         );
-        assert_eq!(q.order, vec![OrderKey::Title(D::Asc)]);
-        assert_eq!(q.limit, Some(10));
+        // SHOW 默认渲染为 table
+        assert_eq!(q.render, Render::Table);
+    }
+
+    #[test]
+    fn render_modes() {
+        assert_eq!(parse("RENDER count").unwrap().render, Render::Count);
+        assert_eq!(parse("RENDER list").unwrap().render, Render::List);
+        assert_eq!(parse("RENDER table").unwrap().render, Render::Table);
         assert_eq!(
-            q.select,
-            Select::Fields(vec!["type".into(), "status".into()])
+            parse("RENDER group_by(type)").unwrap().render,
+            Render::GroupBy(F::Type)
+        );
+        assert_eq!(
+            parse("RENDER sum(score)").unwrap().render,
+            Render::Sum(F::Key("score".into()))
+        );
+        // group_by 不带括号
+        assert_eq!(
+            parse("RENDER group_by type").unwrap().render,
+            Render::GroupBy(F::Type)
         );
     }
 
     #[test]
-    fn clauses_any_order() {
-        let q = parse(r#"SHOW status LIMIT 3 WHERE #x"#).unwrap();
-        assert_eq!(q.filter, Predicate::HasTag("x".into()));
-        assert_eq!(q.limit, Some(3));
-        assert_eq!(q.select, Select::Fields(vec!["status".into()]));
+    fn full_aggregate_query() {
+        let q = parse(
+            r#"WHERE type = "Concept" AND mentioned_in.len() < 3
+               SORT mentioned_in.len() ASC
+               RENDER group_by(status) SHOW title"#,
+        )
+        .unwrap();
+        assert!(matches!(q.filter, Predicate::And(_)));
+        assert_eq!(
+            q.order,
+            vec![OrderKey(F::Len(LenSrc::Backlinks), Direction::Asc)]
+        );
+        assert_eq!(q.render, Render::GroupBy(F::Key("status".into())));
     }
 
     #[test]
@@ -644,8 +794,8 @@ mod tests {
     }
 
     #[test]
-    fn err_tilde_on_arbitrary_field() {
-        assert!(parse(r#"WHERE rank ~ "x""#).is_err());
+    fn err_unknown_dot_suffix() {
+        assert!(parse("WHERE rank.count > 1").is_err());
     }
 
     #[test]
@@ -659,7 +809,12 @@ mod tests {
     }
 
     #[test]
-    fn err_trailing_sort_comma() {
-        assert!(parse("SORT title,").is_err());
+    fn err_unknown_render_mode() {
+        assert!(parse("RENDER histogram").is_err());
+    }
+
+    #[test]
+    fn err_bang_without_eq() {
+        assert!(parse("WHERE status ! \"x\"").is_err());
     }
 }

@@ -26,8 +26,8 @@ pub use index::{enrich, parse_frontmatter, relationship_links, tags, type_of, Fr
 pub use parse::{parse_note, Link, ParsedNote};
 pub use qql::{parse as parse_query, ParseError as QqlParseError};
 pub use query::{
-    eval, matches as predicate_matches, Direction, Literal, OrderKey, Predicate, Query, ResultSet,
-    Row, Select,
+    eval, matches as predicate_matches, Cmp, Column, Direction, FieldRef, GroupRow, LenSrc,
+    Literal, OrderKey, Predicate, Query, Render, ResultSet, Row, Select,
 };
 pub use search::SearchIndex;
 pub use vault::VaultIndex;

@@ -1,15 +1,15 @@
 /**
  * QueryPanel —— 差异化之二:QQL 查询面板。
  *
- * 用户输入 QQL(类 DQL 文本),调 run_qql 走 Rust core 求值,渲染结果表。
- * 这是 Obsidian 不具备的"原生实时查询"卖点:把 frontmatter/标签/全文当作可查询数据。
+ * 用户输入 QQL(类 DQL 文本),调 run_qql 走 Rust core 求值,按 ResultSet 形态渲染:
+ * 列表 / 表格 / 计数 / 分组 / 求和。这是 Obsidian 不具备的"原生实时查询 + 聚合"卖点。
  *
- * 客户端只做两件轻活:从 QQL 文本里抠出 SHOW 列(给表头),以及把行 id 映射回节点标题。
+ * 客户端只做轻活:从 QQL 文本里抠出 SHOW 列(给表头),以及把行 id 映射回节点标题。
  * 求值与语法完全在 core(qql::parse + query::eval),保证 UI 与 core 语义一致。
  */
 import { useMemo, useState } from "react";
 import { Play, MagnifyingGlass, Warning } from "@phosphor-icons/react";
-import { ipc, type QqlRow, type VaultSnapshot } from "../lib/ipc";
+import { ipc, type GroupRow, type NodeOut, type QqlRow, type ResultSet, type VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { cn } from "../lib/cn";
 
@@ -20,53 +20,58 @@ interface Props {
 }
 
 const EXAMPLES = [
-  `WHERE type = "Concept" SORT title ASC SHOW title, status`,
-  `WHERE tags CONTAINS "method" SHOW title`,
-  `WHERE title ~ "note" SHOW title, type`,
-  `SORT title ASC LIMIT 5 SHOW title, type`,
+  `WHERE type = "Concept" SORT mentioned_in.len() DESC SHOW title, status, mentioned_in.len() AS depth`,
+  `RENDER count WHERE type = "Concept"`,
+  `RENDER group_by(type)`,
+  `WHERE status != "done" SORT title ASC SHOW title, status`,
+  `RENDER sum(score)`,
 ];
 
-function parseShowCols(qql: string): string[] {
-  const m = /\bSHOW\b\s+(.+)$/is.exec(qql);
+interface ShowCol {
+  label: string;
+}
+
+/** 从 SHOW 子句抠列标签(`a AS b` → "b",否则 "a")。 */
+function parseShowCols(qql: string): ShowCol[] {
+  const m = /\bSHOW\b\s+(.+?)(?:\bRENDER\b|$)/is.exec(qql);
   if (!m) return [];
   return m[1]
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((raw) => {
+      const asM = /\bAS\b\s+(\w+)$/i.exec(raw);
+      return { label: asM ? asM[1] : raw };
+    });
 }
 
 export function QueryPanel({ root, snapshot, actions }: Props) {
   const [qql, setQql] = useState(EXAMPLES[0]);
-  const [rows, setRows] = useState<QqlRow[] | null>(null);
-  const [cols, setCols] = useState<string[]>([]);
+  const [result, setResult] = useState<ResultSet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const idToNode = useMemo(() => {
-    const m = new Map<number, { title: string; path: string }>();
-    for (const n of snapshot?.nodes ?? []) {
-      m.set(n.id, { title: n.title, path: n.path });
-    }
+    const m = new Map<number, NodeOut>();
+    for (const n of snapshot?.nodes ?? []) m.set(n.id, n);
     return m;
   }, [snapshot]);
+
+  const cols = useMemo(() => parseShowCols(qql), [qql]);
 
   const run = async () => {
     if (!root) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await ipc.runQql(root, qql);
-      setRows(result);
-      setCols(parseShowCols(qql));
+      setResult(await ipc.runQql(root, qql));
     } catch (e) {
       setError(String(e));
-      setRows(null);
+      setResult(null);
     } finally {
       setLoading(false);
     }
   };
-
-  const headerCols = ["笔记", ...cols];
 
   return (
     <div className="flex h-full flex-col bg-mantle">
@@ -81,7 +86,7 @@ export function QueryPanel({ root, snapshot, actions }: Props) {
           spellCheck={false}
           rows={3}
           className="w-full resize-none rounded bg-crust p-2 font-mono text-[12px] text-text outline-none ring-surface2 focus:ring-1"
-          placeholder='WHERE type = "Concept" SORT title ASC SHOW title'
+          placeholder='WHERE type = "Concept" SORT title ASC SHOW title  ·  RENDER count|group_by(type)|sum(score)'
         />
         <div className="mt-1.5 flex items-center gap-1.5">
           <button
@@ -99,10 +104,10 @@ export function QueryPanel({ root, snapshot, actions }: Props) {
             <button
               key={ex}
               onClick={() => setQql(ex)}
-              className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-subtext hover:bg-surface2"
+              className="max-w-[200px] truncate rounded bg-surface px-1.5 py-0.5 text-[10px] text-subtext hover:bg-surface2"
               title={ex}
             >
-              {ex.replace(/\s+/g, " ").slice(0, 28)}…
+              {ex.replace(/\s+/g, " ")}
             </button>
           ))}
         </div>
@@ -110,61 +115,133 @@ export function QueryPanel({ root, snapshot, actions }: Props) {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {error && (
-          <div className="flex items-start gap-1.5 m-2 rounded bg-red/10 p-2 text-[12px] text-red">
+          <div className="m-2 flex items-start gap-1.5 rounded bg-red/10 p-2 text-[12px] text-red">
             <Warning size={14} weight="bold" className="mt-0.5 shrink-0" />
-            <pre className="whitespace-pre-wrap break-words font-mono">
-              {error}
-            </pre>
+            <pre className="whitespace-pre-wrap break-words font-mono">{error}</pre>
           </div>
         )}
-        {!error && rows && rows.length === 0 && (
-          <p className="p-3 text-[12px] text-overlay">
-            无匹配行。(mock 浏览器模式下 QQL 返回空 —— 请用 Tauri 构建以获得完整求值。)
-          </p>
-        )}
-        {!error && rows && rows.length > 0 && (
-          <table className="w-full text-[12px]">
-            <thead className="sticky top-0 bg-mantle text-overlay">
-              <tr>
-                {headerCols.map((c, i) => (
-                  <th
-                    key={i}
-                    className="border-b border-crust px-2 py-1 text-left font-normal"
-                  >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const node = idToNode.get(r.id);
-                const fields = r.fields ?? [];
-                return (
-                  <tr
-                    key={r.id}
-                    className="cursor-pointer hover:bg-surface"
-                    onClick={() => node && actions.selectNote(node.path)}
-                  >
-                    <td className="px-2 py-1 text-text">{node?.title ?? r.id}</td>
-                    {cols.map((_, i) => (
-                      <td
-                        key={i}
-                        className={cn(
-                          "px-2 py-1",
-                          fields[i] ? "text-subtext" : "text-overlay",
-                        )}
-                      >
-                        {fields[i] ?? "—"}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+        {!error && result && <ResultView result={result} cols={cols} idToNode={idToNode} actions={actions} />}
       </div>
     </div>
+  );
+}
+
+function ResultView({
+  result,
+  cols,
+  idToNode,
+  actions,
+}: {
+  result: ResultSet;
+  cols: ShowCol[];
+  idToNode: Map<number, NodeOut>;
+  actions: VaultActions;
+}) {
+  const titleOf = (id: number) => idToNode.get(id)?.title ?? String(id);
+
+  if ("Count" in result) {
+    return (
+      <div className="p-4">
+        <div className="text-[11px] uppercase tracking-wide text-overlay">计数</div>
+        <div className="mt-1 text-3xl font-semibold text-text">{result.Count}</div>
+      </div>
+    );
+  }
+  if ("Sum" in result) {
+    return (
+      <div className="p-4">
+        <div className="text-[11px] uppercase tracking-wide text-overlay">求和</div>
+        <div className="mt-1 text-3xl font-semibold text-text">
+          {Number.isInteger(result.Sum) ? result.Sum : result.Sum.toFixed(2)}
+        </div>
+      </div>
+    );
+  }
+  if ("Groups" in result) {
+    return (
+      <table className="w-full text-[12px]">
+        <thead className="sticky top-0 bg-mantle text-overlay">
+          <tr>
+            <th className="border-b border-crust px-3 py-1 text-left font-normal">分组</th>
+            <th className="border-b border-crust px-3 py-1 text-right font-normal">计数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.Groups.map((g: GroupRow) => (
+            <tr key={g.key} className="hover:bg-surface">
+              <td className="px-3 py-1 text-text">{g.key}</td>
+              <td className="px-3 py-1 text-right text-subtext">{g.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+  if ("List" in result) {
+    if (result.List.length === 0) return <Empty />;
+    return (
+      <ul>
+        {result.List.map((id) => {
+          const node = idToNode.get(id);
+          return (
+            <li key={id}>
+              <button
+                onClick={() => node && actions.selectNote(node.path)}
+                className="block w-full px-3 py-1.5 text-left text-[13px] text-text hover:bg-surface"
+              >
+                {titleOf(id)}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+  // Table
+  if ("Table" in result) {
+    if (result.Table.length === 0) return <Empty />;
+    const header = ["笔记", ...cols.map((c) => c.label)];
+    return (
+      <table className="w-full text-[12px]">
+        <thead className="sticky top-0 bg-mantle text-overlay">
+          <tr>
+            {header.map((h, i) => (
+              <th key={i} className="border-b border-crust px-2 py-1 text-left font-normal">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {result.Table.map((r: QqlRow) => {
+            const node = idToNode.get(r.id);
+            const fields = r.fields ?? [];
+            return (
+              <tr
+                key={r.id}
+                className="cursor-pointer hover:bg-surface"
+                onClick={() => node && actions.selectNote(node.path)}
+              >
+                <td className="px-2 py-1 text-text">{titleOf(r.id)}</td>
+                {cols.map((_, i) => (
+                  <td key={i} className={cn("px-2 py-1", fields[i] ? "text-subtext" : "text-overlay")}>
+                    {fields[i] ?? "—"}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+  return null;
+}
+
+function Empty() {
+  return (
+    <p className="p-3 text-[12px] text-overlay">
+      无匹配行。(mock 浏览器模式下 QQL 返回空 —— 请用 Tauri 构建以获得完整求值。)
+    </p>
   );
 }

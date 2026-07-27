@@ -45,11 +45,29 @@ export interface VaultSnapshot {
   edges: EdgeOut[];
 }
 
-/** QQL 结果行:core 的 `Option<Vec<Option<String>>>` 序列化形态。 */
+/** QQL 表格行:core 的 `Option<Vec<Option<String>>>` 序列化形态。 */
 export interface QqlRow {
   id: number;
   fields: (string | null)[] | null;
 }
+
+/** group_by 分组行。 */
+export interface GroupRow {
+  key: string;
+  count: number;
+  ids: number[];
+}
+
+/**
+ * QQL 结果集 —— 对齐 core 的 `ResultSet` 枚举(serde 外标签)。
+ * 形态由 `RENDER` 决定:List / Table / Count / Groups / Sum。
+ */
+export type ResultSet =
+  | { List: number[] }
+  | { Table: QqlRow[] }
+  | { Count: number }
+  | { Groups: GroupRow[] }
+  | { Sum: number };
 
 export interface SearchHit {
   id: number;
@@ -81,7 +99,7 @@ export const ipc = {
   indexVault: (root: string) =>
     call<VaultSnapshot>("index_vault", { root }),
   runQql: (root: string, qql: string) =>
-    call<QqlRow[]>("run_qql", { root, qql }),
+    call<ResultSet>("run_qql", { root, qql }),
   searchNotes: (root: string, query: string) =>
     call<SearchHit[]>("search_notes", { root, query }),
   pickVault: () => call<string | null>("pick_vault", {}),
