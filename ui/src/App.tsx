@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
+import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
 import { QueryPanel } from "./components/QueryPanel";
@@ -19,28 +20,6 @@ import { Toolbar } from "./components/Toolbar";
 import { StatusBar } from "./components/StatusBar";
 import { useVault } from "./lib/store";
 import { ipc } from "./lib/ipc";
-
-/** 轻量 frontmatter 解析(仅展示用;语义以 core 为准)。 */
-function parseFrontmatter(text: string): Record<string, unknown> | null {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
-  if (!m) return null;
-  const out: Record<string, unknown> = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const km = /^([A-Za-z_][\w-]*)\s*:\s*(.*)$/.exec(line);
-    if (!km) continue;
-    const [, k, raw] = km;
-    let v: unknown = raw.trim().replace(/^"(.*)"$/, "$1");
-    if (typeof v === "string" && v.startsWith("[") && v.endsWith("]")) {
-      v = v
-        .slice(1, -1)
-        .split(",")
-        .map((s) => s.trim().replace(/^"(.*)"$/, "$1"))
-        .filter(Boolean);
-    }
-    out[k] = v;
-  }
-  return out;
-}
 
 export default function App() {
   const { state, currentNode, backlinks, actions } = useVault();
@@ -65,8 +44,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const frontmatter = state.content ? parseFrontmatter(state.content) : null;
-
   return (
     <div className="flex h-screen flex-col">
       <Toolbar
@@ -87,11 +64,21 @@ export default function App() {
         <div className="flex min-w-0 flex-1">
           <div className="min-w-0 flex-1">
             {view === "editor" && (
-              <Editor
-                value={state.content}
-                onChange={actions.setContent}
-                hasNote={state.currentPath !== null}
-              />
+              <div className="flex h-full flex-col">
+                <TabBar
+                  openPaths={state.openPaths}
+                  activePath={state.currentPath}
+                  snapshot={state.snapshot}
+                  actions={actions}
+                />
+                <div className="min-h-0 flex-1">
+                  <Editor
+                    value={state.content}
+                    onChange={actions.setContent}
+                    hasNote={state.currentPath !== null}
+                  />
+                </div>
+              </div>
             )}
             {view === "graph" && (
               <GraphView
@@ -120,7 +107,7 @@ export default function App() {
             <div className="w-64 shrink-0 border-l border-crust">
               <Inspector
                 node={currentNode}
-                frontmatter={frontmatter}
+                content={state.content}
                 backlinks={backlinks}
                 actions={actions}
               />

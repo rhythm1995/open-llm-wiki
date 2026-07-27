@@ -13,6 +13,8 @@ import {
   FileText,
   Plus,
   Hash,
+  PencilSimple,
+  Trash,
 } from "@phosphor-icons/react";
 import type { VaultEntry } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
@@ -110,21 +112,42 @@ export function Sidebar({ entries, currentPath, actions }: Props) {
     // 文件
     const active = currentPath === node.path;
     const stem = node.name.replace(/\.md$/i, "");
+    const onRename = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const next = window.prompt("重命名为:", stem);
+      if (next && next.trim()) void actions.renameNote(node.path, next.trim());
+    };
+    const onDelete = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (window.confirm(`删除「${stem}」?此操作不可撤销。`)) void actions.deleteNote(node.path);
+    };
     return (
-      <button
+      <div
         key={node.path}
         onClick={() => actions.selectNote(node.path)}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px]",
-          active
-            ? "bg-surface2 text-text"
-            : "text-subtext hover:bg-surface",
+          "group flex w-full cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 text-left text-[13px]",
+          active ? "bg-surface2 text-text" : "text-subtext hover:bg-surface",
         )}
         style={{ paddingLeft: depth * 12 + 6 }}
       >
         <FileText size={15} className="shrink-0 text-blue" />
-        <span className="truncate">{stem}</span>
-      </button>
+        <span className="min-w-0 flex-1 truncate">{stem}</span>
+        <button
+          onClick={onRename}
+          title="重命名"
+          className="shrink-0 rounded p-0.5 text-overlay opacity-0 hover:text-text group-hover:opacity-100"
+        >
+          <PencilSimple size={12} />
+        </button>
+        <button
+          onClick={onDelete}
+          title="删除"
+          className="shrink-0 rounded p-0.5 text-overlay opacity-0 hover:text-red group-hover:opacity-100"
+        >
+          <Trash size={12} />
+        </button>
+      </div>
     );
   };
 
