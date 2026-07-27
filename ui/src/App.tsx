@@ -97,7 +97,13 @@ export default function App() {
                         target,
                         state.snapshot?.nodes ?? [],
                       );
-                      if (path) actions.selectNote(path);
+                      if (path) {
+                        actions.selectNote(path);
+                      } else if (
+                        window.confirm(`「${target}」尚不存在,是否新建?`)
+                      ) {
+                        void actions.createNote(target);
+                      }
                     }}
                   />
                 </div>
