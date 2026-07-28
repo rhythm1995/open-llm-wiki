@@ -1,12 +1,10 @@
 # OpenObsidian
 
-> ⚠️ 工作名(占位)。**公开发布前必须改为自创名**——见 [docs/07-provenance.md](./docs/07-provenance.md#命名闸门硬约束公开前必做)。
-
 本地优先、文件即真相、MIT 许可的知识管理 app。以 Tolaria 的公开设计与实现为蓝本参考(clean-room 重写,未复制源码),补齐 Obsidian 最被需要的两件事:**图谱可视化** 与 **实时聚合查询(QQL)**。
 
 ## 状态
 
-🚧 早期开发中,**MVP 已可运行**:Rust core(88 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
+🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
 
 - 设计:[docs/](./docs/) —— 先读 [docs/README.md](./docs/README.md)
 - 待你拍板的事:[docs/open-questions.md](./docs/open-questions.md)
@@ -56,6 +54,12 @@ pnpm --dir ui exec tauri dev   # 从仓库根的 app/src-tauri 启动
 - **全文搜索**:AND 匹配,标题权重加倍。
 - **命令面板**:⌘K 模糊跳转笔记 + 切换视图 + 动作。
 
-## 许可
+## 许可与溯源(clean-room)
 
-MIT —— 见 [LICENSE](./LICENSE)。设计参考自 [Tolaria](https://github.com/refactoringhq/tolaria)(AGPL,代码未复制)与 Obsidian 的公开功能;均重写为自己的表达。
+**MIT**(见 [LICENSE](./LICENSE))。
+
+**红线:本项目以 [Tolaria](https://github.com/refactoringhq/tolaria) 的公开设计与实现为蓝本参考,但重写为我们自己的表达——绝不逐字或近似逐字复制其源码。** Tolaria 是 AGPL-3.0,逐字复制的代码事实上仍是 AGPL,会让"MIT 许可"落空。因此本项目只借鉴架构、数据流、算法思路与功能概念(多为不可版权的思想/方法),具体源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,同样不复制其源码。
+
+直接依赖(均 MIT / Apache-2.0):Tauri 2、React 19、CodeMirror 6、Radix UI、Tailwind CSS 4、Phosphor icons、serde / serde_yaml、Vitest。上线前用 `cargo license` / `license-checker` 复核无 GPL/AGPL 直染依赖。
+
+贡献者规矩:新增依赖请登记许可;任何 PR 不得引入 Tolaria 源码的逐字片段(即使单行),review 时查重。

@@ -60,7 +60,7 @@ Tauri 2 外壳 + React 19:
 - ✅ F-TABS(多标签编辑器:纯 `tabReduce` 状态机 open/close/activate/closeOthers/closeAll/reorder,已测)。
 - ✅ F-WIKILINK 完整三件套:解析 + 反向链接 + **Cmd/Ctrl 点击 `[[link]]` 跳转** + **`[[` 自动补全**(纯逻辑 `wikilink.ts`,已测)。
 - ✅ F-FILETREE:折叠树 + 新建 + 重命名 + 删除。
-- ⏳ 未做:打包(macOS/Win/Linux)、(公开前)**改名**。
+- ⏳ 未做:打包(macOS/Win/Linux)。
 - **v1 尚未发布;MVP 可运行。**
 
 ### Phase 2+ 能力(v2/v3,不阻塞 v1)
@@ -69,7 +69,7 @@ F-TEMPLATES、F-THEMES、F-GIT、F-TRASH、F-AI(+MCP)、F-L10N → F-CANVAS(tldr
 
 ## 本次会话的明确产出(可验证)
 
-1. `docs/` 七份完整设计文档。✅(首轮)
+1. `docs/` 六份完整设计文档。✅(首轮)
 2. 项目骨架 + MIT LICENSE + 测试基建。✅(首轮)
 3. `core` 内核全量 TDD 实现(parse/index/graph/query/qql/search/vault)+ demo 二进制 + proptest。✅
    - 98 tests / clippy --all-targets clean / fmt clean。

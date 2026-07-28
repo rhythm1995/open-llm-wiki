@@ -13,7 +13,7 @@
 | 包管理 | **pnpm**(workspace) | 快、磁盘高效;与 Tolaria 对齐。 |
 | 测试 | **cargo test**(Rust 单元)+ **Vitest**(TS 单元/组件)+ **Playwright**(e2e)+ **mock-tauri 层** | 三层金字塔;前端可脱离 Tauri 测试(借鉴 Tolaria 的 mock-tauri 模式)。 |
 
-> 选型原则:依赖只选成熟、MIT/Apache 许可、活跃维护的库。完整清单与许可见 [07-provenance](./07-provenance.md)。
+> 选型原则:依赖只选成熟、MIT/Apache 许可、活跃维护的库。完整清单与许可见仓库根 [README](../README.md) 的「许可与溯源」。
 
 ## 仓库布局(workspace monorepo)
 
