@@ -4,7 +4,7 @@
 
 ## 状态
 
-🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ UI(154 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
+🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ UI(165 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
 
 - 设计:[docs/](./docs/) —— 先读 [docs/README.md](./docs/README.md)
 - 待你拍板的事:[docs/open-questions.md](./docs/open-questions.md)
@@ -62,6 +62,7 @@ pnpm --dir ui exec tauri dev   # 从仓库根的 app/src-tauri 启动
 - **AI 上下文导出**:一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown(AI-native 读侧桥接)。
 - **i18n**:zh(默认)/ en 切换,顶层 chrome 已本地化,持久化。
 - **阅读视图安全**:marked 输出注入 DOM 前经 DOMPurify 清洗(剥离 `<script>`/内联事件,保留 wikilink 委托)。
+- **画布(tldraw)**:无限画布做白板/示意图,`.canvas` 文件即真相、与笔记同构保存。tldraw 懒加载隔离在独立 chunk(非商用许可,详见下文「许可与溯源」)。
 
 ## 许可与溯源(clean-room)
 
@@ -69,6 +70,8 @@ pnpm --dir ui exec tauri dev   # 从仓库根的 app/src-tauri 启动
 
 **红线:本项目以 [Tolaria](https://github.com/refactoringhq/tolaria) 的公开设计与实现为蓝本参考,但重写为我们自己的表达——绝不逐字或近似逐字复制其源码。** Tolaria 是 AGPL-3.0,逐字复制的代码事实上仍是 AGPL,会让"MIT 许可"落空。因此本项目只借鉴架构、数据流、算法思路与功能概念(多为不可版权的思想/方法),具体源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,同样不复制其源码。
 
-直接依赖(均 MIT / Apache-2.0):Tauri 2、React 19、CodeMirror 6、Radix UI、Tailwind CSS 4、Phosphor icons、serde / serde_yaml、Vitest。上线前用 `cargo license` / `license-checker` 复核无 GPL/AGPL 直染依赖。
+直接依赖**绝大多数为 MIT / Apache-2.0**:Tauri 2、React 19、CodeMirror 6、Radix UI、Tailwind CSS 4、Phosphor icons、marked、dompurify、serde / serde_yaml、walkdir、Vitest。
 
-贡献者规矩:新增依赖请登记许可;任何 PR 不得引入 Tolaria 源码的逐字片段(即使单行),review 时查重。
+**一处例外:tldraw(画布功能,F-CANVAS)采用其自有的 source-available 非商用许可**,非 MIT。OpenObsidian 是本地优先的单机个人 app,落在 tldraw 的"非生产/开发环境"许可范围内,故本地使用兼容;但**作为托管 web 服务对公众部署需另行向 tldraw 取得商用许可**。tldraw 被隔离在唯一一个懒加载模块里,可一键移除以回到纯 MIT。完整清单与边界见 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md),逐字许可证见 [licenses/tldraw-LICENSE.md](./licenses/tldraw-LICENSE.md)。
+
+贡献者规矩:新增依赖请登记许可(更新 THIRD_PARTY_NOTICES);任何 PR 不得引入 Tolaria 源码的逐字片段(即使单行),review 时查重。上线前用 `cargo license` / `pnpm licenses list` 复核无 GPL/AGPL 直染依赖。

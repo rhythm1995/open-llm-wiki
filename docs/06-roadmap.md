@@ -87,6 +87,13 @@ Tauri 2 外壳 + React 19:
 
   **诚实范围**:深层面板(GitPanel / QueryPanel / SearchPanel / TrashPanel / Sidebar / NewNoteDialog / Editor 空状态)的字符串仍为中文,沿用同一 `t()` 模式逐步迁移——基础设施已就位,迁移是机械工作,留待后续。
 
+### Phase 5+ 续三(本会话,v1 范围之外)✅
+
+- ✅ **F-CANVAS(tldraw)**:无限画布做白板/示意图。`.canvas` 文件即真相——存 tldraw 的 `TLEditorSnapshot` JSON,与笔记同一条"文件即真相 + 防抖落盘"链路(`store.listen({source:'user',scope:'document'})` → 序列化 → `setContent` → `writeNote`)。挂载时 `loadSnapshot`,由 App 按 path 作 `key` 规避 载入→回写 回环。纯逻辑 `canvas.ts`(parse/serialize/isCanvasPath,11 项单测;`import type` 擦除 tldraw,可 node 单测)。
+  - **持久化格式决策**:选 `TLEditorSnapshot`(`{document, session}`)而非 `TLStoreSnapshot`——`getSnapshot` 返回前者、`loadSnapshot` 接受 `Partial<TLEditorSnapshot>`,正好闭环,并顺便保留相机/选区状态。
+  - **许可兼容(本特性的关键)**:tldraw 是 source-available 非商用许可,**非 MIT**。处理:(1) `licenses/tldraw-LICENSE.md` 逐字留存;(2) [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 记边界——OpenObsidian 本地优先单机,落在 tldraw "非生产/开发"许可范围,本地使用兼容,托管部署需另取商用许可;(3) tldraw 被隔离在唯一懒加载模块 `CanvasView.tsx`(+ 纯逻辑 `canvas.ts` 仅 `import type`),构建产物里独占一个 `CanvasView-*.js` chunk(~1.6MB),不开画布不下载,且可一键移除回到纯 MIT app;(4) 画布右下角保留 "Powered by tldraw" 署名满足归属/商标条款。
+  - **索引隔离**:`build_index` 只取 `.md`(Rust 与 mock `parseAll` 均如此),画布 JSON 不进图谱/检索;`list_vault` 放行 `.canvas` 让其进文件树。
+
 ### Phase 2+ 能力(v2/v3,不阻塞 v1)—— 与诚实取舍
 
 | 能力 | 状态 | 说明 |
@@ -94,7 +101,7 @@ Tauri 2 外壳 + React 19:
 | F-GIT | ✅ 本会话 | 见上。 |
 | F-AI(+MCP) | 🟡 部分 | 读侧"复制 AI 上下文"已落地;**完整 MCP server**(让 agent 反向读写 vault:stdio/HTTP JSON-RPC、tools 注册、权限模型)是独立工程,不在此仓促做空心 stub。 |
 | F-L10N | 🟡 基础 | 基础设施 + 顶层 chrome 已落地(zh/en);深层面板字符串待迁移,模式已定。 |
-| F-CANVAS(tldraw) | ⏳ 延后 | 重依赖(tldraw)+ 新持久化格式(`.canvas`?sidecar?)+ 新视图模式 + 与现有图谱/笔记的关系。空心"一块空白画布"无价值,需单独成会话先定持久化与交互。 |
+| F-CANVAS(tldraw) | ✅ 本会话 | 见下。tldraw 为非商用许可,已隔离 + 文档化边界(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
 | F-SHEET(ironcalc) | ⏳ 延后 | 同类:重依赖 + 嵌入式表格的持久化与单元格寻址。 |
 | F-PLUGIN | ⏳ 延后 | 需先设计插件 API 表面 + 沙箱 + 生命周期 + 分发。"插件系统"空心注册器是反价值的占位。 |
 | BlockNote 富文本 | ⏳ 延后 | 与 CodeMirror 的双模 + **Markdown round-trip**(富文本↔纯文本无损)是已知难点;F-READING 已覆盖"看渲染结果",边际价值有限。按 [open-questions](./open-questions.md) 的既有判断保持 v2。 |
