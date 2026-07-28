@@ -113,6 +113,26 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [actions.saveNow]);
 
+  // ⌘W / Ctrl+W 关闭当前标签(编辑器视图、有当前笔记、且无对话框/面板遮挡时)。
+  // 注:浏览器 dev 下 ⌘W 会被浏览器抢占关闭页签,仅在 Tauri 桌面 app 生效(见 deferred)。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w") {
+        if (
+          view !== "editor" ||
+          !state.currentPath ||
+          paletteOpen ||
+          newNoteOpen
+        )
+          return;
+        e.preventDefault();
+        actions.closeTab(state.currentPath);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view, state.currentPath, paletteOpen, newNoteOpen, actions.closeTab]);
+
   return (
     <div className="flex h-screen flex-col">
       {state.error && (
