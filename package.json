@@ -1,0 +1,10 @@
+{
+  "name": "openobsidian",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first, file-as-truth knowledge base (Tauri 2 + Rust core + React). Root scripts only; the frontend lives in ui/.",
+  "scripts": {
+    "tauri": "ui/node_modules/.bin/tauri"
+  },
+  "license": "MIT"
+}
