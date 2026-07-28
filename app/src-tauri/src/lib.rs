@@ -290,6 +290,68 @@ async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
         .map(|p| p.to_string_lossy().to_string()))
 }
 
+// ───────────────────────── git(F-GIT)─────────────────────────
+//
+// 走系统 `git` 子进程(`std::process::Command`),`current_dir` 设到 vault 根。命令
+// 只返回 git 的**原始 stdout**(status/log)或提交回执;解析是前端纯逻辑
+// (`ui/src/lib/git-parse.ts`,已单测)。这是把"命令只做 IO"的惯例贯彻到底。
+//
+// 安全:`git` 的参数走 args 数组(非 shell 字符串),提交信息亦作为单个 arg 传入,
+// 故无 shell 注入面。**仅在 Tauri 桌面 app 打开真正的 git 仓库时生效**;git 未安装
+// 或目录非 git 仓库时,git 退出非零,stderr 作为 Err 回传给前端提示。
+
+/// 在 vault 根下运行 `git <args...>`,成功返回 stdout,失败返回 stderr。
+fn run_git(root: &str, args: &[&str]) -> Result<String, String> {
+    let out = std::process::Command::new("git")
+        .current_dir(root)
+        .args(args)
+        .output()
+        .map_err(|e| format!("无法运行 git(可能未安装):{e}"))?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let trimmed = stderr.trim();
+        return Err(if trimmed.is_empty() {
+            format!("git 退出码 {}", out.status.code().unwrap_or(-1))
+        } else {
+            trimmed.to_string()
+        });
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// `git status --porcelain=v1` 的原始输出(交前端解析)。空串 = 干净。
+#[tauri::command]
+fn git_status_raw(root: String) -> Result<String, String> {
+    run_git(&root, &["status", "--porcelain=v1"])
+}
+
+/// `git log` 的原始输出:`hash<TAB>author<TAB>date<TAB>subject`,每行一条。
+/// date 用 `--date=short` 即 `YYYY-MM-DD`。limit 默认 50。
+#[tauri::command]
+fn git_log_raw(root: String, limit: Option<usize>) -> Result<String, String> {
+    let n = limit.unwrap_or(50);
+    run_git(
+        &root,
+        &[
+            "log",
+            "--format=%H%x09%an%x09%ad%x09%s",
+            "--date=short",
+            &format!("-n{n}"),
+        ],
+    )
+}
+
+/// 提交全部改动:`git add -A` → `git commit -m <message>`。
+/// 返回 commit 的回执(含本次提交摘要)。空信息拒绝提交。
+#[tauri::command]
+fn git_commit(root: String, message: String) -> Result<String, String> {
+    if message.trim().is_empty() {
+        return Err("提交信息不能为空".into());
+    }
+    run_git(&root, &["add", "-A"])?;
+    run_git(&root, &["commit", "-m", &message])
+}
+
 // ───────────────────────── 应用入口 ──────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -308,6 +370,9 @@ pub fn run() {
             run_qql,
             search_notes,
             pick_vault,
+            git_status_raw,
+            git_log_raw,
+            git_commit,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");

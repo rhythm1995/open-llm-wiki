@@ -353,6 +353,14 @@ export async function handle<T>(
       return mockSearch(docs, String(args.query)) as unknown as T;
     }
 
+    // git(F-GIT):浏览器 mock 无 git;返回空 status/log 让面板可渲染预览,
+    // commit 明确报错(面板在 mock 模式下会显示提示横幅)。
+    case "git_status_raw":
+    case "git_log_raw":
+      return "" as unknown as T;
+    case "git_commit":
+      throw new Error("mock 模式下 git 不可用;请在桌面 app 中打开 git 仓库。");
+
     default:
       throw new Error(`mock: 未知命令 ${cmd}`);
   }

@@ -105,6 +105,14 @@ export const ipc = {
     call<SearchHit[]>("search_notes", { root, query }),
   pickVault: () => call<string | null>("pick_vault", {}),
 
+  // ── git(F-GIT):返回 git 原始 stdout,前端 `git-parse.ts` 解析。
+  //   仅在 Tauri 桌面 app 打开真正的 git 仓库时生效;mock 模式下不可用。
+  gitStatusRaw: (root: string) => call<string>("git_status_raw", { root }),
+  gitLogRaw: (root: string, limit = 50) =>
+    call<string>("git_log_raw", { root, limit }),
+  gitCommit: (root: string, message: string) =>
+    call<string>("git_commit", { root, message }),
+
   /** 浏览器 dev 用的标志:为 true 时 UI 应提示"当前为 mock 模式"。 */
   isMock: () => !isTauri,
 };
