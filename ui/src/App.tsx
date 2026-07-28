@@ -26,6 +26,7 @@ import { StatusBar } from "./components/StatusBar";
 import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
+import { usePersistentState } from "./lib/usePersistentState";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isTemplatePath, templateName } from "./lib/template";
@@ -39,13 +40,17 @@ const CanvasView = lazy(() =>
 
 export default function App() {
   const { state, currentNode, backlinks, actions } = useVault();
-  const [view, setView] = useState<MainView>("editor");
+  // 上次的主视图 / 编辑·阅读模式持久化到 localStorage,重启后恢复(与 useTheme/useLocale 同构)。
+  const [view, setView] = usePersistentState<MainView>("openobs.view", "editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newNoteOpen, setNewNoteOpen] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
   const { locale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
-  const [editMode, setEditMode] = useState<"edit" | "read">("edit");
+  const [editMode, setEditMode] = usePersistentState<"edit" | "read">(
+    "openobs.editMode",
+    "edit",
+  );
   // 当前页是否为 tldraw 画布(.canvas):是则中栏渲染 CanvasView,隐藏编辑/阅读切换与属性面板。
   const isCanvas = state.currentPath !== null && isCanvasPath(state.currentPath);
 
