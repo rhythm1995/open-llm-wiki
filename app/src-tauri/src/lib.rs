@@ -64,6 +64,9 @@ pub struct SearchHit {
 
 // ───────────────────────── 内部工具 ──────────────────────────
 
+/// 回收站目录(vault 根下的隐藏目录)。与前端 `lib/trash.ts` 的 TRASH_DIR 一致。
+const TRASH_DIR: &str = ".trash";
+
 fn err<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
 }
@@ -83,14 +86,16 @@ fn build_index(root: &str) -> Result<VaultIndex, String> {
         return Err(format!("不是目录:{root}"));
     }
     let mut entries: Vec<(String, String)> = Vec::new();
-    for entry in WalkDir::new(root_path).min_depth(1) {
+    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian 等),使回收站与隐藏
+    // 配置不出现在图谱/检索里。filter_entry 对目录会连同其子孙一并剪枝。
+    for entry in WalkDir::new(root_path)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+    {
         let e = entry.map_err(err)?;
         let p = e.path();
         if p.is_dir() {
-            continue;
-        }
-        let name = e.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
             continue;
         }
         if p.extension().and_then(|x| x.to_str()) != Some("md") {
@@ -117,12 +122,13 @@ fn list_vault(root: String) -> Result<Vec<VaultEntry>, String> {
         return Err(format!("不是目录:{root}"));
     }
     let mut out = Vec::new();
-    for entry in WalkDir::new(root_path).min_depth(1) {
+    for entry in WalkDir::new(root_path)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+    {
         let e = entry.map_err(err)?;
         let name = e.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
-        }
         let p = e.path();
         let is_dir = p.is_dir();
         if !is_dir && p.extension().and_then(|x| x.to_str()) != Some("md") {
@@ -176,6 +182,39 @@ fn rename_note(root: String, from: String, to: String) -> Result<(), String> {
         fs::create_dir_all(parent).map_err(err)?;
     }
     fs::rename(&src, &dst).map_err(err)
+}
+
+/// 列出回收站(`.trash/`)内所有 .md;返回的相对路径**含 `.trash/` 前缀**,
+/// 供前端还原/清空。回收站不存在时返回空。
+#[tauri::command]
+fn list_trash(root: String) -> Result<Vec<VaultEntry>, String> {
+    let root_path = Path::new(&root);
+    let trash_dir = root_path.join(TRASH_DIR);
+    if !trash_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for entry in WalkDir::new(&trash_dir).min_depth(1) {
+        let e = entry.map_err(err)?;
+        let p = e.path();
+        if p.is_dir() {
+            continue;
+        }
+        if p.extension().and_then(|x| x.to_str()) != Some("md") {
+            continue;
+        }
+        let rel = p
+            .strip_prefix(root_path)
+            .unwrap_or(p)
+            .to_string_lossy()
+            .to_string();
+        out.push(VaultEntry {
+            path: rel,
+            name: e.file_name().to_string_lossy().to_string(),
+            is_dir: false,
+        });
+    }
+    Ok(out)
 }
 
 /// 全量索引快照(节点 + 统一边),供图谱/反向链接/类型标签面板。
@@ -264,6 +303,7 @@ pub fn run() {
             create_note,
             delete_note,
             rename_note,
+            list_trash,
             index_vault,
             run_qql,
             search_notes,

@@ -6,6 +6,7 @@ import {
   Graph,
   ListMagnifyingGlass,
   MagnifyingGlass,
+  Trash,
   Command,
   FloppyDisk,
 } from "@phosphor-icons/react";
@@ -25,6 +26,7 @@ const VIEWS: { id: MainView; label: string; icon: typeof PencilSimple }[] = [
   { id: "graph", label: "图谱", icon: Graph },
   { id: "query", label: "查询", icon: ListMagnifyingGlass },
   { id: "search", label: "搜索", icon: MagnifyingGlass },
+  { id: "trash", label: "回收站", icon: Trash },
 ];
 
 export function Toolbar({ view, onNavigate, onOpenPalette, actions }: Props) {

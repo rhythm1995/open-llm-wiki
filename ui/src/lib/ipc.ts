@@ -96,6 +96,7 @@ export const ipc = {
     call<void>("delete_note", { root, path }),
   renameNote: (root: string, from: string, to: string) =>
     call<void>("rename_note", { root, from, to }),
+  listTrash: (root: string) => call<VaultEntry[]>("list_trash", { root }),
   indexVault: (root: string) =>
     call<VaultSnapshot>("index_vault", { root }),
   runQql: (root: string, qql: string) =>

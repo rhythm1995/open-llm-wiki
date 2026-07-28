@@ -119,7 +119,9 @@ export function Sidebar({ entries, currentPath, actions }: Props) {
     };
     const onDelete = (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (window.confirm(`删除「${stem}」?此操作不可撤销。`)) void actions.deleteNote(node.path);
+      // 软删:移入回收站,可从回收站恢复(或彻底清空)。
+      if (window.confirm(`移入回收站「${stem}」?\n可在「回收站」视图恢复或彻底删除。`))
+        void actions.trashNote(node.path);
     };
     return (
       <div

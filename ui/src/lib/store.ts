@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ipc, type EdgeOut, type NodeOut, type VaultEntry, type VaultSnapshot } from "./ipc";
 import { tabReduce } from "./tabs";
+import { restorePath, toTrashPath, uniqueName } from "./trash";
 
 export interface Backlink {
   from: NodeOut;
@@ -23,6 +24,8 @@ export interface VaultState {
   currentPath: string | null;
   /** 打开的标签页(有序路径)。currentPath 是其中的激活页。 */
   openPaths: string[];
+  /** 回收站(`.trash/`)内的笔记;路径含 `.trash/` 前缀。 */
+  trash: VaultEntry[];
   content: string;
   dirty: boolean;
   saveState: "idle" | "saving" | "saved";
@@ -35,6 +38,7 @@ const INITIAL: VaultState = {
   snapshot: null,
   currentPath: null,
   openPaths: [],
+  trash: [],
   content: "",
   dirty: false,
   saveState: "idle",
@@ -76,6 +80,15 @@ export function useVault() {
     }
   }, []);
 
+  const refreshTrash = useCallback(async (root: string) => {
+    try {
+      const trash = await ipc.listTrash(root);
+      setState((s) => ({ ...s, trash }));
+    } catch (e) {
+      setState((s) => ({ ...s, error: String(e) }));
+    }
+  }, []);
+
   const saveNow = useCallback(async () => {
     const { path, content, root } = latest.current;
     if (!path || !root) return;
@@ -100,7 +113,10 @@ export function useVault() {
   const openVault = useCallback(
     async (root: string) => {
       try {
-        const [entries] = await Promise.all([ipc.listVault(root)]);
+        const [entries, trash] = await Promise.all([
+          ipc.listVault(root),
+          ipc.listTrash(root),
+        ]);
         const firstMd = entries.find((e) => !e.is_dir);
         let content = "";
         let currentPath: string | null = null;
@@ -113,6 +129,7 @@ export function useVault() {
           ...INITIAL,
           root,
           entries,
+          trash,
           snapshot: snap,
           currentPath,
           openPaths: currentPath ? [currentPath] : [],
@@ -236,6 +253,113 @@ export function useVault() {
     },
     [refreshIndex, state],
   );
+
+  /**
+   * 移入回收站(软删):改名到 `.trash/<path>`,内容无损、可恢复。
+   * 碰撞(同名笔记曾被删)由纯逻辑 `uniqueName` 解决。标签页语义同 deleteNote。
+   */
+  const trashNote = useCallback(
+    async (path: string) => {
+      const root = latest.current.root;
+      if (!root) return;
+      try {
+        if (latest.current.dirty && latest.current.path === path) await saveNow();
+        const existing = await ipc.listTrash(root);
+        const dest = uniqueName(
+          toTrashPath(path),
+          new Set(existing.map((e) => e.path)),
+        );
+        await ipc.renameNote(root, path, dest);
+        const [entries, trash] = await Promise.all([
+          ipc.listVault(root),
+          ipc.listTrash(root),
+        ]);
+        const afterClose = tabReduce(
+          { open: state.openPaths, active: state.currentPath },
+          { type: "close", path },
+        );
+        let currentPath = afterClose.active;
+        let content = "";
+        if (state.currentPath === path) {
+          const fallback =
+            currentPath ?? entries.find((e) => !e.is_dir)?.path ?? null;
+          currentPath = fallback;
+          content = fallback ? await ipc.readNote(root, fallback) : "";
+        } else {
+          content = state.content;
+        }
+        setState((s) => ({
+          ...s,
+          entries,
+          trash,
+          currentPath,
+          content,
+          openPaths: afterClose.open.includes(currentPath ?? "")
+            ? afterClose.open
+            : currentPath
+              ? [...afterClose.open, currentPath]
+              : afterClose.open,
+        }));
+        await refreshIndex(root);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [refreshIndex, saveNow, state],
+  );
+
+  /** 从回收站还原:去掉 `.trash/` 前缀移回原位;原位已占则换不冲突名。 */
+  const restoreNote = useCallback(
+    async (trashPath: string) => {
+      const root = latest.current.root;
+      if (!root) return;
+      try {
+        const entries = await ipc.listVault(root);
+        const dest = uniqueName(
+          restorePath(trashPath),
+          new Set(entries.map((e) => e.path)),
+        );
+        await ipc.renameNote(root, trashPath, dest);
+        const [ents, trash] = await Promise.all([
+          ipc.listVault(root),
+          ipc.listTrash(root),
+        ]);
+        setState((s) => ({ ...s, entries: ents, trash }));
+        await refreshIndex(root);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [refreshIndex],
+  );
+
+  /** 彻底删除回收站内某一篇(不可恢复)。 */
+  const purgeNote = useCallback(
+    async (trashPath: string) => {
+      const root = latest.current.root;
+      if (!root) return;
+      try {
+        await ipc.deleteNote(root, trashPath);
+        await refreshTrash(root);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [refreshTrash],
+  );
+
+  /** 清空回收站:逐篇彻底删除。 */
+  const emptyTrash = useCallback(async () => {
+    const root = latest.current.root;
+    if (!root) return;
+    try {
+      const trash = await ipc.listTrash(root);
+      await Promise.all(trash.map((t) => ipc.deleteNote(root, t.path)));
+      await refreshTrash(root);
+    } catch (e) {
+      setState((s) => ({ ...s, error: String(e) }));
+    }
+  }, [refreshTrash]);
 
   /** 关闭一个标签页(不删盘)。激活页被关时,按 tab 语义跳到邻居并读盘。 */
   const closeTab = useCallback(
@@ -362,6 +486,10 @@ export function useVault() {
       createNote,
       deleteNote,
       renameNote,
+      trashNote,
+      restoreNote,
+      purgeNote,
+      emptyTrash,
       closeTab,
       closeOthers,
       closeAllTabs,

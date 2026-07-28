@@ -248,7 +248,9 @@ export async function handle<T>(
 
     case "list_vault": {
       const entries: VaultEntry[] = [];
+      // 与 Rust 一致:隐藏任何点开头的路径段(含 .trash、.obsidian 等)。
       for (const path of [...vault.keys()].sort()) {
+        if (path.split("/").some((seg) => seg.startsWith("."))) continue;
         const parts = path.split("/");
         let acc = "";
         for (let i = 0; i < parts.length - 1; i++) {
@@ -285,6 +287,16 @@ export async function handle<T>(
         }
       }
       return undefined as unknown as T;
+
+    case "list_trash": {
+      const entries: VaultEntry[] = [];
+      for (const path of [...vault.keys()].sort()) {
+        if (!path.startsWith(".trash/")) continue;
+        const name = path.split("/").pop() ?? path;
+        entries.push({ path, name, is_dir: false });
+      }
+      return entries as unknown as T;
+    }
 
     case "index_vault":
       return buildSnapshot() as unknown as T;

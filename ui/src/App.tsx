@@ -16,6 +16,7 @@ import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
 import { QueryPanel } from "./components/QueryPanel";
 import { SearchPanel } from "./components/SearchPanel";
+import { TrashPanel } from "./components/TrashPanel";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { Toolbar } from "./components/Toolbar";
 import { StatusBar } from "./components/StatusBar";
@@ -129,6 +130,9 @@ export default function App() {
                 snapshot={state.snapshot}
                 actions={actions}
               />
+            )}
+            {view === "trash" && (
+              <TrashPanel trash={state.trash} actions={actions} />
             )}
           </div>
 

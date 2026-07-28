@@ -13,13 +13,14 @@ import {
   Graph,
   ListMagnifyingGlass,
   MagnifyingGlass,
+  Trash,
   FileText,
 } from "@phosphor-icons/react";
 import type { VaultActions } from "../lib/store";
 import type { VaultSnapshot } from "../lib/ipc";
 import { cn } from "../lib/cn";
 
-export type MainView = "editor" | "graph" | "query" | "search";
+export type MainView = "editor" | "graph" | "query" | "search" | "trash";
 
 interface Props {
   open: boolean;
@@ -61,6 +62,7 @@ export function CommandPalette({
       { id: "v-graph", label: "视图:图谱", icon: Graph, run: () => onNavigate("graph") },
       { id: "v-query", label: "视图:QQL 查询", icon: ListMagnifyingGlass, run: () => onNavigate("query") },
       { id: "v-search", label: "视图:搜索", icon: MagnifyingGlass, run: () => onNavigate("search") },
+      { id: "v-trash", label: "视图:回收站", icon: Trash, run: () => onNavigate("trash") },
     ].filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())),
     [q, actions, onNavigate],
   );
