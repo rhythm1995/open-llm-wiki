@@ -7,10 +7,11 @@
  *
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Warning, X } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Warning, X, Eye, PencilSimple } from "@phosphor-icons/react";
 import { Sidebar } from "./components/Sidebar";
 import { Editor, type EditorHandle } from "./components/Editor";
+import { ReadingView } from "./components/ReadingView";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
@@ -34,6 +35,20 @@ export default function App() {
   const [newNoteOpen, setNewNoteOpen] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
   const editorRef = useRef<EditorHandle>(null);
+  const [editMode, setEditMode] = useState<"edit" | "read">("edit");
+
+  /** `[[wikilink]]` 跟随:解析为路径则跳转,否则提示新建(编辑器与阅读视图共用)。 */
+  const handleFollow = useCallback(
+    (target: string) => {
+      const path = resolveWikiTarget(target, state.snapshot?.nodes ?? []);
+      if (path) {
+        actions.selectNote(path);
+      } else if (window.confirm(`「${target}」尚不存在,是否新建?`)) {
+        void actions.createNote(target);
+      }
+    },
+    [actions, state.snapshot],
+  );
 
   // vault 的 templates/ 目录即模板候选(客户端过滤,无需后端特例)。
   const templates = useMemo<TemplateOption[]>(
@@ -106,28 +121,41 @@ export default function App() {
                   snapshot={state.snapshot}
                   actions={actions}
                 />
-                <div className="min-h-0 flex-1">
-                  <Editor
-                    ref={editorRef}
-                    value={state.content}
-                    onChange={actions.setContent}
-                    hasNote={state.currentPath !== null}
-                    theme={theme}
-                    noteTitles={state.snapshot?.nodes.map((n) => n.title) ?? []}
-                    onFollow={(target) => {
-                      const path = resolveWikiTarget(
-                        target,
-                        state.snapshot?.nodes ?? [],
-                      );
-                      if (path) {
-                        actions.selectNote(path);
-                      } else if (
-                        window.confirm(`「${target}」尚不存在,是否新建?`)
-                      ) {
-                        void actions.createNote(target);
+                <div className="relative min-h-0 flex-1">
+                  {editMode === "edit" ? (
+                    <Editor
+                      ref={editorRef}
+                      value={state.content}
+                      onChange={actions.setContent}
+                      hasNote={state.currentPath !== null}
+                      theme={theme}
+                      noteTitles={state.snapshot?.nodes.map((n) => n.title) ?? []}
+                      onFollow={handleFollow}
+                    />
+                  ) : (
+                    <ReadingView
+                      content={state.content}
+                      hasNote={state.currentPath !== null}
+                      onFollow={handleFollow}
+                    />
+                  )}
+                  {state.currentPath !== null && (
+                    <button
+                      onClick={() =>
+                        setEditMode((m) => (m === "edit" ? "read" : "edit"))
                       }
-                    }}
-                  />
+                      className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
+                      title={
+                        editMode === "edit" ? "切换到阅读视图" : "切换到编辑视图"
+                      }
+                    >
+                      {editMode === "edit" ? (
+                        <Eye size={14} />
+                      ) : (
+                        <PencilSimple size={14} />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
