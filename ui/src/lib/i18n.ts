@@ -46,6 +46,7 @@ export const dict: Record<Locale, Record<string, string>> = {
     "status.idle": "就绪",
     "status.notes": "{n} 篇笔记",
     "status.mock": "mock 模式",
+    "status.textStats": "{chars} 字 · {lines} 行 · {words} 词",
     // 命令面板
     "palette.placeholder": "搜索笔记或输入命令…",
     "palette.section.notes": "笔记",
@@ -177,6 +178,7 @@ export const dict: Record<Locale, Record<string, string>> = {
     "status.idle": "Ready",
     "status.notes": "{n} notes",
     "status.mock": "mock mode",
+    "status.textStats": "{chars} chars · {lines} lines · {words} words",
     "palette.placeholder": "Search notes or type a command…",
     "palette.section.notes": "Notes",
     "palette.empty": "No matches.",

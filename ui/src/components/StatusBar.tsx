@@ -5,6 +5,8 @@ import { Check, CircleNotch } from "@phosphor-icons/react";
 import type { VaultState } from "../lib/store";
 import type { TFunc } from "../lib/i18n";
 import { ipc } from "../lib/ipc";
+import { isCanvasPath } from "../lib/canvas";
+import { countText } from "../lib/text-stats";
 
 interface Props {
   state: VaultState;
@@ -12,6 +14,10 @@ interface Props {
 }
 
 export function StatusBar({ state, t }: Props) {
+  // 画布是 tldraw 的 JSON,不计入文本统计(避免把 JSON 当文章字数)。
+  const showStats = !!state.currentPath && !isCanvasPath(state.currentPath);
+  const stats = showStats ? countText(state.content) : null;
+
   return (
     <div className="flex items-center gap-3 border-t border-crust bg-mantle px-3 py-1 text-[11px] text-overlay">
       {state.saveState === "saving" ? (
@@ -31,6 +37,15 @@ export function StatusBar({ state, t }: Props) {
         <span className="truncate text-subtext">{state.currentPath}</span>
       )}
       <span className="ml-auto flex items-center gap-3">
+        {stats && (
+          <span className="tabular-nums">
+            {t("status.textStats", {
+              chars: stats.chars,
+              lines: stats.lines,
+              words: stats.words,
+            })}
+          </span>
+        )}
         {state.snapshot && (
           <span>{t("status.notes", { n: state.snapshot.nodes.length })}</span>
         )}
