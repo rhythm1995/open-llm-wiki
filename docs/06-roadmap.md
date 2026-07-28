@@ -76,11 +76,30 @@ Tauri 2 外壳 + React 19:
 - ✅ **mock 检索**:浏览器 dev 的 search 接入极简 AND 检索(标题×2 加权),让 `vite dev` 演示完整可用。纯逻辑 `mock-search.ts`。
 - ✅ 杂项:⌘S 立即保存。
 
-### Phase 2+ 能力(v2/v3,不阻塞 v1)
+### Phase 5+ 续(本会话,v1 范围之外)✅
 
-F-GIT、F-AI(+MCP)、F-L10N → F-CANVAS(tldraw)、F-SHEET(ironcalc)、F-PLUGIN、BlockNote 富文本编辑。
+继续推进原列在 Phase 2+ 的大件中**可在一个会话内做扎实**的三项 + 一项安全加固:
 
-(F-TEMPLATES / F-THEMES / F-TRASH 已在 Phase 5+ 落地。)
+- ✅ **F-READING 安全加固**:阅读视图的 marked HTML 在注入 DOM 前统一经 `sanitize()`(DOMPurify)清洗——剥离 `<script>` / 内联 `on*` / `javascript:` 等,同时把点击委托依赖的 `data-target`/`class` 加入白名单。即使用户 vault 混入他人提供的恶意 md,也不会执行任意脚本。`render.ts` 新增 `sanitize()` 纯包装;`renderMarkdown` 保持无 DOM(可 node 单测),清洗在 DOM 侧(ReadingView + jsdom 测试)。新增 `render.sanitize.test.ts`(5 项)。
+- ✅ **F-GIT**:`git status` 变更清单 + `git log` 最近提交 + "提交全部改动"(`git add -A && git commit`)面板。命令走 `std::process::Command` 调系统 `git`(`current_dir` 设到 vault),**仅返回 git 原始 stdout**,解析是前端纯逻辑 `git-parse.ts`(20 项单测 + 一次真实 git round-trip 验证)。**仅在 Tauri 桌面 app 打开真正的 git 仓库时生效**;mock 模式下 git 不可用(面板提示)。`MainView` 增 `"git"` + Toolbar/Palette 入口。
+- ✅ **F-AI(读侧桥接)**:Inspector 顶部的"复制为 AI 上下文"——把当前笔记 + 其外向链接命中的邻居正文拼成一段 LLM 友好的 markdown 写入剪贴板,便于粘贴给任意 LLM。纯逻辑 `ai-context.ts`(5 项单测);mock 下同样可用(内存 Map)。**这是 AI-native 的读侧桥接,不是完整 MCP server**——后者让 agent 反向读写 vault,是独立工程(见下)。
+- ✅ **F-L10N(基础 + 顶层 chrome)**:i18n 基础设施——`i18n.ts` 字典 + `translate` + `{name}` 插值(10 项单测,含 zh/en 键集一致性校验)+ `useLocale` hook(localStorage 持久化,与 `useTheme` 同构)。已迁移**顶层 chrome**:Toolbar(含语言切换 Globe 按钮)/ StatusBar / CommandPalette / Inspector(tab + 空状态 + 属性编辑器)/ 阅读视图空状态。zh(默认)+ en 两语。
+
+  **诚实范围**:深层面板(GitPanel / QueryPanel / SearchPanel / TrashPanel / Sidebar / NewNoteDialog / Editor 空状态)的字符串仍为中文,沿用同一 `t()` 模式逐步迁移——基础设施已就位,迁移是机械工作,留待后续。
+
+### Phase 2+ 能力(v2/v3,不阻塞 v1)—— 与诚实取舍
+
+| 能力 | 状态 | 说明 |
+|---|---|---|
+| F-GIT | ✅ 本会话 | 见上。 |
+| F-AI(+MCP) | 🟡 部分 | 读侧"复制 AI 上下文"已落地;**完整 MCP server**(让 agent 反向读写 vault:stdio/HTTP JSON-RPC、tools 注册、权限模型)是独立工程,不在此仓促做空心 stub。 |
+| F-L10N | 🟡 基础 | 基础设施 + 顶层 chrome 已落地(zh/en);深层面板字符串待迁移,模式已定。 |
+| F-CANVAS(tldraw) | ⏳ 延后 | 重依赖(tldraw)+ 新持久化格式(`.canvas`?sidecar?)+ 新视图模式 + 与现有图谱/笔记的关系。空心"一块空白画布"无价值,需单独成会话先定持久化与交互。 |
+| F-SHEET(ironcalc) | ⏳ 延后 | 同类:重依赖 + 嵌入式表格的持久化与单元格寻址。 |
+| F-PLUGIN | ⏳ 延后 | 需先设计插件 API 表面 + 沙箱 + 生命周期 + 分发。"插件系统"空心注册器是反价值的占位。 |
+| BlockNote 富文本 | ⏳ 延后 | 与 CodeMirror 的双模 + **Markdown round-trip**(富文本↔纯文本无损)是已知难点;F-READING 已覆盖"看渲染结果",边际价值有限。按 [open-questions](./open-questions.md) 的既有判断保持 v2。 |
+
+**原则**:宁可诚实延后并写明"需要什么才能做扎实",也不仓促塞进空心 stub 制造"看起来有"的假象——后者才是真正留坑。已完成的三项(F-GIT / F-AI 读侧 / F-L10N)都遵循 TDD:纯逻辑先行 + 单测,IO 薄壳在后。
 
 ## 本次会话的明确产出(可验证)
 

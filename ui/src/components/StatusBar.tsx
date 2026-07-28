@@ -3,38 +3,40 @@
  */
 import { Check, CircleNotch } from "@phosphor-icons/react";
 import type { VaultState } from "../lib/store";
+import type { TFunc } from "../lib/i18n";
 import { ipc } from "../lib/ipc";
 
 interface Props {
   state: VaultState;
+  t: TFunc;
 }
 
-export function StatusBar({ state }: Props) {
+export function StatusBar({ state, t }: Props) {
   return (
     <div className="flex items-center gap-3 border-t border-crust bg-mantle px-3 py-1 text-[11px] text-overlay">
       {state.saveState === "saving" ? (
         <span className="flex items-center gap-1 text-yellow">
-          <CircleNotch size={11} /> 保存中
+          <CircleNotch size={11} /> {t("status.saving")}
         </span>
       ) : state.saveState === "saved" ? (
         <span className="flex items-center gap-1 text-green">
-          <Check size={11} weight="bold" /> 已保存
+          <Check size={11} weight="bold" /> {t("status.saved")}
         </span>
       ) : state.dirty ? (
-        <span className="text-overlay">未保存</span>
+        <span className="text-overlay">{t("status.dirty")}</span>
       ) : (
-        <span>就绪</span>
+        <span>{t("status.idle")}</span>
       )}
       {state.currentPath && (
         <span className="truncate text-subtext">{state.currentPath}</span>
       )}
       <span className="ml-auto flex items-center gap-3">
         {state.snapshot && (
-          <span>{state.snapshot.nodes.length} 篇笔记</span>
+          <span>{t("status.notes", { n: state.snapshot.nodes.length })}</span>
         )}
         {ipc.isMock() && (
           <span className="rounded bg-surface px-1.5 py-0.5 text-yellow">
-            mock 模式
+            {t("status.mock")}
           </span>
         )}
       </span>

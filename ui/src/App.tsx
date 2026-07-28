@@ -18,12 +18,14 @@ import { GraphView } from "./components/GraphView";
 import { QueryPanel } from "./components/QueryPanel";
 import { SearchPanel } from "./components/SearchPanel";
 import { TrashPanel } from "./components/TrashPanel";
+import { GitPanel } from "./components/GitPanel";
 import { NewNoteDialog, type TemplateOption } from "./components/NewNoteDialog";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { Toolbar } from "./components/Toolbar";
 import { StatusBar } from "./components/StatusBar";
 import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
+import { useLocale } from "./lib/useLocale";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isTemplatePath, templateName } from "./lib/template";
@@ -34,6 +36,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newNoteOpen, setNewNoteOpen] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
+  const { locale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
   const [editMode, setEditMode] = useState<"edit" | "read">("edit");
 
@@ -112,6 +115,9 @@ export default function App() {
         actions={actions}
         theme={theme}
         onToggleTheme={toggleTheme}
+        locale={locale}
+        onToggleLocale={toggleLocale}
+        t={t}
       />
       <div className="flex min-h-0 flex-1">
         <div className="w-56 shrink-0">
@@ -149,6 +155,7 @@ export default function App() {
                       content={state.content}
                       hasNote={state.currentPath !== null}
                       onFollow={handleFollow}
+                      t={t}
                     />
                   )}
                   {state.currentPath !== null && (
@@ -195,6 +202,7 @@ export default function App() {
             {view === "trash" && (
               <TrashPanel trash={state.trash} actions={actions} />
             )}
+            {view === "git" && <GitPanel root={state.root} />}
           </div>
 
           {view === "editor" && (
@@ -205,13 +213,14 @@ export default function App() {
                 backlinks={backlinks}
                 actions={actions}
                 onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
+                t={t}
               />
             </div>
           )}
         </div>
       </div>
 
-      <StatusBar state={state} />
+      <StatusBar state={state} t={t} />
 
       <CommandPalette
         open={paletteOpen}
@@ -222,6 +231,7 @@ export default function App() {
         onNavigate={(v) => {
           setView(v);
         }}
+        t={t}
       />
 
       <NewNoteDialog

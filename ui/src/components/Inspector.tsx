@@ -17,11 +17,13 @@ import {
   Trash,
   Plus,
   Check,
+  Clipboard,
   X,
 } from "@phosphor-icons/react";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Backlink, VaultActions } from "../lib/store";
 import type { NodeOut } from "../lib/ipc";
+import type { TFunc } from "../lib/i18n";
 import {
   parseFrontmatterEntries,
   removeFrontmatterKey,
@@ -39,6 +41,7 @@ interface Props {
   actions: VaultActions;
   /** 大纲点击跳转:把编辑器滚动到某行(1-based)。 */
   onJumpToLine: (line: number) => void;
+  t: TFunc;
 }
 
 /** status → 彩色 chip 的启发式映射(按词根模糊匹配常见状态)。颜色后续可配(P2)。 */
@@ -53,13 +56,14 @@ function statusChipClass(status: string): string {
   return "bg-surface text-subtext";
 }
 
-export function Inspector({ node, content, backlinks, actions, onJumpToLine }: Props) {
+export function Inspector({ node, content, backlinks, actions, onJumpToLine, t }: Props) {
   const [tab, setTab] = useState("backlinks");
+  const [copied, setCopied] = useState(false);
 
   if (!node) {
     return (
       <div className="flex h-full items-center justify-center bg-mantle px-3 text-center text-[12px] text-overlay">
-        无选中笔记
+        {t("inspector.noSelection")}
       </div>
     );
   }
@@ -73,7 +77,26 @@ export function Inspector({ node, content, backlinks, actions, onJumpToLine }: P
   return (
     <div className="flex h-full flex-col bg-mantle">
       <div className="border-b border-crust px-3 py-2">
-        <div className="truncate text-[13px] font-medium text-text">{node.title}</div>
+        <div className="flex items-center gap-1">
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text">
+            {node.title}
+          </span>
+          <button
+            onClick={async () => {
+              await actions.copyAiContext();
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1200);
+            }}
+            className="shrink-0 rounded p-1 text-overlay hover:bg-surface hover:text-text"
+            title={t("inspector.ai.copy")}
+          >
+            {copied ? (
+              <Check size={13} className="text-green" />
+            ) : (
+              <Clipboard size={13} />
+            )}
+          </button>
+        </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-overlay">
           {node.type && (
             <span className="flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 text-lavender">
@@ -115,7 +138,7 @@ export function Inspector({ node, content, backlinks, actions, onJumpToLine }: P
             )}
           >
             <ArrowsLeftRight size={13} />
-            反链 {backlinks.length}
+            {t("inspector.tab.backlinks")} {backlinks.length}
           </Tabs.Trigger>
           <Tabs.Trigger
             value="props"
@@ -127,7 +150,7 @@ export function Inspector({ node, content, backlinks, actions, onJumpToLine }: P
             )}
           >
             <ArrowsClockwise size={13} />
-            属性 {entries.length}
+            {t("inspector.tab.props")} {entries.length}
           </Tabs.Trigger>
           <Tabs.Trigger
             value="outline"
@@ -139,13 +162,13 @@ export function Inspector({ node, content, backlinks, actions, onJumpToLine }: P
             )}
           >
             <List size={13} />
-            大纲 {outline.length}
+            {t("inspector.tab.outline")} {outline.length}
           </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="backlinks" className="min-h-0 flex-1 overflow-y-auto p-2">
           {backlinks.length === 0 ? (
-            <p className="px-1 py-2 text-[12px] text-overlay">没有指向此笔记的链接。</p>
+            <p className="px-1 py-2 text-[12px] text-overlay">{t("inspector.backlinks.empty")}</p>
           ) : (
             <ul className="space-y-1">
               {backlinks.map((b, i) => (
@@ -175,12 +198,12 @@ export function Inspector({ node, content, backlinks, actions, onJumpToLine }: P
 
         <Tabs.Content value="props" className="min-h-0 flex-1 overflow-y-auto p-2">
           {/* 切笔记时整体 remount,清掉各行的本地草稿态。 */}
-          <PropsEditor key={node.path} content={content} entries={entries} actions={actions} />
+          <PropsEditor key={node.path} content={content} entries={entries} actions={actions} t={t} />
         </Tabs.Content>
 
         <Tabs.Content value="outline" className="min-h-0 flex-1 overflow-y-auto p-2">
           {outline.length === 0 ? (
-            <p className="px-1 py-2 text-[12px] text-overlay">此笔记无标题。</p>
+            <p className="px-1 py-2 text-[12px] text-overlay">{t("inspector.outline.empty")}</p>
           ) : (
             <ul className="space-y-0.5">
               {outline.map((h, i) => (
@@ -213,10 +236,12 @@ function PropsEditor({
   content,
   entries,
   actions,
+  t,
 }: {
   content: string;
   entries: Array<[string, FmValue]>;
   actions: VaultActions;
+  t: TFunc;
 }) {
   const [newKey, setNewKey] = useState("");
   const [newVal, setNewVal] = useState("");
@@ -242,10 +267,10 @@ function PropsEditor({
   return (
     <div className="space-y-1">
       {entries.length === 0 && !adding && (
-        <p className="px-1 py-2 text-[12px] text-overlay">此笔记无 frontmatter。</p>
+        <p className="px-1 py-2 text-[12px] text-overlay">{t("inspector.props.empty")}</p>
       )}
       {entries.map(([key, value]) => (
-        <PropertyRow key={key} keyName={key} value={value} onCommit={commit} onRemove={remove} />
+        <PropertyRow key={key} keyName={key} value={value} onCommit={commit} onRemove={remove} t={t} />
       ))}
 
       {adding ? (
@@ -258,7 +283,7 @@ function PropsEditor({
               if (e.key === "Enter") confirmAdd();
               if (e.key === "Escape") setAdding(false);
             }}
-            placeholder="键名"
+            placeholder={t("inspector.props.keyPlaceholder")}
             className="w-20 shrink-0 bg-transparent text-[12px] text-text outline-none"
           />
           <input
@@ -268,7 +293,7 @@ function PropsEditor({
               if (e.key === "Enter") confirmAdd();
               if (e.key === "Escape") setAdding(false);
             }}
-            placeholder="值"
+            placeholder={t("inspector.props.valuePlaceholder")}
             className="min-w-0 flex-1 bg-transparent text-[12px] text-text outline-none"
           />
           <button onClick={confirmAdd} className="text-green hover:text-text">
@@ -284,7 +309,7 @@ function PropsEditor({
           className="flex w-full items-center gap-1 rounded px-2 py-1 text-left text-[12px] text-overlay hover:bg-surface hover:text-subtext"
         >
           <Plus size={13} />
-          新增属性
+          {t("inspector.props.add")}
         </button>
       )}
     </div>
@@ -296,11 +321,13 @@ function PropertyRow({
   value,
   onCommit,
   onRemove,
+  t,
 }: {
   keyName: string;
   value: FmValue;
   onCommit: (key: string, value: FmValue) => void;
   onRemove: (key: string) => void;
+  t: TFunc;
 }) {
   // 列表值渲染为逗号串;提交时拆回数组。草稿 onBlur 提交,避免逐键 round-trip 跳光标。
   const isList = Array.isArray(value);
@@ -326,13 +353,13 @@ function PropertyRow({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
-        placeholder={isList ? "逗号分隔" : "空"}
+        placeholder={isList ? t("inspector.props.listPlaceholder") : t("inspector.props.emptyValue")}
         className="min-w-0 flex-1 rounded bg-crust px-1.5 py-0.5 text-text outline-none focus:ring-1 focus:ring-surface2"
       />
       <button
         onClick={() => onRemove(keyName)}
         className="shrink-0 text-overlay opacity-0 hover:text-red group-hover:opacity-100"
-        title="删除该属性"
+        title={t("inspector.props.delete")}
       >
         <Trash size={13} />
       </button>

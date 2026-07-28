@@ -4,7 +4,7 @@
 
 ## 状态
 
-🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
+🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ UI(154 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
 
 - 设计:[docs/](./docs/) —— 先读 [docs/README.md](./docs/README.md)
 - 待你拍板的事:[docs/open-questions.md](./docs/open-questions.md)
@@ -23,7 +23,7 @@ core (Rust:解析 / 图谱 / QQL 求值 / 检索 —— 纯逻辑,IO-free,TDD)
 ```
 
 - `core/` —— 纯函数、无 IO、proptest + 单测全守护。
-- `app/src-tauri/` —— 10 个 `#[tauri::command]` 把文件读写与 core 串起来。
+- `app/src-tauri/` —— 14 个 `#[tauri::command]` 把文件读写、git 与 core 串起来。
 - `ui/` —— 三栏布局(文件树 / 编辑器 / 反链),可切换图谱 / QQL / 搜索视图,⌘K 命令面板。
   浏览器开发走 `src/lib/mock.ts` 内存后端,**无需编译 Rust 即可预览**。
 
@@ -58,6 +58,10 @@ pnpm --dir ui exec tauri dev   # 从仓库根的 app/src-tauri 启动
 - **回收站**:软删移入 `.trash/`,可逐篇还原、彻底删除或清空。
 - **主题**:深色(Mocha)默认 + 浅色(Latte)切换,持久化。
 - **命令面板**:⌘K/⌘P/⌘O 模糊跳转笔记 + 切换视图 + 动作。
+- **Git 面板**:`git status` 变更清单 + `git log` 历史 + "提交全部改动";走系统 `git`,仅 Tauri 桌面 app 内、vault 为 git 仓库时生效。
+- **AI 上下文导出**:一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown(AI-native 读侧桥接)。
+- **i18n**:zh(默认)/ en 切换,顶层 chrome 已本地化,持久化。
+- **阅读视图安全**:marked 输出注入 DOM 前经 DOMPurify 清洗(剥离 `<script>`/内联事件,保留 wikilink 委托)。
 
 ## 许可与溯源(clean-room)
 

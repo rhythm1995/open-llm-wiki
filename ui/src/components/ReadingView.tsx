@@ -5,25 +5,28 @@
  * 的链接;点击走事件委托(.closest(".wikilink"))→ onFollow(target),与编辑器
  * 的 Cmd+点击跟随同一条解析路径(resolveWikiTarget)。
  *
- * 渲染用户本地 vault 内容,语义与 Obsidian 渲染用户内容同性质;正文居中限宽,
- * 配色随主题变量自动适应明/暗。
+ * 安全:注入 DOM 前经 `sanitize()`(DOMPurify)清洗——剥离 `<script>`、内联
+ * `on*` 处理器等,同时保留点击委托依赖的 `data-target`/`class`。即便 vault 里
+ * 混入了他人提供的恶意 md,也不会执行任意脚本。正文居中限宽,配色随主题变量自动适应明/暗。
  */
 import { useMemo } from "react";
-import { renderMarkdown } from "../lib/render";
+import { renderMarkdown, sanitize } from "../lib/render";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   content: string;
   hasNote: boolean;
   onFollow: (target: string) => void;
+  t: TFunc;
 }
 
-export function ReadingView({ content, hasNote, onFollow }: Props) {
-  const html = useMemo(() => renderMarkdown(content), [content]);
+export function ReadingView({ content, hasNote, onFollow, t }: Props) {
+  const html = useMemo(() => sanitize(renderMarkdown(content)), [content]);
 
   if (!hasNote) {
     return (
       <div className="flex h-full items-center justify-center text-overlay">
-        <p className="text-[13px]">从左侧选择一篇笔记,或新建一篇开始。</p>
+        <p className="text-[13px]">{t("empty.selectOrCreate")}</p>
       </div>
     );
   }
