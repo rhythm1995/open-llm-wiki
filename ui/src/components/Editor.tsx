@@ -229,13 +229,18 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     }
   }, [value]);
 
-  if (!hasNote) {
-    return (
-      <div className="flex h-full items-center justify-center text-overlay">
-        <p className="text-[13px]">{t("empty.selectOrCreate")}</p>
-      </div>
-    );
-  }
-
-  return <div ref={host} className="h-full overflow-auto" />;
+  // 编辑器宿主始终挂载:CodeMirror 视图在首次挂载时**一次性**创建(上方 [] effect,
+  // 只跑一次)。若写成"无笔记时早退返回另一个不带 ref 的 div",首次渲染 host.current
+  // 为 null,创建 effect 提前返回且永不再跑 → CM 永远不建 → 无法编辑。
+  // 因此空态用覆盖层叠在宿主之上;宿主始终在,CM 始终建好,选笔记即可编辑。
+  return (
+    <div className="relative h-full">
+      <div ref={host} className="h-full overflow-auto" />
+      {!hasNote && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--color-base)] text-overlay">
+          <p className="text-[13px]">{t("empty.selectOrCreate")}</p>
+        </div>
+      )}
+    </div>
+  );
 });

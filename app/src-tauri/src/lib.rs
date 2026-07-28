@@ -286,6 +286,14 @@ fn search_notes(root: String, query: String) -> Result<Vec<SearchHit>, String> {
         .collect())
 }
 
+/// 前端→终端的诊断日志桥:把 webview 的 console.error / 未捕获错误转发到 stderr。
+/// 打包后无 inspector 时,从命令行启动 app 即可看到运行时报错(参见 lib/diag-log.ts)。
+/// 仅供诊断,不做任何业务;前端 fire-and-forget 调用。
+#[tauri::command]
+fn diag_log(line: String) {
+    eprintln!("[webview] {line}");
+}
+
 /// 系统文件夹选择对话框。
 #[tauri::command]
 async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
@@ -375,6 +383,7 @@ pub fn run() {
             run_qql,
             search_notes,
             pick_vault,
+            diag_log,
             git_status_raw,
             git_log_raw,
             git_commit,
