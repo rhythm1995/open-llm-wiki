@@ -9,8 +9,8 @@
  * - 文件 CRUD(list/read/write/create/delete):完整支持,内存 Map。
  * - index_vault:用 JS **mini-indexer** 复刻 core 的 frontmatter/标题/wikilink
  *   解析,产出 nodes + edges,让图谱与反链在浏览器里可演示。
- * - run_qql / search_notes:返回空(这两条是 core 的重活,浏览器里不重复实现)。
- *   真机 Tauri 构建里走 Rust core,能力完整。
+ * - search_notes:极简 AND 检索(标题×2 加权,见 mock-search.ts),近似 core 供预览。
+ * - run_qql:返回空(core 的查询求值不在浏览器复刻)。真机 Tauri 构建里走 Rust core。
  *
  * ⚠️ mini-indexer 是 core 的**简化近似**,只为预览;语义以 Rust core 为准。
  */
@@ -20,6 +20,7 @@ import type {
   VaultEntry,
   VaultSnapshot,
 } from "./ipc";
+import { mockSearch } from "./mock-search";
 
 const MOCK_ROOT = "/mock-vault";
 
@@ -176,11 +177,21 @@ const RELATION_KEYS = [
   "mentioned_in",
 ];
 
-function buildSnapshot(): VaultSnapshot {
-  const entries = [...vault.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
-  const parsed = entries.map(([path, text]) => {
+interface Parsed {
+  path: string;
+  text: string;
+  body: string;
+  fm: string;
+  meta: Record<string, unknown>;
+  title: string;
+  tags: string[];
+  typeStr: string | null;
+}
+
+/** 解析全部笔记(按路径排序;node id 即下标,buildSnapshot 与 search 共用)。 */
+function parseAll(): Parsed[] {
+  const entries = [...vault.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  return entries.map(([path, text]) => {
     const { fm, body } = splitFrontmatter(text);
     const meta = parseYamlScalar(fm);
     const title = extractTitle(body, path);
@@ -194,6 +205,10 @@ function buildSnapshot(): VaultSnapshot {
       typeof meta.type === "string" && meta.type ? meta.type : null;
     return { path, text, body, fm, meta, title, tags, typeStr };
   });
+}
+
+function buildSnapshot(): VaultSnapshot {
+  const parsed = parseAll();
 
   // 解析表:title / path-stem → id(先按 title,再按 stem 补)。
   const byTitle = new Map<string, number>();
@@ -328,11 +343,15 @@ export async function handle<T>(
       console.info("[mock] run_qql 在 mock 模式下返回空,请用 Tauri 构建以获得完整求值。");
       return { List: [] } as unknown as T;
 
-    case "search_notes":
-      console.info(
-        "[mock] search_notes 在 mock 模式下返回空,请用 Tauri 构建。",
-      );
-      return [] as unknown as T;
+    case "search_notes": {
+      // 浏览器 mock:极简 AND 检索(标题×2 加权),近似 core 仅供预览。
+      const docs = parseAll().map((p, i) => ({
+        id: i,
+        title: p.title,
+        body: p.body,
+      }));
+      return mockSearch(docs, String(args.query)) as unknown as T;
+    }
 
     default:
       throw new Error(`mock: 未知命令 ${cmd}`);
