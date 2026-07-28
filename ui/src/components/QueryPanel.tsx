@@ -8,11 +8,18 @@
  * 求值与语法完全在 core(qql::parse + query::eval),保证 UI 与 core 语义一致。
  */
 import { useMemo, useState } from "react";
-import { Play, MagnifyingGlass, Warning } from "@phosphor-icons/react";
+import { Play, MagnifyingGlass, Warning, Bookmark, X } from "@phosphor-icons/react";
 import { ipc, type GroupRow, type NodeOut, type QqlRow, type ResultSet, type VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+import {
+  buildQueryNote,
+  defaultQueryName,
+  extractQueryFromNote,
+  isQueryNode,
+  queryNotePath,
+} from "../lib/saved-query";
 
 interface Props {
   root: string | null;
@@ -61,17 +68,55 @@ export function QueryPanel({ root, snapshot, actions, t }: Props) {
 
   const cols = useMemo(() => parseShowCols(qql), [qql]);
 
-  const run = async () => {
+  /** 已保存查询:snapshot 里软类型为 Query 的节点。列表用 title,无需读盘。 */
+  const saved = useMemo(
+    () => (snapshot?.nodes ?? []).filter(isQueryNode),
+    [snapshot],
+  );
+
+  /** 跑指定 QQL 文本(支持从已保存查询直接重跑,绕过 state 滞后)。 */
+  const runWith = async (text: string) => {
     if (!root) return;
     setLoading(true);
     setError(null);
     try {
-      setResult(await ipc.runQql(root, qql));
+      setResult(await ipc.runQql(root, text));
     } catch (e) {
       setError(String(e));
       setResult(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const run = () => void runWith(qql);
+
+  /** 把当前 QQL 存成 `type: Query` 笔记(自举进图谱/可链接)。 */
+  const save = () => {
+    const name = window.prompt(t("query.savePrompt"), defaultQueryName(qql));
+    if (!name || !name.trim()) return;
+    void actions.createNote(queryNotePath(name), buildQueryNote(name, qql));
+  };
+
+  /** 载入某条已保存查询的 qql 并立即重跑(只读这一篇)。 */
+  const rerun = async (path: string) => {
+    if (!root) return;
+    try {
+      const content = await ipc.readNote(root, path);
+      const q = extractQueryFromNote(content);
+      if (q) {
+        setQql(q);
+        await runWith(q);
+      }
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  /** 删除已保存查询 = 把这篇笔记移入回收站(可恢复)。 */
+  const remove = (path: string, title: string) => {
+    if (window.confirm(t("query.deleteConfirm", { name: title }))) {
+      void actions.trashNote(path);
     }
   };
 
@@ -99,6 +144,15 @@ export function QueryPanel({ root, snapshot, actions, t }: Props) {
             <Play size={13} weight="fill" />
             {t("query.run")}
           </button>
+          <button
+            onClick={save}
+            disabled={!root || !qql.trim()}
+            title={t("query.save")}
+            className="flex items-center gap-1 rounded bg-surface px-2 py-1 text-[12px] text-subtext hover:bg-surface2 disabled:opacity-40"
+          >
+            <Bookmark size={13} />
+            {t("query.save")}
+          </button>
           {loading && <span className="text-[11px] text-overlay">{t("query.running")}</span>}
         </div>
         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -114,6 +168,37 @@ export function QueryPanel({ root, snapshot, actions, t }: Props) {
           ))}
         </div>
       </div>
+
+      {saved.length > 0 && (
+        <div className="border-b border-crust px-2 py-1.5">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-overlay">
+            {t("query.savedSection")}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {saved.map((n) => (
+              <div
+                key={n.id}
+                className="group flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 text-[11px] text-subtext"
+              >
+                <button
+                  onClick={() => void rerun(n.path)}
+                  title={t("query.rerun")}
+                  className="max-w-[220px] truncate hover:text-text"
+                >
+                  {n.title}
+                </button>
+                <button
+                  onClick={() => remove(n.path, n.title)}
+                  title={t("query.delete")}
+                  className="text-overlay opacity-0 hover:text-red group-hover:opacity-100"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto">
         {error && (
