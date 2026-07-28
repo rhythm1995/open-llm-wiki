@@ -31,6 +31,7 @@ import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isTemplatePath, templateName } from "./lib/template";
 import { isCanvasPath } from "./lib/canvas";
+import { writeLastPath } from "./lib/last-note";
 
 // 画布视图懒加载:tldraw 是重依赖 + 非商用许可,隔离到独立 chunk(见 THIRD_PARTY_NOTICES)。
 // 不开画布就不下载 tldraw;许可边界也随之收束在 CanvasView 这一个模块里。
@@ -132,6 +133,12 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [view, state.currentPath, paletteOpen, newNoteOpen, actions.closeTab]);
+
+  // 记下当前笔记,下次打开同 vault 时恢复(按 root 分键;恢复逻辑在 openVault 里)。
+  useEffect(() => {
+    if (!state.root || !state.currentPath) return;
+    writeLastPath(state.root, state.currentPath);
+  }, [state.root, state.currentPath]);
 
   return (
     <div className="flex h-screen flex-col">

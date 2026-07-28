@@ -13,6 +13,7 @@ import { tabReduce } from "./tabs";
 import { restorePath, toTrashPath, uniqueName } from "./trash";
 import { applyTemplate, defaultTemplate } from "./template";
 import { buildAiContext } from "./ai-context";
+import { pickRestorableNote, readLastPath } from "./last-note";
 
 export interface Backlink {
   from: NodeOut;
@@ -120,11 +121,15 @@ export function useVault() {
           ipc.listTrash(root),
         ]);
         const firstMd = entries.find((e) => !e.is_dir);
+        // 恢复上次打开的笔记(按 root 分键;命中且仍存在则用之,否则回退首个 .md)。
+        const known = entries.map((e) => e.path);
+        const restored = pickRestorableNote(readLastPath(root), known);
+        const initialPath = restored ?? firstMd?.path ?? null;
         let content = "";
         let currentPath: string | null = null;
-        if (firstMd) {
-          content = await ipc.readNote(root, firstMd.path);
-          currentPath = firstMd.path;
+        if (initialPath) {
+          content = await ipc.readNote(root, initialPath);
+          currentPath = initialPath;
         }
         const snap = await ipc.indexVault(root);
         setState({
