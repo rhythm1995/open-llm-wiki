@@ -25,13 +25,14 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { RangeSetBuilder } from "@codemirror/state";
+import { RangeSetBuilder, Compartment, type Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
+import type { Theme } from "../lib/theme";
 
 interface Props {
   value: string;
@@ -42,9 +43,33 @@ interface Props {
   noteTitles: string[];
   /** 是否有内容可编辑;无当前笔记时显示空态。 */
   hasNote: boolean;
+  /** 当前主题;编辑器据此切换 oneDark / 浅色。 */
+  theme: Theme;
 }
 
 const LINK_RE = /\[\[([^\]]+)\]\]/g;
+
+/**
+ * 主题用 Compartment 动态切换:深色挂 oneDark;浅色用贴合应用配色的浅底主题
+ * (语法高亮仍走 defaultHighlightStyle,它在浅底上可读)。切换时只 reconfigure,
+ * 不重建编辑器,光标/历史不丢。
+ */
+const themeCompartment = new Compartment();
+
+const lightEditor: Extension = EditorView.theme({
+  "&": { backgroundColor: "var(--color-base)", color: "var(--color-text)" },
+  ".cm-gutters": {
+    backgroundColor: "var(--color-mantle)",
+    color: "var(--color-overlay)",
+    border: "none",
+  },
+  ".cm-activeLine": { backgroundColor: "rgba(76, 79, 105, 0.06)" },
+  ".cm-activeLineGutter": { backgroundColor: "rgba(76, 79, 105, 0.06)" },
+});
+
+function editorThemeFor(theme: Theme): Extension {
+  return theme === "dark" ? oneDark : lightEditor;
+}
 
 /** 扫描整篇 doc,给每个 `[[...]]` 区间挂 cm-wikilink 标记(按位置升序加入)。 */
 function buildLinkDecorations(view: EditorView): DecorationSet {
@@ -96,7 +121,7 @@ function makeWikilinkCompletions(
   };
 }
 
-export function Editor({ value, onChange, onFollow, noteTitles, hasNote }: Props) {
+export function Editor({ value, onChange, onFollow, noteTitles, hasNote, theme }: Props) {
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -117,7 +142,7 @@ export function Editor({ value, onChange, onFollow, noteTitles, hasNote }: Props
         keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(defaultHighlightStyle),
-        oneDark,
+        themeCompartment.of(editorThemeFor(theme)),
         EditorView.lineWrapping,
         linkDecorations,
         autocompletion({
@@ -157,6 +182,13 @@ export function Editor({ value, onChange, onFollow, noteTitles, hasNote }: Props
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 主题变化时动态切换编辑器主题(不重建编辑器)。
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: themeCompartment.reconfigure(editorThemeFor(theme)),
+    });
+  }, [theme]);
 
   // 切笔记 / 外部写入时同步 doc。
   useEffect(() => {

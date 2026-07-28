@@ -22,6 +22,7 @@ import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { Toolbar } from "./components/Toolbar";
 import { StatusBar } from "./components/StatusBar";
 import { useVault } from "./lib/store";
+import { useTheme } from "./lib/useTheme";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isTemplatePath, templateName } from "./lib/template";
@@ -31,6 +32,7 @@ export default function App() {
   const [view, setView] = useState<MainView>("editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newNoteOpen, setNewNoteOpen] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   // vault 的 templates/ 目录即模板候选(客户端过滤,无需后端特例)。
   const templates = useMemo<TemplateOption[]>(
@@ -80,6 +82,8 @@ export default function App() {
         onNavigate={setView}
         onOpenPalette={() => setPaletteOpen(true)}
         actions={actions}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <div className="flex min-h-0 flex-1">
         <div className="w-56 shrink-0">
@@ -106,6 +110,7 @@ export default function App() {
                     value={state.content}
                     onChange={actions.setContent}
                     hasNote={state.currentPath !== null}
+                    theme={theme}
                     noteTitles={state.snapshot?.nodes.map((n) => n.title) ?? []}
                     onFollow={(target) => {
                       const path = resolveWikiTarget(

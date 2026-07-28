@@ -31,6 +31,27 @@
   color-scheme: dark;
 }
 
+/* ── 浅色变体(Catppuccin Latte)── 仅在 <html data-theme="light"> 时生效,
+   覆盖同名 CSS 变量;Tailwind 工具类(bg-base/text-… 等)引用这些变量,自动跟随。 */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-base: #eff1f5;
+  --color-mantle: #e6e9ef;
+  --color-crust: #dce0e8;
+  --color-surface: #ccd0da;
+  --color-surface2: #bcc0cc;
+  --color-overlay: #9ca0b0;
+  --color-text: #4c4f69;
+  --color-subtext: #6c6f85;
+  --color-blue: #1e66f5;
+  --color-lavender: #7287fd;
+  --color-green: #40a02b;
+  --color-red: #d20f39;
+  --color-yellow: #df8e1d;
+  --color-mauve: #8839ef;
+  --color-teal: #179299;
+}
+
 html,
 body,
 #root {

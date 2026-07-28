@@ -9,9 +9,12 @@ import {
   Trash,
   Command,
   FloppyDisk,
+  Sun,
+  Moon,
 } from "@phosphor-icons/react";
 import type { MainView } from "./CommandPalette";
 import type { VaultActions } from "../lib/store";
+import type { Theme } from "../lib/theme";
 import { cn } from "../lib/cn";
 
 interface Props {
@@ -19,6 +22,8 @@ interface Props {
   onNavigate: (v: MainView) => void;
   onOpenPalette: () => void;
   actions: VaultActions;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
 const VIEWS: { id: MainView; label: string; icon: typeof PencilSimple }[] = [
@@ -29,7 +34,14 @@ const VIEWS: { id: MainView; label: string; icon: typeof PencilSimple }[] = [
   { id: "trash", label: "回收站", icon: Trash },
 ];
 
-export function Toolbar({ view, onNavigate, onOpenPalette, actions }: Props) {
+export function Toolbar({
+  view,
+  onNavigate,
+  onOpenPalette,
+  actions,
+  theme,
+  onToggleTheme,
+}: Props) {
   return (
     <div className="flex items-center gap-1 border-b border-crust bg-base px-2 py-1">
       <div className="flex items-center gap-0.5">
@@ -54,6 +66,13 @@ export function Toolbar({ view, onNavigate, onOpenPalette, actions }: Props) {
         })}
       </div>
       <div className="ml-auto flex items-center gap-1">
+        <button
+          onClick={onToggleTheme}
+          className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface"
+          title={theme === "dark" ? "切换到浅色" : "切换到深色"}
+        >
+          {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
         <button
           onClick={() => actions.saveNow()}
           className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface"
