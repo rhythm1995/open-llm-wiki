@@ -440,6 +440,17 @@ export function useVault() {
     setState((s) => ({ ...s, openPaths: [], currentPath: null, content: "", dirty: false }));
   }, [saveNow]);
 
+  /** 拖拽重排标签页:把 from 处的标签移到 to 处(active 不变)。 */
+  const reorderTab = useCallback((from: number, to: number) => {
+    setState((s) => {
+      const next = tabReduce(
+        { open: s.openPaths, active: s.currentPath },
+        { type: "reorder", from, to },
+      );
+      return { ...s, openPaths: next.open };
+    });
+  }, []);
+
   /**
    * 重命名一篇笔记(保留原目录;仅改文件名)。
    * 同步刷新打开标签页与当前页指针;若当前页被改名,content 不变(只是路径变了)。
@@ -519,6 +530,7 @@ export function useVault() {
       closeTab,
       closeOthers,
       closeAllTabs,
+      reorderTab,
       clearError,
       saveNow,
       refreshIndex: () => state.root && refreshIndex(state.root),

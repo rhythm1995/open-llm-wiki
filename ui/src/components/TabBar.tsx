@@ -1,9 +1,11 @@
 /**
  * TabBar —— 编辑器上方的多标签栏(F-TABS)。
  *
- * 标签语义(开/关/激活/邻居选择)的纯逻辑在 tabs.ts(已测);本组件纯展示:
- * 点击激活、× 关闭、中键关闭。标题取自快照节点,缺省回退到文件名。
+ * 标签语义(开/关/激活/邻居选择/重排)的纯逻辑在 tabs.ts(已测);本组件纯展示:
+ * 点击激活、× 关闭、中键关闭、**拖拽重排**(HTML5 DnD → reorderTab)。标题取自
+ * 快照节点,缺省回退到文件名。
  */
+import { useState } from "react";
 import { X } from "@phosphor-icons/react";
 import type { VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
@@ -17,19 +19,51 @@ interface Props {
 }
 
 export function TabBar({ openPaths, activePath, snapshot, actions }: Props) {
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dropOn, setDropOn] = useState<number | null>(null);
+
   if (openPaths.length === 0) return null;
   const titleByPath = new Map((snapshot?.nodes ?? []).map((n) => [n.path, n.title]));
 
   return (
     <div className="flex shrink-0 items-stretch overflow-x-auto border-b border-crust bg-mantle">
-      {openPaths.map((path) => {
+      {openPaths.map((path, idx) => {
         const active = path === activePath;
         const title = titleByPath.get(path) ?? path.split("/").pop() ?? path;
+        const dragging = dragFrom === idx;
         return (
           <div
             key={path}
             role="tab"
             tabIndex={0}
+            draggable
+            onDragStart={(e) => {
+              setDragFrom(idx);
+              e.dataTransfer.effectAllowed = "move";
+              // Firefox 需要 setData 才会真正进入拖拽态。
+              e.dataTransfer.setData("text/plain", path);
+            }}
+            onDragOver={(e) => {
+              if (dragFrom === null) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDropOn(idx);
+            }}
+            onDragLeave={() => {
+              if (dropOn === idx) setDropOn(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragFrom !== null && dragFrom !== idx) {
+                actions.reorderTab(dragFrom, idx);
+              }
+              setDragFrom(null);
+              setDropOn(null);
+            }}
+            onDragEnd={() => {
+              setDragFrom(null);
+              setDropOn(null);
+            }}
             onClick={() => actions.selectNote(path)}
             onMouseDown={(e) => {
               // 中键关闭(浏览器/编辑器通用心智)。
@@ -43,6 +77,8 @@ export function TabBar({ openPaths, activePath, snapshot, actions }: Props) {
               active
                 ? "bg-base text-text"
                 : "bg-mantle text-overlay hover:bg-surface hover:text-subtext",
+              dragging && "opacity-40",
+              dropOn === idx && !dragging && "ring-1 ring-inset ring-blue/60",
             )}
           >
             <span className="truncate" title={path}>
