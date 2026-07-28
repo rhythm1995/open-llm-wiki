@@ -107,7 +107,8 @@ Tauri 2 外壳 + React 19:
 | F-SHEET(ironcalc) | ⏳ 延后 | npm 仅发 wasm 引擎、无 React UI;做扎实需自研表格 UI 或等组件发布(见 [deferred](./deferred.md)「F-SHEET」)。 |
 | F-PLUGIN | ⏳ 延后 | 需先设计插件 API 表面 + 沙箱 + 生命周期 + 分发 + 安全模型(见 [deferred](./deferred.md)「F-PLUGIN」)。"插件系统"空心注册器是反价值的占位。 |
 | BlockNote 富文本 | ⏳ 延后 | 与 CodeMirror 的双模 + **Markdown round-trip**(富文本↔纯文本无损)是已知难点;F-READING 已覆盖"看渲染结果"(见 [deferred](./deferred.md)「BlockNote」)。 |
-| 图谱大图性能 / 右键菜单 / 内联 qql / 打包 / 标签循环 / 恢复上次笔记 | ⏳ 打磨项 | 见 [deferred.md](./deferred.md) 各条。 |
+| 图谱大图性能 / 右键菜单 / 内联 qql / 打包 / 标签循环 | ⏳ 打磨项 | 见 [deferred.md](./deferred.md) 各条。 |
+| saved query view / 恢复上次笔记 | ✅ 本轮 | 已落地(见 [deferred](./deferred.md) 顶部两条 ✅):QQL 存成自举 `type:Query` 笔记;打开 vault 恢复上次看的笔记。 |
 
 **原则**:宁可诚实延后并写明"需要什么才能做扎实",也不仓促塞进空心 stub 制造"看起来有"的假象——后者才是真正留坑。已完成的三项(F-GIT / F-AI 读侧 / F-L10N)都遵循 TDD:纯逻辑先行 + 单测,IO 薄壳在后。
 

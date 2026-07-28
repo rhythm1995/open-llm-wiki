@@ -4,11 +4,12 @@
 
 ## 状态
 
-🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ UI(165 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
+🚧 早期开发中,**MVP 已可运行**:Rust core(98 测试)+ UI(196 测试)+ Tauri 2 桌面壳 + React 19 三栏 UI。
 
 - 设计:[docs/](./docs/) —— 先读 [docs/README.md](./docs/README.md)
 - 待你拍板的事:[docs/open-questions.md](./docs/open-questions.md)
 - 路线图:[docs/06-roadmap.md](./docs/06-roadmap.md)
+- 延后与难点:[docs/deferred.md](./docs/deferred.md)
 
 ## 架构
 

@@ -30,11 +30,12 @@
 - **做扎实需要**:一个 CodeMirror ViewportPlugin + decoration widget;求值走现有纯逻辑;只读结果 widget 复用 QueryPanel 的 ResultView。需处理大结果集的虚拟化。
 - **前置**:确认 QQL 在 mock 浏览器模式下能求值(目前 mock 返回空——内联块在 mock 下也得能跑,否则 dev 不可见)。
 
-## 🟡 saved query view 持久化
+## ✅ ~~saved query view 持久化~~(已落地)
 
-- **现状**:QQL 面板每次手敲查询;常用查询无法存档复用。
-- **难在哪**:不难,存储 + UI。决定存哪:笔记 frontmatter(可被图谱/查询消费,自举)vs `.obsidian/` 配置文件。
-- **做扎实需要**:命名保存 / 一键重跑 / 删除;面板加"已保存查询"列表。倾向存成带 `type: Query` 的笔记(frontmatter 放 `qql:` 原文),让它自身也进图谱——自举且可链接。
+- **已实现**(commit `f6d9a09`):常用 QQL 存成一篇 `type: Query` 的普通笔记,frontmatter
+  声明软类型、正文放 ```` ```qql ```` 块。因此自动进索引/图谱/检索,可被 `[[]]` 链接、可被
+  别的 QQL 查到——自举。QueryPanel 加「保存 / 已保存查询列表 / 点击重跑 / × 删除(软删)」。
+  纯逻辑 `saved-query.ts`(15 单测)。
 
 ## 🔴 BlockNote 富文本 + Markdown round-trip
 
@@ -71,11 +72,12 @@
 - **做扎实需要**:确认 Tauri webview 不抢占这些组合键 + 提供可配置键位(避免与各 OS 默认冲突);或改用不冲突的组合(如 ⌘PageUp/⌘PageDown)。
 - **前置**:在 Tauri 桌面构建里验证键位可用性(dev 模式验证不了)。
 
-## 🟢 恢复上次打开的笔记
+## ✅ ~~恢复上次打开的笔记~~(已落地)
 
-- **现状**:`usePersistentState` 已持久化主视图与编辑/阅读模式;**当前笔记路径未恢复**。
-- **难在哪**:不难。要点是按 vault root 分键存(`openobs.lastPath:<root>`),避免 A vault 的路径在 B vault 误恢复;且只在"vault 刚打开、用户尚未选择任何笔记"时恢复一次(关掉全部标签后不能自动重开)。
-- **做扎实需要**:两个 effect——currentPath 变化时写盘;snapshot 就绪且 currentPath 为空时读盘恢复(用 ref 防重入)。
+- **已实现**(commit `146c357`):打开 vault 时优先恢复上次看的笔记,而不是总跳到首个 `.md`。
+  按 vault root 分键存(`openobs.lastPath:<root>`)。恢复决策放在 `openVault`(有 entries + 回退
+  路径,语义最干净,避免 App 侧"默认选择 vs 用户选择"无法区分的死结);命中且仍存在才恢复,
+  否则回退首个 `.md`。纯逻辑 `last-note.ts`(6 单测)。
 
 ## 🔴 完整 MCP server(F-AI 写侧)
 
