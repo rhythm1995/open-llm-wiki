@@ -94,3 +94,15 @@ export function filterByTitles(titles: string[], typed: string): string[] {
   }
   return out;
 }
+
+/**
+ * 把一个节点格式化成可粘贴的 `[[wikilink]]`(图谱右键「复制 wikilink」用)。
+ * 优先用标题;空标题、或含 `]` `|` `#`(会破坏链接语法)时回退到文件名 stem。
+ * 纯逻辑。
+ */
+export function nodeWikilink(title: string, path: string): string {
+  const file = fileStem(path);
+  const trimmed = title.trim();
+  const safe = trimmed.length > 0 && !/[\[\]|#]/.test(trimmed);
+  return `[[${safe ? trimmed : file}]]`;
+}

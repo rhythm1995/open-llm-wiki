@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterByTitles, openLinkContext, parseLinkInner, resolveWikiTarget } from "./wikilink";
+import { filterByTitles, nodeWikilink, openLinkContext, parseLinkInner, resolveWikiTarget } from "./wikilink";
 import type { NodeOut } from "./ipc";
 
 const N = (id: number, path: string, title: string): NodeOut => ({
@@ -78,5 +78,26 @@ describe("filterByTitles", () => {
   });
   it("empty typed returns all (deduped)", () => {
     expect(filterByTitles(["A", "B", "A"], "")).toEqual(["A", "B"]);
+  });
+});
+
+describe("nodeWikilink", () => {
+  it("正常标题 → [[标题]]", () => {
+    expect(nodeWikilink("活跃概念", "notes/a.md")).toBe("[[活跃概念]]");
+  });
+  it("空标题 → 回退文件名 stem", () => {
+    expect(nodeWikilink("", "notes/foo-bar.md")).toBe("[[foo-bar]]");
+    expect(nodeWikilink("   ", "x.md")).toBe("[[x]]");
+  });
+  it('标题含 ]/|/#(破坏链接语法)→ 回退文件名 stem', () => {
+    expect(nodeWikilink("a [b", "notes/c.md")).toBe("[[c]]");
+    expect(nodeWikilink("a|b", "notes/c.md")).toBe("[[c]]");
+    expect(nodeWikilink("a#b", "notes/c.md")).toBe("[[c]]");
+  });
+  it("标题去首尾空白", () => {
+    expect(nodeWikilink("  活跃  ", "a.md")).toBe("[[活跃]]");
+  });
+  it("无扩展名的路径:fileStem 保留全名", () => {
+    expect(nodeWikilink("", "README")).toBe("[[README]]");
   });
 });

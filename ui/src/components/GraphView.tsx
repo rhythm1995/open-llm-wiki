@@ -20,8 +20,11 @@ import {
   ArrowsOutSimple,
   Target,
   X,
+  ArrowSquareOut,
+  Copy,
+  EyeSlash,
 } from "@phosphor-icons/react";
-import type { VaultSnapshot } from "../lib/ipc";
+import type { NodeOut, VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import {
   applyGraphFilters,
@@ -32,8 +35,10 @@ import {
   type EdgeKind,
   type GraphFilters,
 } from "../lib/graph-filter";
+import { nodeWikilink } from "../lib/wikilink";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface Props {
   snapshot: VaultSnapshot | null;
@@ -88,6 +93,8 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
   const [showFilters, setShowFilters] = useState(true);
   const [tf, setTf] = useState({ tx: 0, ty: 0, scale: 1 });
   const [hover, setHover] = useState<number | null>(null);
+  // 右键菜单:命中的节点 + 视口坐标;null 表示关闭。
+  const [menu, setMenu] = useState<{ x: number; y: number; node: NodeOut } | null>(null);
   const sizeRef = useRef({ w: W, h: H });
   const svgRef = useRef<SVGSVGElement | null>(null);
   const panRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
@@ -174,6 +181,51 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     return d;
   }, [filtered.edges]);
 
+  // 右键菜单项:打开 / 聚焦此节点邻域 / (清除聚焦) / 复制 wikilink / 隐藏此类型。
+  const menuItems: MenuItem[] = useMemo(() => {
+    if (!menu) return [];
+    const n = menu.node;
+    const tp = n.type ?? TYPELESS;
+    const items: MenuItem[] = [
+      {
+        label: t("graph.menu.open"),
+        icon: <ArrowSquareOut size={13} />,
+        onClick: () => actions.selectNote(n.path),
+      },
+      {
+        label: t("graph.menu.focus"),
+        icon: <Target size={13} />,
+        onClick: () => setFilters((f) => ({ ...f, focusId: n.id, hops: 1 })),
+      },
+    ];
+    if (filters.focusId != null) {
+      items.push({
+        label: t("graph.menu.clearFocus"),
+        icon: <X size={13} />,
+        onClick: () => setFilters((f) => ({ ...f, focusId: null })),
+      });
+    }
+    items.push(
+      { separator: true, label: "" },
+      {
+        label: t("graph.menu.copyLink"),
+        icon: <Copy size={13} />,
+        onClick: () => {
+          const text = nodeWikilink(n.title, n.path);
+          navigator.clipboard?.writeText(text).catch(() => {});
+        },
+      },
+      { separator: true, label: "" },
+      {
+        label: t("graph.menu.hideType", { type: n.type ?? t("graph.typeless") }),
+        icon: <EyeSlash size={13} />,
+        onClick: () => setFilters((f) => ({ ...f, types: toggleSet(f.types, tp) })),
+      },
+    );
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu, filters, t, actions]);
+
   // 原生非 passive 滚轮监听,确保 preventDefault 生效(阻止页面滚动/缩放)。
   useEffect(() => {
     const svg = svgRef.current;
@@ -238,6 +290,7 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         viewBox={`0 0 ${W} ${H}`}
         className="h-full w-full"
         preserveAspectRatio="xMidYMid meet"
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* 平移面:铺满 viewBox,最先绘制(最底层);mousedown 启动平移。 */}
         <rect
@@ -311,6 +364,11 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
                   onMouseDown={(e) => e.stopPropagation()}
                   onMouseEnter={() => setHover(node.id)}
                   onMouseLeave={() => setHover(null)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMenu({ x: e.clientX, y: e.clientY, node });
+                  }}
                 >
                   <circle
                     r={r + (isCurrent ? 3 : isHover ? 2 : 0)}
@@ -393,6 +451,12 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
           t={t}
         />
       )}
+
+      <ContextMenu
+        items={menuItems}
+        pos={menu ? { x: menu.x, y: menu.y } : null}
+        onClose={() => setMenu(null)}
+      />
     </div>
   );
 }

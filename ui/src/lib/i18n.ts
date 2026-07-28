@@ -164,6 +164,13 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.hops": "跳数",
     "graph.focusCurrent": "聚焦当前笔记",
     "graph.resetFilter": "重置过滤",
+    // 图谱右键菜单
+    "graph.menu.open": "打开",
+    "graph.menu.focus": "聚焦此节点邻域",
+    "graph.menu.clearFocus": "清除聚焦",
+    "graph.menu.copyLink": "复制 [[wikilink]]",
+    "graph.menu.hideType": "隐藏此类型({type})",
+    "graph.menu.copied": "已复制",
   },
   en: {
     "view.editor": "Editor",
@@ -288,6 +295,12 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.hops": "hops",
     "graph.focusCurrent": "Focus current note",
     "graph.resetFilter": "Reset filters",
+    "graph.menu.open": "Open",
+    "graph.menu.focus": "Focus this node's neighborhood",
+    "graph.menu.clearFocus": "Clear focus",
+    "graph.menu.copyLink": "Copy [[wikilink]]",
+    "graph.menu.hideType": "Hide this type ({type})",
+    "graph.menu.copied": "Copied",
   },
 };
 
