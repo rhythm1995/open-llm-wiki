@@ -55,7 +55,7 @@ export default function App() {
       const path = resolveWikiTarget(target, state.snapshot?.nodes ?? []);
       if (path) {
         actions.selectNote(path);
-      } else if (window.confirm(`「${target}」尚不存在,是否新建?`)) {
+      } else if (window.confirm(t("app.unresolvedConfirm", { target }))) {
         void actions.createNote(target);
       }
     },
@@ -64,9 +64,9 @@ export default function App() {
 
   /** 新建画布(F-CANVAS):询问名称后建一个空白 `.canvas`。 */
   const handleNewCanvas = useCallback(() => {
-    const name = window.prompt("画布名称:", "whiteboard");
+    const name = window.prompt(t("canvas.namePrompt"), "whiteboard");
     if (name && name.trim()) void actions.createCanvas(name.trim());
-  }, [actions]);
+  }, [actions, t]);
 
   // vault 的 templates/ 目录即模板候选(客户端过滤,无需后端特例)。
   const templates = useMemo<TemplateOption[]>(
@@ -117,7 +117,7 @@ export default function App() {
           <button
             onClick={actions.clearError}
             className="shrink-0 rounded p-0.5 hover:bg-red/20"
-            title="关闭"
+            title={t("common.close")}
           >
             <X size={13} weight="bold" />
           </button>
@@ -142,6 +142,7 @@ export default function App() {
             actions={actions}
             onNewNote={() => setNewNoteOpen(true)}
             onNewCanvas={handleNewCanvas}
+            t={t}
           />
         </div>
 
@@ -154,13 +155,14 @@ export default function App() {
                   activePath={state.currentPath}
                   snapshot={state.snapshot}
                   actions={actions}
+                  t={t}
                 />
                 <div className="relative min-h-0 flex-1">
                   {isCanvas ? (
                     <Suspense
                       fallback={
                         <div className="flex h-full items-center justify-center text-[13px] text-overlay">
-                          画布加载中…
+                          {t("canvas.loading")}
                         </div>
                       }
                     >
@@ -180,6 +182,7 @@ export default function App() {
                       theme={theme}
                       noteTitles={state.snapshot?.nodes.map((n) => n.title) ?? []}
                       onFollow={handleFollow}
+                      t={t}
                     />
                   ) : (
                     <ReadingView
@@ -196,7 +199,7 @@ export default function App() {
                       }
                       className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
                       title={
-                        editMode === "edit" ? "切换到阅读视图" : "切换到编辑视图"
+                        editMode === "edit" ? t("editor.toRead") : t("editor.toEdit")
                       }
                     >
                       {editMode === "edit" ? (
@@ -214,6 +217,7 @@ export default function App() {
                 snapshot={state.snapshot}
                 currentId={currentNode?.id ?? null}
                 actions={actions}
+                t={t}
               />
             )}
             {view === "query" && (
@@ -221,6 +225,7 @@ export default function App() {
                 root={state.root}
                 snapshot={state.snapshot}
                 actions={actions}
+                t={t}
               />
             )}
             {view === "search" && (
@@ -228,12 +233,13 @@ export default function App() {
                 root={state.root}
                 snapshot={state.snapshot}
                 actions={actions}
+                t={t}
               />
             )}
             {view === "trash" && (
-              <TrashPanel trash={state.trash} actions={actions} />
+              <TrashPanel trash={state.trash} actions={actions} t={t} />
             )}
-            {view === "git" && <GitPanel root={state.root} />}
+            {view === "git" && <GitPanel root={state.root} t={t} />}
           </div>
 
           {view === "editor" && !isCanvas && (
@@ -271,6 +277,7 @@ export default function App() {
         onOpenChange={setNewNoteOpen}
         templates={templates}
         onCreate={(n, tpl) => void actions.createNoteFromTemplate(n, tpl)}
+        t={t}
       />
     </div>
   );

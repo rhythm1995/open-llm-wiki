@@ -10,15 +10,17 @@ import { X } from "@phosphor-icons/react";
 import type { VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { cn } from "../lib/cn";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   openPaths: string[];
   activePath: string | null;
   snapshot: VaultSnapshot | null;
   actions: VaultActions;
+  t: TFunc;
 }
 
-export function TabBar({ openPaths, activePath, snapshot, actions }: Props) {
+export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropOn, setDropOn] = useState<number | null>(null);
 
@@ -93,7 +95,7 @@ export function TabBar({ openPaths, activePath, snapshot, actions }: Props) {
                 "shrink-0 rounded p-0.5 hover:bg-surface2",
                 active ? "text-subtext" : "text-overlay opacity-0 group-hover:opacity-100",
               )}
-              title="关闭"
+              title={t("common.close")}
             >
               <X size={12} weight="bold" />
             </button>

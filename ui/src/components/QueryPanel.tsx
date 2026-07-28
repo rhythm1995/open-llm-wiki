@@ -12,11 +12,13 @@ import { Play, MagnifyingGlass, Warning } from "@phosphor-icons/react";
 import { ipc, type GroupRow, type NodeOut, type QqlRow, type ResultSet, type VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { cn } from "../lib/cn";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   root: string | null;
   snapshot: VaultSnapshot | null;
   actions: VaultActions;
+  t: TFunc;
 }
 
 const EXAMPLES = [
@@ -45,7 +47,7 @@ function parseShowCols(qql: string): ShowCol[] {
     });
 }
 
-export function QueryPanel({ root, snapshot, actions }: Props) {
+export function QueryPanel({ root, snapshot, actions, t }: Props) {
   const [qql, setQql] = useState(EXAMPLES[0]);
   const [result, setResult] = useState<ResultSet | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function QueryPanel({ root, snapshot, actions }: Props) {
       <div className="border-b border-crust p-2">
         <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-overlay">
           <MagnifyingGlass size={12} />
-          QQL 查询
+          {t("query.title")}
         </div>
         <textarea
           value={qql}
@@ -95,9 +97,9 @@ export function QueryPanel({ root, snapshot, actions }: Props) {
             className="flex items-center gap-1 rounded bg-blue px-2.5 py-1 text-[12px] font-medium text-crust disabled:opacity-40"
           >
             <Play size={13} weight="fill" />
-            运行
+            {t("query.run")}
           </button>
-          {loading && <span className="text-[11px] text-overlay">运行中…</span>}
+          {loading && <span className="text-[11px] text-overlay">{t("query.running")}</span>}
         </div>
         <div className="mt-1.5 flex flex-wrap gap-1">
           {EXAMPLES.map((ex) => (
@@ -120,7 +122,7 @@ export function QueryPanel({ root, snapshot, actions }: Props) {
             <pre className="whitespace-pre-wrap break-words font-mono">{error}</pre>
           </div>
         )}
-        {!error && result && <ResultView result={result} cols={cols} idToNode={idToNode} actions={actions} />}
+        {!error && result && <ResultView result={result} cols={cols} idToNode={idToNode} actions={actions} t={t} />}
       </div>
     </div>
   );
@@ -131,18 +133,20 @@ function ResultView({
   cols,
   idToNode,
   actions,
+  t,
 }: {
   result: ResultSet;
   cols: ShowCol[];
   idToNode: Map<number, NodeOut>;
   actions: VaultActions;
+  t: TFunc;
 }) {
   const titleOf = (id: number) => idToNode.get(id)?.title ?? String(id);
 
   if ("Count" in result) {
     return (
       <div className="p-4">
-        <div className="text-[11px] uppercase tracking-wide text-overlay">计数</div>
+        <div className="text-[11px] uppercase tracking-wide text-overlay">{t("query.count")}</div>
         <div className="mt-1 text-3xl font-semibold text-text">{result.Count}</div>
       </div>
     );
@@ -150,7 +154,7 @@ function ResultView({
   if ("Sum" in result) {
     return (
       <div className="p-4">
-        <div className="text-[11px] uppercase tracking-wide text-overlay">求和</div>
+        <div className="text-[11px] uppercase tracking-wide text-overlay">{t("query.sum")}</div>
         <div className="mt-1 text-3xl font-semibold text-text">
           {Number.isInteger(result.Sum) ? result.Sum : result.Sum.toFixed(2)}
         </div>
@@ -162,8 +166,8 @@ function ResultView({
       <table className="w-full text-[12px]">
         <thead className="sticky top-0 bg-mantle text-overlay">
           <tr>
-            <th className="border-b border-crust px-3 py-1 text-left font-normal">分组</th>
-            <th className="border-b border-crust px-3 py-1 text-right font-normal">计数</th>
+            <th className="border-b border-crust px-3 py-1 text-left font-normal">{t("query.group")}</th>
+            <th className="border-b border-crust px-3 py-1 text-right font-normal">{t("query.count")}</th>
           </tr>
         </thead>
         <tbody>
@@ -178,7 +182,7 @@ function ResultView({
     );
   }
   if ("List" in result) {
-    if (result.List.length === 0) return <Empty />;
+    if (result.List.length === 0) return <Empty t={t} />;
     return (
       <ul>
         {result.List.map((id) => {
@@ -199,8 +203,8 @@ function ResultView({
   }
   // Table
   if ("Table" in result) {
-    if (result.Table.length === 0) return <Empty />;
-    const header = ["笔记", ...cols.map((c) => c.label)];
+    if (result.Table.length === 0) return <Empty t={t} />;
+    const header = [t("query.noteCol"), ...cols.map((c) => c.label)];
     return (
       <table className="w-full text-[12px]">
         <thead className="sticky top-0 bg-mantle text-overlay">
@@ -238,10 +242,10 @@ function ResultView({
   return null;
 }
 
-function Empty() {
+function Empty({ t }: { t: TFunc }) {
   return (
     <p className="p-3 text-[12px] text-overlay">
-      无匹配行。(mock 浏览器模式下 QQL 返回空 —— 请用 Tauri 构建以获得完整求值。)
+      {t("query.empty")}
     </p>
   );
 }

@@ -12,13 +12,15 @@ import type { VaultEntry } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { restorePath } from "../lib/trash";
 import { cn } from "../lib/cn";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   trash: VaultEntry[];
   actions: VaultActions;
+  t: TFunc;
 }
 
-export function TrashPanel({ trash, actions }: Props) {
+export function TrashPanel({ trash, actions, t }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const sorted = [...trash].sort((a, b) =>
@@ -38,12 +40,14 @@ export function TrashPanel({ trash, actions }: Props) {
     <div className="flex h-full flex-col bg-base">
       <div className="flex items-center gap-2 border-b border-crust px-4 py-2.5">
         <Trash size={16} className="text-overlay" />
-        <h2 className="text-[13px] font-medium text-text">回收站</h2>
-        <span className="text-[12px] text-overlay">{trash.length} 篇</span>
+        <h2 className="text-[13px] font-medium text-text">{t("view.trash")}</h2>
+        <span className="text-[12px] text-overlay">
+          {t("trash.count", { n: trash.length })}
+        </span>
         <button
           onClick={() =>
             trash.length &&
-            window.confirm(`彻底清空回收站(共 ${trash.length} 篇)?此操作不可撤销。`) &&
+            window.confirm(t("trash.emptyConfirm", { n: trash.length })) &&
             run("empty", () => actions.emptyTrash())
           }
           disabled={trash.length === 0}
@@ -53,10 +57,10 @@ export function TrashPanel({ trash, actions }: Props) {
               ? "cursor-not-allowed text-overlay/50"
               : "text-red hover:bg-red/10",
           )}
-          title="清空回收站"
+          title={t("trash.emptyTitle")}
         >
           <Eraser size={13} />
-          清空
+          {t("trash.empty")}
         </button>
       </div>
 
@@ -64,8 +68,8 @@ export function TrashPanel({ trash, actions }: Props) {
         {sorted.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-overlay">
             <Trash size={28} weight="thin" />
-            <p className="text-[13px]">回收站为空。</p>
-            <p className="text-[12px]">删除的笔记会先到这里,可随时恢复。</p>
+            <p className="text-[13px]">{t("trash.emptyState")}</p>
+            <p className="text-[12px]">{t("trash.emptyHint")}</p>
           </div>
         ) : (
           sorted.map((e) => {
@@ -92,22 +96,22 @@ export function TrashPanel({ trash, actions }: Props) {
                   }
                   disabled={busy !== null}
                   className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[12px] text-subtext hover:bg-surface2 hover:text-text disabled:opacity-50"
-                  title="还原"
+                  title={t("trash.restore")}
                 >
                   <ArrowUUpLeft size={13} />
-                  还原
+                  {t("trash.restore")}
                 </button>
                 <button
                   onClick={() =>
-                    window.confirm(`彻底删除「${stem}」?此操作不可撤销。`) &&
+                    window.confirm(t("trash.purgeConfirm", { name: stem })) &&
                     run(`purge-${e.path}`, () => actions.purgeNote(e.path))
                   }
                   disabled={busy !== null}
                   className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[12px] text-overlay hover:bg-red/10 hover:text-red disabled:opacity-50"
-                  title="彻底删除"
+                  title={t("trash.purge")}
                 >
                   <Trash size={13} />
-                  删除
+                  {t("trash.purge")}
                 </button>
               </div>
             );

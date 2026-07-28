@@ -33,6 +33,7 @@ import { autocompletion, type CompletionContext, type CompletionResult } from "@
 import { oneDark } from "@codemirror/theme-one-dark";
 import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
 import type { Theme } from "../lib/theme";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   value: string;
@@ -45,6 +46,8 @@ interface Props {
   hasNote: boolean;
   /** 当前主题;编辑器据此切换 oneDark / 浅色。 */
   theme: Theme;
+  /** 本地化(仅空态文案用到)。 */
+  t: TFunc;
 }
 
 const LINK_RE = /\[\[([^\]]+)\]\]/g;
@@ -127,7 +130,7 @@ export interface EditorHandle {
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  { value, onChange, onFollow, noteTitles, hasNote, theme },
+  { value, onChange, onFollow, noteTitles, hasNote, theme, t },
   ref,
 ) {
   const host = useRef<HTMLDivElement | null>(null);
@@ -229,7 +232,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   if (!hasNote) {
     return (
       <div className="flex h-full items-center justify-center text-overlay">
-        <p className="text-[13px]">从左侧选择一篇笔记,或新建一篇开始。</p>
+        <p className="text-[13px]">{t("empty.selectOrCreate")}</p>
       </div>
     );
   }

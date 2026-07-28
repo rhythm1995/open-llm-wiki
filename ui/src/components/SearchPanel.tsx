@@ -8,14 +8,16 @@ import { useMemo, useState } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { ipc, type SearchHit, type VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   root: string | null;
   snapshot: VaultSnapshot | null;
   actions: VaultActions;
+  t: TFunc;
 }
 
-export function SearchPanel({ root, snapshot, actions }: Props) {
+export function SearchPanel({ root, snapshot, actions, t }: Props) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
 
@@ -42,14 +44,14 @@ export function SearchPanel({ root, snapshot, actions }: Props) {
       <div className="border-b border-crust p-2">
         <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-overlay">
           <MagnifyingGlass size={12} />
-          搜索
+          {t("search.title")}
         </div>
         <div className="flex items-center gap-1.5">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void run()}
-            placeholder="输入关键词(空格分隔,AND)"
+            placeholder={t("search.placeholder")}
             className="flex-1 rounded bg-crust px-2 py-1 text-[12px] text-text outline-none focus:ring-1 focus:ring-surface2"
           />
           <button
@@ -57,7 +59,7 @@ export function SearchPanel({ root, snapshot, actions }: Props) {
             disabled={!root}
             className="rounded bg-surface px-2 py-1 text-[12px] text-text hover:bg-surface2 disabled:opacity-40"
           >
-            搜索
+            {t("search.go")}
           </button>
         </div>
       </div>
@@ -87,7 +89,7 @@ export function SearchPanel({ root, snapshot, actions }: Props) {
             );
           })}
         {hits && hits.length === 0 && (
-          <p className="p-3 text-[12px] text-overlay">无结果。</p>
+          <p className="p-3 text-[12px] text-overlay">{t("search.empty")}</p>
         )}
       </div>
     </div>

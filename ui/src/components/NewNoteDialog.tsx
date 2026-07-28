@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Plus } from "@phosphor-icons/react";
+import type { TFunc } from "../lib/i18n";
 
 export interface TemplateOption {
   path: string;
@@ -19,9 +20,10 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   templates: TemplateOption[];
   onCreate: (name: string, templatePath: string | null) => void;
+  t: TFunc;
 }
 
-export function NewNoteDialog({ open, onOpenChange, templates, onCreate }: Props) {
+export function NewNoteDialog({ open, onOpenChange, templates, onCreate, t }: Props) {
   const [name, setName] = useState("");
   const [tpl, setTpl] = useState("");
 
@@ -46,7 +48,7 @@ export function NewNoteDialog({ open, onOpenChange, templates, onCreate }: Props
         <Dialog.Overlay className="fixed inset-0 bg-black/50" />
         <Dialog.Content className="fixed left-1/2 top-[25%] w-[440px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-surface2 bg-mantle p-4 shadow-2xl outline-none">
           <Dialog.Title className="mb-3 text-[14px] font-medium text-text">
-            新建笔记
+            {t("newNote.title")}
           </Dialog.Title>
           <input
             autoFocus
@@ -55,21 +57,21 @@ export function NewNoteDialog({ open, onOpenChange, templates, onCreate }: Props
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
-            placeholder="名称(可含路径,如 sources/foo)"
+            placeholder={t("newNote.namePlaceholder")}
             className="w-full rounded border border-surface bg-base px-2.5 py-1.5 text-[13px] text-text outline-none placeholder:text-overlay focus:border-blue"
           />
           {templates.length > 0 && (
             <label className="mt-3 block text-[12px] text-subtext">
-              模板
+              {t("newNote.template")}
               <select
                 value={tpl}
                 onChange={(e) => setTpl(e.target.value)}
                 className="mt-1 w-full rounded border border-surface bg-base px-2 py-1.5 text-[13px] text-text outline-none focus:border-blue"
               >
-                <option value="">(空模板)</option>
-                {templates.map((t) => (
-                  <option key={t.path} value={t.path}>
-                    {t.name}
+                <option value="">{t("newNote.noTemplate")}</option>
+                {templates.map((tplOpt) => (
+                  <option key={tplOpt.path} value={tplOpt.path}>
+                    {tplOpt.name}
                   </option>
                 ))}
               </select>
@@ -80,14 +82,14 @@ export function NewNoteDialog({ open, onOpenChange, templates, onCreate }: Props
               onClick={() => onOpenChange(false)}
               className="rounded px-3 py-1 text-[12px] text-subtext hover:bg-surface"
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               onClick={submit}
               disabled={!name.trim()}
               className="flex items-center gap-1 rounded bg-blue px-3 py-1 text-[12px] text-crust disabled:opacity-50"
             >
-              <Plus size={13} weight="bold" /> 创建
+              <Plus size={13} weight="bold" /> {t("newNote.create")}
             </button>
           </div>
         </Dialog.Content>

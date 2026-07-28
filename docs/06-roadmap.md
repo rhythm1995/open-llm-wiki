@@ -85,7 +85,7 @@ Tauri 2 外壳 + React 19:
 - ✅ **F-AI(读侧桥接)**:Inspector 顶部的"复制为 AI 上下文"——把当前笔记 + 其外向链接命中的邻居正文拼成一段 LLM 友好的 markdown 写入剪贴板,便于粘贴给任意 LLM。纯逻辑 `ai-context.ts`(5 项单测);mock 下同样可用(内存 Map)。**这是 AI-native 的读侧桥接,不是完整 MCP server**——后者让 agent 反向读写 vault,是独立工程(见下)。
 - ✅ **F-L10N(基础 + 顶层 chrome)**:i18n 基础设施——`i18n.ts` 字典 + `translate` + `{name}` 插值(10 项单测,含 zh/en 键集一致性校验)+ `useLocale` hook(localStorage 持久化,与 `useTheme` 同构)。已迁移**顶层 chrome**:Toolbar(含语言切换 Globe 按钮)/ StatusBar / CommandPalette / Inspector(tab + 空状态 + 属性编辑器)/ 阅读视图空状态。zh(默认)+ en 两语。
 
-  **诚实范围**:深层面板(GitPanel / QueryPanel / SearchPanel / TrashPanel / Sidebar / NewNoteDialog / Editor 空状态)的字符串仍为中文,沿用同一 `t()` 模式逐步迁移——基础设施已就位,迁移是机械工作,留待后续。
+  **诚实范围(已补完)**:深层面板(GitPanel / QueryPanel / SearchPanel / TrashPanel / Sidebar / NewNoteDialog / Editor 空状态、TabBar、GraphView 全量含过滤面板)的字符串已全部迁移到 `t()` 体系,zh/en 双语覆盖,i18n 键集一致性有单测守护。仅 Toolbar 的语言切换指示符(`中`/`EN`,刻意显示对方语言)与各文件的中文 doc 注释保持原样。
 
 ### Phase 5+ 续三(本会话,v1 范围之外)✅
 
@@ -100,7 +100,7 @@ Tauri 2 外壳 + React 19:
 |---|---|---|
 | F-GIT | ✅ 本会话 | 见上。 |
 | F-AI(+MCP) | 🟡 部分 | 读侧"复制 AI 上下文"已落地;**完整 MCP server**(让 agent 反向读写 vault:stdio/HTTP JSON-RPC、tools 注册、权限模型)是独立工程,不在此仓促做空心 stub。 |
-| F-L10N | 🟡 基础 | 基础设施 + 顶层 chrome 已落地(zh/en);深层面板字符串待迁移,模式已定。 |
+| F-L10N | ✅ 完整 | 基础设施 + 顶层 chrome + 全部深层面板(本会话补完)已落地(zh/en)。 |
 | F-CANVAS(tldraw) | ✅ 本会话 | 见下。tldraw 为非商用许可,已隔离 + 文档化边界(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
 | F-SHEET(ironcalc) | ⏳ 延后 | 同类:重依赖 + 嵌入式表格的持久化与单元格寻址。 |
 | F-PLUGIN | ⏳ 延后 | 需先设计插件 API 表面 + 沙箱 + 生命周期 + 分发。"插件系统"空心注册器是反价值的占位。 |

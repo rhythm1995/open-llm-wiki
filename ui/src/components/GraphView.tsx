@@ -33,11 +33,13 @@ import {
   type GraphFilters,
 } from "../lib/graph-filter";
 import { cn } from "../lib/cn";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   snapshot: VaultSnapshot | null;
   currentId: number | null;
   actions: VaultActions;
+  t: TFunc;
 }
 
 const W = 900;
@@ -71,7 +73,7 @@ function toggleSet<T>(set: Set<T>, v: T): Set<T> {
   return next;
 }
 
-export function GraphView({ snapshot, currentId, actions }: Props) {
+export function GraphView({ snapshot, currentId, actions, t }: Props) {
   const allNodes = snapshot?.nodes ?? [];
   const allEdges = snapshot?.edges ?? [];
 
@@ -224,7 +226,7 @@ export function GraphView({ snapshot, currentId, actions }: Props) {
   if (!snapshot || allNodes.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-overlay">
-        <p className="text-[13px]">图谱为空 —— 打开一个含链接的 vault。</p>
+        <p className="text-[13px]">{t("graph.empty")}</p>
       </div>
     );
   }
@@ -330,9 +332,9 @@ export function GraphView({ snapshot, currentId, actions }: Props) {
 
       {/* 统计 + 截断提示 */}
       <div className="pointer-events-none absolute left-2 top-2 rounded bg-mantle/80 px-2 py-1 text-[11px] text-overlay">
-        {filtered.nodeIds.size} 节点 · {filtered.edges.length} 边
+        {t("graph.stats", { nodes: filtered.nodeIds.size, edges: filtered.edges.length })}
         {allNodes.length > MAX_NODES && (
-          <span className="text-red"> · 布局截断至 {MAX_NODES}</span>
+          <span className="text-red">{t("graph.truncated", { n: MAX_NODES })}</span>
         )}
       </div>
 
@@ -341,21 +343,21 @@ export function GraphView({ snapshot, currentId, actions }: Props) {
         <button
           onClick={() => zoomBy(1.2)}
           className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text"
-          title="放大"
+          title={t("graph.zoomIn")}
         >
           <MagnifyingGlassPlus size={14} />
         </button>
         <button
           onClick={() => zoomBy(1 / 1.2)}
           className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text"
-          title="缩小"
+          title={t("graph.zoomOut")}
         >
           <MagnifyingGlassMinus size={14} />
         </button>
         <button
           onClick={() => setTf({ tx: 0, ty: 0, scale: 1 })}
           className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text"
-          title="重置视图"
+          title={t("graph.resetView")}
         >
           <ArrowsOutSimple size={14} />
         </button>
@@ -370,7 +372,7 @@ export function GraphView({ snapshot, currentId, actions }: Props) {
         )}
       >
         <Funnel size={13} />
-        过滤
+        {t("graph.filter")}
       </button>
 
       {showFilters && (
@@ -388,6 +390,7 @@ export function GraphView({ snapshot, currentId, actions }: Props) {
             })
           }
           nodes={allNodes}
+          t={t}
         />
       )}
     </div>
@@ -402,6 +405,7 @@ function FilterPanel({
   onChange,
   onReset,
   nodes,
+  t,
 }: {
   types: string[];
   tags: string[];
@@ -410,50 +414,51 @@ function FilterPanel({
   onChange: (f: GraphFilters) => void;
   onReset: () => void;
   nodes: { id: number; type: string | null; tags: string[] }[];
+  t: TFunc;
 }) {
-  const typeCount = (t: string) =>
-    nodes.filter((n) => (n.type ?? TYPELESS) === t).length;
-  const tagCount = (t: string) => nodes.filter((n) => n.tags.includes(t)).length;
+  const typeCount = (tp: string) =>
+    nodes.filter((n) => (n.type ?? TYPELESS) === tp).length;
+  const tagCount = (tp: string) => nodes.filter((n) => n.tags.includes(tp)).length;
 
   return (
     <div className="absolute right-2 top-9 max-h-[calc(100%-3rem)] w-52 overflow-y-auto rounded bg-mantle/95 p-2 text-[11px] shadow-lg ring-1 ring-crust">
-      <Section title="类型">
-        {types.map((t) => (
-          <label key={t} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-subtext">
+      <Section title={t("graph.typeSection")}>
+        {types.map((tp) => (
+          <label key={tp} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-subtext">
             <input
               type="checkbox"
-              checked={filters.types.has(t)}
-              onChange={() => onChange({ ...filters, types: toggleSet(filters.types, t) })}
+              checked={filters.types.has(tp)}
+              onChange={() => onChange({ ...filters, types: toggleSet(filters.types, tp) })}
               className="accent-[var(--color-blue)]"
             />
             <span
               className="inline-block h-2 w-2 rounded-full"
-              style={{ background: colorFor(t === TYPELESS ? null : t) }}
+              style={{ background: colorFor(tp === TYPELESS ? null : tp) }}
             />
-            <span className="flex-1 truncate">{t === TYPELESS ? "无类型" : t}</span>
-            <span className="text-overlay">{typeCount(t)}</span>
+            <span className="flex-1 truncate">{tp === TYPELESS ? t("graph.typeless") : tp}</span>
+            <span className="text-overlay">{typeCount(tp)}</span>
           </label>
         ))}
       </Section>
 
       {tags.length > 0 && (
-        <Section title="标签">
-          {tags.map((t) => (
-            <label key={t} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-subtext">
+        <Section title={t("graph.tagSection")}>
+          {tags.map((tp) => (
+            <label key={tp} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-subtext">
               <input
                 type="checkbox"
-                checked={filters.tags.has(t)}
-                onChange={() => onChange({ ...filters, tags: toggleSet(filters.tags, t) })}
+                checked={filters.tags.has(tp)}
+                onChange={() => onChange({ ...filters, tags: toggleSet(filters.tags, tp) })}
                 className="accent-[var(--color-teal)]"
               />
-              <span className="flex-1 truncate">#{t}</span>
-              <span className="text-overlay">{tagCount(t)}</span>
+              <span className="flex-1 truncate">#{tp}</span>
+              <span className="text-overlay">{tagCount(tp)}</span>
             </label>
           ))}
         </Section>
       )}
 
-      <Section title="边类型">
+      <Section title={t("graph.edgeSection")}>
         {(["wiki", "relation"] as EdgeKind[]).map((k) => (
           <label key={k} className="flex cursor-pointer items-center gap-1.5 py-0.5 text-subtext">
             <input
@@ -461,7 +466,7 @@ function FilterPanel({
               checked={filters.relations.has(k)}
               onChange={() => onChange({ ...filters, relations: toggleSet(filters.relations, k) })}
             />
-            <span>{k === "wiki" ? "正文链接" : "frontmatter 关系"}</span>
+            <span>{k === "wiki" ? t("graph.edgeWiki") : t("graph.edgeRelation")}</span>
           </label>
         ))}
       </Section>
@@ -472,7 +477,7 @@ function FilterPanel({
           checked={filters.hideOrphans}
           onChange={() => onChange({ ...filters, hideOrphans: !filters.hideOrphans })}
         />
-        <span>隐藏孤儿节点</span>
+        <span>{t("graph.hideOrphans")}</span>
       </label>
 
       <div className="mt-2 border-t border-crust pt-2">
@@ -480,14 +485,14 @@ function FilterPanel({
           <>
             <div className="mb-1 flex items-center justify-between text-subtext">
               <span className="flex items-center gap-1">
-                <Target size={11} /> 聚焦邻域
+                <Target size={11} /> {t("graph.focusNeighborhood")}
               </span>
               <button onClick={() => onChange({ ...filters, focusId: null })} className="text-overlay hover:text-red">
                 <X size={12} />
               </button>
             </div>
             <div className="flex items-center gap-1 text-overlay">
-              <span>跳数</span>
+              <span>{t("graph.hops")}</span>
               <input
                 type="range"
                 min={1}
@@ -506,7 +511,7 @@ function FilterPanel({
             className="w-full rounded bg-surface px-1.5 py-1 text-subtext hover:bg-surface2 disabled:opacity-40"
           >
             <span className="flex items-center justify-center gap-1">
-              <Target size={11} /> 聚焦当前笔记
+              <Target size={11} /> {t("graph.focusCurrent")}
             </span>
           </button>
         )}
@@ -516,7 +521,7 @@ function FilterPanel({
         onClick={onReset}
         className="mt-2 w-full rounded bg-surface px-1.5 py-1 text-overlay hover:bg-surface2"
       >
-        重置过滤
+        {t("graph.resetFilter")}
       </button>
     </div>
   );

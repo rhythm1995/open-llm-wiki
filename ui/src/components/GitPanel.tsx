@@ -19,9 +19,11 @@ import {
   type GitStatusEntry,
 } from "../lib/git-parse";
 import { cn } from "../lib/cn";
+import type { TFunc } from "../lib/i18n";
 
 interface Props {
   root: string | null;
+  t: TFunc;
 }
 
 interface GitState {
@@ -40,7 +42,7 @@ const BADGE_COLOR: Record<string, string> = {
   略: "text-overlay",
 };
 
-export function GitPanel({ root }: Props) {
+export function GitPanel({ root, t }: Props) {
   const [data, setData] = useState<GitState>({ status: [], log: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function GitPanel({ root }: Props) {
   if (!root) {
     return (
       <div className="flex h-full items-center justify-center text-overlay">
-        <p className="text-[13px]">未打开 vault。</p>
+        <p className="text-[13px]">{t("git.empty")}</p>
       </div>
     );
   }
@@ -105,22 +107,22 @@ export function GitPanel({ root }: Props) {
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4">
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-[13px] font-semibold text-text">Git</h2>
+        <h2 className="text-[13px] font-semibold text-text">{t("view.git")}</h2>
         <button
           onClick={() => void refresh()}
           disabled={loading}
           className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] text-subtext hover:bg-surface disabled:opacity-50"
-          title="刷新"
+          title={t("git.refresh")}
         >
           <ArrowsClockwise size={13} className={loading ? "animate-spin" : ""} />
-          刷新
+          {t("git.refresh")}
         </button>
         <span className="truncate text-[11px] text-overlay">{root}</span>
       </div>
 
       {mock && (
         <div className="mb-3 rounded border border-yellow/40 bg-yellow/10 px-2 py-1.5 text-[12px] text-yellow">
-          mock 模式:git 命令不可用。请在桌面 app 中打开一个 git 仓库后使用。
+          {t("git.mockHint")}
         </div>
       )}
 
@@ -136,10 +138,10 @@ export function GitPanel({ root }: Props) {
       {/* 变更清单 */}
       <section className="mb-4">
         <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          变更({data.status.length})
+          {t("git.changes", { n: data.status.length })}
         </div>
         {data.status.length === 0 ? (
-          <p className="text-[12px] text-overlay">工作区干净,无待提交改动。</p>
+          <p className="text-[12px] text-overlay">{t("git.clean")}</p>
         ) : (
           <ul className="space-y-0.5">
             {data.status.map((e, i) => {
@@ -173,12 +175,12 @@ export function GitPanel({ root }: Props) {
       {/* 提交 */}
       <section className="mb-4">
         <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          提交(git add -A + commit)
+          {t("git.commitSection")}
         </div>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="提交信息…"
+          placeholder={t("git.commitPlaceholder")}
           rows={2}
           className="w-full resize-none rounded border border-surface bg-base px-2 py-1.5 text-[12px] text-text outline-none focus:border-blue"
         />
@@ -188,17 +190,17 @@ export function GitPanel({ root }: Props) {
           className="mt-1.5 flex items-center gap-1 rounded bg-green/20 px-2.5 py-1 text-[12px] text-green hover:bg-green/30 disabled:opacity-40"
         >
           <GitCommit size={13} />
-          {committing ? "提交中…" : "提交全部改动"}
+          {committing ? t("git.committing") : t("git.commitAll")}
         </button>
       </section>
 
       {/* 最近提交 */}
       <section>
         <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          最近提交({data.log.length})
+          {t("git.recentCommits", { n: data.log.length })}
         </div>
         {data.log.length === 0 ? (
-          <p className="text-[12px] text-overlay">无提交历史。</p>
+          <p className="text-[12px] text-overlay">{t("git.noHistory")}</p>
         ) : (
           <ul className="space-y-1">
             {data.log.map((c) => (

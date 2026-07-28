@@ -20,6 +20,7 @@ import {
 import type { VaultEntry } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { cn } from "../lib/cn";
+import type { TFunc } from "../lib/i18n";
 
 interface TreeNode {
   name: string;
@@ -64,9 +65,10 @@ interface Props {
   actions: VaultActions;
   onNewNote: () => void;
   onNewCanvas: () => void;
+  t: TFunc;
 }
 
-export function Sidebar({ entries, currentPath, actions, onNewNote, onNewCanvas }: Props) {
+export function Sidebar({ entries, currentPath, actions, onNewNote, onNewCanvas, t }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const tree = useMemo(() => buildTree(entries), [entries]);
 
@@ -118,13 +120,13 @@ export function Sidebar({ entries, currentPath, actions, onNewNote, onNewCanvas 
     const stem = node.name.replace(/\.(md|canvas)$/i, "");
     const onRename = (e: React.MouseEvent) => {
       e.stopPropagation();
-      const next = window.prompt("重命名为:", stem);
+      const next = window.prompt(t("sidebar.renamePrompt"), stem);
       if (next && next.trim()) void actions.renameNote(node.path, next.trim());
     };
     const onDelete = (e: React.MouseEvent) => {
       e.stopPropagation();
       // 软删:移入回收站,可从回收站恢复(或彻底清空)。
-      if (window.confirm(`移入回收站「${stem}」?\n可在「回收站」视图恢复或彻底删除。`))
+      if (window.confirm(t("sidebar.trashConfirm", { name: stem })))
         void actions.trashNote(node.path);
     };
     return (
@@ -145,14 +147,14 @@ export function Sidebar({ entries, currentPath, actions, onNewNote, onNewCanvas 
         <span className="min-w-0 flex-1 truncate">{stem}</span>
         <button
           onClick={onRename}
-          title="重命名"
+          title={t("sidebar.rename")}
           className="shrink-0 rounded p-0.5 text-overlay opacity-0 hover:text-text group-hover:opacity-100"
         >
           <PencilSimple size={12} />
         </button>
         <button
           onClick={onDelete}
-          title="删除"
+          title={t("sidebar.delete")}
           className="shrink-0 rounded p-0.5 text-overlay opacity-0 hover:text-red group-hover:opacity-100"
         >
           <Trash size={12} />
@@ -171,33 +173,33 @@ export function Sidebar({ entries, currentPath, actions, onNewNote, onNewCanvas 
           className="flex items-center gap-1.5 rounded bg-surface px-2 py-1 text-[12px] text-text hover:bg-surface2"
         >
           <FolderOpen size={14} weight="bold" />
-          打开 Vault
+          {t("sidebar.openVault")}
         </button>
         <button
           onClick={onNew}
           className="flex items-center gap-1 rounded bg-surface px-2 py-1 text-[12px] text-text hover:bg-surface2"
-          title="新建笔记"
+          title={t("sidebar.newNote")}
         >
           <Plus size={14} weight="bold" />
-          新建
+          {t("sidebar.newNoteShort")}
         </button>
         <button
           onClick={onNewCanvas}
           className="flex items-center gap-1 rounded bg-surface px-2 py-1 text-[12px] text-text hover:bg-surface2"
-          title="新建画布"
+          title={t("sidebar.newCanvas")}
         >
           <Rectangle size={14} weight="bold" />
-          画布
+          {t("sidebar.newCanvas")}
         </button>
       </div>
       <div className="flex items-center gap-1 px-3 py-1.5 text-[11px] uppercase tracking-wide text-overlay">
         <Hash size={12} />
-        文件
+        {t("sidebar.files")}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
         {entries.length === 0 ? (
           <p className="px-2 py-4 text-[12px] text-overlay">
-            尚未打开 vault。点击「打开 Vault」选择一个 Markdown 文件夹。
+            {t("sidebar.empty")}
           </p>
         ) : (
           renderNode(tree, 0)
