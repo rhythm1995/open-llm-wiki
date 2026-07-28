@@ -7,7 +7,7 @@
  *
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Warning, X, Eye, PencilSimple } from "@phosphor-icons/react";
 import { Sidebar } from "./components/Sidebar";
 import { Editor, type EditorHandle } from "./components/Editor";
@@ -29,6 +29,13 @@ import { useLocale } from "./lib/useLocale";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isTemplatePath, templateName } from "./lib/template";
+import { isCanvasPath } from "./lib/canvas";
+
+// 画布视图懒加载:tldraw 是重依赖 + 非商用许可,隔离到独立 chunk(见 THIRD_PARTY_NOTICES)。
+// 不开画布就不下载 tldraw;许可边界也随之收束在 CanvasView 这一个模块里。
+const CanvasView = lazy(() =>
+  import("./components/CanvasView").then((m) => ({ default: m.CanvasView })),
+);
 
 export default function App() {
   const { state, currentNode, backlinks, actions } = useVault();
@@ -39,6 +46,8 @@ export default function App() {
   const { locale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
   const [editMode, setEditMode] = useState<"edit" | "read">("edit");
+  // 当前页是否为 tldraw 画布(.canvas):是则中栏渲染 CanvasView,隐藏编辑/阅读切换与属性面板。
+  const isCanvas = state.currentPath !== null && isCanvasPath(state.currentPath);
 
   /** `[[wikilink]]` 跟随:解析为路径则跳转,否则提示新建(编辑器与阅读视图共用)。 */
   const handleFollow = useCallback(
@@ -52,6 +61,12 @@ export default function App() {
     },
     [actions, state.snapshot],
   );
+
+  /** 新建画布(F-CANVAS):询问名称后建一个空白 `.canvas`。 */
+  const handleNewCanvas = useCallback(() => {
+    const name = window.prompt("画布名称:", "whiteboard");
+    if (name && name.trim()) void actions.createCanvas(name.trim());
+  }, [actions]);
 
   // vault 的 templates/ 目录即模板候选(客户端过滤,无需后端特例)。
   const templates = useMemo<TemplateOption[]>(
@@ -126,6 +141,7 @@ export default function App() {
             currentPath={state.currentPath}
             actions={actions}
             onNewNote={() => setNewNoteOpen(true)}
+            onNewCanvas={handleNewCanvas}
           />
         </div>
 
@@ -140,7 +156,22 @@ export default function App() {
                   actions={actions}
                 />
                 <div className="relative min-h-0 flex-1">
-                  {editMode === "edit" ? (
+                  {isCanvas ? (
+                    <Suspense
+                      fallback={
+                        <div className="flex h-full items-center justify-center text-[13px] text-overlay">
+                          画布加载中…
+                        </div>
+                      }
+                    >
+                      <CanvasView
+                        key={state.currentPath}
+                        content={state.content}
+                        onSave={actions.setContent}
+                        t={t}
+                      />
+                    </Suspense>
+                  ) : editMode === "edit" ? (
                     <Editor
                       ref={editorRef}
                       value={state.content}
@@ -158,7 +189,7 @@ export default function App() {
                       t={t}
                     />
                   )}
-                  {state.currentPath !== null && (
+                  {!isCanvas && state.currentPath !== null && (
                     <button
                       onClick={() =>
                         setEditMode((m) => (m === "edit" ? "read" : "edit"))
@@ -205,7 +236,7 @@ export default function App() {
             {view === "git" && <GitPanel root={state.root} />}
           </div>
 
-          {view === "editor" && (
+          {view === "editor" && !isCanvas && (
             <div className="w-64 shrink-0 border-l border-crust">
               <Inspector
                 node={currentNode}
@@ -228,6 +259,7 @@ export default function App() {
         snapshot={state.snapshot}
         actions={actions}
         onNewNote={() => setNewNoteOpen(true)}
+        onNewCanvas={handleNewCanvas}
         onNavigate={(v) => {
           setView(v);
         }}

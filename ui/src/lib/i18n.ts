@@ -73,6 +73,10 @@ export const dict: Record<Locale, Record<string, string>> = {
     "empty.selectOrCreate": "从左侧选择一篇笔记,或新建一篇开始。",
     "common.close": "关闭",
     "common.confirm": "确认",
+    // 画布(F-CANVAS;tldraw,非商用许可,见 THIRD_PARTY_NOTICES)
+    "canvas.poweredBy": "由 tldraw 驱动",
+    "palette.action.newCanvas": "新建画布",
+    "sidebar.newCanvas": "画布",
   },
   en: {
     "view.editor": "Editor",
@@ -117,6 +121,9 @@ export const dict: Record<Locale, Record<string, string>> = {
     "empty.selectOrCreate": "Select a note from the left, or create one to start.",
     "common.close": "Close",
     "common.confirm": "Confirm",
+    "canvas.poweredBy": "Powered by tldraw",
+    "palette.action.newCanvas": "New canvas",
+    "sidebar.newCanvas": "Canvas",
   },
 };
 

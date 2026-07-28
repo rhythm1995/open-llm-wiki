@@ -131,8 +131,13 @@ fn list_vault(root: String) -> Result<Vec<VaultEntry>, String> {
         let name = e.file_name().to_string_lossy().to_string();
         let p = e.path();
         let is_dir = p.is_dir();
-        if !is_dir && p.extension().and_then(|x| x.to_str()) != Some("md") {
-            continue;
+        // 文件树里允许 .md(笔记)与 .canvas(tldraw 画布)。其余扩展名隐藏。
+        // 索引(build_index)只取 .md —— 画布 JSON 不会被当作 markdown 解析。
+        if !is_dir {
+            let ext = p.extension().and_then(|x| x.to_str());
+            if ext != Some("md") && ext != Some("canvas") {
+                continue;
+            }
         }
         let rel = p
             .strip_prefix(root_path)

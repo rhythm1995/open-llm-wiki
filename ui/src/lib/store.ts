@@ -238,6 +238,35 @@ export function useVault() {
     [createNote],
   );
 
+  /**
+   * 新建一张 tldraw 画布(F-CANVAS):写空 `.canvas` 文件并打开。画布内容是
+   * tldraw 快照 JSON,由 CanvasView 的 store.listen 防抖回写;这里只负责落空壳。
+   * 与 createNote 分开:扩展名不同、初始内容为空串、不走模板。
+   */
+  const createCanvas = useCallback(
+    async (name: string) => {
+      const root = latest.current.root;
+      if (!root) return;
+      const path = name.toLowerCase().endsWith(".canvas") ? name : `${name}.canvas`;
+      try {
+        await ipc.createNote(root, path, "");
+        const entries = await ipc.listVault(root);
+        setState((s) => ({
+          ...s,
+          entries,
+          currentPath: path,
+          openPaths: s.openPaths.includes(path) ? s.openPaths : [...s.openPaths, path],
+          content: "",
+          dirty: false,
+        }));
+        await refreshIndex(root);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [refreshIndex],
+  );
+
   const deleteNote = useCallback(
     async (path: string) => {
       const root = latest.current.root;
@@ -563,6 +592,7 @@ export function useVault() {
       setContent,
       createNote,
       createNoteFromTemplate,
+      createCanvas,
       deleteNote,
       renameNote,
       trashNote,

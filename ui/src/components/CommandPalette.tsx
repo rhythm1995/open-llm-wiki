@@ -16,6 +16,7 @@ import {
   Trash,
   FileText,
   GitBranch,
+  Rectangle,
 } from "@phosphor-icons/react";
 import type { VaultActions } from "../lib/store";
 import type { VaultSnapshot } from "../lib/ipc";
@@ -30,6 +31,7 @@ interface Props {
   snapshot: VaultSnapshot | null;
   actions: VaultActions;
   onNewNote: () => void;
+  onNewCanvas: () => void;
   onNavigate: (v: MainView) => void;
   t: TFunc;
 }
@@ -40,6 +42,7 @@ export function CommandPalette({
   snapshot,
   actions,
   onNewNote,
+  onNewCanvas,
   onNavigate,
   t,
 }: Props) {
@@ -61,6 +64,7 @@ export function CommandPalette({
     () => [
       { id: "open", label: t("palette.action.openVault"), icon: FolderOpen, run: () => actions.openPicker() },
       { id: "new", label: t("palette.action.newNote"), icon: Plus, run: () => onNewNote() },
+      { id: "new-canvas", label: t("palette.action.newCanvas"), icon: Rectangle, run: () => onNewCanvas() },
       { id: "v-editor", label: `${t("palette.action.viewPrefix")}${t("view.editor")}`, icon: PencilSimple, run: () => onNavigate("editor") },
       { id: "v-graph", label: `${t("palette.action.viewPrefix")}${t("view.graph")}`, icon: Graph, run: () => onNavigate("graph") },
       { id: "v-query", label: `${t("palette.action.viewPrefix")}${t("view.query")}`, icon: ListMagnifyingGlass, run: () => onNavigate("query") },
@@ -68,7 +72,7 @@ export function CommandPalette({
       { id: "v-trash", label: `${t("palette.action.viewPrefix")}${t("view.trash")}`, icon: Trash, run: () => onNavigate("trash") },
       { id: "v-git", label: `${t("palette.action.viewPrefix")}${t("view.git")}`, icon: GitBranch, run: () => onNavigate("git") },
     ].filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())),
-    [q, actions, onNavigate, t],
+    [q, actions, onNavigate, onNewCanvas, t],
   );
 
   const total = actions2.length + filtered.length;

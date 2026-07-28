@@ -96,6 +96,8 @@ last_verified: {{date}}
 > 摘要占位。
 
 `,
+    // F-CANVAS 演示:空白 tldraw 画布(空串 = 新画布;首次落笔后存为快照 JSON)。
+    "whiteboard.canvas": "",
   };
   const m = new Map<string, string>();
   for (const [k, v] of Object.entries(notes)) m.set(k, v);
@@ -188,9 +190,13 @@ interface Parsed {
   typeStr: string | null;
 }
 
-/** 解析全部笔记(按路径排序;node id 即下标,buildSnapshot 与 search 共用)。 */
+/** 解析全部笔记(按路径排序;node id 即下标,buildSnapshot 与 search 共用)。
+ *  仅取 `.md`;`.canvas`(tldraw 快照 JSON)不当作 markdown 解析,避免把 JSON
+ *  误当 frontmatter / wikilink 污染图谱。画布在文件树里仍可见(list_vault 不过滤)。 */
 function parseAll(): Parsed[] {
-  const entries = [...vault.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const entries = [...vault.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .filter(([path]) => path.toLowerCase().endsWith(".md"));
   return entries.map(([path, text]) => {
     const { fm, body } = splitFrontmatter(text);
     const meta = parseYamlScalar(fm);

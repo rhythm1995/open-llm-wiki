@@ -15,6 +15,7 @@ import {
   Hash,
   PencilSimple,
   Trash,
+  Rectangle,
 } from "@phosphor-icons/react";
 import type { VaultEntry } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
@@ -62,9 +63,10 @@ interface Props {
   currentPath: string | null;
   actions: VaultActions;
   onNewNote: () => void;
+  onNewCanvas: () => void;
 }
 
-export function Sidebar({ entries, currentPath, actions, onNewNote }: Props) {
+export function Sidebar({ entries, currentPath, actions, onNewNote, onNewCanvas }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const tree = useMemo(() => buildTree(entries), [entries]);
 
@@ -112,7 +114,8 @@ export function Sidebar({ entries, currentPath, actions, onNewNote }: Props) {
     }
     // 文件
     const active = currentPath === node.path;
-    const stem = node.name.replace(/\.md$/i, "");
+    const isCanvas = /\.canvas$/i.test(node.name);
+    const stem = node.name.replace(/\.(md|canvas)$/i, "");
     const onRename = (e: React.MouseEvent) => {
       e.stopPropagation();
       const next = window.prompt("重命名为:", stem);
@@ -134,7 +137,11 @@ export function Sidebar({ entries, currentPath, actions, onNewNote }: Props) {
         )}
         style={{ paddingLeft: depth * 12 + 6 }}
       >
-        <FileText size={15} className="shrink-0 text-blue" />
+        {isCanvas ? (
+          <Rectangle size={15} className="shrink-0 text-mauve" weight="fill" />
+        ) : (
+          <FileText size={15} className="shrink-0 text-blue" />
+        )}
         <span className="min-w-0 flex-1 truncate">{stem}</span>
         <button
           onClick={onRename}
@@ -173,6 +180,14 @@ export function Sidebar({ entries, currentPath, actions, onNewNote }: Props) {
         >
           <Plus size={14} weight="bold" />
           新建
+        </button>
+        <button
+          onClick={onNewCanvas}
+          className="flex items-center gap-1 rounded bg-surface px-2 py-1 text-[12px] text-text hover:bg-surface2"
+          title="新建画布"
+        >
+          <Rectangle size={14} weight="bold" />
+          画布
         </button>
       </div>
       <div className="flex items-center gap-1 px-3 py-1.5 text-[11px] uppercase tracking-wide text-overlay">
