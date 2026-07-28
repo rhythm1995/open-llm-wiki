@@ -5,7 +5,7 @@
  * 点击激活、× 关闭、中键关闭、**拖拽重排**(HTML5 DnD → reorderTab)。标题取自
  * 快照节点,缺省回退到文件名。
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import type { VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
@@ -23,6 +23,12 @@ interface Props {
 export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropOn, setDropOn] = useState<number | null>(null);
+  // 激活标签的 DOM 引用:激活/打开新标签时把它滚进可视区(溢出场景)。
+  const activeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activePath, openPaths.length]);
 
   if (openPaths.length === 0) return null;
   const titleByPath = new Map((snapshot?.nodes ?? []).map((n) => [n.path, n.title]));
@@ -36,6 +42,7 @@ export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
         return (
           <div
             key={path}
+            ref={active ? activeRef : undefined}
             role="tab"
             tabIndex={0}
             draggable
