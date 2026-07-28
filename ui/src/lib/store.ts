@@ -12,6 +12,7 @@ import { ipc, type EdgeOut, type NodeOut, type VaultEntry, type VaultSnapshot } 
 import { tabReduce } from "./tabs";
 import { restorePath, toTrashPath, uniqueName } from "./trash";
 import { applyTemplate, defaultTemplate } from "./template";
+import { buildAiContext } from "./ai-context";
 
 export interface Backlink {
   from: NodeOut;
@@ -493,6 +494,47 @@ export function useVault() {
   /** 清除错误态(错误横幅关闭时调用)。 */
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
 
+  /**
+   * 复制为 AI 上下文(F-AI 读侧桥接):把当前笔记 + 其外向链接命中的邻居正文,拼成
+   * 一段 markdown 写入剪贴板,便于粘贴给任意 LLM。邻居正文经 readNote 现取;mock 模式
+   * 下同样可用(内存 Map)。完整 MCP server(让 agent 反向读写 vault)见路线图。
+   * 返回拼好的 markdown(剪贴板被禁用时仍返回,便于降级)。
+   */
+  const copyAiContext = useCallback(async (): Promise<string | null> => {
+    const { root, path, content } = latest.current;
+    const snap = state.snapshot;
+    if (!root || !path || !snap) return null;
+    const cur = snap.nodes.find((n) => n.path === path) ?? null;
+    // 外向链接命中的邻居:去重、保留首次出现顺序。
+    const seen = new Set<number>();
+    const neighborIds: number[] = [];
+    if (cur) {
+      for (const e of snap.edges) {
+        if (e.from === cur.id && e.to != null && !seen.has(e.to)) {
+          seen.add(e.to);
+          neighborIds.push(e.to);
+        }
+      }
+    }
+    const neighbors = [];
+    for (const id of neighborIds) {
+      const n = snap.nodes.find((x) => x.id === id);
+      if (!n) continue;
+      const c = await ipc.readNote(root, n.path);
+      neighbors.push({ path: n.path, title: n.title, content: c });
+    }
+    const md = buildAiContext({
+      current: { path, title: cur?.title ?? path, content },
+      neighbors,
+    });
+    try {
+      await navigator.clipboard.writeText(md);
+    } catch {
+      // 剪贴板被禁用(无 https / 权限)时静默;文本仍返回,调用方可降级提示。
+    }
+    return md;
+  }, [state.snapshot]);
+
   // ────────── 派生:当前节点 + 反链 ──────────
   const currentNode = useMemo<NodeOut | null>(() => {
     if (!state.snapshot || !state.currentPath) return null;
@@ -533,6 +575,7 @@ export function useVault() {
       reorderTab,
       clearError,
       saveNow,
+      copyAiContext,
       refreshIndex: () => state.root && refreshIndex(state.root),
     },
   };
