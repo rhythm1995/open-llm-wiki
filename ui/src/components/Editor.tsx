@@ -14,7 +14,7 @@
  * 选 CodeMirror 6 而非 BlockNote 作为 MVP 编辑器:CM 对纯 Markdown 文件的
  * 原生 round-trip 最稳(无富文本↔md 转换损耗),体积更小。富文本所见即所得留待 v2。
  */
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import {
   EditorView,
   keymap,
@@ -121,9 +121,34 @@ function makeWikilinkCompletions(
   };
 }
 
-export function Editor({ value, onChange, onFollow, noteTitles, hasNote, theme }: Props) {
+export interface EditorHandle {
+  /** 把编辑器滚动到某行(1-based),尽量居中。供大纲面板点击跳转。 */
+  scrollToLine: (line: number) => void;
+}
+
+export const Editor = forwardRef<EditorHandle, Props>(function Editor(
+  { value, onChange, onFollow, noteTitles, hasNote, theme },
+  ref,
+) {
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToLine: (lineNo: number) => {
+        const v = view.current;
+        if (!v) return;
+        const ln = Math.min(Math.max(1, lineNo), v.state.doc.lines);
+        const line = v.state.doc.line(ln);
+        v.dispatch({
+          effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+        });
+      },
+    }),
+    [],
+  );
+
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onFollowRef = useRef(onFollow);
@@ -210,4 +235,4 @@ export function Editor({ value, onChange, onFollow, noteTitles, hasNote, theme }
   }
 
   return <div ref={host} className="h-full overflow-auto" />;
-}
+});

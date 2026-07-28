@@ -7,10 +7,10 @@
  *
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Warning, X } from "@phosphor-icons/react";
 import { Sidebar } from "./components/Sidebar";
-import { Editor } from "./components/Editor";
+import { Editor, type EditorHandle } from "./components/Editor";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
@@ -33,6 +33,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newNoteOpen, setNewNoteOpen] = useState(false);
   const { theme, toggle: toggleTheme } = useTheme();
+  const editorRef = useRef<EditorHandle>(null);
 
   // vault 的 templates/ 目录即模板候选(客户端过滤,无需后端特例)。
   const templates = useMemo<TemplateOption[]>(
@@ -107,6 +108,7 @@ export default function App() {
                 />
                 <div className="min-h-0 flex-1">
                   <Editor
+                    ref={editorRef}
                     value={state.content}
                     onChange={actions.setContent}
                     hasNote={state.currentPath !== null}
@@ -162,6 +164,7 @@ export default function App() {
                 content={state.content}
                 backlinks={backlinks}
                 actions={actions}
+                onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
               />
             </div>
           )}

@@ -12,6 +12,7 @@ import {
   ArrowsClockwise,
   ArrowsLeftRight,
   BookOpen,
+  List,
   Tag,
   Trash,
   Plus,
@@ -27,6 +28,7 @@ import {
   setFrontmatterValue,
   type FmValue,
 } from "../lib/frontmatter";
+import { parseOutline } from "../lib/outline";
 import { cn } from "../lib/cn";
 
 interface Props {
@@ -35,6 +37,8 @@ interface Props {
   content: string;
   backlinks: Backlink[];
   actions: VaultActions;
+  /** 大纲点击跳转:把编辑器滚动到某行(1-based)。 */
+  onJumpToLine: (line: number) => void;
 }
 
 /** status → 彩色 chip 的启发式映射(按词根模糊匹配常见状态)。颜色后续可配(P2)。 */
@@ -49,7 +53,7 @@ function statusChipClass(status: string): string {
   return "bg-surface text-subtext";
 }
 
-export function Inspector({ node, content, backlinks, actions }: Props) {
+export function Inspector({ node, content, backlinks, actions, onJumpToLine }: Props) {
   const [tab, setTab] = useState("backlinks");
 
   if (!node) {
@@ -60,10 +64,11 @@ export function Inspector({ node, content, backlinks, actions }: Props) {
     );
   }
 
-  // entries 每次 render 由 content 派生;编辑后 content 变 → 自动刷新。
+  // entries / outline 每次 render 由 content 派生;编辑后 content 变 → 自动刷新。
   const entries = parseFrontmatterEntries(content);
   const statusRaw = entries.find(([k]) => k === "status")?.[1];
   const statusStr = typeof statusRaw === "string" ? statusRaw : "";
+  const outline = parseOutline(stripFrontmatter(content));
 
   return (
     <div className="flex h-full flex-col bg-mantle">
@@ -124,6 +129,18 @@ export function Inspector({ node, content, backlinks, actions }: Props) {
             <ArrowsClockwise size={13} />
             属性 {entries.length}
           </Tabs.Trigger>
+          <Tabs.Trigger
+            value="outline"
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5",
+              tab === "outline"
+                ? "border-b-2 border-blue text-text"
+                : "text-overlay hover:text-subtext",
+            )}
+          >
+            <List size={13} />
+            大纲 {outline.length}
+          </Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="backlinks" className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -160,9 +177,36 @@ export function Inspector({ node, content, backlinks, actions }: Props) {
           {/* 切笔记时整体 remount,清掉各行的本地草稿态。 */}
           <PropsEditor key={node.path} content={content} entries={entries} actions={actions} />
         </Tabs.Content>
+
+        <Tabs.Content value="outline" className="min-h-0 flex-1 overflow-y-auto p-2">
+          {outline.length === 0 ? (
+            <p className="px-1 py-2 text-[12px] text-overlay">此笔记无标题。</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {outline.map((h, i) => (
+                <li key={`${h.line}-${i}`}>
+                  <button
+                    onClick={() => onJumpToLine(h.line)}
+                    className="block w-full truncate rounded py-1 text-left text-[12px] text-subtext hover:bg-surface hover:text-text"
+                    style={{ paddingLeft: (h.level - 1) * 12 + 8 }}
+                    title={h.text}
+                  >
+                    {h.text}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Tabs.Content>
       </Tabs.Root>
     </div>
   );
+}
+
+/** 去掉 frontmatter 围栏;YAML 注释(`# …`)否则会被大纲误判为标题。 */
+function stripFrontmatter(text: string): string {
+  const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(text);
+  return m ? text.slice(m[0].length) : text;
 }
 
 function PropsEditor({
