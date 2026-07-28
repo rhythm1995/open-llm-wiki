@@ -63,9 +63,24 @@ Tauri 2 外壳 + React 19:
 - ⏳ 未做:打包(macOS/Win/Linux)。
 - **v1 尚未发布;MVP 可运行。**
 
+### Phase 5+ — v2 增量(本次会话,v1 范围之外)✅
+
+在 v1 边界之外继续「尽可能完整」地开发,每个特性都遵循 TDD(纯逻辑先行 + 单测):
+
+- ✅ **F-TRASH** 回收站:删除即改名移入 `.trash/`(保留目录结构与内容),可逐篇还原、彻底删除或一键清空。后端 `list_trash` + 点目录剪枝(隐藏 `.trash`/`.obsidian`);纯逻辑 `trash.ts`(碰撞解析)。
+- ✅ **F-TEMPLATES** 模板:`templates/` 下 .md 为模板,新建笔记选模板并做 `{{title}}`/`{{date}}` 替换;NewNoteDialog 取代 prompt。纯逻辑 `template.ts`。
+- ✅ **F-THEMES** 浅色主题:Catppuccin Latte 变体 + 工具栏切换 + localStorage 持久化;CodeMirror 经 Compartment 随主题切换不重建。纯逻辑 `theme.ts`。
+- ✅ **F-TABS** 拖拽重排:reducer 的 reorder 此前已测,本轮接 HTML5 DnD。
+- ✅ **F-OUTLINE** 大纲面板:Inspector 第三 tab,提取标题(忽略代码块/frontmatter),点击滚动编辑器到行。纯逻辑 `outline.ts`;Editor 暴露 `scrollToLine` 命令式句柄。
+- ✅ **F-READING** 阅读视图:编辑/阅读切换,marked 渲染,`[[wikilink]]` 可点击跟随。纯逻辑 `render.ts`。
+- ✅ **mock 检索**:浏览器 dev 的 search 接入极简 AND 检索(标题×2 加权),让 `vite dev` 演示完整可用。纯逻辑 `mock-search.ts`。
+- ✅ 杂项:⌘S 立即保存。
+
 ### Phase 2+ 能力(v2/v3,不阻塞 v1)
 
-F-TEMPLATES、F-THEMES、F-GIT、F-TRASH、F-AI(+MCP)、F-L10N → F-CANVAS(tldraw)、F-SHEET(ironcalc)、F-PLUGIN、BlockNote 富文本编辑。
+F-GIT、F-AI(+MCP)、F-L10N → F-CANVAS(tldraw)、F-SHEET(ironcalc)、F-PLUGIN、BlockNote 富文本编辑。
+
+(F-TEMPLATES / F-THEMES / F-TRASH 已在 Phase 5+ 落地。)
 
 ## 本次会话的明确产出(可验证)
 
@@ -77,6 +92,7 @@ F-TEMPLATES、F-THEMES、F-GIT、F-TRASH、F-AI(+MCP)、F-L10N → F-CANVAS(tldr
 4. Tauri 2 桌面壳(`app/src-tauri`,10 个命令,包 `openobs-core`)。✅(本轮)
    - `cargo build -p openobs-app` / clippy clean。
 5. React 19 前端(`ui/`):三栏布局 + 图谱(过滤/缩放)+ QQL(聚合)+ 搜索 + 命令面板 + 多标签 + 属性编辑 + 状态 chip + wikilink 跳转/补全 + 浏览器 mock。✅(本轮)
-   - `pnpm --dir ui build` 通过;tsc --noEmit clean;**57 项 vitest 单测**(frontmatter / graph-filter / tabs / wikilink 纯逻辑)。
+   - `pnpm --dir ui build` 通过;tsc --noEmit clean;**114 项 vitest 单测**(frontmatter / graph-filter / tabs / wikilink / trash / template / theme / outline / mock-search / render 纯逻辑)。
+6. Phase 5+ v2 增量(F-TRASH / F-TEMPLATES / F-THEMES / F-TABS 拖拽 / F-OUTLINE / F-READING / mock 检索 / ⌘S)。✅(本次会话)
 
 后续每次推进一个 Phase,都先扩 `core` 测试、再长 UI、再 e2e 兜底。
