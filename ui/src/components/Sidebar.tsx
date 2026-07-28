@@ -61,9 +61,10 @@ interface Props {
   entries: VaultEntry[];
   currentPath: string | null;
   actions: VaultActions;
+  onNewNote: () => void;
 }
 
-export function Sidebar({ entries, currentPath, actions }: Props) {
+export function Sidebar({ entries, currentPath, actions, onNewNote }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const tree = useMemo(() => buildTree(entries), [entries]);
 
@@ -153,10 +154,7 @@ export function Sidebar({ entries, currentPath, actions }: Props) {
     );
   };
 
-  const onNew = () => {
-    const name = window.prompt("新笔记名(可含路径,如 sources/foo):");
-    if (name) void actions.createNote(name.trim());
-  };
+  const onNew = () => onNewNote();
 
   return (
     <div className="flex h-full flex-col bg-mantle">

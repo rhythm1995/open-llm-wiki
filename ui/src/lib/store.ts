@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ipc, type EdgeOut, type NodeOut, type VaultEntry, type VaultSnapshot } from "./ipc";
 import { tabReduce } from "./tabs";
 import { restorePath, toTrashPath, uniqueName } from "./trash";
+import { applyTemplate, defaultTemplate } from "./template";
 
 export interface Backlink {
   from: NodeOut;
@@ -187,13 +188,13 @@ export function useVault() {
   );
 
   const createNote = useCallback(
-    async (name: string) => {
+    async (name: string, body?: string) => {
       const root = latest.current.root;
       if (!root) return;
       const path = name.endsWith(".md") ? name : `${name}.md`;
-      const template = `# ${name.replace(/\.md$/, "").split("/").pop()}\n\n`;
+      const initial = body ?? defaultTemplate(name);
       try {
-        await ipc.createNote(root, path, template);
+        await ipc.createNote(root, path, initial);
         const entries = await ipc.listVault(root);
         const content = await ipc.readNote(root, path);
         setState((s) => ({
@@ -210,6 +211,30 @@ export function useVault() {
       }
     },
     [refreshIndex],
+  );
+
+  /**
+   * 从模板创建笔记:读模板内容,做 `{{title}}`/`{{date}}` 替换后作为初始正文。
+   * templatePath 为 null 时退化为默认空模板。日期取自本机当天(运行时)。
+   */
+  const createNoteFromTemplate = useCallback(
+    async (name: string, templatePath: string | null) => {
+      const root = latest.current.root;
+      if (!root) return;
+      try {
+        let body: string | undefined;
+        if (templatePath) {
+          const raw = await ipc.readNote(root, templatePath);
+          const title = (name.split("/").pop() ?? name).replace(/\.md$/i, "");
+          const date = new Date().toISOString().slice(0, 10);
+          body = applyTemplate(raw, { title, date });
+        }
+        await createNote(name, body);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [createNote],
   );
 
   const deleteNote = useCallback(
@@ -484,6 +509,7 @@ export function useVault() {
       selectNote,
       setContent,
       createNote,
+      createNoteFromTemplate,
       deleteNote,
       renameNote,
       trashNote,

@@ -27,6 +27,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   snapshot: VaultSnapshot | null;
   actions: VaultActions;
+  onNewNote: () => void;
   onNavigate: (v: MainView) => void;
 }
 
@@ -35,6 +36,7 @@ export function CommandPalette({
   onOpenChange,
   snapshot,
   actions,
+  onNewNote,
   onNavigate,
 }: Props) {
   const [q, setQ] = useState("");
@@ -54,10 +56,7 @@ export function CommandPalette({
   const actions2 = useMemo(
     () => [
       { id: "open", label: "打开 Vault", icon: FolderOpen, run: () => actions.openPicker() },
-      { id: "new", label: "新建笔记", icon: Plus, run: () => {
-        const name = window.prompt("新笔记名:");
-        if (name) actions.createNote(name.trim());
-      } },
+      { id: "new", label: "新建笔记", icon: Plus, run: () => onNewNote() },
       { id: "v-editor", label: "视图:编辑器", icon: PencilSimple, run: () => onNavigate("editor") },
       { id: "v-graph", label: "视图:图谱", icon: Graph, run: () => onNavigate("graph") },
       { id: "v-query", label: "视图:QQL 查询", icon: ListMagnifyingGlass, run: () => onNavigate("query") },

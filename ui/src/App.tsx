@@ -7,7 +7,7 @@
  *
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Warning, X } from "@phosphor-icons/react";
 import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
@@ -17,17 +17,30 @@ import { GraphView } from "./components/GraphView";
 import { QueryPanel } from "./components/QueryPanel";
 import { SearchPanel } from "./components/SearchPanel";
 import { TrashPanel } from "./components/TrashPanel";
+import { NewNoteDialog, type TemplateOption } from "./components/NewNoteDialog";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { Toolbar } from "./components/Toolbar";
 import { StatusBar } from "./components/StatusBar";
 import { useVault } from "./lib/store";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
+import { isTemplatePath, templateName } from "./lib/template";
 
 export default function App() {
   const { state, currentNode, backlinks, actions } = useVault();
   const [view, setView] = useState<MainView>("editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [newNoteOpen, setNewNoteOpen] = useState(false);
+
+  // vault 的 templates/ 目录即模板候选(客户端过滤,无需后端特例)。
+  const templates = useMemo<TemplateOption[]>(
+    () =>
+      state.entries
+        .filter((e) => !e.is_dir && isTemplatePath(e.path))
+        .map((e) => ({ path: e.path, name: templateName(e.path) }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [state.entries],
+  );
 
   // mock 模式:首挂载即打开种子 vault,浏览器开箱可看。
   useEffect(() => {
@@ -74,6 +87,7 @@ export default function App() {
             entries={state.entries}
             currentPath={state.currentPath}
             actions={actions}
+            onNewNote={() => setNewNoteOpen(true)}
           />
         </div>
 
@@ -156,9 +170,17 @@ export default function App() {
         onOpenChange={setPaletteOpen}
         snapshot={state.snapshot}
         actions={actions}
+        onNewNote={() => setNewNoteOpen(true)}
         onNavigate={(v) => {
           setView(v);
         }}
+      />
+
+      <NewNoteDialog
+        open={newNoteOpen}
+        onOpenChange={setNewNoteOpen}
+        templates={templates}
+        onCreate={(n, tpl) => void actions.createNoteFromTemplate(n, tpl)}
       />
     </div>
   );

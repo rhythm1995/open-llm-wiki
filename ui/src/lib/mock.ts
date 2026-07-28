@@ -73,6 +73,28 @@ last_verified: 2026-07-25
 
 一份用 LLM 维护的 wiki 流水线设想。被 [[Zettelkasten]] 提及。
 `,
+    // 模板示例:演示 F-TEMPLATES(`{{title}}` / `{{date}}` 占位符)。
+    "templates/concept.md": `---
+type: Concept
+status: Active
+tags: []
+created: {{date}}
+---
+
+# {{title}}
+
+`,
+    "templates/source.md": `---
+type: Source
+evidence_tier: analysis
+last_verified: {{date}}
+---
+
+# {{title}}
+
+> 摘要占位。
+
+`,
   };
   const m = new Map<string, string>();
   for (const [k, v] of Object.entries(notes)) m.set(k, v);
