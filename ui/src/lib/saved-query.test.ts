@@ -70,7 +70,7 @@ describe("extractQueryFromNote", () => {
 });
 
 describe("isQueryNode", () => {
-  const mk = (type: string | null) => ({ id: 1, path: "p", title: "t", type, tags: [] });
+  const mk = (type: string | null) => ({ id: 1, path: "p", title: "t", type, tags: [], status: null, created: null, modified: 0, preview: "" });
   it('type === "Query" → true', () => {
     expect(isQueryNode(mk(QUERY_TYPE))).toBe(true);
   });

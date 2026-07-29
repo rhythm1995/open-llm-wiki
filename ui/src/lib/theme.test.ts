@@ -16,12 +16,12 @@ describe("theme logic", () => {
       expect(resolveTheme("system", true)).toBe("dark");
       expect(resolveTheme("system", false)).toBe("light");
     });
-    it("无偏好(null)回退到产品默认:深色", () => {
-      expect(resolveTheme(null, true)).toBe("dark");
-      expect(resolveTheme(null, false)).toBe("dark");
+    it("无偏好(null)回退到产品默认:浅色", () => {
+      expect(resolveTheme(null, true)).toBe("light");
+      expect(resolveTheme(null, false)).toBe("light");
     });
-    it("未知偏好也安全回退到深色", () => {
-      expect(resolveTheme("whatever" as ThemePref, false)).toBe("dark");
+    it("未知偏好也安全回退到浅色", () => {
+      expect(resolveTheme("whatever" as ThemePref, false)).toBe("light");
     });
   });
 

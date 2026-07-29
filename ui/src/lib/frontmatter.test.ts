@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   splitFrontmatter,
+  mergeFrontmatter,
   parseFrontmatterEntries,
   setFrontmatterValue,
   removeFrontmatterKey,
@@ -27,6 +28,34 @@ describe("splitFrontmatter", () => {
   it("does not treat a mid-document fence as frontmatter", () => {
     const txt = "# T\n\n---\n\nnot fm\n";
     expect(splitFrontmatter(txt).hasFm).toBe(false);
+  });
+});
+
+describe("mergeFrontmatter", () => {
+  it("is a round-trip inverse of splitFrontmatter (with fm)", () => {
+    const { hasFm, fm, body } = splitFrontmatter(WITH_FM);
+    expect(mergeFrontmatter(hasFm, fm, body)).toBe(WITH_FM);
+  });
+
+  it("is a round-trip inverse for a multi-line sequence frontmatter", () => {
+    const { hasFm, fm, body } = splitFrontmatter(MULTILINE_LIST);
+    expect(mergeFrontmatter(hasFm, fm, body)).toBe(MULTILINE_LIST);
+  });
+
+  it("returns body as-is when there is no frontmatter", () => {
+    expect(mergeFrontmatter(false, "", NO_FM)).toBe(NO_FM);
+  });
+
+  it("does not wrap an empty fm in fences", () => {
+    expect(mergeFrontmatter(true, "   \n  ", "body")).toBe("body");
+  });
+
+  it("merges an unchanged fm with a new body (WysiwygView 回写场景)", () => {
+    // 编辑器只改 body;fm 段从最新 content 取,原样保留。
+    const { hasFm, fm } = splitFrontmatter(WITH_FM);
+    const out = mergeFrontmatter(hasFm, fm, "\n# New\n\nedited body\n");
+    expect(splitFrontmatter(out).fm).toBe(fm);
+    expect(splitFrontmatter(out).body).toBe("\n# New\n\nedited body\n");
   });
 });
 

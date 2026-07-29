@@ -8,6 +8,10 @@ const N = (id: number, path: string, title: string): NodeOut => ({
   title,
   type: null,
   tags: [],
+  status: null,
+  created: null,
+  modified: 0,
+  preview: "",
 });
 
 const NODES: NodeOut[] = [

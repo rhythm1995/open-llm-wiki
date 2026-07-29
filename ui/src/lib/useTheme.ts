@@ -1,8 +1,8 @@
 /**
  * useTheme —— 主题状态与持久化。
  *
- * 初次挂载从 localStorage 读偏好(无则产品默认深色),并把 `data-theme` 写到
- * <html>,供 index.css 的 `[data-theme="light"]` 覆盖切换。toggle 翻转并落盘。
+ * 初次挂载从 localStorage 读偏好(无则产品默认浅色),并把 `data-theme` 写到
+ * <html>,供 index.css 的 `[data-theme="dark"]` 覆盖切换。toggle 翻转并落盘。
  */
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -13,7 +13,7 @@ import {
 } from "./theme";
 
 function readInitial(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   let stored: string | null = null;
   try {
     stored = localStorage.getItem(THEME_STORAGE_KEY);

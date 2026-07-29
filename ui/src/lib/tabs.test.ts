@@ -89,3 +89,29 @@ describe("tabReduce — type narrowing", () => {
     expect(tabReduce(s, { type: "noop" } as unknown as TabAction)).toEqual(s);
   });
 });
+
+describe("tabReduce — cycle", () => {
+  it("forward cycles to the next tab and wraps at the end", () => {
+    expect(
+      tabReduce(st(["a.md", "b.md", "c.md"], "c.md"), { type: "cycle", direction: 1 }),
+    ).toEqual(st(["a.md", "b.md", "c.md"], "a.md"));
+  });
+  it("backward cycles to the previous tab and wraps at the start", () => {
+    expect(
+      tabReduce(st(["a.md", "b.md", "c.md"], "a.md"), { type: "cycle", direction: -1 }),
+    ).toEqual(st(["a.md", "b.md", "c.md"], "c.md"));
+  });
+  it("no open tabs is a no-op", () => {
+    expect(tabReduce(st([], null), { type: "cycle", direction: 1 })).toEqual(st([], null));
+  });
+  it("a single tab stays on itself", () => {
+    expect(
+      tabReduce(st(["a.md"], "a.md"), { type: "cycle", direction: 1 }),
+    ).toEqual(st(["a.md"], "a.md"));
+  });
+  it("missing active falls onto the first tab", () => {
+    expect(
+      tabReduce(st(["a.md", "b.md"], null), { type: "cycle", direction: 1 }),
+    ).toEqual(st(["a.md", "b.md"], "a.md"));
+  });
+});

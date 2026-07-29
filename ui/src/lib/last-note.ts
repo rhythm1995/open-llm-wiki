@@ -41,3 +41,35 @@ export function writeLastPath(root: string, path: string): void {
     // 忽略:存储不可用时退化为不持久化。
   }
 }
+
+// ────────── 上次打开的 vault 根(跨重启恢复) ──────────
+// 与 lastPath(按 root 分键、记某篇笔记)正交:这里记的是 root 本身,
+// 使下次启动直接进入上次 vault,而非停在空态(Tolaria / Obsidian 同款行为)。
+const LAST_ROOT_KEY = "openobs.lastRoot";
+
+/** 读上次成功打开的 vault 根(localStorage 不可用 / 未存时返回 null,不抛)。 */
+export function readLastRoot(): string | null {
+  try {
+    return localStorage.getItem(LAST_ROOT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** 记下成功打开的 vault 根,供下次启动恢复(localStorage 不可用时静默)。 */
+export function writeLastRoot(root: string): void {
+  try {
+    localStorage.setItem(LAST_ROOT_KEY, root);
+  } catch {
+    // 忽略:存储不可用时退化为不恢复。
+  }
+}
+
+/** 清除上次 vault 根(目录已不存在等恢复失败时调用)。 */
+export function clearLastRoot(): void {
+  try {
+    localStorage.removeItem(LAST_ROOT_KEY);
+  } catch {
+    // 忽略。
+  }
+}

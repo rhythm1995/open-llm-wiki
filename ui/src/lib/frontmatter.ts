@@ -34,6 +34,17 @@ export function splitFrontmatter(content: string): {
   return { hasFm: true, fm: m[1], body: content.slice(m[0].length) };
 }
 
+/**
+ * 合并 frontmatter 内文与正文为完整笔记(与 {@link splitFrontmatter} 对偶)。
+ * WysiwygView 用它把 BlockNote 序列化出的 body 与(从最新 content 取的)frontmatter
+ * 拼回——frontmatter 段永远跟随 store 真相,body 段永远跟随编辑器,两者解耦。
+ * hasFm=false 或 fm 空白时直接返回 body(不强行套一层空围栏),保 round-trip。
+ */
+export function mergeFrontmatter(hasFm: boolean, fm: string, body: string): string {
+  if (!hasFm || fm.trim() === "") return body;
+  return reassemble(fm, body);
+}
+
 /** 去掉首尾配对的单/双引号。 */
 function unquote(s: string): string {
   if (s.length >= 2 && ((s[0] === '"' && s.at(-1) === '"') || (s[0] === "'" && s.at(-1) === "'"))) {

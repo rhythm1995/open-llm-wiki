@@ -9,11 +9,18 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ipc, type EdgeOut, type NodeOut, type VaultEntry, type VaultSnapshot } from "./ipc";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { tabReduce } from "./tabs";
-import { restorePath, toTrashPath, uniqueName } from "./trash";
+import {
+  emptyHistory,
+  navigateBack,
+  navigateForward,
+  recordNavigation,
+  type NavHistory,
+} from "./nav-history";
 import { applyTemplate, defaultTemplate } from "./template";
 import { buildAiContext } from "./ai-context";
-import { pickRestorableNote, readLastPath } from "./last-note";
+import { pickRestorableNote, readLastPath, writeLastRoot } from "./last-note";
 
 export interface Backlink {
   from: NodeOut;
@@ -27,8 +34,6 @@ export interface VaultState {
   currentPath: string | null;
   /** 打开的标签页(有序路径)。currentPath 是其中的激活页。 */
   openPaths: string[];
-  /** 回收站(`.trash/`)内的笔记;路径含 `.trash/` 前缀。 */
-  trash: VaultEntry[];
   content: string;
   dirty: boolean;
   saveState: "idle" | "saving" | "saved";
@@ -41,7 +46,6 @@ const INITIAL: VaultState = {
   snapshot: null,
   currentPath: null,
   openPaths: [],
-  trash: [],
   content: "",
   dirty: false,
   saveState: "idle",
@@ -57,6 +61,9 @@ export function useVault() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reindexTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 文件监听(Tauri 桌面):vault-changed 事件 → 节流全量刷新索引。
+  const watchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unlistenRef = useRef<UnlistenFn | null>(null);
 
   // 最近状态用 ref 同步,避免防抖回调闭包拿到旧值。
   const latest = useRef<{
@@ -73,20 +80,15 @@ export function useVault() {
     dirty: state.dirty,
     openPaths: state.openPaths,
   };
+  // 笔记后退/前进历史(浏览器式栈)。ref 持有 + tick 触发顶栏按钮重渲染。
+  const navHistory = useRef<NavHistory>(emptyHistory);
+  const [, setNavTick] = useState(0);
+  const bumpNav = useCallback(() => setNavTick((n) => n + 1), []);
 
   const refreshIndex = useCallback(async (root: string) => {
     try {
       const snap = await ipc.indexVault(root);
       setState((s) => ({ ...s, snapshot: snap }));
-    } catch (e) {
-      setState((s) => ({ ...s, error: String(e) }));
-    }
-  }, []);
-
-  const refreshTrash = useCallback(async (root: string) => {
-    try {
-      const trash = await ipc.listTrash(root);
-      setState((s) => ({ ...s, trash }));
     } catch (e) {
       setState((s) => ({ ...s, error: String(e) }));
     }
@@ -114,12 +116,9 @@ export function useVault() {
   }, [refreshIndex]);
 
   const openVault = useCallback(
-    async (root: string) => {
+    async (root: string): Promise<boolean> => {
       try {
-        const [entries, trash] = await Promise.all([
-          ipc.listVault(root),
-          ipc.listTrash(root),
-        ]);
+        const entries = await ipc.listVault(root);
         const firstMd = entries.find((e) => !e.is_dir);
         // 恢复上次打开的笔记(按 root 分键;命中且仍存在则用之,否则回退首个 .md)。
         const known = entries.map((e) => e.path);
@@ -132,21 +131,42 @@ export function useVault() {
           currentPath = initialPath;
         }
         const snap = await ipc.indexVault(root);
+        // 切换/重开 vault 时清空导航历史(旧 vault 的栈无意义)。
+        navHistory.current = emptyHistory;
+        bumpNav();
         setState({
           ...INITIAL,
           root,
           entries,
-          trash,
           snapshot: snap,
           currentPath,
           openPaths: currentPath ? [currentPath] : [],
           content,
         });
+        // 记下成功打开的根,下次启动恢复(Tolaria / Obsidian 同款行为)。
+        writeLastRoot(root);
+        // Tauri 桌面:启动文件监听 —— 外部改动经后端 debounce → vault-changed → 前端
+        // 节流 500ms 全量刷新,使图谱/反链/QQL 跟上外部编辑。mock/浏览器无 fs 不监听。
+        if (!ipc.isMock()) {
+          await ipc.watchVault(root);
+          if (unlistenRef.current) {
+            unlistenRef.current();
+            unlistenRef.current = null;
+          }
+          unlistenRef.current = await listen("vault-changed", () => {
+            if (watchTimer.current) clearTimeout(watchTimer.current);
+            watchTimer.current = setTimeout(() => {
+              void refreshIndex(root);
+            }, 500);
+          });
+        }
+        return true;
       } catch (e) {
         setState((s) => ({ ...s, error: String(e) }));
+        return false;
       }
     },
-    [],
+    [refreshIndex],
   );
 
   const openPicker = useCallback(async () => {
@@ -158,8 +178,13 @@ export function useVault() {
     }
   }, [openVault]);
 
-  const selectNote = useCallback(
-    async (path: string) => {
+  /**
+   * 打开一篇笔记到编辑器(读盘加载)。`record=true` 时记入导航历史(后退/前进);
+   * 后退/前进本身调用时传 false——它们已自己改写栈,若再 record 会重复入栈污染历史。
+   * 用户主动跳转(selectNote/createNote/反链点击)都走 record=true。
+   */
+  const openPath = useCallback(
+    async (path: string, record: boolean) => {
       // 切走前先冲刷未保存内容。
       if (latest.current.path && latest.current.dirty) {
         await saveNow();
@@ -168,6 +193,14 @@ export function useVault() {
       if (!root) return;
       try {
         const content = await ipc.readNote(root, path);
+        if (record) {
+          navHistory.current = recordNavigation(
+            navHistory.current,
+            latest.current.path,
+            path,
+          );
+          bumpNav();
+        }
         setState((s) => ({
           ...s,
           currentPath: path,
@@ -179,8 +212,29 @@ export function useVault() {
         setState((s) => ({ ...s, error: String(e) }));
       }
     },
-    [saveNow],
+    [bumpNav, saveNow],
   );
+
+  /** 用户主动选择一篇笔记(列表/反链点击等):记入历史。 */
+  const selectNote = useCallback((path: string) => openPath(path, true), [openPath]);
+
+  /** 后退到上一篇打开过的笔记;系统导航,不再记入历史。 */
+  const goBack = useCallback(async () => {
+    const r = navigateBack(navHistory.current, latest.current.path);
+    if (!r) return;
+    navHistory.current = r[0];
+    bumpNav();
+    await openPath(r[1], false);
+  }, [bumpNav, openPath]);
+
+  /** 前进到下一篇(后退之后才有效);系统导航。 */
+  const goForward = useCallback(async () => {
+    const r = navigateForward(navHistory.current, latest.current.path);
+    if (!r) return;
+    navHistory.current = r[0];
+    bumpNav();
+    await openPath(r[1], false);
+  }, [bumpNav, openPath]);
 
   const setContent = useCallback(
     (next: string) => {
@@ -203,6 +257,8 @@ export function useVault() {
         await ipc.createNote(root, path, initial);
         const entries = await ipc.listVault(root);
         const content = await ipc.readNote(root, path);
+        navHistory.current = recordNavigation(navHistory.current, latest.current.path, path);
+        bumpNav();
         setState((s) => ({
           ...s,
           entries,
@@ -244,6 +300,28 @@ export function useVault() {
   );
 
   /**
+   * inline 新建草稿笔记(任务3:不弹窗,直接建 + 进 inline 标题重命名)。
+   * 在根目录取未占用名(baseName.md / baseName 1.md / …),复用 createNote 落地
+   * (含默认模板 frontmatter)并选中之;返回新 path,UI 据此进入列表行 inline 重命名。
+   */
+  const createDraftNote = useCallback(
+    async (baseName: string): Promise<string | null> => {
+      const root = latest.current.root;
+      if (!root) return null;
+      const taken = new Set(state.entries.map((e) => e.path));
+      let path = `${baseName}.md`;
+      let i = 1;
+      while (taken.has(path)) {
+        path = `${baseName} ${i}.md`;
+        i++;
+      }
+      await createNote(path);
+      return path;
+    },
+    [createNote, state.entries],
+  );
+
+  /**
    * 新建一张 tldraw 画布(F-CANVAS):写空 `.canvas` 文件并打开。画布内容是
    * tldraw 快照 JSON,由 CanvasView 的 store.listen 防抖回写;这里只负责落空壳。
    * 与 createNote 分开:扩展名不同、初始内容为空串、不走模板。
@@ -256,6 +334,8 @@ export function useVault() {
       try {
         await ipc.createNote(root, path, "");
         const entries = await ipc.listVault(root);
+        navHistory.current = recordNavigation(navHistory.current, latest.current.path, path);
+        bumpNav();
         setState((s) => ({
           ...s,
           entries,
@@ -315,76 +395,18 @@ export function useVault() {
   );
 
   /**
-   * 移入回收站(软删):改名到 `.trash/<path>`,内容无损、可恢复。
-   * 碰撞(同名笔记曾被删)由纯逻辑 `uniqueName` 解决。标签页语义同 deleteNote。
+   * 从 git 历史还原已删笔记:后端从最近删除提交检出父版本回工作区,git add 落盘。
+   * 还原后刷新文件树 + 索引。`.trash/` 平行机制已移除——删除/还原统一走 git,
+   * 唯一真相源是版本库历史。
    */
-  const trashNote = useCallback(
+  const restoreNote = useCallback(
     async (path: string) => {
       const root = latest.current.root;
       if (!root) return;
       try {
-        if (latest.current.dirty && latest.current.path === path) await saveNow();
-        const existing = await ipc.listTrash(root);
-        const dest = uniqueName(
-          toTrashPath(path),
-          new Set(existing.map((e) => e.path)),
-        );
-        await ipc.renameNote(root, path, dest);
-        const [entries, trash] = await Promise.all([
-          ipc.listVault(root),
-          ipc.listTrash(root),
-        ]);
-        const afterClose = tabReduce(
-          { open: state.openPaths, active: state.currentPath },
-          { type: "close", path },
-        );
-        let currentPath = afterClose.active;
-        let content = "";
-        if (state.currentPath === path) {
-          const fallback =
-            currentPath ?? entries.find((e) => !e.is_dir)?.path ?? null;
-          currentPath = fallback;
-          content = fallback ? await ipc.readNote(root, fallback) : "";
-        } else {
-          content = state.content;
-        }
-        setState((s) => ({
-          ...s,
-          entries,
-          trash,
-          currentPath,
-          content,
-          openPaths: afterClose.open.includes(currentPath ?? "")
-            ? afterClose.open
-            : currentPath
-              ? [...afterClose.open, currentPath]
-              : afterClose.open,
-        }));
-        await refreshIndex(root);
-      } catch (e) {
-        setState((s) => ({ ...s, error: String(e) }));
-      }
-    },
-    [refreshIndex, saveNow, state],
-  );
-
-  /** 从回收站还原:去掉 `.trash/` 前缀移回原位;原位已占则换不冲突名。 */
-  const restoreNote = useCallback(
-    async (trashPath: string) => {
-      const root = latest.current.root;
-      if (!root) return;
-      try {
+        await ipc.gitRestoreNote(root, path);
         const entries = await ipc.listVault(root);
-        const dest = uniqueName(
-          restorePath(trashPath),
-          new Set(entries.map((e) => e.path)),
-        );
-        await ipc.renameNote(root, trashPath, dest);
-        const [ents, trash] = await Promise.all([
-          ipc.listVault(root),
-          ipc.listTrash(root),
-        ]);
-        setState((s) => ({ ...s, entries: ents, trash }));
+        setState((s) => ({ ...s, entries }));
         await refreshIndex(root);
       } catch (e) {
         setState((s) => ({ ...s, error: String(e) }));
@@ -392,34 +414,6 @@ export function useVault() {
     },
     [refreshIndex],
   );
-
-  /** 彻底删除回收站内某一篇(不可恢复)。 */
-  const purgeNote = useCallback(
-    async (trashPath: string) => {
-      const root = latest.current.root;
-      if (!root) return;
-      try {
-        await ipc.deleteNote(root, trashPath);
-        await refreshTrash(root);
-      } catch (e) {
-        setState((s) => ({ ...s, error: String(e) }));
-      }
-    },
-    [refreshTrash],
-  );
-
-  /** 清空回收站:逐篇彻底删除。 */
-  const emptyTrash = useCallback(async () => {
-    const root = latest.current.root;
-    if (!root) return;
-    try {
-      const trash = await ipc.listTrash(root);
-      await Promise.all(trash.map((t) => ipc.deleteNote(root, t.path)));
-      await refreshTrash(root);
-    } catch (e) {
-      setState((s) => ({ ...s, error: String(e) }));
-    }
-  }, [refreshTrash]);
 
   /** 关闭一个标签页(不删盘)。激活页被关时,按 tab 语义跳到邻居并读盘。 */
   const closeTab = useCallback(
@@ -487,17 +481,42 @@ export function useVault() {
   }, []);
 
   /**
+   * 循环切换标签页(direction:+1 下一个 / -1 上一个,环回)。切换时读盘加载目标笔记。
+   * 单页或无打开页时无变化(早退,不触发读盘)。
+   */
+  const cycleTab = useCallback(
+    async (direction: 1 | -1) => {
+      const { root, openPaths, path: currentPath } = latest.current;
+      if (!root || openPaths.length === 0) return;
+      if (latest.current.dirty && currentPath) await saveNow();
+      const nextTabs = tabReduce(
+        { open: openPaths, active: currentPath },
+        { type: "cycle", direction },
+      );
+      if (nextTabs.active === currentPath) return;
+      const content = nextTabs.active ? await ipc.readNote(root, nextTabs.active) : "";
+      setState((s) => ({
+        ...s,
+        currentPath: nextTabs.active,
+        content,
+        dirty: false,
+      }));
+    },
+    [saveNow],
+  );
+
+  /**
    * 重命名一篇笔记(保留原目录;仅改文件名)。
    * 同步刷新打开标签页与当前页指针;若当前页被改名,content 不变(只是路径变了)。
    */
   const renameNote = useCallback(
-    async (from: string, newName: string) => {
+    async (from: string, newName: string): Promise<string | null> => {
       const root = latest.current.root;
-      if (!root) return;
+      if (!root) return null;
       const dir = from.includes("/") ? from.slice(0, from.lastIndexOf("/")) : "";
       const file = newName.endsWith(".md") ? newName : `${newName}.md`;
       const to = dir ? `${dir}/${file}` : file;
-      if (from === to || !file) return;
+      if (from === to || !file) return null;
       try {
         if (latest.current.dirty && latest.current.path === from) await saveNow();
         await ipc.renameNote(root, from, to);
@@ -509,11 +528,34 @@ export function useVault() {
           currentPath: s.currentPath === from ? to : s.currentPath,
         }));
         await refreshIndex(root);
+        return to;
       } catch (e) {
         setState((s) => ({ ...s, error: String(e) }));
+        return null;
       }
     },
     [saveNow, refreshIndex],
+  );
+
+  /**
+   * inline 新建草稿的重命名提交(任务3):rename 改文件名 + 把草稿占位 H1
+   * (defaultTemplate 的"# 未命名")同步为新名,使笔记标题=文件名。`name` 已由
+   * 调用方 sanitize + 空值兜底;这里只做 rename(复用 renameNote)+ H1 替换 + 落盘。
+   */
+  const commitDraftRename = useCallback(
+    async (oldPath: string, name: string): Promise<void> => {
+      const newPath = await renameNote(oldPath, name);
+      const root = latest.current.root;
+      if (!newPath || !root) return;
+      // 草稿首行 H1 是占位;替换为新名(无 H1 时开头补一个,保证标题跟随文件名)。
+      const prev = latest.current.content;
+      const body = /^#[^\n]*\r?\n?/.test(prev)
+        ? prev.replace(/^#[^\n]*\r?\n?/, `# ${name}\n\n`)
+        : `# ${name}\n\n${prev}`;
+      await ipc.writeNote(root, newPath, body);
+      setState((s) => ({ ...s, content: body, dirty: false }));
+    },
+    [renameNote],
   );
 
   // 卸载时冲刷。
@@ -522,6 +564,8 @@ export function useVault() {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (reindexTimer.current) clearTimeout(reindexTimer.current);
       if (flashTimer.current) clearTimeout(flashTimer.current);
+      if (watchTimer.current) clearTimeout(watchTimer.current);
+      if (unlistenRef.current) unlistenRef.current();
     };
   }, []);
 
@@ -586,28 +630,38 @@ export function useVault() {
       .filter((b) => Boolean(b.from));
   }, [state.snapshot, currentNode]);
 
+  // 导航历史可操作性(顶栏后退/前进按钮 disabled 态)。ref 在 render 时读取,
+  // bumpNav 保证每次导航后触发重渲染,故此处读到的总是最新值。
+  const navInfo = {
+    canBack: navHistory.current.back.length > 0,
+    canForward: navHistory.current.forward.length > 0,
+  };
+
   return {
     state,
     currentNode,
     backlinks,
+    navInfo,
     actions: {
       openPicker,
       openVault,
       selectNote,
+      goBack,
+      goForward,
       setContent,
       createNote,
       createNoteFromTemplate,
+      createDraftNote,
       createCanvas,
       deleteNote,
       renameNote,
-      trashNote,
+      commitDraftRename,
       restoreNote,
-      purgeNote,
-      emptyTrash,
       closeTab,
       closeOthers,
       closeAllTabs,
       reorderTab,
+      cycleTab,
       clearError,
       saveNow,
       copyAiContext,

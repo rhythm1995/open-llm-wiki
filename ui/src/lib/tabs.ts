@@ -20,7 +20,8 @@ export type TabAction =
   | { type: "close"; path: string }
   | { type: "closeOthers"; path: string }
   | { type: "closeAll" }
-  | { type: "reorder"; from: number; to: number };
+  | { type: "reorder"; from: number; to: number }
+  | { type: "cycle"; direction: 1 | -1 };
 
 export function tabReduce(state: TabState, action: TabAction): TabState {
   switch (action.type) {
@@ -57,6 +58,19 @@ export function tabReduce(state: TabState, action: TabAction): TabState {
       const [moved] = next.splice(from, 1);
       next.splice(Math.min(to, next.length), 0, moved);
       return { ...state, open: next };
+    }
+    case "cycle": {
+      // 循环切换激活页:direction +1 下一个、-1 上一个,到头/尾环回。
+      // 无打开页 → 不动;active 缺失/不在列表 → 落到首个(有确定落点,不返回 null)。
+      const n = state.open.length;
+      if (n === 0) return state;
+      const cur = state.active;
+      if (cur == null || !state.open.includes(cur)) {
+        return { ...state, active: state.open[0] };
+      }
+      const idx = state.open.indexOf(cur);
+      const ni = (idx + action.direction + n) % n;
+      return { ...state, active: state.open[ni] };
     }
     default:
       return state;

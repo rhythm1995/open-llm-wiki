@@ -8,10 +8,10 @@ import {
 import type { EdgeOut, NodeOut } from "./ipc";
 
 const NODES: NodeOut[] = [
-  { id: 0, path: "a.md", title: "A", type: "Concept", tags: ["x"] },
-  { id: 1, path: "b.md", title: "B", type: "Source", tags: ["y"] },
-  { id: 2, path: "c.md", title: "C", type: "Concept", tags: [] }, // 孤儿
-  { id: 3, path: "d.md", title: "D", type: null, tags: [] }, // 无 type
+  { id: 0, path: "a.md", title: "A", type: "Concept", tags: ["x"], status: null, created: null, modified: 0, preview: "" },
+  { id: 1, path: "b.md", title: "B", type: "Source", tags: ["y"], status: null, created: null, modified: 0, preview: "" },
+  { id: 2, path: "c.md", title: "C", type: "Concept", tags: [], status: null, created: null, modified: 0, preview: "" }, // 孤儿
+  { id: 3, path: "d.md", title: "D", type: null, tags: [], status: null, created: null, modified: 0, preview: "" }, // 无 type
 ];
 const EDGES: EdgeOut[] = [
   { from: 0, to: 1, kind: "wiki", relation: null, unresolved: null, anchor: null },
