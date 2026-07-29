@@ -20,7 +20,9 @@
         "minWidth": 720,
         "minHeight": 480,
         "resizable": true,
-        "backgroundColor": "#1e1e2e"
+        "backgroundColor": "#ffffff",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {
@@ -35,6 +37,11 @@
     "copyright": "© OpenObsidian contributors, MIT (canvas feature uses tldraw, non-commercial; see THIRD_PARTY_NOTICES)",
     "shortDescription": "Local-first, file-as-truth knowledge base",
     "longDescription": "OpenObsidian — a local-first, MIT-licensed knowledge management app. Adds the two things Obsidian most needs: graph visualization and live aggregate queries (QQL).",
+    "resources": {
+      "../../LICENSE": ".",
+      "../../THIRD_PARTY_NOTICES.md": ".",
+      "../../licenses/tldraw-LICENSE.md": "."
+    },
     "macOS": {
       "minimumSystemVersion": "10.15"
     },

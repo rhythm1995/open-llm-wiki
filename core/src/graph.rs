@@ -433,3 +433,61 @@ mod tests {
         assert!(matches!(g.edges[0].to, Target::Resolved(1)));
     }
 }
+
+// ─────────────────────────── 属性测试(proptest)───────────────────────────
+
+#[cfg(test)]
+mod props {
+    use super::*;
+    use crate::index::enrich;
+    use crate::parse::parse_note;
+    use proptest::prelude::*;
+
+    /// 随机笔记:title 与正文 wikilink 都从小词表 [a-e] 抽,
+    /// 使部分边 Resolved(命中别的笔记 title)、部分 Unresolved(悬空)。
+    fn arb_note() -> impl Strategy<Value = Note> {
+        ("[a-e]{1,3}", prop::collection::vec("[a-e]{1,3}", 0..3)).prop_map(|(title, targets)| {
+            let links: String = targets
+                .iter()
+                .map(|t| format!("[[{t}]]"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let content = format!("# {title}\n{links}");
+            enrich(parse_note(&content, &format!("{title}.md")))
+        })
+    }
+
+    proptest! {
+        /// 任意笔记集合 → Graph::build 不 panic。
+        #[test]
+        fn build_never_panics(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let _ = Graph::build(notes);
+        }
+
+        /// 出入邻接一致性:每条边都在其 from 的 outgoing 里;
+        /// Resolved 边还在其 to 的 incoming(backlinks)里。Unresolved 边不入任何 incoming。
+        #[test]
+        fn adjacency_consistent(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let g = Graph::build(notes);
+            for edge in &g.edges {
+                let in_out = g.outgoing(edge.from).iter().any(|e| std::ptr::eq(*e, edge));
+                prop_assert!(in_out, "边不在 from 的 outgoing 里");
+                if let Target::Resolved(t) = edge.to {
+                    let in_in = g.backlinks(t).iter().any(|e| std::ptr::eq(*e, edge));
+                    prop_assert!(in_in, "Resolved 边不在 to 的 incoming 里");
+                }
+            }
+        }
+
+        /// backlinks(id).len() == 图里所有 to=Resolved(id) 的边数。
+        #[test]
+        fn backlinks_count_matches_edges(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let g = Graph::build(notes);
+            for id in 0..g.nodes.len() {
+                let expected = g.edges.iter().filter(|e| e.to == Target::Resolved(id)).count();
+                let got = g.backlinks(id).len();
+                prop_assert_eq!(expected, got);
+            }
+        }
+    }
+}

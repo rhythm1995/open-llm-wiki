@@ -83,7 +83,13 @@ fn walk_strings<F: FnMut(&str)>(value: &Value, f: &mut F) {
 
 /// 软类型:`type:` 字段(字符串值),缺失或非字符串 → None。永不报错。
 pub fn type_of(note: &Note) -> Option<String> {
-    match note.frontmatter.get("type")? {
+    frontmatter_str(note, "type")
+}
+
+/// frontmatter 里某键的字符串标量值(缺失/非字符串 → None)。永不报错。
+/// status / created 等投影都走它;`type_of` 是其特例。
+pub fn frontmatter_str(note: &Note, key: &str) -> Option<String> {
+    match note.frontmatter.get(key)? {
         Value::String(s) => Some(s.clone()),
         _ => None,
     }
@@ -251,6 +257,20 @@ mod tests {
         assert_eq!(type_of(&enrich_str("---\ntype: 3\n---\n# T", "a.md")), None);
     }
 
+    // ---- frontmatter_str ----
+
+    #[test]
+    fn frontmatter_str_status_created_absent_nonstring() {
+        let n = enrich_str(
+            "---\nstatus: Active\ncreated: 2026-07-25\nn: 3\n---\n# T",
+            "a.md",
+        );
+        assert_eq!(frontmatter_str(&n, "status"), Some("Active".into()));
+        assert_eq!(frontmatter_str(&n, "created"), Some("2026-07-25".into()));
+        assert_eq!(frontmatter_str(&n, "missing"), None);
+        assert_eq!(frontmatter_str(&n, "n"), None); // 数字,非字符串
+    }
+
     // ---- tags ----
 
     #[test]
@@ -288,5 +308,32 @@ mod tests {
         assert!(t.contains(&"yes".to_string()));
         assert!(!t.contains(&"inblock".to_string()));
         assert!(!t.contains(&"inline".to_string()));
+    }
+}
+
+// ─────────────────────────── 属性测试(proptest)───────────────────────────
+
+#[cfg(test)]
+mod props {
+    use super::*;
+    use crate::parse::parse_note;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// 任意正文 + 路径 → enrich 不 panic;tags / type_of / frontmatter_str 也不 panic。
+        /// frontmatter 解析对任意(含非法)YAML 只降级为空 map,绝不崩溃。
+        #[test]
+        fn enrich_never_panics(content in ".{0,400}", path in "[a-z0-9/_.\\-]{0,40}") {
+            let n = enrich(parse_note(&content, &path));
+            let _ = tags(&n);
+            let _ = type_of(&n);
+            let _ = frontmatter_str(&n, "status");
+        }
+
+        /// parse_frontmatter 对任意原始字符串不 panic。
+        #[test]
+        fn parse_frontmatter_never_panics(raw in ".{0,200}") {
+            let _ = parse_frontmatter(Some(&raw));
+        }
     }
 }

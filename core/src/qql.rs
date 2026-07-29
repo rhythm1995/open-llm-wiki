@@ -818,3 +818,35 @@ mod tests {
         assert!(parse("WHERE status ! \"x\"").is_err());
     }
 }
+
+// ─────────────────────────── 属性测试(proptest)───────────────────────────
+
+#[cfg(test)]
+mod props {
+    use super::parse;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// 任意字符串喂给 QQL 解析器,绝不 panic(Ok 或 Err 都合法)。
+        /// 解析器是面向用户输入的第一道关口,鲁棒性最关键。
+        #[test]
+        fn parse_never_panics(s in ".{0,120}") {
+            let _ = parse(&s);
+        }
+
+        /// 一组合法查询反复解析都成功(防回归把合法语法改挂)。
+        #[test]
+        fn known_valid_queries_parse_ok(
+            q in proptest::sample::select(vec![
+                "".to_string(),
+                "#x".into(),
+                "WHERE type = \"A\"".into(),
+                "SORT title".into(),
+                "LIMIT 5".into(),
+                "WHERE #x AND status = \"y\" SORT modified DESC RENDER list".into(),
+            ])
+        ) {
+            prop_assert!(parse(&q).is_ok(), "合法查询解析失败: {q}");
+        }
+    }
+}
