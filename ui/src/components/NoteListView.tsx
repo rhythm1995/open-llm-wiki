@@ -6,10 +6,19 @@
  * 点击 → 选中笔记(编辑器加载,列表保持)。kind:"query" 时读盘抠 qql 跑 ipc.runQql。
  * kind:"archive" 时交给 {@link ArchiveView}(删除/还原已并入 git,无 `.trash/`)。
  *
- * 不复用 SearchPanel/QueryPanel:那些是带输入框的主动查询面板;本组件是被动的
- * "当前 Nav 选择的结果列表",职责单一。过滤纯逻辑在 nav-filter.ts,日期在 date-format.ts。
+ * 表头顶是一个**即时过滤框**(Tolaria 式):按 title+preview 子串收窄「当前 Nav 选择
+ * 的列表」。这与第三栏的两种搜索职责不同 —— 过滤只看当前列表的标题/预览,⌘F 看当前
+ * 笔记正文,⌘⇧F 看全库正文。把表头从静态标签改成输入框,也顺带消除了「点 search 后
+ * 第二栏仍高亮『全部笔记』」的残留态 bug(表头不再是会被误读为高亮的标签)。
+ *
+ * 行右键 → 复用 {@link ContextMenu}:重命名 / 复制 [[wikilink]] / 切 status / 归档 /
+ * 在 Finder 中显示(桌面专用,mock 下隐藏)。对标 Tolaria 笔记右键菜单。
+ *
+ * 过滤纯逻辑在 nav-filter.ts,日期在 date-format.ts,frontmatter 字段写在前段由
+ * store.setNoteStatus / frontmatter.ts 处理。
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import type { NodeOut, VaultSnapshot } from "../lib/ipc";
 import { ipc } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
@@ -18,9 +27,14 @@ import { filterByNav, selectionLabel } from "../lib/nav-filter";
 import { extractQueryFromNote } from "../lib/saved-query";
 import { statusChipClass } from "../lib/status-chip";
 import { formatDateStr, formatMs } from "../lib/date-format";
+import { asWikilink } from "../lib/frontmatter";
 import { ArchiveView } from "./ArchiveView";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+
+/** 状态预设(右键快速切;status 是自由文本,自定义值用 Inspector 改)。 */
+const STATUS_PRESETS = ["Active", "Contested", "Superseded", "Draft"];
 
 interface Props {
   root: string | null;
@@ -31,6 +45,8 @@ interface Props {
   renamingPath: string | null;
   onRenameCommit: (path: string, value: string) => void;
   onRenameCancel: () => void;
+  /** 右键「重命名」入口:把该 path 置入 inline 重命名态(由 App 持有 renamingPath)。 */
+  onStartRename: (path: string) => void;
   actions: VaultActions;
   t: TFunc;
 }
@@ -43,12 +59,19 @@ export function NoteListView({
   renamingPath,
   onRenameCommit,
   onRenameCancel,
+  onStartRename,
   actions,
   t,
 }: Props) {
   // kind:"query" 的结果(异步读盘+跑 QQL);null = 未查询/加载中。
   const [queryNodes, setQueryNodes] = useState<NodeOut[] | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
+  // 表头即时过滤(title + preview 子串,大小写不敏感)。
+  const [filter, setFilter] = useState("");
+  // 行右键菜单:坐标 + 目标节点 + 复制反馈。
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [menuNode, setMenuNode] = useState<NodeOut | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!navSelection || navSelection.kind !== "query") {
@@ -93,10 +116,20 @@ export function NoteListView({
     [nodes],
   );
 
+  // 表头过滤:title + preview 子串(空串 = 不过滤,返回全量)。
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((n) => {
+      const title = (n.title || n.path).toLowerCase();
+      return title.includes(q) || (n.preview ?? "").toLowerCase().includes(q);
+    });
+  }, [sorted, filter]);
+
   const now = Date.now();
 
-  // 列表头顶部的选择标签(描述当前过滤范围)。
-  const label = useMemo(() => {
+  // 过滤框 placeholder 的 scope 描述(当前 Nav 选择;复用 selectionLabel)。
+  const scopeLabel = useMemo(() => {
     const nodes = snapshot?.nodes ?? [];
     return navSelection ? selectionLabel(navSelection, nodes, t) : t("nav.allNotes");
   }, [navSelection, snapshot, t]);
@@ -115,28 +148,48 @@ export function NoteListView({
     return <ArchiveView root={root} actions={actions} t={t} />;
   }
 
+  /** 右键菜单项(扁平,组分隔)。status 当前值标 ✓;Reveal 仅桌面显示。 */
+  const menuItems: MenuItem[] = menuNode
+    ? buildMenuItems(menuNode, {
+        t,
+        root,
+        onStartRename,
+        actions,
+        currentStatus: menuNode.status,
+        onCopied: () => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        },
+      })
+    : [];
+
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-crust bg-mantle px-3 py-1.5">
-        <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide text-overlay">
-          {label}
-        </span>
-        <span className="ml-2 shrink-0 text-[11px] tabular-nums text-overlay">
-          {sorted.length}
+      <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-crust bg-mantle px-2 py-1.5">
+        <MagnifyingGlass size={12} className="shrink-0 text-overlay" />
+        <input
+          data-testid="list-filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder={t("list.filterPlaceholder", { scope: scopeLabel })}
+          className="min-w-0 flex-1 bg-transparent text-[12px] text-text outline-none placeholder:text-overlay"
+        />
+        <span className="ml-1 shrink-0 text-[11px] tabular-nums text-overlay">
+          {filtered.length}
         </span>
       </div>
 
-      {queryError && (
-        <p className="px-3 py-2 text-[12px] text-red">{queryError}</p>
-      )}
+      {queryError && <p className="px-3 py-2 text-[12px] text-red">{queryError}</p>}
 
       {isQueryLoading ? (
         <p className="px-3 py-2 text-[12px] text-overlay">{t("list.loading")}</p>
-      ) : sorted.length === 0 ? (
-        <p className="px-3 py-3 text-[12px] text-overlay">{t(emptyKey)}</p>
+      ) : filtered.length === 0 ? (
+        <p className="px-3 py-3 text-[12px] text-overlay">
+          {filter.trim() ? t("palette.empty") : t(emptyKey)}
+        </p>
       ) : (
         <ul className="flex flex-col">
-          {sorted.map((n) => {
+          {filtered.map((n) => {
             const active = currentPath === n.path;
             const title = n.title || n.path.split("/").pop()?.replace(/\.md$/i, "") || n.path;
             const renaming = n.path === renamingPath;
@@ -153,6 +206,11 @@ export function NoteListView({
                 ) : (
                 <button
                   onClick={() => actions.selectNote(n.path)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenuPos({ x: e.clientX, y: e.clientY });
+                    setMenuNode(n);
+                  }}
                   className={cn(
                     "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left",
                     active ? "bg-surface2" : "hover:bg-surface",
@@ -196,8 +254,78 @@ export function NoteListView({
           })}
         </ul>
       )}
+
+      <ContextMenu items={menuItems} pos={menuPos} onClose={() => setMenuPos(null)} />
+      {copied && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded bg-surface px-3 py-1 text-[12px] text-text shadow-lg">
+          {t("menu.copied")}
+        </div>
+      )}
     </div>
   );
+}
+
+/** 构造右键菜单项(扁平 + 分隔符);status 当前值前标 ✓;Reveal 仅非 mock 桌面显示。 */
+function buildMenuItems(
+  n: NodeOut,
+  ctx: {
+    t: TFunc;
+    root: string | null;
+    onStartRename: (path: string) => void;
+    actions: VaultActions;
+    currentStatus: string | null;
+    onCopied: () => void;
+  },
+): MenuItem[] {
+  const { t, root, onStartRename, actions, currentStatus, onCopied } = ctx;
+  const title = n.title || n.path.split("/").pop()?.replace(/\.md$/i, "") || n.path;
+  const items: MenuItem[] = [
+    {
+      label: t("menu.rename"),
+      onClick: () => onStartRename(n.path),
+    },
+    {
+      label: t("menu.copyWikilink"),
+      onClick: async () => {
+        try {
+          await navigator.clipboard.writeText(asWikilink(title));
+          onCopied();
+        } catch {
+          // 剪贴板被禁用时静默(无 https / 权限);复制反馈亦不显示。
+        }
+      },
+    },
+    { separator: true },
+  ];
+  // status 预设:当前值标 ✓。
+  for (const s of STATUS_PRESETS) {
+    items.push({
+      label: `${currentStatus === s ? "✓ " : ""}${s}`,
+      onClick: () => void actions.setNoteStatus(n.path, s),
+    });
+  }
+  items.push({
+    label: t("menu.clearStatus"),
+    disabled: !currentStatus,
+    onClick: () => void actions.setNoteStatus(n.path, null),
+  });
+  items.push({ separator: true });
+  items.push({
+    label: t("menu.archive"),
+    onClick: () => {
+      if (window.confirm(t("menu.archiveConfirm"))) void actions.deleteNote(n.path);
+    },
+  });
+  // Reveal in Finder:仅桌面(mock 无 fs,隐藏,与 GitPanel 同 gate)。
+  if (!ipc.isMock()) {
+    items.push({
+      label: t("menu.reveal"),
+      onClick: () => {
+        if (root) void ipc.revealInFinder(root, n.path);
+      },
+    });
+  }
+  return items;
 }
 
 /** inline 标题重命名输入框(任务3):挂载即聚焦+全选,回车提交 / Esc 取消 / blur 提交。 */
@@ -219,6 +347,7 @@ function RenameInput({
   return (
     <input
       ref={ref}
+      data-testid="rename-input"
       value={v}
       onChange={(e) => setV(e.target.value)}
       onKeyDown={(e) => {

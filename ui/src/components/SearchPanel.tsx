@@ -4,7 +4,7 @@
  * 与 QQL 互补:QQL 查结构(frontmatter/标签),搜索查内容。命中按分数降序,
  * 点击跳转。mock 浏览器模式下返回空,真机走 Rust core。
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { ipc, type SearchHit, type VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
@@ -20,6 +20,11 @@ interface Props {
 export function SearchPanel({ root, snapshot, actions, t }: Props) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // 进入 search 视图(⌘⇧F 或点工具栏按钮)即聚焦输入,免一次点击。
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const idToNode = useMemo(() => {
     const m = new Map<number, { title: string; path: string }>();
@@ -48,6 +53,7 @@ export function SearchPanel({ root, snapshot, actions, t }: Props) {
         </div>
         <div className="flex items-center gap-1.5">
           <input
+            ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void run()}

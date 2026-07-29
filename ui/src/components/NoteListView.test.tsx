@@ -39,6 +39,7 @@ const renameProps = {
   renamingPath: null as string | null,
   onRenameCommit: () => {},
   onRenameCancel: () => {},
+  onStartRename: () => {},
 };
 
 describe("NoteListView", () => {
@@ -106,6 +107,7 @@ describe("NoteListView", () => {
         renamingPath="untitled.md"
         onRenameCommit={onRenameCommit}
         onRenameCancel={vi.fn()}
+        onStartRename={vi.fn()}
         actions={actions()}
         t={t}
       />,

@@ -19,6 +19,7 @@ import {
   Graph,
   ListMagnifyingGlass,
   MagnifyingGlass,
+  Command,
   GitBranch,
   SidebarSimple,
   TextAlignLeft,
@@ -235,7 +236,7 @@ export function CenterToolbar({
               className="ml-0.5 flex items-center gap-1 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface hover:text-text"
               title={t("toolbar.palette")}
             >
-              <MagnifyingGlass size={14} />
+              <Command size={14} />
               <span className="hidden text-overlay sm:inline">⌘K</span>
             </button>
 

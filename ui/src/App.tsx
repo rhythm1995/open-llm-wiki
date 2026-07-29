@@ -15,6 +15,7 @@ import type { NavSelection } from "./lib/nav-filter";
 import { selectionLabel } from "./lib/nav-filter";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { WysiwygView } from "./components/WysiwygView";
+import { FindBar } from "./components/FindBar";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
@@ -45,15 +46,18 @@ export default function App() {
   const [view, setView] = usePersistentState<MainView>("openobs.view", "editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  // ⌘F 文档内查找条(FindBar):query 跨开关保持,关再开仍记得上次查询。
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
   const { theme, toggle: toggleTheme } = useTheme();
   const { locale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
   // 双模式:source(CodeMirror 源码)/ wysiwyg(BlockNote 所见即所得)。两者读写同一
-  // state.content(.md 真相源)。旧值 "edit"|"read" 归一到新值(非 "wysiwyg" 一律视为
-  // "source"),localStorage 旧值无痛迁移。
+  // state.content(.md 真相源)。默认 wysiwyg(非纯 .md);旧值 "edit"|"read"|"source"
+  // 归一 —— 非 "wysiwyg" 一律视为 "source",localStorage 旧值无痛迁移。
   const [editModeRaw, setEditMode] = usePersistentState<string>(
     "openobs.editMode",
-    "source",
+    "wysiwyg",
   );
   const editMode: "source" | "wysiwyg" =
     editModeRaw === "wysiwyg" ? "wysiwyg" : "source";
@@ -194,6 +198,20 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // ⌘F 文档内查找(开 FindBar);⌘⇧F 全库搜索(切到 search 视图,SearchPanel 挂载即聚焦输入)。
+  // 与第二栏「列表过滤」区分:本条查当前笔记正文,过滤查当前列表的标题/预览。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.key.toLowerCase() !== "f") return;
+      e.preventDefault();
+      if (e.shiftKey) setView("search");
+      else setFindOpen(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // ⌘S / Ctrl+S 立即保存(拦截浏览器的"保存网页")。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -317,6 +335,7 @@ export default function App() {
               renamingPath={renamingPath}
               onRenameCommit={commitRename}
               onRenameCancel={cancelRename}
+              onStartRename={(p) => setRenamingPath(p)}
               actions={actions}
               t={t}
             />
@@ -393,6 +412,14 @@ export default function App() {
                         <Code size={14} />
                       )}
                     </button>
+                  )}
+                  {findOpen && !isCanvas && state.currentPath !== null && (
+                    <FindBar
+                      query={findQuery}
+                      onQueryChange={setFindQuery}
+                      onClose={() => setFindOpen(false)}
+                      t={t}
+                    />
                   )}
                 </div>
               </div>

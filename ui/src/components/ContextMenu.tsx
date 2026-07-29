@@ -9,7 +9,8 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 
 export interface MenuItem {
-  label: string;
+  /** 菜单项文案;separator=true 时可省略。 */
+  label?: string;
   icon?: ReactNode;
   onClick?: () => void;
   disabled?: boolean;

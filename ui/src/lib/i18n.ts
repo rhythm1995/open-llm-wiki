@@ -196,6 +196,21 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.menu.copyLink": "复制 [[wikilink]]",
     "graph.menu.hideType": "隐藏此类型({type})",
     "graph.menu.copied": "已复制",
+    // 第二栏列表过滤(Tolaria 式即时过滤)
+    "list.filterPlaceholder": "筛选「{scope}」…",
+    // 文档内查找条(⌘F)
+    "find.placeholder": "查找…",
+    "find.next": "下一个",
+    "find.prev": "上一个",
+    // 第二栏笔记行右键菜单
+    "menu.rename": "重命名",
+    "menu.copyWikilink": "复制 [[wikilink]]",
+    "menu.status": "状态",
+    "menu.clearStatus": "清除状态",
+    "menu.archive": "归档",
+    "menu.archiveConfirm": "归档此笔记?\n(移入 git,可在归档视图还原。)",
+    "menu.reveal": "在 Finder 中显示",
+    "menu.copied": "已复制",
   },
   en: {
     "view.editor": "Editor",
@@ -349,6 +364,21 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.menu.copyLink": "Copy [[wikilink]]",
     "graph.menu.hideType": "Hide this type ({type})",
     "graph.menu.copied": "Copied",
+    // Column-2 list filter (Tolaria-style instant filter)
+    "list.filterPlaceholder": "Filter \"{scope}\"…",
+    // In-note find bar (⌘F)
+    "find.placeholder": "Find…",
+    "find.next": "Next",
+    "find.prev": "Previous",
+    // Column-2 note row context menu
+    "menu.rename": "Rename",
+    "menu.copyWikilink": "Copy [[wikilink]]",
+    "menu.status": "Status",
+    "menu.clearStatus": "Clear status",
+    "menu.archive": "Archive",
+    "menu.archiveConfirm": "Archive this note?\n(Moved to git; restorable from Archive.)",
+    "menu.reveal": "Reveal in Finder",
+    "menu.copied": "Copied",
   },
 };
 
