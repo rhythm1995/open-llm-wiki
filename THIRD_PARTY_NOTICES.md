@@ -10,7 +10,8 @@ OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(见 clean-room 声明)�
 |---|---|---|
 | React 19 / react-dom | MIT | UI 框架。 |
 | Tauri 2 + 插件 | MIT / Apache-2.0 | 桌面壳(`@tauri-apps/*`)。 |
-| CodeMirror 6 | MIT | 编辑器。 |
+| CodeMirror 6 | MIT | 编辑器(md 源码模式)。 |
+| BlockNote 0.52 | MPL-2.0 | 块编辑器(md WYSIWYG 模式,弱 copyleft,见下节)。 |
 | Radix UI | MIT | 无障碍组件(对话框 / 下拉 / 标签页 / 工具提示)。 |
 | Tailwind CSS 4 | MIT | 原子 CSS。 |
 | Phosphor icons | MIT | 图标。 |
@@ -64,3 +65,23 @@ tldraw 被**隔离在唯一一个懒加载模块**里:
 为遵守 tldraw license 的"不得移除版权/商标声明"条款,画布视图右下角保留
 "Powered by tldraw"(链接 tldraw.dev)署名;本文件与 `licenses/tldraw-LICENSE.md`
 一并随项目分发。tldraw 商标归 tldraw, Inc. 所有,本项目仅作能力归属,不作背书。
+
+## BlockNote 许可(md WYSIWYG 模式)
+
+BlockNote(`@blocknote/core` `@blocknote/react` `@blocknote/mantine`,v0.52)是
+Notion 式块编辑器,用于 md 笔记的 **WYSIWYG(所见即所得)模式** —— 与 CodeMirror
+源码模式并列,两者读写同一个 `.md`(真相源不变,frontmatter 走侧栏 Properties
+编辑,不进块编辑器)。许可全文见
+[`licenses/blocknote-LICENSE.md`](./licenses/blocknote-LICENSE.md)。
+
+### 与 tldraw 的本质区别
+
+BlockNote 是 **MPL-2.0**(弱 copyleft,OSI 认证的开源许可):商用、生产部署、闭源
+衍生皆可,只需对**自己修改过的 MPL 文件**开源(文件级 copyleft,不传染 merely
+链接它的代码)。这与 tldraw 的 source-available 非商用许可完全不同 —— BlockNote
+**无商用门槛、无强制署名**,是标准开源依赖。本项目不修改 BlockNote 源文件,仅作
+为库引入,故无开源义务,保留本许可声明即可。
+
+### 归属
+
+BlockNote 由 TypeCellOS/BlockNote 维护(https://github.com/TypeCellOS/BlockNote)。
