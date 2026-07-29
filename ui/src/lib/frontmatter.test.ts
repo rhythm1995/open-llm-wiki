@@ -5,6 +5,9 @@ import {
   parseFrontmatterEntries,
   setFrontmatterValue,
   removeFrontmatterKey,
+  isRelationValue,
+  relationTargets,
+  asWikilink,
 } from "./frontmatter";
 
 const WITH_FM = `---\ntype: Concept\nstatus: Active\ntags: [method, note]\n---\n\n# Title\n\nbody text\n`;
@@ -74,6 +77,16 @@ describe("parseFrontmatterEntries", () => {
     expect(entries).toEqual([
       ["tags", ["method", "note"]],
       ["status", "Active"],
+    ]);
+  });
+
+  it("treats a scalar wikilink as a scalar, not an inline list", () => {
+    // `[[Foo]]` 不得被误拆成 ["[Foo]"];引号内联数组里的 wikilink 仍解析为数组。
+    const md =
+      "---\nrelated_to: [[Foo]]\nparents: [\"[[A]]\", \"[[B]]\"]\n---\n\nbody\n";
+    expect(parseFrontmatterEntries(md)).toEqual([
+      ["related_to", "[[Foo]]"],
+      ["parents", ["[[A]]", "[[B]]"]],
     ]);
   });
 
@@ -159,5 +172,39 @@ describe("removeFrontmatterKey", () => {
 
   it("is a no-op when the key is absent", () => {
     expect(removeFrontmatterKey(WITH_FM, "nope")).toBe(WITH_FM);
+  });
+});
+
+describe("isRelationValue / relationTargets / asWikilink", () => {
+  it("treats a scalar wikilink as a relation", () => {
+    expect(isRelationValue("[[foo]]")).toBe(true);
+    expect(isRelationValue("Concept")).toBe(false);
+  });
+
+  it("treats an all-wikilink sequence as a relation, mixed/empty as not", () => {
+    expect(isRelationValue(["[[a]]", "[[b]]"])).toBe(true);
+    expect(isRelationValue(["[[a]]", "b"])).toBe(false);
+    expect(isRelationValue([])).toBe(false);
+  });
+
+  it("strips alias/anchor when detecting a relation", () => {
+    expect(isRelationValue("[[foo|F#x]]")).toBe(true);
+  });
+
+  it("extracts display targets, stripping [[]]/alias/anchor", () => {
+    expect(relationTargets("[[foo|F#x]]")).toEqual(["foo"]);
+    expect(relationTargets(["[[a]]", "[[b]]"])).toEqual(["a", "b"]);
+    expect(relationTargets("Concept")).toEqual([]);
+  });
+
+  it("wraps a target back into [[target]]", () => {
+    expect(asWikilink("foo")).toBe("[[foo]]");
+  });
+
+  it("round-trips a relation through relationTargets + asWikilink", () => {
+    const v: string[] = ["[[foo]]", "[[bar|B]]"];
+    const round = relationTargets(v).map(asWikilink);
+    // alias 丢失(显示只取 target),但 target 集合保真。
+    expect(round).toEqual(["[[foo]]", "[[bar]]"]);
   });
 });

@@ -53,9 +53,13 @@ function unquote(s: string): string {
   return s;
 }
 
-/** 内联值:内联列表 → string[],否则标量(去引号)。 */
+/** 内联值:wikilink 标量保留;内联列表 → string[];否则标量(去引号)。 */
 function parseInlineValue(raw: string): FmValue {
   const v = raw.trim();
+  // `[[wikilink]]` 是标量,不是内联数组——否则 slice(1,-1) 会把它误拆成 ["[wikilink]"]。
+  if (v.startsWith("[[") && v.endsWith("]]")) {
+    return v;
+  }
   if (v.startsWith("[") && v.endsWith("]")) {
     return v
       .slice(1, -1)
@@ -182,4 +186,42 @@ export function removeFrontmatterKey(content: string, key: string): string {
   if (!span) return content;
   const next = [...lines.slice(0, span[0]), ...lines.slice(span[1])];
   return reassemble(next.join("\n"), body);
+}
+
+const WIKILINK_RE = /^\[\[(.+)\]\]$/;
+
+/** 取 `[[target|alias#anchor]]` 内层的 target(去 alias/anchor);非 wikilink 原样返回。 */
+function linkInnerTarget(inner: string): string {
+  return inner.split("|")[0].split("#")[0].trim();
+}
+
+/**
+ * 判断一个 frontmatter 值是否是关系字段值——标量 `[[wikilink]]`,或全部元素都是
+ * `[[wikilink]]` 的序列。对标 core 的 relationship_links 规则(Tolaria ADR-0010:
+ * 任何值为 wikilink 的字段都视为关系),供 Inspector 把这类字段渲染成可补全的 chip。
+ */
+export function isRelationValue(v: FmValue): boolean {
+  if (typeof v === "string") return WIKILINK_RE.test(v);
+  if (Array.isArray(v)) return v.length > 0 && v.every((x) => WIKILINK_RE.test(x));
+  return false;
+}
+
+/** 关系字段值 → 显示用的 target 列表(已剥离 `[[]]`/alias/anchor);非关系值返回 []。 */
+export function relationTargets(v: FmValue): string[] {
+  if (typeof v === "string") {
+    const m = WIKILINK_RE.exec(v);
+    return m ? [linkInnerTarget(m[1])] : [];
+  }
+  if (Array.isArray(v)) {
+    return v.flatMap((x) => {
+      const m = WIKILINK_RE.exec(x);
+      return m ? [linkInnerTarget(m[1])] : [];
+    });
+  }
+  return [];
+}
+
+/** 把 target 包成 `[[target]]`(关系 chip 写回 frontmatter 用)。 */
+export function asWikilink(target: string): string {
+  return `[[${target}]]`;
 }
