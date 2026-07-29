@@ -368,6 +368,8 @@ export default function App() {
                       key={state.currentPath ?? "empty"}
                       content={state.content}
                       onChange={actions.setContent}
+                      onFollow={handleFollow}
+                      noteTitles={noteTitles}
                       hasNote={state.currentPath !== null}
                       theme={theme}
                       t={t}

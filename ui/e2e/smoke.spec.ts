@@ -84,4 +84,23 @@ test.describe("mock vault 关键路径", () => {
       timeout: 10_000,
     });
   });
+
+  test("wysiwyg 模式渲染 wikilink chip 并点击跳转", async ({ page }) => {
+    await page.goto("/");
+    await vaultReady(page);
+    await page.getByTestId("note-list").getByText("Index", { exact: true }).click();
+    await expect(page.locator(".cm-content").first()).toContainText("Index", {
+      timeout: 10_000,
+    });
+    await page.getByTitle("切换到所见即所得").click();
+    await expect(page.locator(".ProseMirror").first()).toBeVisible({ timeout: 15_000 });
+    // Index body 含 [[Zettelkasten]] 等 wikilink;应被 hydrate 成可点击 chip(data-wikilink)。
+    const chip = page.locator("[data-wikilink]", { hasText: "Zettelkasten" }).first();
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    // 点击 chip → handleFollow → 跳转 Zettelkasten;重建后载入其 body(含「原子化卡片」)。
+    await chip.click();
+    await expect(page.locator(".ProseMirror").first()).toContainText("原子化卡片", {
+      timeout: 10_000,
+    });
+  });
 });
