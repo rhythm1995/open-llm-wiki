@@ -6,7 +6,12 @@ Cargo.lock.bak
 # Node / pnpm
 node_modules/
 dist/
+coverage/
 .vite/
+
+# Playwright(e2e 产物)
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # Tauri
@@ -27,3 +32,7 @@ Thumbs.db
 # env
 .env
 .env.local
+
+# Benchmark vault(图谱大图性能压测用,生成物,勿提交)
+benchmark-vault/
+/big

@@ -1,0 +1,96 @@
+name: Release
+
+# 分发构建骨架:打 tag(v*) 或手动触发(workflow_dispatch)时,在 macOS / Linux / Windows
+# 矩阵上用 tauri 打包,产出 .dmg / .AppImage / .deb / .msi / .exe,并起草 GitHub Release(草稿)。
+#
+# 签名/公证是**可选且按需**的:配置了对应 secret 才签名,否则出未签名包(本地能装,正式分发前再补凭证)。
+#   macOS:APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY
+#         + 公证 APPLE_ID / APPLE_PASSWORD / APPLE_TEAM
+#   Updater:TAURI_PRIVATE_KEY / TAURI_KEY_PASSWORD(决定是否上自动更新)
+#   Windows 安装包:TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+# 何时配置由用户决定(见 docs/deferred.md 「打包与分发」的前置项)。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.1.0)"
+        required: true
+        default: "v0.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macos-latest = Apple Silicon(aarch64);macos-13 = Intel(x86_64)。
+          # 两个各打一份 dmg,覆盖 Intel 与 Apple Silicon mac(不做 universal 合并,骨架够用)。
+          - platform: macos-latest
+          - platform: macos-13
+          - platform: ubuntu-22.04
+          - platform: windows-latest
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Install frontend deps
+        run: pnpm --dir ui install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ── macOS 代码签名 + 公证(可选)──
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM: ${{ secrets.APPLE_TEAM }}
+          # ── Tauri Updater 签名 + 更新清单(可选:配置后启用自动更新)──
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          # ── Windows 安装包签名(可选)──
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # 非标准布局:tauri.conf.json 在 app/src-tauri/ 而非仓库根。
+          # tauri-action 从仓库根 CWD 跑 tauri,递归子目录会发现 app/src-tauri/tauri.conf.json
+          # (与本地 `ui/node_modules/.bin/tauri build` 从根跑一致);beforeBuildCommand
+          # (pnpm --dir ui build)也从根跑。@tauri-apps/cli 装在 ui/node_modules 而非仓库根,
+          # 故用 npx 拉 @tauri-apps/cli@2,避免 `pnpm --dir ui exec`(会改 CWD 到 ui/ 致发现失败)。
+          tauriScript: npx --yes --package @tauri-apps/cli@^2 tauri
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "OpenObsidian ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseDraft: true
+          prerelease: false
