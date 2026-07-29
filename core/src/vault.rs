@@ -64,7 +64,7 @@ impl VaultIndex {
 
     /// QQL 求值。
     pub fn query(&self, q: &Query) -> ResultSet {
-        eval_query(self.notes(), q)
+        eval_query(self.notes(), &self.graph, q)
     }
 
     /// 全文检索(AND 语义)。返回按分降序的 (节点 id, 分数)。
@@ -87,7 +87,7 @@ impl VaultIndex {
 mod tests {
     use super::*;
     use crate::graph::{EdgeKind, Target};
-    use crate::query::{Direction, OrderKey, Predicate};
+    use crate::query::{Cmp, Direction, FieldRef, Literal, OrderKey, Predicate, ResultSet};
 
     fn sample() -> VaultIndex {
         VaultIndex::build(vec![
@@ -140,13 +140,17 @@ mod tests {
     fn query_end_to_end() {
         let v = sample();
         let q = Query {
-            filter: Predicate::HasType("Concept".into()),
-            order: vec![OrderKey::Title(Direction::Asc)],
+            filter: Predicate::Cmp(FieldRef::Type, Cmp::Eq, Literal::Str("Concept".into())),
+            order: vec![OrderKey(FieldRef::Title, Direction::Asc)],
             ..Query::default()
         };
         let rs = v.query(&q);
-        assert_eq!(rs.len(), 1);
-        assert_eq!(rs[0].id, 0);
+        match rs {
+            ResultSet::List(ids) => {
+                assert_eq!(ids, vec![0]);
+            }
+            _ => panic!("expected List"),
+        }
     }
 
     #[test]

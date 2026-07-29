@@ -28,6 +28,14 @@ export interface NodeOut {
   title: string;
   type: string | null;
   tags: string[];
+  /** frontmatter `status`(软状态;可空)。 */
+  status: string | null;
+  /** frontmatter `created`(字符串,通常 YYYY-MM-DD;可空)。 */
+  created: string | null;
+  /** 文件 mtime,unix 毫秒(读取失败时后端回退 0)。 */
+  modified: number;
+  /** 正文单行预览(已去 frontmatter 与开头 H1,≤200 字符)。 */
+  preview: string;
 }
 
 export interface EdgeOut {
@@ -45,15 +53,47 @@ export interface VaultSnapshot {
   edges: EdgeOut[];
 }
 
-/** QQL 结果行:core 的 `Option<Vec<Option<String>>>` 序列化形态。 */
+/** QQL 表格行:core 的 `Option<Vec<Option<String>>>` 序列化形态。 */
 export interface QqlRow {
   id: number;
   fields: (string | null)[] | null;
 }
 
+/** group_by 分组行。 */
+export interface GroupRow {
+  key: string;
+  count: number;
+  ids: number[];
+}
+
+/**
+ * QQL 结果集 —— 对齐 core 的 `ResultSet` 枚举(serde 外标签)。
+ * 形态由 `RENDER` 决定:List / Table / Count / Groups / Sum。
+ */
+export type ResultSet =
+  | { List: number[] }
+  | { Table: QqlRow[] }
+  | { Count: number }
+  | { Groups: GroupRow[] }
+  | { Sum: number };
+
 export interface SearchHit {
   id: number;
   score: number;
+}
+
+/**
+ * git 历史中「已删除」的 `.md`:工作区已不存在、但版本库历史里仍有。
+ * 后端从 `git log --diff-filter=D` 投影;title 由 path 推(去 `.md`)。
+ * 归档视图据此列出可还原的已删笔记。删除/还原统一走 git,无 `.trash/` 平行机制。
+ */
+export interface DeletedNote {
+  path: string;
+  title: string;
+  /** 最近一次删除该文件的提交 hash。 */
+  commit: string;
+  /** 删除日期(YYYY-MM-DD,取自 git author date)。 */
+  deleted_at: string;
 }
 
 async function call<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
@@ -81,10 +121,39 @@ export const ipc = {
   indexVault: (root: string) =>
     call<VaultSnapshot>("index_vault", { root }),
   runQql: (root: string, qql: string) =>
-    call<QqlRow[]>("run_qql", { root, qql }),
+    call<ResultSet>("run_qql", { root, qql }),
   searchNotes: (root: string, query: string) =>
     call<SearchHit[]>("search_notes", { root, query }),
   pickVault: () => call<string | null>("pick_vault", {}),
+  /** 在系统文件管理器中显示笔记(macOS Finder / Windows 资源管理器 / Linux)。桌面专用。 */
+  revealInFinder: (root: string, path: string) =>
+    call<void>("reveal_in_finder", { root, path }),
+
+  // ── git(F-GIT):返回 git 原始 stdout,前端 `git-parse.ts` 解析。
+  //   仅在 Tauri 桌面 app 打开真正的 git 仓库时生效;mock 模式下不可用。
+  gitStatusRaw: (root: string) => call<string>("git_status_raw", { root }),
+  gitLogRaw: (root: string, limit = 50) =>
+    call<string>("git_log_raw", { root, limit }),
+  gitCommit: (root: string, message: string) =>
+    call<string>("git_commit", { root, message }),
+
+  // ── 归档并入 git(删除/还原一体化):删除即 git 提交,还原从历史检出。
+  //   工作区无 `.trash/`;唯一真相源是版本库。结构操作(建/删/改名)后端自动提交。
+  /** 是否已是 git 仓库(决定归档视图渲染「历史」还是「初始化」空态)。 */
+  gitIsRepo: (root: string) => call<boolean>("git_is_repo", { root }),
+  /** 列出 git 历史中「已删除」的 `.md`(可还原)。 */
+  gitDeletedNotes: (root: string) =>
+    call<DeletedNote[]>("git_deleted_notes", { root }),
+  /** 从最近删除提交还原某 path(`git checkout <hash>^ -- <path>` + add)。 */
+  gitRestoreNote: (root: string, path: string) =>
+    call<string>("git_restore_note", { root, path }),
+  /** `git init` + 初始提交(归档空态的「初始化 git」按钮)。 */
+  gitInit: (root: string) => call<void>("git_init", { root }),
+
+  // ── 文件监听(Tauri 桌面):notify 监听 vault,debounce 后 emit "vault-changed",
+  //   前端 listen → 节流全量 refresh。mock/浏览器不监听(无 fs)。
+  watchVault: (root: string) => call<void>("watch_vault", { root }),
+  unwatchVault: () => call<void>("unwatch_vault", {}),
 
   /** 浏览器 dev 用的标志:为 true 时 UI 应提示"当前为 mock 模式"。 */
   isMock: () => !isTauri,

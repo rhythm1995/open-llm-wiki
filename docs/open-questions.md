@@ -7,7 +7,7 @@
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
-| Q1 | 项目正式名 | 【待定】占位 "OpenObsidian" | 公开前必换(见 07-provenance 命名闸门)。候选:复用自有名 "Cairn" / 地质或制图隐喻。 |
+| Q1 | 项目正式名 | ✅【已定】OpenObsidian | 正式名定为 OpenObsidian。 |
 | Q2 | YAML 解析库 | ✅【默认已落地】`serde_yaml 0.9.34` | 已确认编译/运行通过。维护模式但稳定;想换活跃分支 `serde_yml` 可一行替换(仅 `parse_frontmatter` 一处)。 |
 | Q3 | 编辑器 | ✅【MVP 默认】CodeMirror 6 markdown | MVP 选纯源码编辑(round-trip 最稳、体积小);BlockNote 所见即所得延后到 v2(需补 patches + md 双向转换)。 |
 | Q4 | UI 组件库 | ✅【MVP 默认】Tailwind 4 + Radix + Phosphor + shadcn(cva/clsx/tw-merge) | MVP 不引入 Mantine(避免与 Tailwind 的 reset/provider 冲突);Mantine 的 Combobox 等可在 v2 按需引入。 |

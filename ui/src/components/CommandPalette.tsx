@@ -14,19 +14,25 @@ import {
   ListMagnifyingGlass,
   MagnifyingGlass,
   FileText,
+  GitBranch,
+  Rectangle,
 } from "@phosphor-icons/react";
 import type { VaultActions } from "../lib/store";
 import type { VaultSnapshot } from "../lib/ipc";
+import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
 
-export type MainView = "editor" | "graph" | "query" | "search";
+export type MainView = "editor" | "graph" | "query" | "search" | "git";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   snapshot: VaultSnapshot | null;
   actions: VaultActions;
+  onNewNote: () => void;
+  onNewCanvas: () => void;
   onNavigate: (v: MainView) => void;
+  t: TFunc;
 }
 
 export function CommandPalette({
@@ -34,7 +40,10 @@ export function CommandPalette({
   onOpenChange,
   snapshot,
   actions,
+  onNewNote,
+  onNewCanvas,
   onNavigate,
+  t,
 }: Props) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -52,17 +61,16 @@ export function CommandPalette({
 
   const actions2 = useMemo(
     () => [
-      { id: "open", label: "打开 Vault", icon: FolderOpen, run: () => actions.openPicker() },
-      { id: "new", label: "新建笔记", icon: Plus, run: () => {
-        const name = window.prompt("新笔记名:");
-        if (name) actions.createNote(name.trim());
-      } },
-      { id: "v-editor", label: "视图:编辑器", icon: PencilSimple, run: () => onNavigate("editor") },
-      { id: "v-graph", label: "视图:图谱", icon: Graph, run: () => onNavigate("graph") },
-      { id: "v-query", label: "视图:QQL 查询", icon: ListMagnifyingGlass, run: () => onNavigate("query") },
-      { id: "v-search", label: "视图:搜索", icon: MagnifyingGlass, run: () => onNavigate("search") },
+      { id: "open", label: t("palette.action.openVault"), icon: FolderOpen, run: () => actions.openPicker() },
+      { id: "new", label: t("palette.action.newNote"), icon: Plus, run: () => onNewNote() },
+      { id: "new-canvas", label: t("palette.action.newCanvas"), icon: Rectangle, run: () => onNewCanvas() },
+      { id: "v-editor", label: `${t("palette.action.viewPrefix")}${t("view.editor")}`, icon: PencilSimple, run: () => onNavigate("editor") },
+      { id: "v-graph", label: `${t("palette.action.viewPrefix")}${t("view.graph")}`, icon: Graph, run: () => onNavigate("graph") },
+      { id: "v-query", label: `${t("palette.action.viewPrefix")}${t("view.query")}`, icon: ListMagnifyingGlass, run: () => onNavigate("query") },
+      { id: "v-search", label: `${t("palette.action.viewPrefix")}${t("view.search")}`, icon: MagnifyingGlass, run: () => onNavigate("search") },
+      { id: "v-git", label: `${t("palette.action.viewPrefix")}${t("view.git")}`, icon: GitBranch, run: () => onNavigate("git") },
     ].filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())),
-    [q, actions, onNavigate],
+    [q, actions, onNavigate, onNewCanvas, t],
   );
 
   const total = actions2.length + filtered.length;
@@ -99,13 +107,13 @@ export function CommandPalette({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50" />
         <Dialog.Content className="fixed left-1/2 top-[20%] w-[560px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-surface2 bg-mantle shadow-2xl outline-none">
-          <Dialog.Title className="sr-only">命令面板</Dialog.Title>
+          <Dialog.Title className="sr-only">{t("palette.title")}</Dialog.Title>
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
-            placeholder="搜索笔记或输入命令…"
+            placeholder={t("palette.placeholder")}
             className="w-full border-b border-crust bg-transparent px-3 py-2.5 text-[14px] text-text outline-none placeholder:text-overlay"
           />
           <div className="max-h-[60vh] overflow-y-auto p-1">
@@ -128,7 +136,7 @@ export function CommandPalette({
             })}
             {filtered.length > 0 && actions2.length > 0 && (
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-overlay">
-                笔记
+                {t("palette.section.notes")}
               </div>
             )}
             {filtered.map((n, j) => {
@@ -152,7 +160,7 @@ export function CommandPalette({
               );
             })}
             {total === 0 && (
-              <p className="px-3 py-3 text-[12px] text-overlay">无匹配项。</p>
+              <p className="px-3 py-3 text-[12px] text-overlay">{t("palette.empty")}</p>
             )}
           </div>
         </Dialog.Content>

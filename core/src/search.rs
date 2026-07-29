@@ -161,3 +161,59 @@ mod tests {
         assert_eq!(idx.search(&["RUST"]).len(), 1);
     }
 }
+
+// ─────────────────────────── 属性测试(proptest)───────────────────────────
+
+#[cfg(test)]
+mod props {
+    use super::*;
+    use crate::index::enrich;
+    use crate::parse::parse_note;
+    use proptest::prelude::*;
+    use std::collections::HashSet;
+
+    fn arb_note() -> impl Strategy<Value = Note> {
+        ("[a-e]{1,4}", "[a-e ]{0,20}").prop_map(|(title, body)| {
+            enrich(parse_note(&format!("# {title}\n{body}"), &format!("{title}.md")))
+        })
+    }
+
+    proptest! {
+        /// 任意笔记集合 → SearchIndex::build 不 panic。
+        #[test]
+        fn build_never_panics(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let _ = SearchIndex::build(&notes);
+        }
+
+        /// AND 语义:多词查询结果集 ⊆ 单词查询(t1)结果集。
+        /// AND 只会收敛,不会凭空多出 t1 命中不了的文档。
+        #[test]
+        fn and_result_subset_of_single_term(
+            notes in prop::collection::vec(arb_note(), 0..15),
+            t1 in "[a-z]{1,3}", t2 in "[a-z]{1,3}"
+        ) {
+            let idx = SearchIndex::build(&notes);
+            let single: HashSet<NodeId> =
+                idx.search(&[&t1]).into_iter().map(|(id, _)| id).collect();
+            let multi: HashSet<NodeId> =
+                idx.search(&[&t1, &t2]).into_iter().map(|(id, _)| id).collect();
+            for id in &multi {
+                prop_assert!(single.contains(id), "AND 结果 {id} 不在单词 t1 结果里");
+            }
+        }
+
+        /// 结果按分数单调不增(降序)。
+        #[test]
+        fn results_sorted_desc(
+            notes in prop::collection::vec(arb_note(), 0..15),
+            q in "[a-z ]{0,20}"
+        ) {
+            let idx = SearchIndex::build(&notes);
+            let terms: Vec<&str> = q.split_whitespace().collect();
+            let r = idx.search(&terms);
+            for w in r.windows(2) {
+                prop_assert!(w[0].1 >= w[1].1, "结果未按分数降序");
+            }
+        }
+    }
+}

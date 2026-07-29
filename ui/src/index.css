@@ -1,34 +1,62 @@
 @import "tailwindcss";
 
 /* ───────────────────────────────────────────────────────────────
-   OpenObsidian 主题 —— 深色优先(桌面 PKM 暗色是默认体验)。
-   配色取自 Catppuccin Mocha 调色板(柔和、低对比疲劳),与 Tolaria
-   的视觉取向一致但不照抄具体值。后续可拆出 light 变体。
+   OpenObsidian 主题 —— 对齐 Tolaria 基准:浅色优先 + 蓝色强调。
+   设计参考 Tolaria(仅参考,不抄源码):编辑区为 primary 底,侧栏/面板略灰,
+   1px 细分隔线;强调色统一走蓝(--color-blue,所有 text-blue/bg-blue 自动跟随)。
+   全站组件只引用这套语义令牌,故只改这里的值即可全站换肤。
+
+   浅色为产品默认:@theme 的值即 :root 默认(无 data-theme 属性时生效,
+   首屏无 FOUC)。深色为次级变体,由 <html data-theme="dark"> 覆盖同名变量。
    ─────────────────────────────────────────────────────────────── */
 @theme {
-  --color-base: #1e1e2e;
-  --color-mantle: #181825;
-  --color-crust: #11111b;
-  --color-surface: #313244;
-  --color-surface2: #45475a;
-  --color-overlay: #6c7086;
-  --color-text: #cdd6f4;
-  --color-subtext: #a6adc8;
-  --color-blue: #89b4fa;
-  --color-lavender: #b4befe;
-  --color-green: #a6e3a1;
-  --color-red: #f38ba8;
-  --color-yellow: #f9e2af;
-  --color-mauve: #cba6f7;
-  --color-teal: #94e2d5;
+  /* 浅色(产品默认) */
+  --color-base: #ffffff;     /* 编辑区主底(primary) */
+  --color-mantle: #f8f9fa;   /* 侧栏/面板(statusbar/tabbar/inspector) */
+  --color-crust: #e9ecef;    /* 细分隔线/次级面板底 */
+  --color-surface: #f1f3f5;  /* 悬停/输入底 */
+  --color-surface2: #dee2e6; /* 强分隔线/ring */
+  --color-overlay: #adb5bd;  /* faint 文字/占位 */
+  --color-subtext: #6c757d;  /* muted 文字 */
+  --color-text: #212529;     /* 正文 */
+  --color-blue: #0d6efd;     /* 强调(蓝);wikilink/激活/图标统一走它 */
+  --color-lavender: #0a58ca; /* 强调悬停 */
+  --color-green: #198754;
+  --color-red: #dc3545;
+  --color-yellow: #e8a33d;
+  --color-mauve: #6f42c1;    /* 次级强调:关系/canvas chip */
+  --color-teal: #20c997;
 
   --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
-  --font-sans: "Inter", system-ui, -apple-system, "PingFang SC",
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "PingFang SC",
     "Microsoft YaHei", sans-serif;
 }
 
 :root {
+  color-scheme: light;
+  /* 小控件圆角(按钮/chip);面板走直角,贴合 Tolaria。 */
+  --radius-panel: 4px;
+}
+
+/* ── 深色变体(中性深灰 + 蓝)── 仅在 <html data-theme="dark"> 时生效,
+   覆盖同名 CSS 变量;Tailwind 工具类(bg-base/text-… 等)引用这些变量,自动跟随。 */
+[data-theme="dark"] {
   color-scheme: dark;
+  --color-base: #1e1e1e;
+  --color-mantle: #252525;
+  --color-crust: #333333;
+  --color-surface: #2c2c2c;
+  --color-surface2: #3a3a3a;
+  --color-overlay: #6a6a6a;
+  --color-subtext: #9aa0a6;
+  --color-text: #e8eaed;
+  --color-blue: #4dabf7;
+  --color-lavender: #74c0fc;
+  --color-green: #51cf66;
+  --color-red: #ff6b6b;
+  --color-yellow: #fab005;
+  --color-mauve: #b197fc;
+  --color-teal: #38d9a9;
 }
 
 html,
@@ -64,10 +92,235 @@ body {
   background: transparent;
 }
 
-/* CodeMirror 撑满容器;字体随系统等宽字体。 */
+/* CodeMirror 撑满容器。
+   编辑器正文用比例无衬线(Inter)——笔记 prose 的可读性远胜等宽;代码块/行内代码
+   仍走等宽(defaultHighlightStyle 给 monospace 标签注入 font-family)。对齐 Tolaria。 */
 .cm-editor {
   height: 100%;
 }
 .cm-scroller {
-  font-family: var(--font-mono) !important;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
+}
+/* 可读行宽:内容居中限宽(≈阅读视图 max-w-3xl),长 prose 不再拉满屏宽。 */
+.cm-content {
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 1.5rem 2rem 6rem;
+}
+/* 兜底:行内/围栏代码强制等宽(防 defaultHighlightStyle 被主题覆盖时丢失)。 */
+.cm-line > span[style*="monospace"],
+.cm-monospace,
+.cmt {
+  font-family: var(--font-mono);
+}
+
+/* 编辑模式「半所见即所得」:由 ViewPlugin 给标题/引用行挂 line 类,按级别放大。
+   只动呈现,不改文本,光标/选区/历史不受影响。 */
+.cm-md-h1 {
+  font-size: 1.55em;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.cm-md-h2 {
+  font-size: 1.32em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.cm-md-h3 {
+  font-size: 1.16em;
+  font-weight: 600;
+}
+.cm-md-h4,
+.cm-md-h5,
+.cm-md-h6 {
+  font-weight: 600;
+  color: var(--color-subtext);
+}
+.cm-md-quote {
+  color: var(--color-subtext);
+  font-style: italic;
+}
+
+/* F-WIKILINK:正文 `[[wikilink]]` 标记为可点击的蓝色下划线(Cmd/Ctrl+点击跟随)。 */
+.cm-wikilink {
+  color: var(--color-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* `[[` 自动补全弹层:贴合深色主题(oneDark 不覆盖补全弹层)。 */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface2);
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+.cm-tooltip-autocomplete > ul > li {
+  color: var(--color-subtext);
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--color-surface2);
+  color: var(--color-text);
+}
+
+/* ── 阅读视图(F-READING)正文排版:配色走主题变量,自动随明/暗。 ── */
+.rendered {
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.rendered h1,
+.rendered h2,
+.rendered h3,
+.rendered h4 {
+  color: var(--color-text);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.4em 0 0.5em;
+}
+.rendered h1 { font-size: 1.7em; }
+.rendered h2 { font-size: 1.4em; }
+.rendered h3 { font-size: 1.15em; }
+.rendered p,
+.rendered ul,
+.rendered ol,
+.rendered blockquote,
+.rendered pre {
+  margin: 0.6em 0;
+}
+.rendered ul,
+.rendered ol {
+  padding-left: 1.5em;
+}
+.rendered li {
+  margin: 0.2em 0;
+}
+.rendered a {
+  color: var(--color-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rendered .wikilink {
+  color: var(--color-blue);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.rendered code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-surface);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+.rendered pre {
+  background: var(--color-crust);
+  border-radius: 6px;
+  overflow-x: auto;
+  padding: 0.8em 1em;
+}
+.rendered pre code {
+  background: transparent;
+  padding: 0;
+}
+.rendered blockquote {
+  border-left: 3px solid var(--color-surface2);
+  color: var(--color-subtext);
+  padding-left: 1em;
+}
+.rendered hr {
+  border: none;
+  border-top: 1px solid var(--color-surface);
+  margin: 1.4em 0;
+}
+.rendered table {
+  border-collapse: collapse;
+}
+.rendered th,
+.rendered td {
+  border: 1px solid var(--color-surface);
+  padding: 0.35em 0.6em;
+}
+.rendered img {
+  max-width: 100%;
+}
+
+/* ── 内联 ```qql 查询块结果(编辑器 widget + 阅读视图共用 class,两路一致)。 ──
+   编辑器侧 .cm-qql-result 是 CM 块级 widget;阅读视图侧 .qql-block-result 是
+   pre 后注入的 div。两者共用 .qql-* 子元素样式。 */
+.cm-qql-result,
+.qql-block-result {
+  display: block;
+  margin: 0.4em 0 0.8em;
+  padding: 0.5em 0.75em;
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface2);
+  border-left: 3px solid var(--color-blue);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--color-text);
+  user-select: none;
+}
+.qql-num {
+  font-size: 1.5em;
+  font-weight: 700;
+  color: var(--color-blue);
+  font-variant-numeric: tabular-nums;
+}
+.qql-list,
+.qql-groups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.qql-list li {
+  color: var(--color-text);
+}
+.qql-groups li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.qql-badge {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.35em;
+  border-radius: 999px;
+  background: var(--color-crust);
+  color: var(--color-subtext);
+  font-size: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.qql-key {
+  color: var(--color-text);
+}
+.qql-table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.qql-table th,
+.qql-table td {
+  border: 1px solid var(--color-surface2);
+  padding: 0.2em 0.5em;
+  text-align: left;
+}
+.qql-table th {
+  color: var(--color-subtext);
+  font-weight: 500;
+}
+.qql-empty,
+.qql-pending {
+  color: var(--color-subtext);
+  font-style: italic;
+}
+.qql-error {
+  color: var(--color-red);
 }

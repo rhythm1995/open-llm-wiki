@@ -1,0 +1,211 @@
+# 07 — LLM Wiki × 软件架构（双视角总览）
+
+> 本文回答一个问题:**OpenObsidian 这个项目,把「LLM Wiki 方法论」和「它自己的软件架构」是怎么叠在一起的?**
+>
+> 它既是 (a) 一个有清晰分层的软件(`core` Rust 内核 → `app` Tauri 壳 → `ui` React 前端),
+> 又是 (b) 一套**实现 LLM Wiki 思想**的本地引擎(Raw → Wiki → Schema → Navigation → Health)。
+> 两个视角不是两件事——后者就**长在**前者的分层里。本文把两者画进同一张图。
+>
+> 与既有文档的关系:技术栈选型见 [02-architecture](./02-architecture.md),数据模型(Vault/Note/frontmatter)
+> 见 [03-data-model](./03-data-model.md)。本文是**横切总览**,不重复细节,只画"怎么拼起来"。
+> 本文反映**代码落地真相**;02 的选型是初版设计,部分已调整(见下文「实现 vs 设计」)。
+
+---
+
+## 0. 一句话定位
+
+> **OpenObsidian = 一个本地优先、文件即真相的引擎,用 Rust 纯逻辑内核把「笔记 + frontmatter 软类型」
+> 索引成一张可查询的图谱,让 LLM Wiki 的五层（Raw / Wiki / Schema / Navigation / Health）都成为一等公民——
+> 尤其是 Health 层,它不靠手写快照,而靠 QQL 聚合查询实时算出来。**
+
+---
+
+## 1. 主架构图(软件栈 + 数据流)
+
+```mermaid
+flowchart TD
+  subgraph SRC["📁 真相源 · 本地优先(无云)"]
+    direction LR
+    V[("Vault 目录<br/>*.md + frontmatter")]
+    G[("git 仓库<br/>唯一版本真相 · 删除可还原")]
+  end
+
+  subgraph CORE["🦀 openobs-core · Rust 纯逻辑(99 单测 · IO-free · TDD 心脏)"]
+    direction TB
+    PIPE["parse → index → graph → { query/qql, search }"]
+    VI["VaultIndex<br/>{ notes, graph, by_type, by_tag }<br/>.build() · .query() · .search()"]
+    PIPE --> VI
+  end
+
+  subgraph APP["⚙️ openobs-app · Tauri 2(Rust 壳 · 无 git2)"]
+    direction TB
+    CMD["18 个 #[tauri::command]<br/>note CRUD · index_vault · run_qql · search_notes<br/>git_status/log/commit · git_is_repo/deleted/restore/init · pick_vault · diag_log"]
+    GIT["run_git 子进程(std::process)"]
+    CMD <--> GIT
+  end
+
+  IPC{{"🔌 Tauri IPC 边界<br/>invoke() ↔ #[command]<br/>(浏览器 dev 走 mock 分支)"}}
+
+  subgraph TS["🟦 前端纯逻辑 · TypeScript(vitest · 可脱离 Tauri 测)"]
+    LIB["store · tabs · graph-layout · graph-filter<br/>qql-block · wikilink · frontmatter · nav-filter<br/>render · git-parse · saved-query · i18n · theme"]
+  end
+
+  subgraph REACT["🎨 React 19 + Tailwind v4(组件)"]
+    direction LR
+    ED["Editor(CodeMirror 6)<br/>ReadingView(marked+DOMPurify)"]
+    GR["GraphView(自绘 SVG 力导向)<br/>QueryPanel · qql-widget(内联 ```qql)"]
+    NAV["Nav · NoteListView · ArchiveView<br/>Inspector · SearchPanel · GitPanel · CommandPalette"]
+  end
+
+  %% 主数据流
+  V -->|"读 .md 内容"| CMD
+  CMD -->|"Vec<(path,content)>"| PIPE
+  VI -->|"index_vault 快照 / run_qql / search 结果"| IPC
+  CMD -->|"write/create/delete/rename"| V
+  GIT <-->|"checkout/log/commit"| G
+  IPC <-->|"ipc.ts 封装"| LIB
+  LIB <-->|"状态 + 纯函数"| REACT
+```
+
+> **读图要点**:`core` 是纯函数心脏,不碰文件系统/git/网络——所有副作用都挤到 `app` 层的命令处理器和
+> `run_git` 子进程里。前端有一层**与后端对称的纯逻辑**(`lib/`),让 UI 交互可单测、可脱离 Tauri 跑
+> (浏览器 dev 走 `mock.ts`)。这条"纯逻辑 IO-free"的对角线贯穿三层,是整个项目的结构主梁。
+
+---
+
+## 2. Core 内部流水线(索引是怎么炼成的)
+
+```mermaid
+flowchart LR
+  E[/"Vec&lt;(path, content)&gt;<br/>—— 调用方喂进来的纯字符串"/]
+  P["parse.rs<br/>零依赖分词<br/>→ ParsedNote + Link"]
+  I["index.rs<br/>→ Note{type, tags, frontmatter}<br/>关系边(wikilink + frontmatter)"]
+  GR["graph.rs<br/>→ 统一 Graph<br/>EdgeKind: Wiki / Relation"]
+  Q1["qql.rs<br/>文本 → AST"]
+  Q2["query.rs<br/>AST → ResultSet<br/>(List / Table / Count / Groups / Sum)"]
+  S["search.rs<br/>倒排索引 + 标题加权"]
+  VI[["VaultIndex<br/>{ notes, graph,<br/>by_type, by_tag }"]]
+
+  E --> P --> I --> GR --> VI
+  GR --> Q1 --> Q2
+  GR --> S
+  VI -.->|".query(q)"| Q2
+  VI -.->|".search(terms)"| S
+```
+
+> **关键**:`VaultIndex` 是顶层聚合——`build()` 一次性把 parse/index/graph/search 全跑完,产出不可变快照;
+> `query()` / `search()` 是快照上的只读查询。Tauri 命令 `index_vault` 把这个快照序列化给前端;
+> `run_qql` / `search_notes` 则是按需的窄查询。**没有增量索引**(全量 rebuild),靠 Rust 速度 + vault 规模
+> 可控(日常百~千级笔记)兜住——这是有意的简单取舍。
+
+---
+
+## 3. 视角二:LLM Wiki 五层 → OpenObsidian 机制
+
+LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 OpenObsidian 的具体类型 / 命令 / 组件上——
+你会看到:前四层 OpenObsidian 已经原生支持,第五层(Health)是**用 QQL 把它从"手写快照"升级成"实时可查"**。
+
+| LLM Wiki 层 | 含义 | OpenObsidian 的落点 | 类型 / 命令 / 组件 |
+|---|---|---|---|
+| **Raw** | 不可变原始源 | 笔记的 `type: Source`;不可变语义由 **git 版本真相**保证(re-ingest 产新 Summary,旧版可还原) | `type: Source` · `git_restore_note` · ArchiveView |
+| **Wiki** | LLM 生成的派生知识 | `Summary` / `Entity` / `Concept` 软类型 + 关系边(`derived_into` / `mentioned_in` / `contradicts`) | `type: Summary\|Entity\|Concept` · Inspector 关系编辑 · GraphView |
+| **Schema** | 类型与关系的契约 | `core::index` 解析 `type:`/frontmatter;`Type` 文档定义软类型;`AGENTS.md` 作 schema 提示(兼容 cairn) | `type_of()` · `relationship_links()` · Type 文档 · AGENTS.md |
+| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(关系可视化)+ **QQL**(聚合导航)+ **全文检索**+ Nav 智能视图(VIEWS/TYPES/FOLDERS) | GraphView · QueryPanel/qql-widget · SearchPanel · `index_vault` |
+| **Health** | 度量与反馈环 | **用 QQL 实时算**,而非手写 wiki-health 快照 —— 见下文「Health 即查询」 | `run_qql` + saved `type: Query` 笔记 |
+
+### Health 即查询(核心洞察)
+
+传统 LLM Wiki 的 Health 层是一篇**手写刷新**的 `wiki-health` 快照(因为 Tolaria 这类工具没有原生聚合)。
+OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是一条 QQL,存成 `type: Query` 的笔记,自举进图谱/检索:
+
+| Health 指标 | 对应 QQL(示意) |
+|---|---|
+| 矛盾健康度(Contested 概念) | `WHERE type = "Concept" AND status = "Contested" SHOW title` |
+| 孤儿(无入边的 Entity/Concept) | `WHERE type IN ("Entity","Concept") AND mentioned_in IS EMPTY SHOW title` |
+| 概念饥饿度(按引用数分组) | `WHERE type = "Concept" GROUP BY status SHOW count` |
+| 证据质量分布 | `WHERE type = "Source" GROUP BY evidence_tier SHOW count` |
+| 综合度(单源概念) | `WHERE type = "Concept" AND len(mentioned_in) < 2 SHOW title` |
+
+> 这是「LLM Wiki 结合本身设计」最浓缩的一处:**OpenObsidian 不存 Health,它存"能算出 Health 的查询"**。
+> 查询本身又是笔记,所以 Health 指标可以被 `[[link]]`、被别的查询再聚合——自举到第二层。
+
+---
+
+## 4. 端到端数据流(打开 vault → 看到图谱/查到结果)
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant UI as React UI
+  participant IPC as Tauri IPC
+  participant App as openobs-app
+  participant Core as openobs-core
+  participant FS as 文件系统 + git
+
+  U->>UI: 打开 vault(pick_vault)
+  UI->>IPC: index_vault(root)
+  IPC->>App: list .md → 读内容
+  App->>FS: 读 *.md(递归)
+  FS-->>App: Vec<(path, content)>
+  App->>Core: VaultIndex::build(entries)
+  Core-->>App: {notes, graph, by_type, by_tag}
+  App-->>IPC: VaultSnapshot(序列化)
+  IPC-->>UI: 渲染 Nav / NoteListView / GraphView
+
+  Note over UI,Core: 编辑笔记(结构操作自动 git 提交)
+  U->>UI: 编辑正文 / 改名 / 删除
+  UI->>IPC: write_note / rename_note / delete_note
+  IPC->>App: 写文件
+  App->>FS: 写 .md
+  App->>FS: git add+commit(结构自动;正文手动走 GitPanel)
+  App-->>IPC: ok
+  UI->>IPC: index_vault(重建快照)
+
+  Note over UI,Core: 实时聚合查询
+  U->>UI: QQL / 内联 ```qql / 全文搜索
+  UI->>IPC: run_qql / search_notes
+  IPC->>App: 转发
+  App->>Core: VaultIndex.query(q) / .search(terms)
+  Core-->>App: ResultSet / SearchHit[]
+  App-->>UI: 渲染结果(QueryPanel / qql-widget / SearchPanel)
+```
+
+---
+
+## 5. 实现 vs 初版设计(诚实标注)
+
+`02-architecture.md` 是**初版选型**;实际落地有几处务实调整(均有记录,非偷偷改):
+
+| 维度 | 02 初版设计 | 实际落地 | 原因 / 记录 |
+|---|---|---|---|
+| 编辑器 | BlockNote(主)+ CodeMirror(raw) | **CodeMirror 6 单轨**(ReadingView 覆盖渲染) | BlockNote 的 JSON↔Markdown round-trip 有损,延后到证明无损再做([deferred](./deferred.md)「BlockNote」) |
+| 图谱 | react-force-graph-2d(WebGL) | **自绘 SVG 力导向**(FR 算法,纯 `graph-layout.ts`) | 零依赖、可单测、中小图够用;>400 节点的 WebGL/LOD 是待打磨项([deferred](./deferred.md)「图谱大图性能」) |
+| UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 直接 + 少量 Radix**(自实现轻量组件) | 降依赖体积、对齐 Tolaria 视觉 |
+| Canvas | — | **tldraw**(source-available 非商用)隔离在懒加载 chunk | 唯一非 MIT 依赖,刻意收束在单模块([THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)) |
+
+> 原则没变:依赖只选成熟 + MIT/Apache(tldraw 是唯一记录在案的边界,且可一键移除)。
+
+---
+
+## 6. 设计原则(为什么这样切)
+
+1. **纯逻辑 IO-free 内核** —— `core` 不碰 FS/git/网络/时间;99 个单测全在纯函数上。所有副作用挤到 `app` 层。
+   好处:核心算法(parse/图谱/QQL/检索)可穷尽测试、可复用(未来 MCP server 直接复用 `core`)。
+2. **前端对称的纯逻辑层** —— `ui/src/lib/` 与后端对称地放纯逻辑(tabs/graph-layout/qql-block/wikilink…),
+   265 个 vitest 单测可脱离 Tauri 跑(`mock.ts` 兜底)。IO 薄壳在 `ipc.ts` 一处。
+3. **文件即真相 + git 唯一版本源** —— 没有 `.trash/` 平行机制;删除/还原全走 git,结构操作自动提交、正文手动提交
+   (保住 commit 卫生)。归档视图 = git 历史。
+4. **软类型,不靠文件夹** —— 类型由 frontmatter `type:` 推断,关系由 wikilink + frontmatter 关系键;文件夹不承载语义。
+   这正是 LLM Wiki「Schema 层」的落地,也是与 Obsidian/Tolaria 互通的基础。
+5. **tldraw 隔离** —— 许可风险收束在 `CanvasView.tsx` 一个懒加载模块,删它即回纯 MIT。
+6. **clean-room** —— 以 Tolaria 公开设计为蓝本,严禁复制其 AGPL 源码。
+
+---
+
+## 7. 导航
+
+- 愿景与红线:[01-vision](./01-vision.md)
+- 技术栈与仓库布局:[02-architecture](./02-architecture.md)
+- 数据模型(Vault/Note/frontmatter):[03-data-model](./03-data-model.md)
+- 功能矩阵:[04-features](./04-features.md) · TDD 策略:[05-tdd-strategy](./05-tdd-strategy.md)
+- 进度与延后:[06-roadmap](./06-roadmap.md) · [deferred](./deferred.md)

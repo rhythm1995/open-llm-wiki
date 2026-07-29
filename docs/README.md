@@ -1,8 +1,6 @@
 # OpenObsidian — 设计文档
 
-> 工作名(占位)。**公开发布前必须改为自创名**(见 [07-provenance.md](./07-provenance.md) §命名闸门)。
-
-本目录是 OpenObsidian 的**完整设计**,先于代码存在。读完这七份,任何人应当能独立按图施工。
+本目录是 OpenObsidian 的**完整设计**,先于代码存在(01–06)。读完这六份,任何人应当能独立按图施工。[07](./07-llm-wiki-architecture.md) 是**实现后的架构总览**,反映代码落地真相(含 mermaid 图),与前瞻设计互补。
 
 | 文档 | 回答什么 |
 |---|---|
@@ -12,7 +10,7 @@
 | [04-features.md](./04-features.md) | 全功能目录与逐项规格(图谱、实时聚合、软类型、编辑器…) |
 | [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试金字塔、红绿循环、覆盖率门槛 |
 | [06-roadmap.md](./06-roadmap.md) | 分阶段交付;"全部功能"如何被切成可完成的里程碑 |
-| [07-provenance.md](./07-provenance.md) | clean-room 溯源、MIT、依赖许可、命名闸门 |
+| [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
 
 ## 一句话定位
 
@@ -26,4 +24,4 @@
 
 ## 法律状态(摘要)
 
-MIT 许可;设计**参考 Tolaria 的代码/UI 实现 + 公开文档**,与 Obsidian 公开功能对照,重写为自己的表达;**未逐字复制任何第三方源码**。详见 [07-provenance](./07-provenance.md)。
+MIT 许可;设计**参考 Tolaria 的代码/UI 实现 + 公开文档**,与 Obsidian 公开功能对照,重写为自己的表达;**未逐字复制任何第三方源码**。详见仓库根 [README](../README.md) 的「许可与溯源」。

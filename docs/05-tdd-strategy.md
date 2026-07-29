@@ -6,6 +6,23 @@
 
 整个项目的"逻辑密度"集中在 **`core`(Rust)** —— 解析、图谱、查询。这是 bug 高发区,也是 TDD 回报最高的地方。把这里测到接近 100%,前端和 IPC 主要是胶水,用组件测试 + e2e 兜关键路径。
 
+## 当前实际测试栈(落地状态)
+
+> 下面的「测试金字塔」是**目标**形态。当前实际落地(以 `ci.yml` + 各 `Cargo.toml`/`package.json` 为准):
+
+| 层 | 目标 | 当前实际 |
+|---|---|---|
+| 单元(Rust) | cargo test 穷尽 | ✅ `cargo test --workspace`(core 109 测含 proptest + app `git_tests`/`preview`) |
+| 单元(TS) | Vitest | ✅ `vitest` node 环境,纯逻辑 279 测(**不挂 DOM**) |
+| 属性测试 | proptest 解析器防 panic | ✅ core 四模块(index/graph/qql/search)10 条 property × 256 例,断言永不 panic + 不变量 |
+| 组件测试 | Vitest + @testing-library + jsdom | ✅ props-driven 模式(组件接 state/actions via props,最小 mock);3 组件代表性用例(TabBar/StatusBar/NoteListView) |
+| e2e | Playwright 关键路径 | ✅ mock 模式 4 条 smoke(启动/打开笔记/图谱/新建笔记),CI 有独立 e2e job |
+| 覆盖率门 | CI 强制 | ✅ vitest coverage-v8 门槛(statements 63 / branches 58 / functions 56 / lines 63,基线 −5% 防回归) |
+
+> 当前状态一句话:**测试金字塔全层落地 —— 单元/属性/组件/e2e/覆盖率门齐备**。组件测试以 props-driven 模式为主(组件接 state/actions via props,最小 mock),ipc 直依赖处用 `vi.mock`(StatusBar/NoteListView)。这与 [02](./02-architecture.md)
+> 的"前端纯逻辑可脱离 Tauri 测"一致——IO 薄壳在 `ipc.ts`,逻辑在 `lib/`,故纯逻辑测试先行;
+> 组件交互测试与 e2e 是后续质量增强。
+
 ## 测试金字塔
 
 ```

@@ -9,6 +9,8 @@
 
 use std::collections::HashMap;
 
+use serde_yaml::Value;
+
 use crate::index::Note;
 use crate::parse::Link;
 
@@ -50,19 +52,12 @@ pub struct Graph {
 }
 
 impl Graph {
-    /// 从笔记数组构建图:建标题/路径索引、解析每条 link、算出入邻接。
+    /// 从笔记数组构建图:建解析索引(标题/别名/路径/文件名)、解析每条 link、算出入邻接。
     pub fn build(notes: Vec<Note>) -> Graph {
         let n = notes.len();
-        // 标题/路径索引:建图时用于把 link 文本解析到节点 id。建完即弃
-        // (增量重解析留待 Phase 1+ watcher 切片,届时再放回字段)。
-        let mut title_index: HashMap<String, NodeId> = HashMap::new();
-        let mut path_index: HashMap<String, NodeId> = HashMap::new();
+        let mut idx = ResolveIndex::new();
         for (i, note) in notes.iter().enumerate() {
-            // 冲突取首个(first wins)。
-            title_index.entry(note.title.to_lowercase()).or_insert(i);
-            path_index
-                .entry(path_stem(&note.path).to_lowercase())
-                .or_insert(i);
+            idx.add_note(i, note);
         }
 
         let mut edges: Vec<Edge> = Vec::new();
@@ -79,8 +74,7 @@ impl Graph {
                     from,
                     link,
                     EdgeKind::Wiki,
-                    &title_index,
-                    &path_index,
+                    &idx,
                 );
             }
             // frontmatter 关系 → Relation(key) 边
@@ -92,8 +86,7 @@ impl Graph {
                     from,
                     link,
                     EdgeKind::Relation(key.clone()),
-                    &title_index,
-                    &path_index,
+                    &idx,
                 );
             }
         }
@@ -130,20 +123,69 @@ impl Graph {
     }
 }
 
-/// 解析 link target:先按标题(大小写不敏感),再按路径 stem,否则悬空。
-fn resolve(
-    target: &str,
-    title_index: &HashMap<String, NodeId>,
-    path_index: &HashMap<String, NodeId>,
-) -> Target {
-    let t = target.to_lowercase();
-    if let Some(&id) = title_index.get(&t) {
-        return Target::Resolved(id);
+/// 解析索引:把 link 文本解析到节点 id。四级回退,首条命中即取(first wins)。
+///   标题 → 别名(aliases) → 完整路径 stem → 裸文件名 stem(跨目录)
+struct ResolveIndex {
+    title: HashMap<String, NodeId>,
+    alias: HashMap<String, NodeId>,
+    path: HashMap<String, NodeId>,
+    filestem: HashMap<String, NodeId>,
+}
+
+impl ResolveIndex {
+    fn new() -> Self {
+        ResolveIndex {
+            title: HashMap::new(),
+            alias: HashMap::new(),
+            path: HashMap::new(),
+            filestem: HashMap::new(),
+        }
     }
-    if let Some(&id) = path_index.get(&t) {
-        return Target::Resolved(id);
+
+    fn add_note(&mut self, id: NodeId, note: &Note) {
+        self.title.entry(note.title.to_lowercase()).or_insert(id);
+        for a in aliases_of(note) {
+            self.alias.entry(a.to_lowercase()).or_insert(id);
+        }
+        self.path
+            .entry(path_stem(&note.path).to_lowercase())
+            .or_insert(id);
+        self.filestem
+            .entry(file_stem(&note.path).to_lowercase())
+            .or_insert(id);
     }
-    Target::Unresolved(target.to_string())
+
+    fn resolve(&self, target: &str) -> Target {
+        let t = target.to_lowercase();
+        if let Some(&id) = self.title.get(&t) {
+            return Target::Resolved(id);
+        }
+        if let Some(&id) = self.alias.get(&t) {
+            return Target::Resolved(id);
+        }
+        if let Some(&id) = self.path.get(&t) {
+            return Target::Resolved(id);
+        }
+        if let Some(&id) = self.filestem.get(&t) {
+            return Target::Resolved(id);
+        }
+        Target::Unresolved(target.to_string())
+    }
+}
+
+/// frontmatter `aliases`(字符串或字符串列表)。
+fn aliases_of(n: &Note) -> Vec<String> {
+    match n.frontmatter.get("aliases") {
+        Some(Value::String(s)) => vec![s.clone()],
+        Some(Value::Sequence(seq)) => seq
+            .iter()
+            .filter_map(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 /// 路径去掉文件扩展名(保留目录部分)。仅当最后那个 '.' 落在文件名段才剥。
@@ -154,8 +196,16 @@ fn path_stem(path: &str) -> &str {
     }
 }
 
+/// 路径最后一段去扩展名(裸文件名)。用于跨目录的 `[[note]]` 解析。
+fn file_stem(path: &str) -> &str {
+    let last = path.rsplit('/').next().unwrap_or(path);
+    match last.rsplit_once('.') {
+        Some((stem, _)) => stem,
+        None => last,
+    }
+}
+
 /// 推一条边进图(并登记出入邻接)。
-#[allow(clippy::too_many_arguments)]
 fn add_edge(
     edges: &mut Vec<Edge>,
     outgoing: &mut [Vec<usize>],
@@ -163,10 +213,9 @@ fn add_edge(
     from: NodeId,
     link: &Link,
     kind: EdgeKind,
-    title_index: &HashMap<String, NodeId>,
-    path_index: &HashMap<String, NodeId>,
+    idx: &ResolveIndex,
 ) {
-    let to = resolve(&link.target, title_index, path_index);
+    let to = idx.resolve(&link.target);
     let edge_idx = edges.len();
     edges.push(Edge {
         from,
@@ -314,5 +363,131 @@ mod tests {
             .iter()
             .any(|k| matches!(k, EdgeKind::Relation(r) if r == "mentions")));
         assert_eq!(g.backlinks(1).len(), 2);
+    }
+
+    // ---- aliases 解析 ----
+
+    #[test]
+    fn resolve_by_alias_list() {
+        let notes = vec![
+            note("---\naliases:\n  - Foo\n  - Bar\n---\n# Real Title", "a.md"),
+            note("# B\n[[Foo]]", "b.md"),
+        ];
+        let g = Graph::build(notes);
+        assert!(
+            matches!(g.edges[0].to, Target::Resolved(0)),
+            "alias Foo 应解析到节点 0, got {:?}",
+            g.edges[0].to
+        );
+        // 别名也产生反链
+        assert_eq!(g.backlinks(0).len(), 1);
+    }
+
+    #[test]
+    fn resolve_by_alias_scalar() {
+        let notes = vec![
+            note("---\naliases: Nickname\n---\n# Real", "a.md"),
+            note("# B\n[[Nickname]]", "b.md"),
+        ];
+        let g = Graph::build(notes);
+        assert!(matches!(g.edges[0].to, Target::Resolved(0)));
+    }
+
+    #[test]
+    fn title_preferred_over_alias() {
+        // 两个节点:一个标题 "Foo",另一个别名 "Foo"。标题优先。
+        let notes = vec![
+            note("# Foo", "title_node.md"),
+            note("---\naliases:\n  - Foo\n---\n# Other", "alias_node.md"),
+            note("# Linker\n[[Foo]]", "linker.md"),
+        ];
+        let g = Graph::build(notes);
+        assert!(matches!(g.edges[0].to, Target::Resolved(0)));
+    }
+
+    // ---- 裸文件名跨目录解析 ----
+
+    #[test]
+    fn resolve_by_bare_filename_stem() {
+        let notes = vec![
+            note("# A\n[[gamma]]", "a.md"),
+            note("# Gamma Real", "subdir/gamma.md"),
+        ];
+        let g = Graph::build(notes);
+        assert!(
+            matches!(g.edges[0].to, Target::Resolved(1)),
+            "[[gamma]] 应按裸文件名解析到 subdir/gamma.md, got {:?}",
+            g.edges[0].to
+        );
+    }
+
+    #[test]
+    fn resolve_path_stem_takes_priority_over_filestem() {
+        // 完整路径 stem 命中优先于裸文件名(避免歧义时取更具体的)。
+        let notes = vec![
+            note("# A\n[[sub/x]]", "a.md"),
+            note("# X", "sub/x.md"),
+            note("# Other X", "other/x.md"),
+        ];
+        let g = Graph::build(notes);
+        assert!(matches!(g.edges[0].to, Target::Resolved(1)));
+    }
+}
+
+// ─────────────────────────── 属性测试(proptest)───────────────────────────
+
+#[cfg(test)]
+mod props {
+    use super::*;
+    use crate::index::enrich;
+    use crate::parse::parse_note;
+    use proptest::prelude::*;
+
+    /// 随机笔记:title 与正文 wikilink 都从小词表 [a-e] 抽,
+    /// 使部分边 Resolved(命中别的笔记 title)、部分 Unresolved(悬空)。
+    fn arb_note() -> impl Strategy<Value = Note> {
+        ("[a-e]{1,3}", prop::collection::vec("[a-e]{1,3}", 0..3)).prop_map(|(title, targets)| {
+            let links: String = targets
+                .iter()
+                .map(|t| format!("[[{t}]]"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let content = format!("# {title}\n{links}");
+            enrich(parse_note(&content, &format!("{title}.md")))
+        })
+    }
+
+    proptest! {
+        /// 任意笔记集合 → Graph::build 不 panic。
+        #[test]
+        fn build_never_panics(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let _ = Graph::build(notes);
+        }
+
+        /// 出入邻接一致性:每条边都在其 from 的 outgoing 里;
+        /// Resolved 边还在其 to 的 incoming(backlinks)里。Unresolved 边不入任何 incoming。
+        #[test]
+        fn adjacency_consistent(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let g = Graph::build(notes);
+            for edge in &g.edges {
+                let in_out = g.outgoing(edge.from).iter().any(|e| std::ptr::eq(*e, edge));
+                prop_assert!(in_out, "边不在 from 的 outgoing 里");
+                if let Target::Resolved(t) = edge.to {
+                    let in_in = g.backlinks(t).iter().any(|e| std::ptr::eq(*e, edge));
+                    prop_assert!(in_in, "Resolved 边不在 to 的 incoming 里");
+                }
+            }
+        }
+
+        /// backlinks(id).len() == 图里所有 to=Resolved(id) 的边数。
+        #[test]
+        fn backlinks_count_matches_edges(notes in prop::collection::vec(arb_note(), 0..20)) {
+            let g = Graph::build(notes);
+            for id in 0..g.nodes.len() {
+                let expected = g.edges.iter().filter(|e| e.to == Target::Resolved(id)).count();
+                let got = g.backlinks(id).len();
+                prop_assert_eq!(expected, got);
+            }
+        }
     }
 }
