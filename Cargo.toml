@@ -1,5 +1,5 @@
 # OpenObsidian workspace.
-# 现仅 core;Phase 2 起加入 app/src-tauri。
+# core = 纯逻辑内核;app/src-tauri = Tauri 桌面壳(包 core)。ui/ 是前端(非 Rust)。
 [workspace]
-members = ["core"]
+members = ["core", "app/src-tauri"]
 resolver = "2"

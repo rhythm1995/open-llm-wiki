@@ -24,43 +24,52 @@
 - ✅ `core::vault` — 顶层纯索引器 `VaultIndex::build(Vec<(path,content)>)`,串起全链路。
 - ✅ `examples/demo.rs` — 端到端二进制(自带样例 + 可索引真实目录),证明全链路可跑。
 - ✅ proptest 属性测试(解析器防 panic + 不变量)。
-- ✅ 68 tests / clippy --all-targets clean / fmt clean。
+- ✅ 88 tests / clippy --all-targets clean / fmt clean。
 
 > OpenObsidian 的"大脑"已存在并可独立验证——`cargo run --example demo` 即可看全链路。未来 MCP server / CLI 直接复用 `openobs-core`。
 
-### Phase 2 — 最小可用 UI(周级)
+### Phase 2 — 最小可用 UI ✅(本次完成)
 
-Tauri 外壳 + React:
-- F-VAULT(打开目录、扫描)、F-FILETREE、F-EDITOR(BlockNote)、F-WIKILINK(反向链接面板)、自动保存、mock-tauri 测试层。
-- 此时可打开真 vault、编辑笔记、看反向链接。已比裸文件管理器有价值。
+Tauri 2 外壳 + React 19:
+- ✅ F-VAULT(打开目录、`walkdir` 扫描)、F-FILETREE(折叠树 + 当前笔记高亮)。
+- ✅ F-EDITOR(CodeMirror 6 markdown,自动保存防抖)。
+- ✅ F-WIKILINK(反向链接面板:wiki + frontmatter 关系双向入边)。
+- ✅ mock-tauri 浏览器层(`ui/src/lib/mock.ts`),`pnpm --dir ui dev` 即开即用。
+- 评估:BlockNote 所见即所得编辑器延后到 v2(纯 Markdown round-trip 更稳、体积更小;见 [open-questions](./open-questions.md))。
 
-### Phase 3 — 图谱(差异化 #1,周级)
+### Phase 3 — 图谱(差异化 #1)✅(本次完成,MVP)
 
-- F-GRAPH:react-force-graph-2d 集成、过滤面板、实时更新。
-- 这是"让别人愿意看一眼"的功能。
+- ✅ F-GRAPH:**纯 SVG 力导向**(无 d3/react-force-graph 依赖,独立编写 Fruchterman–Reingold)。
+- 节点按软类型着色、按连接度变大小;wiki/relation 边区分;悬空链接短桩;当前节点高亮;点击跳转。
+- 待打磨(过滤面板、平移缩放、大图性能优化 >400 节点)。
 
-### Phase 4 — 实时聚合(差异化 #2,周级)
+### Phase 4 — 实时聚合(差异化 #2)✅(本次完成,MVP)
 
-- F-QUERY:QQL 内联块渲染 + saved view 面板。
-- 此刻 cairn 的 `wiki-health` 可作为一组 QQL live 面板跑起来。
+- ✅ F-QUERY:**QQL 文本查询面板**(`WHERE … SORT … LIMIT … SHOW …`),core `qql::parse + query::eval` 求值,结果表点击跳转。
+- ✅ qql 文本解析层(Phase 1 只建了求值器,本轮按"DQL 风格语法"补全文本层,见 [open-questions](./open-questions.md) Q2)。
+- 待打磨:内联查询块渲染、saved view 持久化面板。
 
-### Phase 5 — v1 收口(周级)
+### Phase 5 — v1 收口(部分完成)
 
-- F-TYPE(软类型)、F-PROPERTIES、F-STATUS、F-PALETTE、F-TABS、F-SEARCH、深色主题。
-- 打包(macOS/Win/Linux)、README、(公开前)**改名**。
-- **v1 发布。**
+- ✅ F-TYPE(软类型徽标)、F-PROPERTIES(frontmatter 属性面板)、F-SEARCH(全文 AND 检索)、F-PALETTE(⌘K 命令面板)、深色主题(Catppuccin 取向)。
+- ⏳ 未做:F-STATUS 视图过滤、F-TABS 多标签、打包(macOS/Win/Linux)、(公开前)**改名**。
+- **v1 尚未发布;MVP 可运行。**
 
 ### Phase 2+ 能力(v2/v3,不阻塞 v1)
 
-F-TEMPLATES、F-THEMES、F-GIT、F-TRASH、F-AI(+MCP)、F-L10N → F-CANVAS(tldraw)、F-SHEET(ironcalc)、F-PLUGIN。
+F-TEMPLATES、F-THEMES、F-GIT、F-TRASH、F-AI(+MCP)、F-L10N → F-CANVAS(tldraw)、F-SHEET(ironcalc)、F-PLUGIN、BlockNote 富文本编辑。
 
 ## 本次会话的明确产出(可验证)
 
 1. `docs/` 七份完整设计文档。✅(首轮)
 2. 项目骨架 + MIT LICENSE + 测试基建。✅(首轮)
-3. `core` 内核全量 TDD 实现(parse/index/graph/query/search/vault)+ demo 二进制 + proptest。✅(本轮)
-   - 68 tests / clippy --all-targets clean / fmt clean。
-   - `cargo run -p openobs-core --example demo` 端到端可跑(内建样例 + 真实目录)。
-4. Phase 2–5 的入口已就绪:大脑已存在、TDD 节奏建立、`openobs-core` 可被 MCP/CLI/UI 复用。
+3. `core` 内核全量 TDD 实现(parse/index/graph/query/qql/search/vault)+ demo 二进制 + proptest。✅
+   - 88 tests / clippy --all-targets clean / fmt clean。
+   - `cargo run -p openobs-core --example demo` 端到端可跑。
+4. Tauri 2 桌面壳(`app/src-tauri`,10 个命令,包 `openobs-core`)。✅(本轮)
+   - `cargo build -p openobs-app` / clippy clean。
+5. React 19 前端(`ui/`):三栏布局 + 图谱 + QQL + 搜索 + 命令面板 + 浏览器 mock。✅(本轮)
+   - `pnpm --dir ui build` 通过;tsc --noEmit clean。
+6. **MVP 可运行**:`pnpm --dir ui dev`(浏览器 mock)或 `pnpm --dir ui exec tauri dev`(真机)。
 
 后续每次推进一个 Phase,都先扩 `core` 测试、再长 UI、再 e2e 兜底。

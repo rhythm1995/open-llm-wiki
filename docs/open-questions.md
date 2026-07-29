@@ -9,8 +9,8 @@
 |---|---|---|---|
 | Q1 | 项目正式名 | 【待定】占位 "OpenObsidian" | 公开前必换(见 07-provenance 命名闸门)。候选:复用自有名 "Cairn" / 地质或制图隐喻。 |
 | Q2 | YAML 解析库 | ✅【默认已落地】`serde_yaml 0.9.34` | 已确认编译/运行通过。维护模式但稳定;想换活跃分支 `serde_yml` 可一行替换(仅 `parse_frontmatter` 一处)。 |
-| Q3 | 编辑器 | 【默认】BlockNote 主 + CodeMirror raw | 对齐 Tolaria。若你更想要"Obsidian 式纯 markdown 源码编辑"为主,可翻转为 CodeMirror 主。 |
-| Q4 | UI 组件库 | 【默认】Mantine + Radix + Tailwind4 + shadcn | 对齐 Tolaria。可换成纯 shadcn(无 Mantine)更轻。 |
+| Q3 | 编辑器 | ✅【MVP 默认】CodeMirror 6 markdown | MVP 选纯源码编辑(round-trip 最稳、体积小);BlockNote 所见即所得延后到 v2(需补 patches + md 双向转换)。 |
+| Q4 | UI 组件库 | ✅【MVP 默认】Tailwind 4 + Radix + Phosphor + shadcn(cva/clsx/tw-merge) | MVP 不引入 Mantine(避免与 Tailwind 的 reset/provider 冲突);Mantine 的 Combobox 等可在 v2 按需引入。 |
 | Q5 | Tauri 版本 | 【默认】Tauri 2.x | 最新稳定,对齐 Tolaria。 |
 | Q6 | 包管理器 | 【默认】pnpm | 对齐 Tolaria。 |
 
@@ -18,7 +18,7 @@
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
-| P1 | 图谱默认布局 | 【默认】力导向(d3-force) | 另可选"按 type 分层""按时间轴"。 |
+| P1 | 图谱默认布局 | ✅【MVP 默认】力导向(**纯 SVG 自实现**,无 d3/react-force-graph 依赖) | 另可选"按 type 分层""按时间轴",v2 再议。 |
 | P2 | QQL 语法 | ✅【已定】DQL 风格(`WHERE/SORT/LIMIT/SHOW`) | 已选定 A 方案并实现文本解析器 `qql::parse`(string → Query AST),demo 里可敲文本查询。 |
 | P3 | 是否支持 cairn 协议原生 | 【默认】是 | 识别 Source/Summary/Entity/Concept + 关系键,直接当 cairn GUI 运行时。 |
 | P4 | type 系统是否保留"类型文档" | 【默认】v1 不做 | 这是 Tolaria "绑人"的源头;v2 再议,且仅作 UI 提示。 |

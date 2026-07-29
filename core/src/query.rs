@@ -100,7 +100,7 @@ impl Default for Query {
 }
 
 /// 结果行:节点 id + 可选的字段投影。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Row {
     pub id: NodeId,
     pub fields: Option<Vec<Option<String>>>,
