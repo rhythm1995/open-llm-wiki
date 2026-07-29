@@ -17,15 +17,13 @@ Vault = 目录 + 其下所有 .md 文件(递归)
 每个 `.md` 文件解析为:
 
 ```rust
-struct Note {
-    path: VaultPath,        // 相对 vault 根的路径,如 "projects/alpha.md"
-    title: String,          // 第一个 H1;无则文件名(去扩展名)
-    frontmatter: Frontmatter,  // YAML,见下;可能为空
-    body: Markdown,         // frontmatter 之后的原文
-    links: Vec<Link>,       // 从 body + frontmatter 提取的 wikilink
-    attachments: Vec<Path>, // 正文引用的本地附件
-    // 派生(由索引计算,不落盘):
-    backlinks: Vec<VaultPath>,
+struct Note {                 // ← core::index::Note(实际落地)
+    path: String,             // 相对 vault 根,如 "projects/alpha.md"
+    title: String,            // 第一个 H1;无则文件名(去扩展名)
+    frontmatter: Frontmatter, // YAML → Map;可能为空
+    body: String,             // frontmatter 之后的原文
+    body_links: Vec<Link>,    // 从 body 提取的 wikilink(frontmatter 关系键另算,见「关系」)
+    // ⏳ 前瞻(未落地):attachments(附件引用);backlinks 由 graph 派生查询,非 Note 字段
 }
 ```
 
@@ -108,12 +106,12 @@ mentions:
 ## 索引(VaultIndex)—— 派生物
 
 ```rust
-struct VaultIndex {
-    notes: HashMap<VaultPath, Note>,
-    by_title: HashMap<String, VaultPath>,   // title → path(解析链接用)
-    by_tag: HashMap<Tag, Vec<VaultPath>>,
-    by_type: HashMap<TypeLabel, Vec<VaultPath>>,
-    graph: Graph,                           // 邻接表 + 反向邻接(backlinks)
+struct VaultIndex {              // ← core::vault::VaultIndex(实际落地)
+    notes: Vec<Note>,            // 全部笔记
+    graph: Graph,                // 邻接表 + 反向邻接(backlinks 在此查询,非 Note 字段)
+    by_tag: BTreeMap<String, Vec<NodeId>>,
+    by_type: BTreeMap<String, Vec<NodeId>>,
+    // 注:title → path 的解析在 graph/index 层做,未单列 by_title 字段
 }
 ```
 

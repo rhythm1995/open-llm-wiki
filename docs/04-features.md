@@ -11,43 +11,38 @@
 
 ## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
 
-### F-GRAPH 图谱可视化 [P0]
+### F-GRAPH 图谱可视化 [P0] ✅ 已落地(渲染层与初版不同)
 
-**一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的力导向图,实时随笔记变化。
+**一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的力导向图。
 
 - **数据来源**:`core::graph` 产出的统一关系图(正文 wikilink + frontmatter 关系,见 [03-data-model](./03-data-model.md))。
-- **节点** = note;**边** = link,按 `source`(正文/`wikilink`、或 frontmatter 键名)着色/区分。悬空链接画虚边。
-- **渲染**:`react-force-graph-2d`(WebGL),支持几千节点流畅。超大库做 LOD(缩放折叠聚类)。
-- **交互**:悬停预览、点击打开、右键"以此为中心展开"、框选、拖拽固定。
-- **过滤**(核心竞争力):
-  - 按 `type` / `tag` / `status` 显隐。
-  - 按深度(只看 N 跳邻域)。
-  - 按关系类型(只看 `mentions`,不看 `wikilink`)。
-  - 按文本搜索高亮子图。
-- **实时**:note 变更(watcher)→ 增量更新图 → diff 推给前端,不全量重渲。
-- **布局**:力导向(默认),另提供"按 type 分层""按时间排列"两种。
+- **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接画虚边。
+- **渲染**:**自绘 SVG 力导向**(Fruchterman–Reingold,纯 `graph-layout.ts`,无 d3/react-force-graph 依赖)。日常规模流畅;节点数 > 200 视口剔除(屏外不画),> ~400 按度数 top-K 截断。⏳ WebGL/Canvas/LOD 为大图演进(见 [deferred](./deferred.md))。
+- **交互** ✅:点击节点跳转、缩放/平移、拖拽节点重定位、右键菜单(聚焦 1 跳 / 复制 `[[wikilink]]` / 隐藏此类型)。⏳ 悬停预览、框选、拖拽固定、按深度 N 跳邻域。
+- **过滤**(核心竞争力) ✅:按 `type` 显隐(顶部面板)。⏳ 按 `tag`/`status`/深度/关系类型/文本高亮子图。
+- **实时**:**随 `index_vault` 全量 rebuild**(无 watcher,前端主动刷新);位置 Map 跨帧持久 + 增量/稳定布局(新增节点就近播种,过滤切换不乱跳)。
+- **布局**:力导向(默认)。⏳ 「按 type 分层」「按时间排列」未做。
 
-> UI 蓝本参考 Tolaria `design/relationship-x-cosmetic.pen`(关系渲染)与 Obsidian graph 的交互心智模型,以自己的实现重写。
+> UI 蓝本参考 Tolaria 关系渲染与 Obsidian graph 的交互心智模型,以自己的实现重写。
 
-### F-QUERY 实时聚合查询 [P0]
+### F-QUERY 实时聚合查询 [P0] ✅ 已落地
 
 **一句话**:内置查询引擎,用一段声明式查询从全 vault 的 frontmatter/body 取数,实时渲染成列表/表/计数。Dataview 的一等公民版,但在 Rust 核心跑,快。
 
-- **查询语言(QQL,Query Query Language)**——v1 最小可用子集:
+- **查询语言(QQL)**——已实现子集(DQL 风格,关键字 `WHERE` / `SORT` / `SHOW` / `LIMIT`):
   ```
-  from type == "Concept"
-  where status != "done" and mentions.len() < 3
-  sort mentioned_in.len() asc
-  fields title, status, mentioned_in.len() as depth
-  render table | list | count | group_by(type)
+  WHERE type = "Concept" AND status != "Done"
+  SORT mentioned_in.len() ASC
+  SHOW title, status, mentioned_in.len() AS depth
+  LIMIT 50
   ```
-  语法刻意接近 Dataview DQL(降低迁移成本),但语义由 `core::query` 定义、Rust 实现。
-- **两个表面**:
-  1. **内联查询块**——笔记内 ```qql ... ``` 代码块,渲染时执行并内联显示结果(Dataview 心智)。
-  2. **saved view**——`views/*.yml` 定义,作为侧栏可保存的实时面板(继承 Tolaria 的 view 概念,但加 `count`/`group_by`/聚合)。
-- **输出**:`list` / `table` / `count` / `group_by(field)` / `sum(field)` / `histogram(field)`。
-- **实时**:查询在索引上执行,索引随 watcher 更新 → 查询结果自动刷新。
-- **与 cairn 的关系**:cairn 的 `wiki-health` 页所有 KPI(概念饥饿度、证据质量分布、综合度…)就是一组 QQL 查询的渲染。OpenObsidian 让它从"agent 手写的静态快照"变成"live 面板"。
+  文本 → AST(`qql::parse`)→ 求值(`query::eval`),全在纯内核。语法接近 Dataview DQL(降迁移成本),语义由 Rust 定义。
+- **两个表面** ✅:
+  1. **内联查询块**——笔记内 ```qql ... ``` 代码块,编辑器内实时求值(widget)+ 阅读视图求值渲染(共用 `resultToHtml`,两路一致)。
+  2. **saved query**——常用 QQL 存成一篇 `type: Query` 的普通笔记(正文放 ```qql 块),故自举进索引/图谱/检索,可被 `[[]]` 链接、可被别的 QQL 查到(纯逻辑 `saved-query.ts`)。
+- **输出**(`ResultSet`):`List` / `Table` / `Count` / `Groups`(group by) / `Sum`。⏳ `histogram` 未做。
+- **实时**:查询在不可变快照上执行;快照随 `index_vault` 刷新。
+- **与 cairn 的关系**:cairn 的 `wiki-health` 页所有 KPI(概念饥饿度、证据质量分布、综合度…)就是一组 QQL 的渲染。OpenObsidian 让它从"agent 手写的静态快照"变成"live 查询"——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md) §3「Health 即查询」。
 
 > 这正是 Tolaria `VISION`/`AGENTS` 里"无实时聚合"留下的缝。我们补上。
 
@@ -68,28 +63,30 @@
 
 > UI 蓝本参考 Tolaria `design/*.pen`(每个 .pen 对应一个功能的设计稿)。以自己的实现重写。
 
-| ID | 功能 | 级别 | 说明 |
-|---|---|---|---|
-| F-EDITOR | 编辑器(BlockNote + raw) | P0 | BlockNote 主编辑;raw CodeMirror 模式切纯 markdown。自动保存(防抖)。 |
-| F-VAULT | vault 管理 | P0 | 打开/切换目录;递归扫描;忽略 `.git`/`.obs` 等;附件识别。 |
-| F-WIKILINK | wikilink + 反向链接 | P0 | `[[link]]` 解析、补全、跳转;反向链接面板(`mentioned_in` 实时计算)。 |
-| F-FILETREE | 文件树 | P0 | 树形浏览、新建/重命名/删除、拖拽。 |
-| F-SEARCH | 搜索 + quick open | P0 | 全文(含 frontmatter)搜索;Cmd+P quick open。 |
-| F-PROPERTIES | 属性面板 | P1 | 可视化编辑 frontmatter(键值行);参考 Tolaria `smart-property-display`/`property-value-input`。 |
-| F-STATUS | status chip | P1 | `status:` 渲染彩色 chip;颜色可配(`status-color-picker`)。 |
-| F-TAGS | 标签 | P1 | 行内 `#tag` + frontmatter `tags:`;标签视图。 |
-| F-PALETTE | 命令面板 | P1 | Cmd+K,type 感知(`command-palette-type-aware`)。 |
-| F-TABS | 多标签 | P1 | 多笔记并排;响应式宽度。 |
-| F-TEMPLATES | 模板 | P2 | 新建笔记套模板(`note-templates`)。 |
-| F-THEMES | 主题 | P2 | 可编辑主题;深色/浅色(`theming-system`/`themes-editable`)。 |
-| F-GIT | git 集成 | P2 | 状态栏、pull、冲突解决(`git-status-bar`/`auto-pull-vault`/`sync-conflict-resolution`)。 |
-| F-TRASH | 回收站 | P2 | 软删 + 恢复(`trash-management`/`trashed-note-editor`)。 |
-| F-AI | AI 面板 + MCP | P2 | 内建 AI(@anthropic sdk)+ MCP server(`ai-agent-panel`/`mcp-autodetect`)。 |
-| F-L10N | 国际化 | P2 | i18n 框架。 |
-| F-CANVAS | canvas 画布 | P3 | tldraw 式白板(Obsidian Canvas 对等)。 |
-| F-SHEET | 表格 | P3 | ironcalc 式表格(Tolaria 已有原型)。 |
-| F-PLUGIN | 插件 API | P3 | 开放扩展点;不做"复刻 Obsidian 生态"的承诺。 |
+| ID | 功能 | 级别 | 状态 | 说明 |
+|---|---|---|---|---|
+| F-EDITOR | 编辑器 | P0 | ✅ | CodeMirror 6 单轨(自动保存防抖);ReadingView(marked)看渲染。⏳ BlockNote 富文本延后。 |
+| F-VAULT | vault 管理 | P0 | ✅ | 打开/切换目录;递归扫描;忽略 `.git`/`.obs` 等。 |
+| F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | `[[link]]` 解析、`[[` 补全、Cmd/Ctrl+点击跳转;反向链接(`mentioned_in` 实时计算)。 |
+| F-FILETREE | 文件浏览 | P0 | ✅ | Nav(智能视图)+ NoteListView;新建/重命名/删除。⏳ 拖拽。 |
+| F-SEARCH | 全文搜索 | P0 | ✅ | 全文(含 frontmatter,标题加权)。⌘K 命令面板已做;⏳ ⌘P quick open。 |
+| F-PROPERTIES | 属性面板 | P1 | ✅ | 可视化编辑 frontmatter(行级最小侵入,按需加引号)。 |
+| F-STATUS | status chip | P1 | ✅ | `status:` 彩色 chip(按词根模糊映射 Active/Done/Contested/Superseded…)。 |
+| F-TAGS | 标签 | P1 | 🟡 | 行内 `#tag` + frontmatter `tags:` 解析 ✅;⏳ 标签视图。 |
+| F-PALETTE | 命令面板 | P1 | ✅ | ⌘K,type 感知。 |
+| F-TABS | 多标签 | P1 | ✅ | 开/关/激活/循环(Ctrl+Tab)/拖拽重排;响应式宽度。 |
+| F-TEMPLATES | 模板 | P2 | ✅ | `templates/` 套用,`{{title}}`/`{{date}}` 替换。 |
+| F-THEMES | 主题 | P2 | ✅ | 深/浅(CSS 变量令牌换肤)。 |
+| F-GIT | git 集成 | P2 | ✅ | commit/log/状态(GitPanel);**归档并入 git**:删除自动提交、`git_restore_note` 还原。⏳ pull/冲突解决。 |
+| F-TRASH | ~~回收站~~ | P2 | ➡️ 取代 | **已被「归档并入 git」取代**(见 F-GIT):删 `.trash/`,删除/还原全走 git。 |
+| F-AI | AI 上下文 + MCP | P2 | 🟡 | 读侧「复制为 AI 上下文」✅;⏳ 完整 MCP server(写侧)延后(见 [deferred](./deferred.md))。 |
+| F-L10N | 国际化 | P2 | ✅ | i18n(中/英)。 |
+| F-CANVAS | canvas 画布 | P3 | ✅ | tldraw(Obsidian Canvas 对等,非商用,隔离在懒加载 chunk)。 |
+| F-SHEET | 表格 | P3 | ⏳ | ironcalc 式;npm 仅 wasm 引擎无 React UI,延后(见 [deferred](./deferred.md))。 |
+| F-PLUGIN | 插件 API | P3 | ⏳ | 开放扩展点;需先固化 v1 API + 沙箱(见 [deferred](./deferred.md))。 |
 
 ## v1 功能边界(明确不做,防 scope creep)
 
 v1 = F-VAULT + F-EDITOR + F-WIKILINK + F-FILETREE + F-SEARCH + **F-GRAPH** + **F-QUERY** + F-TYPE + F-PROPERTIES + F-STATUS + F-PALETTE + F-TABS + 深色主题。其余全 v2+。
+
+> **实际进度**:v1 范围全部落地,且已**超出**——P1/P2/P3 多项已实现(F-TEMPLATES/F-THEMES/F-GIT/F-L10N/F-CANVAS,见上表「状态」列)。F-TRASH 被「归档并入 git」取代。剩余 ⏳ 见 [deferred](./deferred.md)。

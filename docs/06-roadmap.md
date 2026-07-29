@@ -9,7 +9,7 @@
 ### Phase 0 — 设计 + 地基 + 第一片绿 ✅(本次)
 
 - 完整设计文档(`docs/`,七份)。
-- 项目骨架:workspace、LICENSE(MIT)、Rust core crate、前端 manifest、测试基建(cargo test / Vitest / Playwright / mock-tauri)。
+- 项目骨架:workspace、LICENSE(MIT)、Rust core crate、前端 manifest、测试基建(cargo test / Vitest / mock 层;⏳ Playwright 待引入)。
 - **第一个 TDD 切片**:`core::parse`——markdown + frontmatter + wikilink 解析,红绿实现,全测试。这是图谱和查询的共同地基。
 - 产出:一个 `cargo test` 全绿、有据可查的地基。
 
@@ -43,7 +43,7 @@ Tauri 2 外壳 + React 19:
 - 节点按软类型着色、按连接度变大小;wiki/relation 边区分;悬空链接短桩;当前节点高亮;点击跳转。
 - ✅ **过滤面板**(核心竞争力):按 type / tag / relation 显隐、隐藏孤儿、聚焦当前笔记 N 跳邻域(纯逻辑 `graph-filter.ts`,已测)。
 - ✅ **平移缩放**:滚轮缩放(以光标为中心)、拖拽平移、按钮缩放/重置。
-- 待打磨:大图性能优化 >400 节点(LOD/聚类)、右键菜单。
+- 待打磨:大图性能优化 >400 节点(LOD/聚类、Canvas/WebGL、Web Worker);右键菜单已落地(见 Phase 5+ 续四)。
 
 ### Phase 4 — 实时聚合(差异化 #2)✅(本次完成)
 
@@ -60,14 +60,15 @@ Tauri 2 外壳 + React 19:
 - ✅ F-TABS(多标签编辑器:纯 `tabReduce` 状态机 open/close/activate/closeOthers/closeAll/reorder,已测)。
 - ✅ F-WIKILINK 完整三件套:解析 + 反向链接 + **Cmd/Ctrl 点击 `[[link]]` 跳转** + **`[[` 自动补全**(纯逻辑 `wikilink.ts`,已测)。
 - ✅ F-FILETREE:折叠树 + 新建 + 重命名 + 删除。
-- ⏳ 未做:打包(macOS/Win/Linux)。
-- **v1 尚未发布;MVP 可运行。**
+- ✅ 打包与分发 **CI 骨架**:`tauri.conf.json` bundle 配置完整;本地 `tauri build` 已出 `.app`/`.dmg`(运行时 diag_log 0 webview 报错);`.github/workflows/ci.yml`(测试)+ `release.yml`(tag/手动 → macOS/Linux/Windows 矩阵起草 Release)。默认未签名,配 secret 即签名/公证/Updater(详见 [deferred](./deferred.md)「打包与分发」)。
+- **v1 尚未发布;MVP 可运行(可出安装包,签名/公证待用户凭证)。**
 
 ### Phase 5+ — v2 增量(本次会话,v1 范围之外)✅
 
 在 v1 边界之外继续「尽可能完整」地开发,每个特性都遵循 TDD(纯逻辑先行 + 单测):
 
 - ✅ **F-TRASH** 回收站:删除即改名移入 `.trash/`(保留目录结构与内容),可逐篇还原、彻底删除或一键清空。后端 `list_trash` + 点目录剪枝(隐藏 `.trash`/`.obsidian`);纯逻辑 `trash.ts`(碰撞解析)。
+  - ⚠️ **后已替换**:本特性的 `.trash/` 机制已在「Phase 5+ 续四」被 **archive-via-git**(删除/还原全走 git)取代;`trash.ts` / `index_trash` / `list_trash` 已删。
 - ✅ **F-TEMPLATES** 模板:`templates/` 下 .md 为模板,新建笔记选模板并做 `{{title}}`/`{{date}}` 替换;NewNoteDialog 取代 prompt。纯逻辑 `template.ts`。
 - ✅ **F-THEMES** 浅色主题:Catppuccin Latte 变体 + 工具栏切换 + localStorage 持久化;CodeMirror 经 Compartment 随主题切换不重建。纯逻辑 `theme.ts`。
 - ✅ **F-TABS** 拖拽重排:reducer 的 reorder 此前已测,本轮接 HTML5 DnD。
@@ -94,6 +95,24 @@ Tauri 2 外壳 + React 19:
   - **许可兼容(本特性的关键)**:tldraw 是 source-available 非商用许可,**非 MIT**。处理:(1) `licenses/tldraw-LICENSE.md` 逐字留存;(2) [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 记边界——OpenObsidian 本地优先单机,落在 tldraw "非生产/开发"许可范围,本地使用兼容,托管部署需另取商用许可;(3) tldraw 被隔离在唯一懒加载模块 `CanvasView.tsx`(+ 纯逻辑 `canvas.ts` 仅 `import type`),构建产物里独占一个 `CanvasView-*.js` chunk(~1.6MB),不开画布不下载,且可一键移除回到纯 MIT app;(4) 画布右下角保留 "Powered by tldraw" 署名满足归属/商标条款。
   - **索引隔离**:`build_index` 只取 `.md`(Rust 与 mock `parseAll` 均如此),画布 JSON 不进图谱/检索;`list_vault` 放行 `.canvas` 让其进文件树。
 
+### Phase 5+ 续四(本会话,v1 范围之外)✅
+
+三项收口 + 一项验证加固,均循 TDD(纯逻辑先行 + 单测,IO 薄壳在后):
+
+- ✅ **archive-via-git(取代 F-TRASH)**:删掉 `.trash/` 平行机制,删除/还原**全走 git**,唯一真相源。提交策略「结构自动 + 内容手动」——创建/删除/重命名自动 `git commit`(`git_commit_paths` **只暂存并提交给定路径**,未暂存的正文编辑绝不卷入,保 commit 卫生);正文编辑仍由 GitPanel 手动提交。后端命令 `git_is_repo` / `git_deleted_notes`(历史已删 `.md`,带 commit+date)/ `git_restore_note`(`git checkout <hash>^ -- <path>`)/ `git_init`;前端 `ArchiveView`(非 git 空态 +「初始化 git」/ 已删列表 + 还原 + 最近提交时间线)。**Rust 集成测试**(`git_tests`,真实 round-trip 过系统 git):is_repo、选择性提交(commit 卫生不变量)、删除→列出→还原。`trash.ts` 已删。
+- ✅ **关系图重做(做到完美)**:布局纯逻辑抽出 `graph-layout.ts`(seedNodes + relaxLayout[FR:全对斥力 + 边弹簧 + 向心 + 温度降温,Float64Array 热循环] + bbox + fitTransform,15 单测);GraphView 重写——撑满容器(ResizeObserver 真实尺寸)、位置 Map 跨帧持久(增量播种 + 暖启动,过滤/索引刷新时已有节点不乱跳)、结构签名 gate 重排、自动 fit、悬停邻域高亮、节点拖拽、以光标为中心缩放、平移、fit、按度数 top-K 截断(默认上限 ~400)、随缩放变边透明度、暗角 + 当前节点辉光、标签按缩放/度数/悬停门控(paintOrder 描边光晕)。右键菜单(自实现 ContextMenu:聚焦 1 跳 / 复制 wikilink / 隐藏类型)随重做落地。
+- ✅ **编辑器优化(参考 Tolaria,第三栏)**:CodeMirror 正文改无衬线(Inter)+ 可读行宽(居中 ≤760px);新增「半所见即所得」行装饰 ViewPlugin(`markdownLineDecorations`,仅可见视口:`#{1,6}` → cm-md-h* 按级放大、`>` → cm-md-quote;只动呈现不改文本,光标/历史无感);深色主题在 oneDark 上叠加应用底色令牌消除色缝。
+- ✅ **验证加固**:全绿——core 99 + app-lib 7(4 preview + 3 git 集成)+ UI 237(22 文件);tsc clean;UI 构建重嵌 app + 运行时 diag_log 0 `[webview]` 报错。
+
+### Phase 5+ 续五(本会话,v1 范围之外)✅
+
+清掉原列在打磨项里的三件中小件,均循 TDD(纯逻辑先行 + 单测):
+
+- ✅ **标签循环快捷键**:`tabReduce` 加 `cycle` 动作(环回到首/尾)+ 6 单测;`store.cycleTab(dir)` 切换并读盘;App 全局 keydown 挂 Ctrl+Tab / Ctrl+Shift+Tab / ⌘/Ctrl+Shift+[ ] / ⌘/Ctrl+PageUp/Down。浏览器 dev 抢占 Ctrl+Tab(已知),桌面 webview 可用。
+- ✅ **内联 ```qql 查询块渲染**:正文 ```qql 块在编辑器内实时求值,只读块级 widget 渲染结果在块下方;阅读视图同样求值渲染。纯逻辑 `qql-block.ts`(`findQqlBlocks` + `resultToHtml`,**两路共用渲染器**,17 单测);CM `qql-widget.ts`(StateField + ViewPlugin 块级 widget + 防抖 400ms 重算 + 错误降级)。**mock 限制**:QQL 求值未移植到 TS,dev 下显示「无结果」,真机走 Rust core。
+- ✅ **图谱视口剔除**:`visibleNodeIds` 纯函数(graph→屏幕坐标判定)+ 6 单测;GraphView 节点数 > 200 时屏外节点/边不画,降 SVG DOM 量(80px 留白减 pop-in)。LOD 聚类 / Canvas/WebGL / Worker 仍是独立大件(见 deferred)。
+- ✅ **验证加固**:全绿——UI **265 单测**(23 文件,本轮 +28:tabs 6 / graph-layout 6 / qql-block 17 - 重计偏差 1);tsc clean;构建重嵌 app + 运行时 diag_log 0 `[webview]` 报错。
+
 ### Phase 2+ 能力(v2/v3,不阻塞 v1)—— 与诚实取舍
 
 > 延后项的**难点拆解与前置条件**统一在 [deferred.md](./deferred.md)(每条写明"难在哪 / 做扎实需要什么")。下表只给一句话状态。
@@ -107,7 +126,8 @@ Tauri 2 外壳 + React 19:
 | F-SHEET(ironcalc) | ⏳ 延后 | npm 仅发 wasm 引擎、无 React UI;做扎实需自研表格 UI 或等组件发布(见 [deferred](./deferred.md)「F-SHEET」)。 |
 | F-PLUGIN | ⏳ 延后 | 需先设计插件 API 表面 + 沙箱 + 生命周期 + 分发 + 安全模型(见 [deferred](./deferred.md)「F-PLUGIN」)。"插件系统"空心注册器是反价值的占位。 |
 | BlockNote 富文本 | ⏳ 延后 | 与 CodeMirror 的双模 + **Markdown round-trip**(富文本↔纯文本无损)是已知难点;F-READING 已覆盖"看渲染结果"(见 [deferred](./deferred.md)「BlockNote」)。 |
-| 图谱大图性能 / 右键菜单 / 内联 qql / 打包 / 标签循环 | ⏳ 打磨项 | 见 [deferred.md](./deferred.md) 各条。 |
+| 图谱大图性能(LOD/Canvas/WebGL) | ⏳ 打磨项 | 见 [deferred.md](./deferred.md)。本轮已落:右键菜单、内联 qql 块、标签循环、图谱视口剔除。 |
+| 打包与分发 | ✅ CI 骨架 / 🟡 签名待凭证 | 骨架见上(Phase 5 行);签名/公证/Updater 见 [deferred.md](./deferred.md)「打包与分发」(gated 在用户凭证)。 |
 | saved query view / 恢复上次笔记 | ✅ 本轮 | 已落地(见 [deferred](./deferred.md) 顶部两条 ✅):QQL 存成自举 `type:Query` 笔记;打开 vault 恢复上次看的笔记。 |
 
 **原则**:宁可诚实延后并写明"需要什么才能做扎实",也不仓促塞进空心 stub 制造"看起来有"的假象——后者才是真正留坑。已完成的三项(F-GIT / F-AI 读侧 / F-L10N)都遵循 TDD:纯逻辑先行 + 单测,IO 薄壳在后。

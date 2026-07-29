@@ -9,28 +9,26 @@
 ## 🔴 图谱大图性能(>400 节点)
 
 - **现状**:图谱是**纯 SVG 力导向**(自实现 Fruchterman–Reingold),全量节点渲染为 DOM,每帧 O(n²) 全对斥力 + 弹簧力计算。日常 vault(几十~两三百笔记)流畅。
-- **难在哪**:节点数过 ~400 后,①布局收敛耗时(每帧 n² 力计算);②SVG 每节点一个 `<g>` DOM,大量节点拖累渲染与交互;③无视口剔除(屏外节点照样算力、照样画)。
+- **本轮进展(Phase 2 图谱重做 + Phase 5+ 续五)**:已落地两个子项——①「增量/稳定布局」:布局纯逻辑抽出 `graph-layout.ts`,位置 Map 跨帧持久(新增节点就近/螺旋播种 + 以既有位置为初值的少量迭代松弛,过滤/索引刷新时已有节点不乱跳);渲染按度数 top-K 截断(默认上限 ~400)避免 DOM 爆炸。②「视口剔除」:`visibleNodeIds` 纯函数(graph→屏幕坐标判定,6 单测),节点数 > 200 时屏外节点/边不画,降 SVG DOM 量(80px 屏幕留白减边缘 pop-in)。**仍未做**:LOD 聚类、SVG→Canvas/WebGL、Web Worker。
+- **难在哪**:节点数过 ~400 后,①布局收敛耗时(每帧 n² 力计算);②SVG 每节点一个 `<g>` DOM,大量节点拖累渲染与交互;③(已部分解决)屏外节点照画——视口剔除已落地,但 LOD 聚类与渲染层换血未做。
 - **做扎实需要**:
   - **视口剔除 + LOD**:屏外节点不画;缩放层级低时把簇合并成"超级节点"(聚类),放大再展开。
   - **渲染层换血**:SVG → Canvas 2D(甚至 WebGL),DOM 不再随节点数线性增长(代价:失去 CSS 样式与无障碍,需自实现 hit-testing)。
   - **增量/稳定布局**:初始一次性收敛后存坐标,新增节点局部增量重排,不每帧全量。
   - **Web Worker** 把力计算挪出主线程。
-- **前置**:先造一个 >400 / >1000 节点的 benchmark vault,测当前帧率与收敛时间基线,再决定换 Canvas 还是先做 LOD。
+- **前置**:~~先造一个 >400 / >1000 节点的 benchmark vault~~ ✅ 已满足——`tools/gen-benchmark-vault.mjs`(纯 Node、零依赖)可按需生成 N 篇带类型/wikilink/度数偏斜的 vault:`node tools/gen-benchmark-vault.mjs 1000`(1000 篇 0.13s、2000 篇 0.19s 生成,7.8M;输出目录已 gitignore)。**剩下的是真机测量**:在桌面 app 里打开生成的 vault,目视图谱帧率与交互流畅度——这才是决定换 Canvas/WebGL 还是先做 LOD 的依据(布局在 n≤400 已数十毫秒收敛,瓶颈是 SVG DOM 量)。
 
-## 🟡 图谱右键菜单(context menu)
+## ✅ ~~图谱右键菜单~~(已落地)
 
-- **现状**:左键节点跳转、过滤面板齐全;无右键菜单。
-- **难在哪**:不难,纯交互细节。需要统一 context menu 组件(Radix ContextMenu)+ 把"图谱节点"作为菜单触发对象。
-- **做扎实需要**:右键节点 →「打开 / 在图谱中聚焦 N 跳 / 复制 `[[wikilink]]` / 隐藏此类型」。hit-testing 已有(左键跳转复用)。空场区右键 → 过滤面板快捷开关。
+- **已实现**(Phase 2 图谱重做):右键节点 → 自实现 `ContextMenu` 组件(轻量,非 Radix)→「聚焦 1 跳 / 复制 `[[wikilink]]` / 隐藏此类型」。hit-testing 复用左键跳转的坐标判定;空场区右键仍走顶部过滤面板。
 
-## 🔴 内联 `` ```qql `` 查询块渲染
+## ✅ ~~内联 `` ```qql `` 查询块渲染~~(已落地)
 
-- **现状**:QQL 全链路在纯内核(`qql::parse + query::eval`),有独立 QQL 面板;但笔记正文里的 ` ```qql … ``` ` 代码块**不会**在编辑器内实时求值渲染结果。
-- **难在哪**:这是把"求值器"嵌进"编辑器"的编辑器装饰工程——①CodeMirror 6 Decoration 插件要识别 fenced ```` ```qql ```` 块并定位其行区间;②把该块文本喂给 `qql::parse + eval`(纯逻辑已有);③把结果(List/Table/Count/Groups)以**只读装饰**内联渲染到块下方;④块内编辑时防抖重算、处理语法错的降级显示;⑤阅读视图也要同样渲染(两套渲染路径要保持一致)。
-- **做扎实需要**:一个 CodeMirror ViewportPlugin + decoration widget;求值走现有纯逻辑;只读结果 widget 复用 QueryPanel 的 ResultView。需处理大结果集的虚拟化。
-- **前置**:确认 QQL 在 mock 浏览器模式下能求值(目前 mock 返回空——内联块在 mock 下也得能跑,否则 dev 不可见)。
-
-## ✅ ~~saved query view 持久化~~(已落地)
+- **已实现**(Phase 5+ 续五):笔记正文里的 ` ```qql … ``` ` 代码块在编辑器内**实时求值**,结果以只读块级 widget 渲染在块下方;阅读视图同样求值渲染。
+  - 纯逻辑 `qql-block.ts`(`findQqlBlocks` 围栏块定位 + `resultToHtml` 把 ResultSet→HTML,**编辑器 widget 与阅读视图共用同一渲染器 → 两路一致**,17 单测)。
+  - CodeMirror 6:`qql-widget.ts`(StateField 缓存 query→result + ViewPlugin 在闭围栏下一行行首放块级 widget + WidgetType;doc 变化防抖 400ms 重算,语法错降级为 `⚠` 文案)。
+  - 阅读视图:marked 渲染后 effect 查 `pre code.language-qql` → run_qql 求值(按 query 缓存)→ 注入 sanitize 过的结果节点。
+  - **mock 限制(诚实)**:core 的 QQL 求值不在浏览器复刻,mock 下 `run_qql` 返回空 List → 内联块在 dev 下显示「无结果」;真机 Tauri 构建走 Rust core 才有真实结果(把 QQL 求值器移植到 TS 是独立大件,不在本轮范围)。
 
 - **已实现**(commit `f6d9a09`):常用 QQL 存成一篇 `type: Query` 的普通笔记,frontmatter
   声明软类型、正文放 ```` ```qql ```` 块。因此自动进索引/图谱/检索,可被 `[[]]` 链接、可被
@@ -60,17 +58,16 @@
 
 ## 🟡 打包与分发(macOS / Windows / Linux)
 
-- **现状**:可 `pnpm dev` / `cargo build` 跑,未产出分发安装包。
-- **难在哪**:流程性而非算法难。Tauri 2 bundler + macOS 公证(notarization)+ 代码签名(需开发者账号证书)+ 图标 + 各平台安装包格式(dmg / msi / AppImage / deb)+ 可选自动更新(Updater + 签名 manifest)。Windows 的代码签名门槛尤其需要证书。
-- **做扎实需要**:CI(GitHub Actions)矩阵构建 + 签名密钥管理 + 公证流程脚本化 + tldraw 许可合规在分发物里的体现(LICENSE 随包、归属可见)。
-- **前置**:决定是否上自动更新(影响签名 manifest 设计);macOS 开发者账号 / Windows 证书。
+- **现状**:**CI 骨架已落地**(task #54)。① `tauri.conf.json` 的 bundle 配置完整(productName / identifier `dev.openobsidian.desktop` / icon 全套 / category / 各平台目标);② 本地从仓库根 `ui/node_modules/.bin/tauri build` 已验证可出包 —— `target/release/bundle/macos/OpenObsidian.app` + `OpenObsidian_0.1.0_aarch64.dmg`,运行时 diag_log 0 `[webview]` 报错;③ `.github/workflows/ci.yml`(push/PR 跑 core 测试 + UI 测试/类型 + openobs-app 集成测试,含 git_tests)+ `release.yml`(tag/手动触发,macOS-arm64 / macOS-x86_64 / ubuntu / windows 矩阵打 dmg/AppImage/deb/msi/exe → 起草 GitHub Release)。**默认出未签名包**;配了对应 secret 才签名/公证。
+- **仍 gated 在用户侧(未做)**:① macOS 代码签名 + 公证(需 APPLE_CERTIFICATE / APPLE_ID 等 secret);② Windows 安装包签名(需证书);③ 自动更新 Updater(需 TAURI_PRIVATE_KEY + 决定是否上 —— 影响签名 manifest 设计);④ 通用 universal `.dmg`(当前 arm64/x86_64 各一份,未 lipo 合并)。这些 workflow 已接好环境变量槽位,补 secret 即启用,无需改代码。
+- **难在哪**:流程性而非算法难。剩下的都是凭证/决策门,不是工程未知。
+- **做扎实需要**(剩余):签名密钥管理 + 公证流程脚本化(已脚本化,等密钥)。~~tldraw 许可合规在分发物里的体现(LICENSE 随包、归属可见)~~ ✅ 已满足——`tauri.conf.json` 的 `bundle.resources`(object 形,`{源: 目标}`)把 `LICENSE` / `THIRD_PARTY_NOTICES.md` / `licenses/tldraw-LICENSE.md` 打进 `.app`/`.dmg` 的 `Contents/Resources/`(已验证三文件落地、内容正确);运行时画布右下角「Powered by tldraw」署名亦在。
+- **前置**:决定是否上自动更新;macOS 开发者账号 / Windows 证书。
 
-## 🟢 标签循环快捷键(Ctrl+Tab / ⌘Shift+[ ] 等)
+## ✅ ~~标签循环快捷键~~(已落地)
 
-- **现状**:已实现 ⌘W 关闭当前标签;**循环切换未做**。
-- **难在哪**:不难,但**浏览器 dev 抢占**——Ctrl+Tab / ⌘Shift+[ / ⌘Shift+] 在浏览器里都被浏览器自身抢占,`preventDefault` 无效;仅在 Tauri 桌面 webview 里可用。
-- **做扎实需要**:确认 Tauri webview 不抢占这些组合键 + 提供可配置键位(避免与各 OS 默认冲突);或改用不冲突的组合(如 ⌘PageUp/⌘PageDown)。
-- **前置**:在 Tauri 桌面构建里验证键位可用性(dev 模式验证不了)。
+- **已实现**(Phase 5+ 续五):`tabReduce` 加 `cycle` 动作(环回到首/尾,纯逻辑 + 单测);`store.cycleTab(direction)` 切换并读盘;App 全局 keydown 挂 **Ctrl+Tab / Ctrl+Shift+Tab / ⌘/Ctrl+Shift+[ / ⌘/Ctrl+Shift+] / ⌘/Ctrl+PageUp / PageDown**。
+- **浏览器 dev 抢占(已知)**:Ctrl+Tab 在浏览器里被抢占(`preventDefault` 无效),仅在 Tauri 桌面 webview 里生效;⌘Shift+[] 与 PageUp/Down 在桌面可用。键位可用性的最终目视仍需在 Tauri 桌面构建里确认(我无 GUI)。
 
 ## ✅ ~~恢复上次打开的笔记~~(已落地)
 

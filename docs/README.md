@@ -1,6 +1,6 @@
 # OpenObsidian — 设计文档
 
-本目录是 OpenObsidian 的**完整设计**,先于代码存在。读完这六份,任何人应当能独立按图施工。
+本目录是 OpenObsidian 的**完整设计**,先于代码存在(01–06)。读完这六份,任何人应当能独立按图施工。[07](./07-llm-wiki-architecture.md) 是**实现后的架构总览**,反映代码落地真相(含 mermaid 图),与前瞻设计互补。
 
 | 文档 | 回答什么 |
 |---|---|
@@ -10,6 +10,7 @@
 | [04-features.md](./04-features.md) | 全功能目录与逐项规格(图谱、实时聚合、软类型、编辑器…) |
 | [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试金字塔、红绿循环、覆盖率门槛 |
 | [06-roadmap.md](./06-roadmap.md) | 分阶段交付;"全部功能"如何被切成可完成的里程碑 |
+| [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
 
 ## 一句话定位
 

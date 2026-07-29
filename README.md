@@ -40,10 +40,17 @@ pnpm --dir ui install
 pnpm --dir ui dev            # → http://localhost:5173
 
 # 3) 桌面应用(Tauri,真机走 Rust core)
-pnpm --dir ui exec tauri dev   # 从仓库根的 app/src-tauri 启动
+#    tauri.conf.json 在 app/src-tauri/(非仓库根),故须从【仓库根】启动 tauri CLI,
+#    让它递归发现 app/src-tauri。注意:不要用 `pnpm --dir ui exec tauri` ——
+#    `--dir` 会把 CWD 切到 ui/,递归发现就找不到 app/src-tauri 了。
+ui/node_modules/.bin/tauri dev
 ```
 
-构建发布包:`pnpm --dir ui exec tauri build`。
+构建发布包(产出 .app / .dmg 等,在 `target/release/bundle/`):
+
+```bash
+ui/node_modules/.bin/tauri build
+```
 
 ## 功能速览
 
