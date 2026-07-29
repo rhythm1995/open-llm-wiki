@@ -343,6 +343,34 @@ async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
         .map(|p| p.to_string_lossy().to_string()))
 }
 
+/// 在系统文件管理器中显示笔记文件(macOS Finder / Windows 资源管理器 / Linux 文件管理器)。
+/// 供列表行右键「在 Finder 中显示」。走系统子进程,与 git 命令同一风格,不引入 opener 插件。
+#[tauri::command]
+fn reveal_in_finder(root: String, path: String) -> Result<(), String> {
+    let full = resolve_under(&root, &path)?;
+    // 平台分支:macOS `open -R <file>`、Windows `explorer /select,<file>`、
+    // Linux `xdg-open <parent>`(xdg-open 不能定位到具体文件,只能开父目录)。
+    #[cfg(target_os = "macos")]
+    let (program, args): (&str, Vec<String>) =
+        ("open", vec!["-R".into(), full.to_string_lossy().to_string()]);
+    #[cfg(target_os = "windows")]
+    let (program, args): (&str, Vec<String>) =
+        ("explorer", vec![format!("/select,{}", full.to_string_lossy().to_string())]);
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let (program, args): (&str, Vec<String>) = {
+        let parent = full
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| full.to_string_lossy().to_string());
+        ("xdg-open", vec![parent])
+    };
+    std::process::Command::new(program)
+        .args(&args)
+        .spawn()
+        .map_err(err)?;
+    Ok(())
+}
+
 // ───────────────────────── git(F-GIT)─────────────────────────
 //
 // 走系统 `git` 子进程(`std::process::Command`),`current_dir` 设到 vault 根。命令
@@ -638,6 +666,7 @@ pub fn run() {
             run_qql,
             search_notes,
             pick_vault,
+            reveal_in_finder,
             diag_log,
             git_status_raw,
             git_log_raw,
