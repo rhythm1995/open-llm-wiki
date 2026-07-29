@@ -19,6 +19,7 @@ import {
   type NavHistory,
 } from "./nav-history";
 import { applyTemplate, defaultTemplate } from "./template";
+import { removeFrontmatterKey, setFrontmatterValue } from "./frontmatter";
 import { buildAiContext } from "./ai-context";
 import { pickRestorableNote, readLastPath, writeLastRoot } from "./last-note";
 
@@ -554,8 +555,40 @@ export function useVault() {
         : `# ${name}\n\n${prev}`;
       await ipc.writeNote(root, newPath, body);
       setState((s) => ({ ...s, content: body, dirty: false }));
+      // H1 写盘后再刷一次索引:renameNote 那次 reindex 时 body 仍是旧 H1(占位),
+      // 标题会停留在「未命名」;此处让列表标题跟上新名。
+      await refreshIndex(root);
     },
-    [renameNote],
+    [renameNote, refreshIndex],
+  );
+
+  /**
+   * 设置(或清除,传 null)某笔记的 frontmatter `status`(列表行右键「切状态」)。
+   * 当前笔记直接用内存 content(保留未落盘的正文编辑),其它笔记读盘;合并 status 后
+   * 落盘 + 刷新索引。写前取消挂起的正文 autosave,避免与之竞争同一文件。
+   */
+  const setNoteStatus = useCallback(
+    async (path: string, status: string | null) => {
+      const root = latest.current.root;
+      if (!root) return;
+      try {
+        const isCurrent = latest.current.path === path;
+        const prev = isCurrent ? latest.current.content : await ipc.readNote(root, path);
+        const next = status
+          ? setFrontmatterValue(prev, "status", status)
+          : removeFrontmatterKey(prev, "status");
+        if (saveTimer.current) {
+          clearTimeout(saveTimer.current);
+          saveTimer.current = null;
+        }
+        await ipc.writeNote(root, path, next);
+        if (isCurrent) setState((s) => ({ ...s, content: next, dirty: false }));
+        await refreshIndex(root);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [refreshIndex],
   );
 
   // 卸载时冲刷。
@@ -656,6 +689,7 @@ export function useVault() {
       deleteNote,
       renameNote,
       commitDraftRename,
+      setNoteStatus,
       restoreNote,
       closeTab,
       closeOthers,
