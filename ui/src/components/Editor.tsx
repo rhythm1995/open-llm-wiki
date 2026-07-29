@@ -18,7 +18,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import {
   EditorView,
   keymap,
-  lineNumbers,
   highlightActiveLine,
   ViewPlugin,
   Decoration,
@@ -32,6 +31,9 @@ import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language"
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
+import { ipc } from "../lib/ipc";
+import { findQqlBlocks } from "../lib/qql-block";
+import { qqlInlineExtension, qqlResultsField, setQqlResult } from "./qql-widget";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
 
@@ -42,6 +44,8 @@ interface Props {
   onFollow: (target: string) => void;
   /** vault 内全部笔记标题,用于 `[[` 自动补全。 */
   noteTitles: string[];
+  /** vault 根目录;内联 ```qql 块据此走 run_qql 求值(mock 下返回空,真机走 Rust core)。 */
+  root: string | null;
   /** 是否有内容可编辑;无当前笔记时显示空态。 */
   hasNote: boolean;
   /** 当前主题;编辑器据此切换 oneDark / 浅色。 */
@@ -61,17 +65,25 @@ const themeCompartment = new Compartment();
 
 const lightEditor: Extension = EditorView.theme({
   "&": { backgroundColor: "var(--color-base)", color: "var(--color-text)" },
-  ".cm-gutters": {
-    backgroundColor: "var(--color-mantle)",
-    color: "var(--color-overlay)",
-    border: "none",
-  },
-  ".cm-activeLine": { backgroundColor: "rgba(76, 79, 105, 0.06)" },
-  ".cm-activeLineGutter": { backgroundColor: "rgba(76, 79, 105, 0.06)" },
+  // 活动行浅底高亮(无线号 gutter;对齐 Tolaria 编辑器)。
+  ".cm-activeLine": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
 });
 
+/**
+ * 深色主题:oneDark 提供语法高亮配,但会硬设底色 #282c34,与应用 --color-base(#1e1e1e)
+ * 不一致,编辑器与 tab bar/inspector 之间出现可见色缝。故在 oneDark 之上叠加一层 theme,
+ * 把底/字色钉到应用令牌,消除色缝(高亮配仍由 oneDark 提供)。
+ */
+const darkEditor: Extension = [
+  oneDark,
+  EditorView.theme({
+    "&": { backgroundColor: "var(--color-base)", color: "var(--color-text)" },
+    ".cm-gutters": { backgroundColor: "transparent" },
+  }),
+];
+
 function editorThemeFor(theme: Theme): Extension {
-  return theme === "dark" ? oneDark : lightEditor;
+  return theme === "dark" ? darkEditor : lightEditor;
 }
 
 /** 扫描整篇 doc,给每个 `[[...]]` 区间挂 cm-wikilink 标记(按位置升序加入)。 */
@@ -102,6 +114,43 @@ const linkDecorations = ViewPlugin.fromClass(
 );
 
 /**
+ * 标题/引用行的「半所见即所得」装饰:扫描可见视口,给 `^#{1,6}\s` 行挂 cm-md-h*,
+ * 给 `^>` 行挂 cm-md-quote(CSS 据此放大/着色)。仅可见视口,避免对长文档全文扫描。
+ * 只加 line 装饰(呈现),不改文本,故光标/选区/撤销栈无感。
+ */
+const markdownLineDecorations = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = buildMarkdownLineDecorations(view);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) {
+        this.decorations = buildMarkdownLineDecorations(u.view);
+      }
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
+
+function buildMarkdownLineDecorations(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const doc = view.state.doc;
+  for (let i = view.viewport.from; i < view.viewport.to; ) {
+    const line = doc.lineAt(i);
+    const h = line.text.match(/^(#{1,6})\s+\S/);
+    if (h) {
+      builder.add(line.from, line.from, Decoration.line({ class: `cm-md-h${h[1].length}` }));
+    } else if (/^>\s?/.test(line.text)) {
+      builder.add(line.from, line.from, Decoration.line({ class: "cm-md-quote" }));
+    }
+    if (line.to >= doc.length) break;
+    i = line.to + 1;
+  }
+  return builder.finish();
+}
+
+/**
  * `[[` 自动补全源:光标处于未闭合 `[[` 内时,按已输入文本过滤 vault 标题。
  * 命中逻辑与过滤在 wikilink.ts(已测);这里只把结果交给 CM 的补全 UI。
  */
@@ -130,7 +179,7 @@ export interface EditorHandle {
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  { value, onChange, onFollow, noteTitles, hasNote, theme, t },
+  { value, onChange, onFollow, noteTitles, root, hasNote, theme, t },
   ref,
 ) {
   const host = useRef<HTMLDivElement | null>(null);
@@ -164,7 +213,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     const v = new EditorView({
       doc: value,
       extensions: [
-        lineNumbers(),
         history(),
         highlightActiveLine(),
         keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
@@ -173,6 +221,8 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         themeCompartment.of(editorThemeFor(theme)),
         EditorView.lineWrapping,
         linkDecorations,
+        markdownLineDecorations,
+        ...qqlInlineExtension,
         autocompletion({
           override: [makeWikilinkCompletions(titlesRef)],
           activateOnTyping: true,
@@ -228,6 +278,40 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       });
     }
   }, [value]);
+
+  // 内联 ```qql 块求值:doc 变化后(防抖)对每个未缓存的 query 调 run_qql,
+  // 结果经 setQqlResult 写入 StateField → widget 装饰自动刷新。mock 下返回空(见 deferred)。
+  useEffect(() => {
+    const v = view.current;
+    if (!v || !root) return;
+    const queries = Array.from(
+      new Set(findQqlBlocks(value).map((b) => b.query).filter((q) => q.length > 0)),
+    );
+    if (queries.length === 0) return;
+    const cached = v.state.field(qqlResultsField);
+    const pending = queries.filter((q) => !cached.has(q));
+    if (pending.length === 0) return;
+    const handle = window.setTimeout(() => {
+      for (const q of pending) {
+        ipc.runQql(root, q)
+          .then((res) => {
+            view.current?.dispatch({
+              effects: setQqlResult.of({ query: q, result: res }),
+            });
+          })
+          .catch((err) => {
+            view.current?.dispatch({
+              effects: setQqlResult.of({
+                query: q,
+                result: { error: err?.message ?? String(err) },
+              }),
+            });
+          });
+      }
+    }, 400);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, root]);
 
   // 编辑器宿主始终挂载:CodeMirror 视图在首次挂载时**一次性**创建(上方 [] effect,
   // 只跑一次)。若写成"无笔记时早退返回另一个不带 ref 的 div",首次渲染 host.current

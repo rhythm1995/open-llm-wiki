@@ -13,7 +13,6 @@ import {
   Graph,
   ListMagnifyingGlass,
   MagnifyingGlass,
-  Trash,
   FileText,
   GitBranch,
   Rectangle,
@@ -23,7 +22,7 @@ import type { VaultSnapshot } from "../lib/ipc";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
 
-export type MainView = "editor" | "graph" | "query" | "search" | "trash" | "git";
+export type MainView = "editor" | "graph" | "query" | "search" | "git";
 
 interface Props {
   open: boolean;
@@ -69,7 +68,6 @@ export function CommandPalette({
       { id: "v-graph", label: `${t("palette.action.viewPrefix")}${t("view.graph")}`, icon: Graph, run: () => onNavigate("graph") },
       { id: "v-query", label: `${t("palette.action.viewPrefix")}${t("view.query")}`, icon: ListMagnifyingGlass, run: () => onNavigate("query") },
       { id: "v-search", label: `${t("palette.action.viewPrefix")}${t("view.search")}`, icon: MagnifyingGlass, run: () => onNavigate("search") },
-      { id: "v-trash", label: `${t("palette.action.viewPrefix")}${t("view.trash")}`, icon: Trash, run: () => onNavigate("trash") },
       { id: "v-git", label: `${t("palette.action.viewPrefix")}${t("view.git")}`, icon: GitBranch, run: () => onNavigate("git") },
     ].filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())),
     [q, actions, onNavigate, onNewCanvas, t],

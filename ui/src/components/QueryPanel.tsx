@@ -113,15 +113,15 @@ export function QueryPanel({ root, snapshot, actions, t }: Props) {
     }
   };
 
-  /** 删除已保存查询 = 把这篇笔记移入回收站(可恢复)。 */
+  /** 删除已保存查询 = 删除这篇笔记(git 自动提交,可从归档历史还原)。 */
   const remove = (path: string, title: string) => {
     if (window.confirm(t("query.deleteConfirm", { name: title }))) {
-      void actions.trashNote(path);
+      void actions.deleteNote(path);
     }
   };
 
   return (
-    <div className="flex h-full flex-col bg-mantle">
+    <div className="flex h-full flex-col bg-base">
       <div className="border-b border-crust p-2">
         <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-overlay">
           <MagnifyingGlass size={12} />
@@ -249,7 +249,7 @@ function ResultView({
   if ("Groups" in result) {
     return (
       <table className="w-full text-[12px]">
-        <thead className="sticky top-0 bg-mantle text-overlay">
+        <thead className="sticky top-0 bg-base text-overlay">
           <tr>
             <th className="border-b border-crust px-3 py-1 text-left font-normal">{t("query.group")}</th>
             <th className="border-b border-crust px-3 py-1 text-right font-normal">{t("query.count")}</th>
@@ -292,7 +292,7 @@ function ResultView({
     const header = [t("query.noteCol"), ...cols.map((c) => c.label)];
     return (
       <table className="w-full text-[12px]">
-        <thead className="sticky top-0 bg-mantle text-overlay">
+        <thead className="sticky top-0 bg-base text-overlay">
           <tr>
             {header.map((h, i) => (
               <th key={i} className="border-b border-crust px-2 py-1 text-left font-normal">

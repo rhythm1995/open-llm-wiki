@@ -40,7 +40,7 @@ export function SearchPanel({ root, snapshot, actions, t }: Props) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-mantle">
+    <div className="flex h-full flex-col bg-base">
       <div className="border-b border-crust p-2">
         <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-overlay">
           <MagnifyingGlass size={12} />

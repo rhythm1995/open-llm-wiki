@@ -105,7 +105,7 @@ export function GitPanel({ root, t }: Props) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-4">
+    <div className="flex h-full flex-col overflow-y-auto bg-base p-4">
       <div className="mb-3 flex items-center gap-2">
         <h2 className="text-[13px] font-semibold text-text">{t("view.git")}</h2>
         <button

@@ -82,14 +82,18 @@ export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
               }
             }}
             className={cn(
-              "group flex min-w-[8rem] max-w-[14rem] cursor-pointer items-center gap-1.5 border-r border-crust px-2.5 py-1.5 text-[12px]",
+              "group relative flex min-w-[8rem] max-w-[14rem] cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-[12px]",
               active
                 ? "bg-base text-text"
-                : "bg-mantle text-overlay hover:bg-surface hover:text-subtext",
+                : "bg-transparent text-overlay hover:bg-surface hover:text-subtext",
               dragging && "opacity-40",
               dropOn === idx && !dragging && "ring-1 ring-inset ring-blue/60",
             )}
           >
+            {/* 激活:顶部紫色细条(Obsidian 式 active indicator;绝对定位无布局位移)。 */}
+            {active && (
+              <span className="absolute inset-x-0 top-0 h-0.5 bg-blue" />
+            )}
             <span className="truncate" title={path}>
               {title}
             </span>
