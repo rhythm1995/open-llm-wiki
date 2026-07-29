@@ -91,6 +91,17 @@ export default function App() {
     return navSelection ? selectionLabel(navSelection, nodes, t) : t("nav.allNotes");
   }, [view, navSelection, state.snapshot, t]);
 
+  // Inspector 用:关系字段 chip 补全候选(全部标题)+ type 下拉选项(vault 内去重 type)。
+  const noteTitles = useMemo(
+    () => state.snapshot?.nodes.map((n) => n.title) ?? [],
+    [state.snapshot],
+  );
+  const typeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of state.snapshot?.nodes ?? []) if (n.type) set.add(n.type);
+    return [...set].sort();
+  }, [state.snapshot]);
+
   /** `[[wikilink]]` 跟随:解析为路径则跳转,否则提示新建(编辑器与阅读视图共用)。 */
   const handleFollow = useCallback(
     (target: string) => {
@@ -347,7 +358,7 @@ export default function App() {
                       onChange={actions.setContent}
                       hasNote={state.currentPath !== null}
                       theme={theme}
-                      noteTitles={state.snapshot?.nodes.map((n) => n.title) ?? []}
+                      noteTitles={noteTitles}
                       root={state.root}
                       onFollow={handleFollow}
                       t={t}
@@ -421,6 +432,8 @@ export default function App() {
               backlinks={backlinks}
               actions={actions}
               onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
+              noteTitles={noteTitles}
+              typeOptions={typeOptions}
               t={t}
             />
           </div>
