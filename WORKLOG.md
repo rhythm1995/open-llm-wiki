@@ -15,6 +15,17 @@
 
 ---
 
+### 2026-07-30 Grok — 打磨收口:标签避让 / 增量布局 / mock-qql + 文档对齐
+
+- **branch**: `feat/phase1-core`(已 push;本批再 commit/push)。
+- **做了**:
+  1. `graph-label.ts` 屏坐标贪心标签避让;SVG + WebGL 共用。
+  2. `graph-layout-budget.ts` 结构/新节点/尺寸驱动的 FR 迭代预算。
+  3. `mock-qql.ts` 浏览器 QQL 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)。
+  4. 文档对齐:04-features / 01 / 02 / 06 / deferred / open-questions(去掉过时 ⏳)。
+- **不做**:真机 1k/5k 帧率验收(用户测)、签名/插件/表格/MCP 等 deferred 大件。
+- **验证**:typecheck · **413** 单测绿。
+
 ### 2026-07-30 Grok — 图谱全功能打磨(Barnes-Hut / LOD 边 / WebGL 交互齐)
 
 - **branch**: `feat/phase1-core`(未 commit)。

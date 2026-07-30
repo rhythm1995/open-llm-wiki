@@ -128,7 +128,7 @@ Tauri 2 外壳 + React 19:
 | F-SHEET(ironcalc) | ⏳ 延后 | npm 仅发 wasm 引擎、无 React UI(见 [deferred](./deferred.md)「F-SHEET」)。 |
 | F-PLUGIN | ⏳ 延后 | 见 [deferred](./deferred.md)「F-PLUGIN」。 |
 | BlockNote 双模 | ✅ 部分 | WYSIWYG 已落地;无损 round-trip 子集仍见 [deferred](./deferred.md)。 |
-| 图谱大图(WebGL/LOD/Worker) | ✅ 功能齐 | Barnes-Hut + Worker + sigma + LOD 边/飞入 + WebGL 拖拽框选;真机帧率门禁仍见 deferred。 |
+| 图谱大图(WebGL/LOD/Worker) | ✅ 功能+打磨齐 | Barnes-Hut + 增量预算 + 标签避让 + LOD + sigma;真机帧率门禁仍见 deferred。 |
 | Live 索引 + ⌘F/⌘P | ✅ | 路径级 delta;无搜索视图;FindBar + quick open。 |
 | 打包与分发 | ✅ CI 骨架 / 🟡 签名待凭证 | 骨架见上(Phase 5 行);签名/公证/Updater 见 [deferred.md](./deferred.md)「打包与分发」(gated 在用户凭证)。 |
 | saved query view / 恢复上次笔记 | ✅ 本轮 | 已落地(见 [deferred](./deferred.md) 顶部两条 ✅):QQL 存成自举 `type:Query` 笔记;打开 vault 恢复上次看的笔记。 |

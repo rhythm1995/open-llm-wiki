@@ -6,16 +6,16 @@
 
 ---
 
-## 🟡 图谱大图性能(>400 → 万级)—— **功能已齐 · 真机帧率验收开放**
+## 🟡 图谱大图性能(>400 → 万级)—— **功能+打磨已齐 · 真机帧率验收仍开放**
 
 - **已落地**:
   1. `graph-model.ts` —— path-stable 主键 + degree + structureSig + topK + pin path
-  2. `graph-layout` —— FR + **Barnes-Hut**(n≥280)O(n log n);Worker 跑布局
-  3. `graph-lod.ts` —— 网格聚类 + **簇间边投影** + 点簇飞入展开
-  4. **sigma + graphology** WebGL;`GraphView` 有 WebGL 即优先;无 GL → SVG
-  5. WebGL 交互对齐 SVG:拖拽+pin、Shift 框选、缩放/fit、悬停邻域压暗、悬空边 ghost、右键菜单
-- **仍开放(真机)**:1k ≥30fps / 5k 可用 / 10k 默认 LOD 帧率验收;标签碰撞可选。
-- **前置**:`tools/gen-benchmark-vault.mjs` 可生成 1k/2k vault。
+  2. `graph-layout` —— FR + **Barnes-Hut**(n≥280);Worker;`graph-layout-budget` 增量迭代
+  3. `graph-lod.ts` —— 网格聚类 + 簇间边 + 点簇飞入
+  4. **sigma + graphology** WebGL;无 GL → SVG
+  5. 交互双路径:拖拽/pin/框选/邻域压暗/悬空边 ghost/右键
+  6. **`graph-label.ts` 标签避让**(屏坐标贪心占格)
+- **仅真机验收(不阻塞)**:1k ≥30fps / 5k / 10k LOD 帧率。基准:`tools/gen-benchmark-vault.mjs`。
 
 ## ✅ ~~图谱右键菜单~~(已落地)
 
@@ -27,7 +27,7 @@
   - 纯逻辑 `qql-block.ts`(`findQqlBlocks` 围栏块定位 + `resultToHtml` 把 ResultSet→HTML,**编辑器 widget 与阅读视图共用同一渲染器 → 两路一致**,17 单测)。
   - CodeMirror 6:`qql-widget.ts`(StateField 缓存 query→result + ViewPlugin 在闭围栏下一行行首放块级 widget + WidgetType;doc 变化防抖 400ms 重算,语法错降级为 `⚠` 文案)。
   - 阅读视图:marked 渲染后 effect 查 `pre code.language-qql` → run_qql 求值(按 query 缓存)→ 注入 sanitize 过的结果节点。
-  - **mock 限制(诚实)**:core 的 QQL 求值不在浏览器复刻,mock 下 `run_qql` 返回空 List → 内联块在 dev 下显示「无结果」;真机 Tauri 构建走 Rust core 才有真实结果(把 QQL 求值器移植到 TS 是独立大件,不在本轮范围)。
+  - **mock**:`mock-qql` 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)供 vite dev;完整语义仍以 Rust core 为准(全量移植 TS 为独立大件)。
 
 - **已实现**(commit `f6d9a09`):常用 QQL 存成一篇 `type: Query` 的普通笔记,frontmatter
   声明软类型、正文放 ```` ```qql ```` 块。因此自动进索引/图谱/检索,可被 `[[]]` 链接、可被

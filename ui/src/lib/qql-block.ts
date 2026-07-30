@@ -6,7 +6,7 @@
  * - `resultToHtml`:把 core 的 ResultSet(List/Table/Count/Groups/Sum)渲染成紧凑 HTML 片段,
  *   所有动态字符串已转义;注入 DOM 前仍建议过 `sanitize()`。
  *
- * 求值本身不在浏览器复刻(mock 返回空 List);真机走 `run_qql` → Rust core。
+ * 求值:浏览器 mock 走 mock-qql 子集;真机 `run_qql` → Rust core。
  */
 import type { ResultSet } from "./ipc";
 

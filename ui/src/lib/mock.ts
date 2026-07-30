@@ -10,7 +10,8 @@
  * - index_vault:用 JS **mini-indexer** 复刻 core 的 frontmatter/标题/wikilink
  *   解析,产出 nodes + edges,让图谱与反链在浏览器里可演示。
  * - search_notes:极简 AND 检索(标题×2 加权,见 mock-search.ts),近似 core 供预览。
- * - run_qql:返回空(core 的查询求值不在浏览器复刻)。真机 Tauri 构建里走 Rust core。
+ * - run_qql:浏览器用 mock-qql **子集**(type/status/tag/LIMIT/COUNT/GROUP/histogram);
+ *   复杂查询降级空 List。完整语义真机走 Rust core。
  *
  * ⚠️ mini-indexer 是 core 的**简化近似**,只为预览;语义以 Rust core 为准。
  */
@@ -21,6 +22,7 @@ import type {
   VaultSnapshot,
 } from "./ipc";
 import { mockSearch } from "./mock-search";
+import { mockEvalQql, nodesFromOut } from "./mock-qql";
 
 const MOCK_ROOT = "/mock-vault";
 
@@ -394,10 +396,14 @@ export async function handle<T>(
       // mock 无外部 fs;路径 delta 忽略,返回当前快照(与 live 投影同形)。
       return buildSnapshot() as unknown as T;
 
-    case "run_qql":
-      // core 的重活不在浏览器里复刻;返回空 List 形态保持类型一致。真机走 Rust。
-      console.info("[mock] run_qql 在 mock 模式下返回空,请用 Tauri 构建以获得完整求值。");
-      return { List: [] } as unknown as T;
+    case "run_qql": {
+      // 子集求值供 vite dev / 内联 qql 预览;完整语义仍以 Rust 为准。
+      const snap = buildSnapshot();
+      return mockEvalQql(
+        String(args.qql ?? ""),
+        nodesFromOut(snap.nodes),
+      ) as unknown as T;
+    }
 
     case "search_notes": {
       // 浏览器 mock:极简 AND 检索(标题×2 加权),近似 core 仅供预览。

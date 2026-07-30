@@ -56,6 +56,11 @@ import {
   type Pt,
 } from "../lib/graph-layout";
 import {
+  countMissingPositions,
+  suggestLayoutIterations,
+} from "../lib/graph-layout-budget";
+import { labelPriority, pickVisibleLabels } from "../lib/graph-label";
+import {
   buildGraphModel,
   pinIdsToPaths,
   pinPathsToIds,
@@ -273,7 +278,14 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     [renderIds, filtered.edges],
   );
 
-  // Worker / sync 布局。
+  // 上一帧结构签名 / 尺寸,用于增量迭代预算。
+  const prevLayoutRef = useRef<{ sig: string; w: number; h: number }>({
+    sig: "",
+    w: 0,
+    h: 0,
+  });
+
+  // Worker / sync 布局(增量预算:结构未变或仅少量新节点时少迭代)。
   useEffect(() => {
     if (size.w === 0 || size.h === 0 || renderIds.length === 0) return;
     const client = layoutClientRef.current;
@@ -282,14 +294,16 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     const springs = filtered.edges
       .filter((e) => e.to != null && renderSet.has(e.from) && renderSet.has(e.to))
       .map((e) => ({ from: e.from, to: e.to as number }));
-    const iterations =
-      renderIds.length > 1200
-        ? 45
-        : renderIds.length > 800
-          ? 60
-          : renderIds.length > 250
-            ? 90
-            : 130;
+    const prev = prevLayoutRef.current;
+    const structureChanged = prev.sig !== sig;
+    const sizeChanged = prev.w !== size.w || prev.h !== size.h;
+    const newNodeCount = countMissingPositions(renderIds, posRef.current);
+    const iterations = suggestLayoutIterations({
+      n: renderIds.length,
+      newNodeCount,
+      structureChanged,
+      sizeChanged,
+    });
     void client
       .run({
         ids: renderIds,
@@ -307,6 +321,7 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
       .then((next) => {
         if (gen !== layoutGenRef.current) return;
         posRef.current = next;
+        prevLayoutRef.current = { sig, w: size.w, h: size.h };
         bumpLayout();
       });
   }, [sig, size.w, size.h, renderIds, renderSet, adj, filtered.edges, pinned]);
@@ -548,14 +563,43 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
       }),
     );
     const leaves = lod.active ? lod.leafIds : renderIds;
+    // 标签避让:用当前相机近似(ratio 越小越放大 → scale 越大)。
+    const approxScale = lodScale;
+    const labelCands = leaves.map((id) => {
+      const p = posRef.current.get(id) ?? { x: 0, y: 0 };
+      const n = model.byId.get(id);
+      return {
+        id,
+        x: p.x,
+        y: p.y,
+        title: n?.title ?? "",
+        priority: labelPriority({
+          degree: degree.get(id) ?? 0,
+          isCurrent: id === currentId,
+          isHover: id === hover,
+          isSelected: selected.has(id),
+          isTextHit: filtered.textHits.has(id),
+          isPinned: pinned.has(id),
+          isFocus: id === filters.focusId,
+        }),
+      };
+    });
+    const labelAllow = pickVisibleLabels(labelCands, {
+      scale: approxScale,
+      tx: size.w / 2,
+      ty: size.h / 2,
+      maxLabels: approxScale < 0.6 ? 40 : approxScale < 1 ? 80 : 200,
+    });
     const nodeAttrs = buildSigmaNodeAttrs(leaves, posRef.current, meta, {
       currentId,
       hoverId: hover,
       selected,
       textHits: filtered.textHits,
       pinned,
+      focusId: filters.focusId,
       neighborFocus: neighbors,
       forceLabelAll: lodScale >= 1.05,
+      labelAllow,
     });
     if (lod.active) {
       for (const [k, v] of buildSigmaClusterAttrs(lod.clusters)) {
@@ -584,9 +628,12 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     neighbors,
     filtered.textHits,
     filtered.edges,
+    filters.focusId,
     lod,
     lodScale,
     layoutTick,
+    size.w,
+    size.h,
   ]);
 
   const sigmaEdges: SigmaEdgeInput[] = useMemo(() => {
@@ -659,7 +706,35 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
   );
   const edgeOpacity = clamp(0.12 + tf.scale * 0.18, 0.12, 0.5);
   const nodeById = new Map(allNodes.map((n) => [n.id, n]));
-  const labelAll = tf.scale >= 1.05;
+  // SVG 标签避让(与 WebGL 同源)。
+  const svgLabelAllow = (() => {
+    if (preferWebgl) return null as Set<number> | null;
+    const cands = culledIds.map((id) => {
+      const p = posRef.current.get(id) ?? { x: 0, y: 0 };
+      const n = nodeById.get(id);
+      return {
+        id,
+        x: p.x,
+        y: p.y,
+        title: n?.title ?? "",
+        priority: labelPriority({
+          degree: degree.get(id) ?? 0,
+          isCurrent: id === currentId,
+          isHover: id === hover,
+          isSelected: selected.has(id),
+          isTextHit: filtered.textHits.has(id),
+          isPinned: pinned.has(id),
+          isFocus: id === filters.focusId,
+        }),
+      };
+    });
+    return pickVisibleLabels(cands, {
+      scale: tf.scale,
+      tx: tf.tx,
+      ty: tf.ty,
+      maxLabels: tf.scale < 0.6 ? 40 : tf.scale < 1 ? 80 : 200,
+    });
+  })();
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-base">
@@ -851,13 +926,12 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
                 const isPin = pinned.has(id);
                 const dim = neighbors != null && !neighbors.has(id);
                 const showLabel =
-                  labelAll ||
-                  deg >= 4 ||
                   isHover ||
                   isCurrent ||
                   isSel ||
                   isTextHit ||
-                  id === filters.focusId;
+                  id === filters.focusId ||
+                  (svgLabelAllow?.has(id) ?? deg >= 4);
                 return (
                   <g
                     key={id}
