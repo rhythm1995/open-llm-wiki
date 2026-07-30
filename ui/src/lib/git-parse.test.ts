@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { parseLog, parseStatusPorcelain, statusLabel } from "./git-parse";
+import {
+  conflictPaths,
+  hasConflicts,
+  isConflictEntry,
+  parseLog,
+  parseStatusPorcelain,
+  statusLabel,
+} from "./git-parse";
 
 describe("git-parse", () => {
   describe("parseStatusPorcelain", () => {
@@ -107,6 +114,24 @@ describe("git-parse", () => {
     it("重命名 → 更名", () => {
       const [e] = parseStatusPorcelain("R  a.md -> b.md");
       expect(statusLabel(e)).toBe("更名");
+    });
+    it("双方未合并 → 冲", () => {
+      const [e] = parseStatusPorcelain("UU conflict.md");
+      expect(statusLabel(e)).toBe("冲");
+    });
+  });
+
+  describe("hasConflicts / conflictPaths", () => {
+    it("UU 视为冲突", () => {
+      const entries = parseStatusPorcelain("UU a.md\n M b.md");
+      expect(isConflictEntry(entries[0])).toBe(true);
+      expect(hasConflicts(entries)).toBe(true);
+      expect(conflictPaths(entries)).toEqual(["a.md"]);
+    });
+    it("干净列表无冲突", () => {
+      const entries = parseStatusPorcelain(" M a.md\n?? b.md");
+      expect(hasConflicts(entries)).toBe(false);
+      expect(conflictPaths(entries)).toEqual([]);
     });
   });
 });

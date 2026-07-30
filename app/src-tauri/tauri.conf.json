@@ -34,13 +34,13 @@
     "targets": "all",
     "category": "Productivity",
     "publisher": "OpenObsidian",
-    "copyright": "© OpenObsidian contributors, MIT (canvas feature uses tldraw, non-commercial; see THIRD_PARTY_NOTICES)",
+    "copyright": "© OpenObsidian contributors, MIT (see THIRD_PARTY_NOTICES)",
     "shortDescription": "Local-first, file-as-truth knowledge base",
-    "longDescription": "OpenObsidian — a local-first, MIT-licensed knowledge management app. Adds the two things Obsidian most needs: graph visualization and live aggregate queries (QQL).",
+    "longDescription": "OpenObsidian — a local-first, MIT-licensed knowledge management app. Adds the two things Obsidian most needs: graph visualization and live aggregate queries (QQL). Canvas uses Excalidraw (MIT).",
     "resources": {
       "../../LICENSE": ".",
       "../../THIRD_PARTY_NOTICES.md": ".",
-      "../../licenses/tldraw-LICENSE.md": "."
+      "../../licenses/blocknote-LICENSE.md": "."
     },
     "macOS": {
       "minimumSystemVersion": "10.15"

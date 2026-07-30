@@ -2,7 +2,7 @@
  * mock-search —— 浏览器 mock 后端用的极简 AND 检索。
  *
  * 真机走 Rust core 的倒排检索(标题×2 加权、AND、unicode 分词);浏览器 mock
- * 不复刻那套重活,只用一个**近似**实现让 SearchPanel 在 `vite dev` 下可用、
+ * 不复刻那套重活,只用一个**近似**实现让 `searchNotes` 在 `vite dev` 下可用、
  * 可演示。语义以 Rust core 为准,本模块仅为预览。
  *
  * AND:查询的每个空白分隔词都必须命中(标题或正文);命中分 = 标题命中×2 +

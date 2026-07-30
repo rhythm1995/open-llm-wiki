@@ -116,4 +116,22 @@ describe("resultToHtml", () => {
   it("Groups 空显示无分组", () => {
     expect(resultToHtml({ Groups: [] })).toContain("无分组");
   });
+
+  it("Histogram 渲染条形与计数", () => {
+    const h = resultToHtml({
+      Histogram: [
+        { key: "open", count: 2, ids: [0, 1] },
+        { key: "done", count: 1, ids: [2] },
+      ],
+    });
+    expect(h).toContain("qql-histogram");
+    expect(h).toContain("open");
+    expect(h).toContain("done");
+    expect(h).toContain("qql-bar");
+    expect(h).toContain(">2<");
+  });
+
+  it("Histogram 空显示无直方", () => {
+    expect(resultToHtml({ Histogram: [] })).toContain("无直方");
+  });
 });

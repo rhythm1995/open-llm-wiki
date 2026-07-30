@@ -20,7 +20,6 @@ import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
 import { QueryPanel } from "./components/QueryPanel";
-import { SearchPanel } from "./components/SearchPanel";
 import { GitPanel } from "./components/GitPanel";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { CenterToolbar } from "./components/CenterToolbar";
@@ -33,34 +32,66 @@ import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
 import { writeLastPath, readLastRoot, clearLastRoot } from "./lib/last-note";
+import {
+  EDIT_MODE_KEY,
+  EDIT_MODE_MIGRATED_KEY,
+  migrateEditMode,
+  type EditMode,
+} from "./lib/edit-mode";
+import type { PaletteMode } from "./components/CommandPalette";
 
-// 画布视图懒加载:tldraw 是重依赖 + 非商用许可,隔离到独立 chunk(见 THIRD_PARTY_NOTICES)。
-// 不开画布就不下载 tldraw;许可边界也随之收束在 CanvasView 这一个模块里。
+// 画布视图懒加载:Excalidraw 包体大,隔离到独立 chunk(MIT,见 THIRD_PARTY_NOTICES)。
+// 不开画布就不下载该 chunk。
 const CanvasView = lazy(() =>
   import("./components/CanvasView").then((m) => ({ default: m.CanvasView })),
 );
 
 export default function App() {
   const { state, currentNode, backlinks, navInfo, actions } = useVault();
-  // 上次的主视图 / 编辑·阅读模式持久化到 localStorage,重启后恢复(与 useTheme/useLocale 同构)。
-  const [view, setView] = usePersistentState<MainView>("openobs.view", "editor");
+  // 上次的主视图持久化;旧值 "search" 归一为 editor(搜索视图已移除)。
+  const [viewRaw, setView] = usePersistentState<string>("openobs.view", "editor");
+  const view: MainView =
+    viewRaw === "graph" || viewRaw === "query" || viewRaw === "git"
+      ? viewRaw
+      : "editor";
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteMode, setPaletteMode] = useState<PaletteMode>("commands");
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
-  // ⌘F 文档内查找条(FindBar):query 跨开关保持,关再开仍记得上次查询。
+  // ⌘F 文档内查找条:query 跨开关保持;打开时强制 source 以便 CM 全文高亮。
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
+  /** 打开 Find 前的编辑模式,关闭时还原(避免永久改用户偏好)。 */
+  const findPrevModeRef = useRef<EditMode | null>(null);
   const { theme, toggle: toggleTheme } = useTheme();
   const { locale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
-  // 双模式:source(CodeMirror 源码)/ wysiwyg(BlockNote 所见即所得)。两者读写同一
-  // state.content(.md 真相源)。默认 wysiwyg(非纯 .md);旧值 "edit"|"read"|"source"
-  // 归一 —— 非 "wysiwyg" 一律视为 "source",localStorage 旧值无痛迁移。
-  const [editModeRaw, setEditMode] = usePersistentState<string>(
-    "openobs.editMode",
-    "wysiwyg",
-  );
-  const editMode: "source" | "wysiwyg" =
-    editModeRaw === "wysiwyg" ? "wysiwyg" : "source";
+  /** 稳定句柄:FindBar 订阅此 state,避免 ref.current 在首渲为 null。 */
+  const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
+  // 双模式:source / wysiwyg。一次性迁移旧默认 source → wysiwyg(见 edit-mode.ts)。
+  const [editMode, setEditMode] = useState<EditMode>(() => {
+    try {
+      const raw = localStorage.getItem(EDIT_MODE_KEY);
+      const parsed = raw != null ? (JSON.parse(raw) as unknown) : "wysiwyg";
+      const migrated = localStorage.getItem(EDIT_MODE_MIGRATED_KEY);
+      const r = migrateEditMode(migrated, parsed);
+      if (r.writeMigrated) localStorage.setItem(EDIT_MODE_MIGRATED_KEY, "1");
+      if (r.writeMode || raw == null) {
+        localStorage.setItem(EDIT_MODE_KEY, JSON.stringify(r.mode));
+      }
+      return r.mode;
+    } catch {
+      return "wysiwyg";
+    }
+  });
+  const persistEditMode = useCallback((m: EditMode) => {
+    setEditMode(m);
+    try {
+      localStorage.setItem(EDIT_MODE_KEY, JSON.stringify(m));
+      localStorage.setItem(EDIT_MODE_MIGRATED_KEY, "1");
+    } catch {
+      // 隐私模式:内存态即可。
+    }
+  }, []);
   // 四区布局:三个非编辑器面板各自可隐藏,状态持久化。切换入口集中在 CenterToolbar
   // 右侧的 Xcode 式切换簇(面板边缘不放按钮)。编辑器常驻,不参与切换。
   const [navOpen, setNavOpen] = usePersistentState("openobs.navOpen", true);
@@ -73,7 +104,7 @@ export default function App() {
   const [navSelection, setNavSelection] = useState<NavSelection | null>({
     kind: "all",
   });
-  // 当前页是否为 tldraw 画布(.canvas):是则中栏渲染 CanvasView,隐藏编辑/阅读切换与属性面板。
+  // 当前页是否为画布(.canvas / Excalidraw):是则中栏渲染 CanvasView,隐藏编辑/阅读切换与属性面板。
   const isCanvas = state.currentPath !== null && isCanvasPath(state.currentPath);
   // vault 显示名(顶栏列表表头与无 vault 入口共用)。
   const vaultName = state.root
@@ -186,31 +217,91 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⌘K 命令面板 / ⌘P·⌘O 快速打开笔记(三种键位都唤起同一面板)。
+  // ⌘K 命令面板;⌘P / ⌘O 快速打开笔记(仅笔记,不改 Nav 选择/不高亮左侧筛选)。
+  // capture:true —— 编辑器(ProseMirror/CM)可能 stopPropagation,冒泡到不了 window。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && /^[kpo]$/.test(e.key.toLowerCase())) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "k") {
         e.preventDefault();
+        e.stopPropagation();
+        setPaletteMode("commands");
+        setPaletteOpen((v) => !v);
+      } else if (k === "p" || k === "o") {
+        e.preventDefault();
+        e.stopPropagation();
+        // 快速打开是独立浮层:不切 view、不改 navSelection(Tolaria QuickOpen)。
+        setPaletteMode("quickOpen");
         setPaletteOpen((v) => !v);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  // ⌘F 文档内查找(开 FindBar);⌘⇧F 全库搜索(切到 search 视图,SearchPanel 挂载即聚焦输入)。
-  // 与第二栏「列表过滤」区分:本条查当前笔记正文,过滤查当前列表的标题/预览。
+  // path/mode 用 ref,避免 keydown 闭包拿到旧 path 导致 ⌘F 静默 no-op。
+  const pathRef = useRef(state.currentPath);
+  pathRef.current = state.currentPath;
+  const editModeRef = useRef(editMode);
+  editModeRef.current = editMode;
+
+  /** 打开文档内查找:进 editor、必要时切 source 以启用 CM 全文高亮。 */
+  const openFind = useCallback(() => {
+    const path = pathRef.current;
+    if (!path || isCanvasPath(path)) return;
+    setView("editor");
+    const mode = editModeRef.current;
+    if (mode !== "source") {
+      findPrevModeRef.current = mode;
+      persistEditMode("source");
+    } else {
+      findPrevModeRef.current = null;
+    }
+    setFindOpen(true);
+  }, [persistEditMode, setView]);
+
+  const closeFind = useCallback(() => {
+    editorRef.current?.clearFind();
+    setEditorHandle((h) => {
+      h?.clearFind();
+      return h;
+    });
+    setFindOpen(false);
+    // 还原打开 Find 前的编辑模式。
+    const prev = findPrevModeRef.current;
+    findPrevModeRef.current = null;
+    if (prev && prev !== "source") persistEditMode(prev);
+  }, [persistEditMode]);
+
+  // ⌘F 文档内查找(FindBar + 全文高亮)。capture 拦截,避免编辑器吞键。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod || e.key.toLowerCase() !== "f") return;
       e.preventDefault();
-      if (e.shiftKey) setView("search");
-      else setFindOpen(true);
+      e.stopPropagation();
+      if (findOpen) {
+        setFindOpen(true);
+      } else {
+        openFind();
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [findOpen, openFind]);
+
+  // Editor 挂载后同步句柄给 FindBar(不可在 ref 回调里 setState,会触发无限更新)。
+  useEffect(() => {
+    if (editMode === "source" && view === "editor" && !isCanvas && findOpen) {
+      const id = requestAnimationFrame(() => {
+        setEditorHandle(editorRef.current);
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    // 关闭查找或不在 source 时清空句柄(不在 render 路径反复 set 同一 null)。
+    setEditorHandle((prev) => (prev == null ? prev : null));
+  }, [editMode, view, isCanvas, state.currentPath, findOpen]);
 
   // ⌘S / Ctrl+S 立即保存(拦截浏览器的"保存网页")。
   useEffect(() => {
@@ -273,7 +364,10 @@ export default function App() {
       <CenterToolbar
         view={view}
         onNavigate={setView}
-        onOpenPalette={() => setPaletteOpen(true)}
+        onOpenPalette={() => {
+          setPaletteMode("commands");
+          setPaletteOpen(true);
+        }}
         t={t}
         contextLabel={contextLabel}
         canBack={navInfo.canBack}
@@ -315,7 +409,9 @@ export default function App() {
               snapshot={state.snapshot}
               navSelection={navSelection}
               onNavSelect={handleNavSelect}
-              isEditorView={view === "editor"}
+              // 快速打开/命令面板打开时不高亮左侧筛选(Tolaria:浮层与 Nav 选择解耦)。
+              isEditorView={view === "editor" && !paletteOpen}
+              onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
               t={t}
             />
           </div>
@@ -397,7 +493,7 @@ export default function App() {
                   {!isCanvas && state.currentPath !== null && (
                     <button
                       onClick={() =>
-                        setEditMode(editMode === "source" ? "wysiwyg" : "source")
+                        persistEditMode(editMode === "source" ? "wysiwyg" : "source")
                       }
                       className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
                       title={
@@ -417,8 +513,10 @@ export default function App() {
                     <FindBar
                       query={findQuery}
                       onQueryChange={setFindQuery}
-                      onClose={() => setFindOpen(false)}
+                      onClose={closeFind}
                       t={t}
+                      editor={editMode === "source" ? editorHandle : null}
+                      documentText={state.content}
                     />
                   )}
                 </div>
@@ -434,14 +532,6 @@ export default function App() {
             )}
             {view === "query" && (
               <QueryPanel
-                root={state.root}
-                snapshot={state.snapshot}
-                actions={actions}
-                t={t}
-              />
-            )}
-            {view === "search" && (
-              <SearchPanel
                 root={state.root}
                 snapshot={state.snapshot}
                 actions={actions}
@@ -480,7 +570,11 @@ export default function App() {
 
       <CommandPalette
         open={paletteOpen}
-        onOpenChange={setPaletteOpen}
+        onOpenChange={(open) => {
+          setPaletteOpen(open);
+          // 关闭时复位 mode,避免下次 ⌘K 仍是 quickOpen。
+          if (!open) setPaletteMode("commands");
+        }}
         snapshot={state.snapshot}
         actions={actions}
         onNewNote={openNewNote}
@@ -489,6 +583,7 @@ export default function App() {
           setView(v);
         }}
         t={t}
+        mode={paletteMode}
       />
     </div>
   );

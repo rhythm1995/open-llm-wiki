@@ -88,12 +88,14 @@ Tauri 2 外壳 + React 19:
 
   **诚实范围(已补完)**:深层面板(GitPanel / QueryPanel / SearchPanel / TrashPanel / Sidebar / NewNoteDialog / Editor 空状态、TabBar、GraphView 全量含过滤面板)的字符串已全部迁移到 `t()` 体系,zh/en 双语覆盖,i18n 键集一致性有单测守护。仅 Toolbar 的语言切换指示符(`中`/`EN`,刻意显示对方语言)与各文件的中文 doc 注释保持原样。
 
-### Phase 5+ 续三(本会话,v1 范围之外)✅
+### Phase 5+ 续三(本会话,v1 范围之外)✅ → 画布已换引擎
 
-- ✅ **F-CANVAS(tldraw)**:无限画布做白板/示意图。`.canvas` 文件即真相——存 tldraw 的 `TLEditorSnapshot` JSON,与笔记同一条"文件即真相 + 防抖落盘"链路(`store.listen({source:'user',scope:'document'})` → 序列化 → `setContent` → `writeNote`)。挂载时 `loadSnapshot`,由 App 按 path 作 `key` 规避 载入→回写 回环。纯逻辑 `canvas.ts`(parse/serialize/isCanvasPath,11 项单测;`import type` 擦除 tldraw,可 node 单测)。
-  - **持久化格式决策**:选 `TLEditorSnapshot`(`{document, session}`)而非 `TLStoreSnapshot`——`getSnapshot` 返回前者、`loadSnapshot` 接受 `Partial<TLEditorSnapshot>`,正好闭环,并顺便保留相机/选区状态。
-  - **许可兼容(本特性的关键)**:tldraw 是 source-available 非商用许可,**非 MIT**。处理:(1) `licenses/tldraw-LICENSE.md` 逐字留存;(2) [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) 记边界——OpenObsidian 本地优先单机,落在 tldraw "非生产/开发"许可范围,本地使用兼容,托管部署需另取商用许可;(3) tldraw 被隔离在唯一懒加载模块 `CanvasView.tsx`(+ 纯逻辑 `canvas.ts` 仅 `import type`),构建产物里独占一个 `CanvasView-*.js` chunk(~1.6MB),不开画布不下载,且可一键移除回到纯 MIT app;(4) 画布右下角保留 "Powered by tldraw" 署名满足归属/商标条款。
-  - **索引隔离**:`build_index` 只取 `.md`(Rust 与 mock `parseAll` 均如此),画布 JSON 不进图谱/检索;`list_vault` 放行 `.canvas` 让其进文件树。
+- ✅ **F-CANVAS(初版 tldraw → 现 Excalidraw MIT)**:无限画布;`.canvas` 文件即真相。
+  - **现引擎**:`@excalidraw/excalidraw`(MIT)。磁盘 schema:`{ openobsidianCanvas:1, engine:"excalidraw", elements, appState, files }`(`canvas.ts` 纯逻辑 + 单测)。
+  - **懒加载**:`CanvasView` 独立 chunk;App `key={path}` 防载入回写回环。
+  - **旧 tldraw 文件**:识别为 legacy 只读提示,不自动迁移。
+  - **索引隔离**:`build_index` 只取 `.md`;`list_vault` 放行 `.canvas`。
+  - 历史 tldraw 实现与「非商用许可隔离」叙述见 git 历史;`THIRD_PARTY_NOTICES` 以 Excalidraw 为准。
 
 ### Phase 5+ 续四(本会话,v1 范围之外)✅
 
@@ -122,11 +124,12 @@ Tauri 2 外壳 + React 19:
 | F-GIT | ✅ 本会话 | 见上。 |
 | F-AI(+MCP) | 🟡 部分 | 读侧"复制 AI 上下文"已落地;完整 MCP server 是独立工程(见 [deferred](./deferred.md)「完整 MCP server」),不在此仓促做空心 stub。 |
 | F-L10N | ✅ 完整 | 基础设施 + 顶层 chrome + 全部深层面板(本会话补完)已落地(zh/en)。 |
-| F-CANVAS(tldraw) | ✅ 本会话 | 见下。tldraw 为非商用许可,已隔离 + 文档化边界(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
-| F-SHEET(ironcalc) | ⏳ 延后 | npm 仅发 wasm 引擎、无 React UI;做扎实需自研表格 UI 或等组件发布(见 [deferred](./deferred.md)「F-SHEET」)。 |
-| F-PLUGIN | ⏳ 延后 | 需先设计插件 API 表面 + 沙箱 + 生命周期 + 分发 + 安全模型(见 [deferred](./deferred.md)「F-PLUGIN」)。"插件系统"空心注册器是反价值的占位。 |
-| BlockNote 富文本 | ⏳ 延后 | 与 CodeMirror 的双模 + **Markdown round-trip**(富文本↔纯文本无损)是已知难点;F-READING 已覆盖"看渲染结果"(见 [deferred](./deferred.md)「BlockNote」)。 |
-| 图谱大图性能(LOD/Canvas/WebGL) | ⏳ 打磨项 | 见 [deferred.md](./deferred.md)。本轮已落:右键菜单、内联 qql 块、标签循环、图谱视口剔除。 |
+| F-CANVAS(Excalidraw) | ✅ | MIT 画布;旧 tldraw 只读兼容(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
+| F-SHEET(ironcalc) | ⏳ 延后 | npm 仅发 wasm 引擎、无 React UI(见 [deferred](./deferred.md)「F-SHEET」)。 |
+| F-PLUGIN | ⏳ 延后 | 见 [deferred](./deferred.md)「F-PLUGIN」。 |
+| BlockNote 双模 | ✅ 部分 | WYSIWYG 已落地;无损 round-trip 子集仍见 [deferred](./deferred.md)。 |
+| 图谱大图(WebGL/LOD/Worker) | ✅ 功能齐 | Barnes-Hut + Worker + sigma + LOD 边/飞入 + WebGL 拖拽框选;真机帧率门禁仍见 deferred。 |
+| Live 索引 + ⌘F/⌘P | ✅ | 路径级 delta;无搜索视图;FindBar + quick open。 |
 | 打包与分发 | ✅ CI 骨架 / 🟡 签名待凭证 | 骨架见上(Phase 5 行);签名/公证/Updater 见 [deferred.md](./deferred.md)「打包与分发」(gated 在用户凭证)。 |
 | saved query view / 恢复上次笔记 | ✅ 本轮 | 已落地(见 [deferred](./deferred.md) 顶部两条 ✅):QQL 存成自举 `type:Query` 笔记;打开 vault 恢复上次看的笔记。 |
 

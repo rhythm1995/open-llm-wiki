@@ -125,6 +125,8 @@ pub enum Render {
     GroupBy(FieldRef),
     /// 对 FieldRef 求和(数值字段)。
     Sum(FieldRef),
+    /// 按 FieldRef 做直方图(分组计数,与 GroupBy 同数据形态,UI 画条形图)。
+    Histogram(FieldRef),
 }
 
 /// 查询。
@@ -186,6 +188,8 @@ pub enum ResultSet {
     Groups(Vec<GroupRow>),
     /// 数值求和。
     Sum(f64),
+    /// 直方图(桶 = 分组行,与 Groups 同形)。
+    Histogram(Vec<GroupRow>),
 }
 
 // ─────────────────────── 字段取值 ───────────────────────
@@ -403,7 +407,8 @@ pub fn eval(notes: &[Note], graph: &Graph, q: &Query) -> ResultSet {
                 .sum();
             ResultSet::Sum(total)
         }
-        Render::GroupBy(rf) => {
+        Render::GroupBy(rf) | Render::Histogram(rf) => {
+            let is_hist = matches!(&q.render, Render::Histogram(_));
             let mut buckets: Vec<(String, Vec<NodeId>)> = Vec::new();
             let mut index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
             for (id, n) in &matched {
@@ -422,16 +427,19 @@ pub fn eval(notes: &[Note], graph: &Graph, q: &Query) -> ResultSet {
                 }
             }
             buckets.sort_by(|a, b| a.0.cmp(&b.0));
-            ResultSet::Groups(
-                buckets
-                    .into_iter()
-                    .map(|(key, ids)| GroupRow {
-                        key,
-                        count: ids.len(),
-                        ids,
-                    })
-                    .collect(),
-            )
+            let rows: Vec<GroupRow> = buckets
+                .into_iter()
+                .map(|(key, ids)| GroupRow {
+                    key,
+                    count: ids.len(),
+                    ids,
+                })
+                .collect();
+            if is_hist {
+                ResultSet::Histogram(rows)
+            } else {
+                ResultSet::Groups(rows)
+            }
         }
     }
 }
@@ -714,6 +722,29 @@ mod tests {
                 assert_eq!(rows[2].count, 1);
             }
             _ => panic!("expected Groups"),
+        }
+    }
+
+    #[test]
+    fn render_histogram_type() {
+        let (notes, g) = build(&[
+            ("---\ntype: Concept\n---\n# A", "a.md"),
+            ("---\ntype: Concept\n---\n# B", "b.md"),
+            ("---\ntype: Source\n---\n# C", "c.md"),
+        ]);
+        let q = Query {
+            render: Render::Histogram(FieldRef::Type),
+            ..Query::new()
+        };
+        match run(&notes, &g, &q) {
+            ResultSet::Histogram(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].key, "Concept");
+                assert_eq!(rows[0].count, 2);
+                assert_eq!(rows[1].key, "Source");
+                assert_eq!(rows[1].count, 1);
+            }
+            other => panic!("expected Histogram, got {other:?}"),
         }
     }
 

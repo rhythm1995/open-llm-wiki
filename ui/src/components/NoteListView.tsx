@@ -205,6 +205,12 @@ export function NoteListView({
                   </div>
                 ) : (
                 <button
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-openobs-note", n.path);
+                    e.dataTransfer.setData("text/plain", n.path);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
                   onClick={() => actions.selectNote(n.path)}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -310,11 +316,10 @@ function buildMenuItems(
     onClick: () => void actions.setNoteStatus(n.path, null),
   });
   items.push({ separator: true });
+  // 删除文件:直接 deleteNote(git 归档,可从「归档」还原);无二次确认。
   items.push({
-    label: t("menu.archive"),
-    onClick: () => {
-      if (window.confirm(t("menu.archiveConfirm"))) void actions.deleteNote(n.path);
-    },
+    label: t("menu.deleteFile"),
+    onClick: () => void actions.deleteNote(n.path),
   });
   // Reveal in Finder:仅桌面(mock 无 fs,隐藏,与 GitPanel 同 gate)。
   if (!ipc.isMock()) {

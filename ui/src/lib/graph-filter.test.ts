@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyGraphFilters,
+  distinctStatuses,
   distinctTags,
   distinctTypes,
   type GraphFilters,
@@ -8,8 +9,8 @@ import {
 import type { EdgeOut, NodeOut } from "./ipc";
 
 const NODES: NodeOut[] = [
-  { id: 0, path: "a.md", title: "A", type: "Concept", tags: ["x"], status: null, created: null, modified: 0, preview: "" },
-  { id: 1, path: "b.md", title: "B", type: "Source", tags: ["y"], status: null, created: null, modified: 0, preview: "" },
+  { id: 0, path: "a.md", title: "Alpha", type: "Concept", tags: ["x"], status: "Active", created: null, modified: 0, preview: "hello world" },
+  { id: 1, path: "b.md", title: "Beta", type: "Source", tags: ["y"], status: "Done", created: null, modified: 0, preview: "" },
   { id: 2, path: "c.md", title: "C", type: "Concept", tags: [], status: null, created: null, modified: 0, preview: "" }, // 孤儿
   { id: 3, path: "d.md", title: "D", type: null, tags: [], status: null, created: null, modified: 0, preview: "" }, // 无 type
 ];
@@ -22,6 +23,8 @@ const EDGES: EdgeOut[] = [
 const base: GraphFilters = {
   types: new Set(),
   tags: new Set(),
+  statuses: new Set(),
+  query: "",
   relations: new Set(),
   hideOrphans: false,
   focusId: null,
@@ -91,6 +94,33 @@ describe("applyGraphFilters — 邻域收窄", () => {
   });
 });
 
+describe("applyGraphFilters — status 过滤", () => {
+  it("只保留 Active", () => {
+    const r = applyGraphFilters(NODES, EDGES, { ...base, statuses: new Set(["Active"]) });
+    expect([...r.nodeIds]).toEqual([0]);
+  });
+  it("STATUSLESS 占位", () => {
+    const r = applyGraphFilters(NODES, EDGES, { ...base, statuses: new Set(["—"]) });
+    expect([...r.nodeIds].sort()).toEqual([2, 3]);
+  });
+});
+
+describe("applyGraphFilters — 文本 query", () => {
+  it("按标题子串过滤并记 textHits", () => {
+    const r = applyGraphFilters(NODES, EDGES, { ...base, query: "alp" });
+    expect([...r.nodeIds]).toEqual([0]);
+    expect([...r.textHits]).toEqual([0]);
+  });
+  it("按 preview 命中", () => {
+    const r = applyGraphFilters(NODES, EDGES, { ...base, query: "hello" });
+    expect([...r.nodeIds]).toEqual([0]);
+  });
+  it("空 query → 无 textHits", () => {
+    const r = applyGraphFilters(NODES, EDGES, base);
+    expect(r.textHits.size).toBe(0);
+  });
+});
+
 describe("distinct 辅助", () => {
   it("distinctTypes 去重并含 null 占位", () => {
     // em dash(—)码点在 ASCII 之后,默认排序落在最后。
@@ -98,5 +128,8 @@ describe("distinct 辅助", () => {
   });
   it("distinctTags 去重", () => {
     expect(distinctTags(NODES).sort()).toEqual(["x", "y"]);
+  });
+  it("distinctStatuses 去重并含 null 占位", () => {
+    expect(distinctStatuses(NODES).sort()).toEqual(["Active", "Done", "—"]);
   });
 });

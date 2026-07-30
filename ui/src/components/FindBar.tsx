@@ -1,43 +1,62 @@
 /**
- * FindBar —— 文档内查找条(⌘F,Obsidian 式「大搜索」的文档内一半;全库另一半是 ⌘⇧F)。
+ * FindBar —— 文档内查找条(⌘F,Tolaria 式 in-note find)。
  *
- * 用 web 原生 `window.find()` 在当前笔记里查下一个 / 上一个。对 source(CodeMirror)
- * 与 wysiwyg(BlockNote / ProseMirror)都生效——两者都把正文渲染成真实 DOM 文本节点,
- * `window.find()` 能定位。无第三方依赖、无替换;逃生舱是切到 source 模式。
+ * 样式:浮动条(占位符/上一个/下一个/关闭)。
+ * 功能:对当前笔记正文全文查找 + 高亮全部匹配(CodeMirror SearchQuery)。
+ * 在 wysiwyg 下由 App 临时切到 source 再查,保证高亮可靠(BlockNote 无对等高亮 API)。
  *
- * 与第二栏「列表过滤」的职责区分:FindBar 查的是**当前打开笔记正文**;列表过滤查的
- * 是**当前列表的标题/预览**;⌘⇧F(SearchPanel)查的是**全库正文**。三者 scope 递增。
- *
- * 限制:`window.find()` 非标准(Chromium/WebKit 支持,WKWebView 尽力而为,无替换)。
- * 若真机验证不稳,后续可给 source 模式换 `@codemirror/search`(见路线图)。
+ * 匹配数由纯逻辑 find-in-doc 计算(与 CM 字面量/不区分大小写语义对齐)。
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ArrowDown, ArrowUp, MagnifyingGlass, X } from "@phosphor-icons/react";
 import type { TFunc } from "../lib/i18n";
+import { findInDocument } from "../lib/find-in-doc";
+import type { EditorHandle } from "./Editor";
 
 interface Props {
-  /** 受控查询串(由 App 持有,跨 FindBar 开关保持)。 */
   query: string;
   onQueryChange: (q: string) => void;
   onClose: () => void;
   t: TFunc;
+  /** CodeMirror 句柄;必须提供才能高亮(App 保证 source 模式)。 */
+  editor: EditorHandle | null;
+  /** 当前笔记全文(含 frontmatter),用于计数展示。 */
+  documentText: string;
 }
 
-export function FindBar({ query, onQueryChange, onClose, t }: Props) {
+export function FindBar({
+  query,
+  onQueryChange,
+  onClose,
+  t,
+  editor,
+  documentText,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  // 打开即聚焦 + 全选,便于直接覆盖上次的查询。
+  const matchCount = useMemo(
+    () => findInDocument(documentText, query).matches.length,
+    [documentText, query],
+  );
+
+  // 打开即聚焦 + 全选。
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
 
-  /** 调 window.find 查找;backward=true 找上一个。无查询 / 不可用时静默。 */
+  // query 变化:立刻刷新全文高亮并跳到第一处(若有)。
+  useEffect(() => {
+    if (!editor) return;
+    if (!query) {
+      editor.clearFind();
+      return;
+    }
+    editor.find(query, false);
+  }, [query, editor]);
+
   const find = (backward: boolean) => {
-    if (!query) return;
-    const w = window as unknown as {
-      find?: (q: string, caseSensitive?: boolean, backward?: boolean) => boolean;
-    };
-    w.find?.(query, false, backward);
+    if (!query || !editor) return;
+    editor.find(query, backward);
   };
 
   return (
@@ -62,7 +81,16 @@ export function FindBar({ query, onQueryChange, onClose, t }: Props) {
         placeholder={t("find.placeholder")}
         className="w-40 bg-transparent px-1 text-[12px] text-text outline-none"
       />
+      {query ? (
+        <span
+          data-testid="find-count"
+          className="shrink-0 px-0.5 text-[11px] tabular-nums text-overlay"
+        >
+          {matchCount > 0 ? matchCount : t("find.none")}
+        </span>
+      ) : null}
       <button
+        type="button"
         onClick={() => find(true)}
         title={t("find.prev")}
         aria-label={t("find.prev")}
@@ -71,6 +99,7 @@ export function FindBar({ query, onQueryChange, onClose, t }: Props) {
         <ArrowUp size={13} />
       </button>
       <button
+        type="button"
         onClick={() => find(false)}
         title={t("find.next")}
         aria-label={t("find.next")}
@@ -79,6 +108,7 @@ export function FindBar({ query, onQueryChange, onClose, t }: Props) {
         <ArrowDown size={13} />
       </button>
       <button
+        type="button"
         onClick={onClose}
         title={t("common.close")}
         aria-label={t("common.close")}

@@ -17,7 +17,7 @@
 
 - **数据来源**:`core::graph` 产出的统一关系图(正文 wikilink + frontmatter 关系,见 [03-data-model](./03-data-model.md))。
 - **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接画虚边。
-- **渲染**:**自绘 SVG 力导向**(Fruchterman–Reingold,纯 `graph-layout.ts`,无 d3/react-force-graph 依赖)。日常规模流畅;节点数 > 200 视口剔除(屏外不画),> ~400 按度数 top-K 截断。⏳ WebGL/Canvas/LOD 为大图演进(见 [deferred](./deferred.md))。
+- **渲染**:**sigma.js WebGL**(graphology)+ **Worker** FR(`graph-layout.ts`);n≥280 自动 **Barnes-Hut** O(n log n)。无 WebGL → SVG。top-K(~2000 WebGL / ~400 SVG);低缩放 **LOD** 网格簇 + 簇间边 + 点簇飞入展开。拖拽/框选/pin/邻域压暗/悬空边双路径。纯逻辑可单测(见 [deferred](./deferred.md))。
 - **交互** ✅:点击节点跳转、缩放/平移、拖拽节点重定位、右键菜单(聚焦 1 跳 / 复制 `[[wikilink]]` / 隐藏此类型)。⏳ 悬停预览、框选、拖拽固定、按深度 N 跳邻域。
 - **过滤**(核心竞争力) ✅:按 `type` 显隐(顶部面板)。⏳ 按 `tag`/`status`/深度/关系类型/文本高亮子图。
 - **实时**:**随 `index_vault` 全量 rebuild**(无 watcher,前端主动刷新);位置 Map 跨帧持久 + 增量/稳定布局(新增节点就近播种,过滤切换不乱跳)。
@@ -69,7 +69,7 @@
 | F-VAULT | vault 管理 | P0 | ✅ | 打开/切换目录;递归扫描;忽略 `.git`/`.obs` 等。 |
 | F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | `[[link]]` 解析、`[[` 补全、Cmd/Ctrl+点击跳转;反向链接(`mentioned_in` 实时计算)。 |
 | F-FILETREE | 文件浏览 | P0 | ✅ | Nav(智能视图)+ NoteListView;新建/重命名/删除。⏳ 拖拽。 |
-| F-SEARCH | 全文搜索 | P0 | ✅ | 全文(含 frontmatter,标题加权)。⌘K 命令面板已做;⏳ ⌘P quick open。 |
+| F-SEARCH | 全文/查找 | P0 | ✅ | 文档内 ⌘F(FindBar + CM 高亮);⌘P 快速打开笔记;⌘K 命令面板。独立「搜索视图」已移除。core `search_notes` 仍供 IPC。 |
 | F-PROPERTIES | 属性面板 | P1 | ✅ | 可视化编辑 frontmatter(行级最小侵入,按需加引号)。 |
 | F-STATUS | status chip | P1 | ✅ | `status:` 彩色 chip(按词根模糊映射 Active/Done/Contested/Superseded…)。 |
 | F-TAGS | 标签 | P1 | 🟡 | 行内 `#tag` + frontmatter `tags:` 解析 ✅;⏳ 标签视图。 |
@@ -81,7 +81,7 @@
 | F-TRASH | ~~回收站~~ | P2 | ➡️ 取代 | **已被「归档并入 git」取代**(见 F-GIT):删 `.trash/`,删除/还原全走 git。 |
 | F-AI | AI 上下文 + MCP | P2 | 🟡 | 读侧「复制为 AI 上下文」✅;⏳ 完整 MCP server(写侧)延后(见 [deferred](./deferred.md))。 |
 | F-L10N | 国际化 | P2 | ✅ | i18n(中/英)。 |
-| F-CANVAS | canvas 画布 | P3 | ✅ | tldraw(Obsidian Canvas 对等,非商用,隔离在懒加载 chunk)。 |
+| F-CANVAS | canvas 画布 | P3 | ✅ | **Excalidraw(MIT)**;`.canvas` 为 OpenObsidian schema(`engine:excalidraw`);懒加载 chunk。旧 tldraw 快照只读提示,不自动迁移。 |
 | F-SHEET | 表格 | P3 | ⏳ | ironcalc 式;npm 仅 wasm 引擎无 React UI,延后(见 [deferred](./deferred.md))。 |
 | F-PLUGIN | 插件 API | P3 | ⏳ | 开放扩展点;需先固化 v1 API + 沙箱(见 [deferred](./deferred.md))。 |
 

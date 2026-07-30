@@ -33,4 +33,4 @@ pub use query::{
     Literal, OrderKey, Predicate, Query, Render, ResultSet, Row, Select,
 };
 pub use search::SearchIndex;
-pub use vault::VaultIndex;
+pub use vault::{apply_entry_deltas, entries_to_vec, EntryDelta, VaultIndex};

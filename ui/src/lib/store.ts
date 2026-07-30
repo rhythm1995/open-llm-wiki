@@ -22,6 +22,13 @@ import { applyTemplate, defaultTemplate } from "./template";
 import { removeFrontmatterKey, setFrontmatterValue } from "./frontmatter";
 import { buildAiContext } from "./ai-context";
 import { pickRestorableNote, readLastPath, writeLastRoot } from "./last-note";
+import { resolveMoveTarget } from "./move-path";
+import {
+  canCommitWatchResult,
+  mergeWatchPaths,
+  shouldForceHeal,
+  takeWatchBatch,
+} from "./vault-watch";
 
 export interface Backlink {
   from: NodeOut;
@@ -62,9 +69,13 @@ export function useVault() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reindexTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // 文件监听(Tauri 桌面):vault-changed 事件 → 节流全量刷新索引。
+  // 文件监听(Tauri 桌面):vault-changed → 路径并集 debounce → apply / force 自愈。
   const watchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unlistenRef = useRef<UnlistenFn | null>(null);
+  /** debounce 窗内路径并集(跨 emit 共享,切 vault 时清空)。 */
+  const watchPendingRef = useRef<Set<string>>(new Set());
+  /** 单调世代:每次调度 apply 递增;完成时过期则丢弃 setState。 */
+  const watchGenRef = useRef(0);
 
   // 最近状态用 ref 同步,避免防抖回调闭包拿到旧值。
   const latest = useRef<{
@@ -86,13 +97,34 @@ export function useVault() {
   const [, setNavTick] = useState(0);
   const bumpNav = useCallback(() => setNavTick((n) => n + 1), []);
 
-  const refreshIndex = useCallback(async (root: string) => {
+  /**
+   * 刷新索引快照。
+   * - force=false:投影 live(写盘后 live 已路径级更新,无需 WalkDir)
+   * - force=true:WalkDir 全量自愈(open vault / 手动 refresh / watcher 失败)
+   * setState 带 root 守卫:异步返回时若已切 vault 则丢弃。
+   */
+  const refreshIndex = useCallback(async (root: string, force = false) => {
     try {
-      const snap = await ipc.indexVault(root);
-      setState((s) => ({ ...s, snapshot: snap }));
+      const snap = await ipc.indexVault(root, force);
+      setState((s) => (s.root !== root ? s : { ...s, snapshot: snap }));
     } catch (e) {
-      setState((s) => ({ ...s, error: String(e) }));
+      setState((s) => (s.root !== root ? s : { ...s, error: String(e) }));
     }
+  }, []);
+
+  /** 停前端 watcher:清 timer、unlisten、pending、作废 in-flight gen。 */
+  const stopWatch = useCallback(() => {
+    if (watchTimer.current) {
+      clearTimeout(watchTimer.current);
+      watchTimer.current = null;
+    }
+    if (unlistenRef.current) {
+      unlistenRef.current();
+      unlistenRef.current = null;
+    }
+    watchPendingRef.current.clear();
+    // 作废所有未完成的 apply/setState。
+    watchGenRef.current += 1;
   }, []);
 
   const saveNow = useCallback(async () => {
@@ -131,7 +163,8 @@ export function useVault() {
           content = await ipc.readNote(root, initialPath);
           currentPath = initialPath;
         }
-        const snap = await ipc.indexVault(root);
+        // force:打开 vault 时全量 WalkDir 一次,建立 live index。
+        const snap = await ipc.indexVault(root, true);
         // 切换/重开 vault 时清空导航历史(旧 vault 的栈无意义)。
         navHistory.current = emptyHistory;
         bumpNav();
@@ -146,18 +179,128 @@ export function useVault() {
         });
         // 记下成功打开的根,下次启动恢复(Tolaria / Obsidian 同款行为)。
         writeLastRoot(root);
-        // Tauri 桌面:启动文件监听 —— 外部改动经后端 debounce → vault-changed → 前端
-        // 节流 500ms 全量刷新,使图谱/反链/QQL 跟上外部编辑。mock/浏览器无 fs 不监听。
+        // Tauri 桌面:外部改动 → debounce 并集路径 → apply;失败则 force 自愈。
+        // 切 vault 前先 stopWatch(清 timer + 作废 gen),防 vault A 定时器写进 B。
         if (!ipc.isMock()) {
+          stopWatch();
           await ipc.watchVault(root);
-          if (unlistenRef.current) {
-            unlistenRef.current();
-            unlistenRef.current = null;
-          }
-          unlistenRef.current = await listen("vault-changed", () => {
+          unlistenRef.current = await listen<string[]>("vault-changed", (ev) => {
+            const incoming = Array.isArray(ev.payload) ? ev.payload : [];
+            mergeWatchPaths(watchPendingRef.current, incoming);
             if (watchTimer.current) clearTimeout(watchTimer.current);
             watchTimer.current = setTimeout(() => {
-              void refreshIndex(root);
+              // 每批独立世代:后完成的旧批不得覆盖新批。
+              const myGen = (watchGenRef.current += 1);
+              const expectedRoot = root;
+              void (async () => {
+                const batch = takeWatchBatch(watchPendingRef.current);
+                let applyFailed = false;
+                try {
+                  if (!shouldForceHeal(batch, false)) {
+                    const snap = await ipc.applyVaultChanges(expectedRoot, batch);
+                    if (
+                      !canCommitWatchResult(
+                        myGen,
+                        watchGenRef.current,
+                        expectedRoot,
+                        latest.current.root,
+                      )
+                    ) {
+                      return;
+                    }
+                    setState((s) =>
+                      s.root !== expectedRoot
+                        ? s
+                        : { ...s, snapshot: snap },
+                    );
+                    const entries = await ipc.listVault(expectedRoot);
+                    if (
+                      !canCommitWatchResult(
+                        myGen,
+                        watchGenRef.current,
+                        expectedRoot,
+                        latest.current.root,
+                      )
+                    ) {
+                      return;
+                    }
+                    setState((s) =>
+                      s.root !== expectedRoot ? s : { ...s, entries },
+                    );
+                    return;
+                  }
+                } catch (e) {
+                  applyFailed = true;
+                  if (
+                    canCommitWatchResult(
+                      myGen,
+                      watchGenRef.current,
+                      expectedRoot,
+                      latest.current.root,
+                    )
+                  ) {
+                    setState((s) =>
+                      s.root !== expectedRoot
+                        ? s
+                        : { ...s, error: String(e) },
+                    );
+                  }
+                }
+                // 空批 / apply 失败 → force 全量(用户也可 actions.refreshIndex force)。
+                if (shouldForceHeal(batch, applyFailed)) {
+                  if (
+                    !canCommitWatchResult(
+                      myGen,
+                      watchGenRef.current,
+                      expectedRoot,
+                      latest.current.root,
+                    )
+                  ) {
+                    return;
+                  }
+                  try {
+                    await refreshIndex(expectedRoot, true);
+                    if (
+                      !canCommitWatchResult(
+                        myGen,
+                        watchGenRef.current,
+                        expectedRoot,
+                        latest.current.root,
+                      )
+                    ) {
+                      return;
+                    }
+                    const entries = await ipc.listVault(expectedRoot);
+                    if (
+                      canCommitWatchResult(
+                        myGen,
+                        watchGenRef.current,
+                        expectedRoot,
+                        latest.current.root,
+                      )
+                    ) {
+                      setState((s) =>
+                        s.root !== expectedRoot ? s : { ...s, entries },
+                      );
+                    }
+                  } catch (e) {
+                    if (
+                      canCommitWatchResult(
+                        myGen,
+                        watchGenRef.current,
+                        expectedRoot,
+                        latest.current.root,
+                      )
+                    ) {
+                      setState((s) =>
+                        s.root !== expectedRoot
+                          ? s
+                          : { ...s, error: String(e) },
+                      );
+                    }
+                  }
+                }
+              })();
             }, 500);
           });
         }
@@ -167,7 +310,7 @@ export function useVault() {
         return false;
       }
     },
-    [refreshIndex],
+    [refreshIndex, stopWatch],
   );
 
   const openPicker = useCallback(async () => {
@@ -323,8 +466,8 @@ export function useVault() {
   );
 
   /**
-   * 新建一张 tldraw 画布(F-CANVAS):写空 `.canvas` 文件并打开。画布内容是
-   * tldraw 快照 JSON,由 CanvasView 的 store.listen 防抖回写;这里只负责落空壳。
+   * 新建一张画布(F-CANVAS / Excalidraw):写空 `.canvas` 文件并打开。
+   * 内容由 CanvasView 防抖回写 OpenObsidianCanvas JSON;这里只负责落空壳。
    * 与 createNote 分开:扩展名不同、初始内容为空串、不走模板。
    */
   const createCanvas = useCallback(
@@ -539,6 +682,36 @@ export function useVault() {
   );
 
   /**
+   * 移动笔记到目标目录(拖拽到文件夹)。文件名不变;空 targetDir = vault 根。
+   * 复用 rename_note IPC(后端会建父目录 + git 自动提交)。
+   */
+  const moveNote = useCallback(
+    async (from: string, targetDir: string): Promise<string | null> => {
+      const root = latest.current.root;
+      if (!root) return null;
+      const to = resolveMoveTarget(from, targetDir);
+      if (!to) return null;
+      try {
+        if (latest.current.dirty && latest.current.path === from) await saveNow();
+        await ipc.renameNote(root, from, to);
+        const entries = await ipc.listVault(root);
+        setState((s) => ({
+          ...s,
+          entries,
+          openPaths: s.openPaths.map((p) => (p === from ? to : p)),
+          currentPath: s.currentPath === from ? to : s.currentPath,
+        }));
+        await refreshIndex(root);
+        return to;
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+        return null;
+      }
+    },
+    [saveNow, refreshIndex],
+  );
+
+  /**
    * inline 新建草稿的重命名提交(任务3):rename 改文件名 + 把草稿占位 H1
    * (defaultTemplate 的"# 未命名")同步为新名,使笔记标题=文件名。`name` 已由
    * 调用方 sanitize + 空值兜底;这里只做 rename(复用 renameNote)+ H1 替换 + 落盘。
@@ -591,16 +764,15 @@ export function useVault() {
     [refreshIndex],
   );
 
-  // 卸载时冲刷。
+  // 卸载时冲刷(含 watcher timer/gen,防泄漏与串 vault)。
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (reindexTimer.current) clearTimeout(reindexTimer.current);
       if (flashTimer.current) clearTimeout(flashTimer.current);
-      if (watchTimer.current) clearTimeout(watchTimer.current);
-      if (unlistenRef.current) unlistenRef.current();
+      stopWatch();
     };
-  }, []);
+  }, [stopWatch]);
 
   /** 清除错误态(错误横幅关闭时调用)。 */
   const clearError = useCallback(() => setState((s) => ({ ...s, error: null })), []);
@@ -688,6 +860,7 @@ export function useVault() {
       createCanvas,
       deleteNote,
       renameNote,
+      moveNote,
       commitDraftRename,
       setNoteStatus,
       restoreNote,
@@ -699,7 +872,9 @@ export function useVault() {
       clearError,
       saveNow,
       copyAiContext,
-      refreshIndex: () => state.root && refreshIndex(state.root),
+      // 手动/自愈刷新:force=true 全量 WalkDir,覆盖 silent 漏事件(无需 re-open)。
+      // 保存后的节流 refresh 仍走 refreshIndex(root, false) 投影 live。
+      refreshIndex: () => state.root && refreshIndex(state.root, true),
     },
   };
 }

@@ -137,17 +137,14 @@ test.describe("mock vault 关键路径", () => {
     expect(text).toContain("[[Zettelkasten]]");
   });
 
-  test("右键笔记行 → 归档移除该行", async ({ page }) => {
+  test("右键笔记行 → 删除文件移除该行", async ({ page }) => {
     await page.goto("/");
     await vaultReady(page);
-    // 归档会弹 confirm;mock 下 delete_note 仅从内存 vault 删除(git 提交是桌面后端的事)。
-    page.on("dialog", async (d) => {
-      if (d.type() === "confirm") await d.accept();
-    });
+    // 删除无 confirm;mock 下 delete_note 仅从内存 vault 删除。
     const list = page.getByTestId("note-list");
     await expect(list.getByText("Zettelkasten", { exact: true })).toBeVisible();
     await list.getByText("Zettelkasten", { exact: true }).click({ button: "right" });
-    await page.getByRole("menuitem", { name: "归档" }).click();
+    await page.getByRole("menuitem", { name: "删除文件" }).click();
     await expect(list.getByText("Zettelkasten", { exact: true })).toHaveCount(0, {
       timeout: 5_000,
     });
@@ -165,12 +162,40 @@ test.describe("mock vault 关键路径", () => {
     await expect(page.getByRole("menuitem", { name: "重命名" })).toBeVisible();
   });
 
-  test("⌘F 唤起文档内查找条 FindBar", async ({ page }) => {
+  test("⌘F 唤起文档内查找条 FindBar(切到 source 以高亮)", async ({ page }) => {
     await page.goto("/");
     await vaultReady(page);
     await page.getByTestId("note-list").getByText("Zettelkasten", { exact: true }).click();
-    await expect(page.locator(".ProseMirror").first()).toBeVisible({ timeout: 15_000 });
-    await page.keyboard.press("Meta+f");
-    await expect(page.getByTestId("find-bar")).toBeVisible({ timeout: 5_000 });
+    await expect(
+      page.locator(".ProseMirror, .cm-content").first(),
+    ).toBeVisible({ timeout: 15_000 });
+    // 显式派发 capture 键(兼容 Meta/Control;避免平台差异)。
+    await page.evaluate(() => {
+      for (const mod of [
+        { metaKey: true, ctrlKey: false },
+        { metaKey: false, ctrlKey: true },
+      ] as const) {
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "f",
+            code: "KeyF",
+            metaKey: mod.metaKey,
+            ctrlKey: mod.ctrlKey,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+    });
+    await expect(page.getByTestId("find-bar")).toBeVisible({ timeout: 8_000 });
+    await page.getByTestId("find-bar").locator("input").fill("原子");
+    await expect(page.getByTestId("find-count")).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("顶栏无「搜索」视图按钮", async ({ page }) => {
+    await page.goto("/");
+    await vaultReady(page);
+    // 搜索视图已删除:工具栏不应再出现独立搜索入口。
+    await expect(page.getByRole("button", { name: "搜索" })).toHaveCount(0);
   });
 });

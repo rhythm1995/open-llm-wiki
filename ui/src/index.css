@@ -145,6 +145,16 @@ body {
 }
 
 /* F-WIKILINK:正文 `[[wikilink]]` 标记为可点击的蓝色下划线(Cmd/Ctrl+点击跟随)。 */
+/* ⌘F 全文匹配高亮(@codemirror/search 的 cm-searchMatch)。 */
+.cm-searchMatch {
+  background-color: color-mix(in srgb, var(--color-yellow) 45%, transparent);
+  border-radius: 2px;
+}
+.cm-searchMatch.cm-searchMatch-selected {
+  background-color: color-mix(in srgb, var(--color-yellow) 80%, transparent);
+  outline: 1px solid var(--color-yellow);
+}
+
 .cm-wikilink {
   color: var(--color-blue);
   text-decoration: underline;

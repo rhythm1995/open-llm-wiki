@@ -14,13 +14,13 @@
 | 样式 | **Tailwind CSS 4**(`@tailwindcss/vite`)+ 语义令牌 | 原子化样式;主题靠 `@theme` 的 CSS 变量切换,组件只引用令牌。 |
 | UI 组件 | **少量 Radix**(dialog / dropdown-menu / tabs / tooltip)+ **shadcn 模式**(cva/clsx/tailwind-merge)+ **Phosphor icons** | 无障碍的交互组件用 Radix;展示型组件自实现,降依赖体积。 |
 | 编辑器 | **CodeMirror 6**(单轨,markdown 源码) | round-trip 最稳、体积小;ReadingView(marked + DOMPurify)覆盖「看渲染结果」。⏳ BlockNote 富文本延后(见 [deferred](./deferred.md))。 |
-| 图谱渲染 | **自绘 SVG 力导向**(Fruchterman–Reingold,纯 `graph-layout.ts`,无 d3) | 零依赖、可单测、中小图流畅;⏳ WebGL/Canvas/LOD 为大图演进目标(见 [deferred](./deferred.md))。 |
+| 图谱渲染 | **sigma.js WebGL** + graphology + Worker FR + Barnes-Hut + LOD;无 WebGL → SVG | 功能齐;真机万级帧率见 [deferred](./deferred.md)。 |
 | 阅读渲染 | **marked 18 + DOMPurify 3** | Markdown → HTML + sanitize;F-READING 安全加固。 |
-| Canvas | **tldraw 5.2**(source-available,非商用) | Obsidian Canvas 对等;唯一非 MIT 依赖,隔离在懒加载 chunk,可一键移除(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
+| Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
 | 包管理 | **pnpm**(workspace monorepo) | 快、磁盘高效。 |
 | 测试 | **cargo test**(Rust)+ **Vitest 4**(TS) + **Playwright**(e2e) | 单元(cargo + Vitest node 纯逻辑)+ @testing-library/jsdom 组件测试 + Playwright e2e(mock 模式 smoke,见 [05-tdd-strategy](./05-tdd-strategy.md))。 |
 
-> 选型原则:依赖只选成熟、MIT/Apache 许可、活跃维护的库(tldraw 是唯一记录在案的非商用边界,且可彻底移除)。完整清单与许可见仓库根 [README](../README.md) 与 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)。
+> 选型原则:依赖只选成熟、MIT/Apache(或弱 copyleft 如 MPL-2.0)许可、活跃维护的库。画布为 Excalidraw(MIT);无 tldraw。完整清单见 [README](../README.md) 与 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)。
 
 ## 仓库布局(Cargo workspace + 前端)
 
@@ -36,11 +36,11 @@ OpenObsidian/
 ├── ui/                   ← React 前端(Vite)
 │   └── src/
 │       ├── components/   ← Editor/ReadingView/GraphView/Nav/NoteListView/Inspector/QueryPanel...
-│       ├── lib/          ← 与后端对称的纯逻辑(store/tabs/graph-layout/qql-block/wikilink/ipc/mock...)
+│       ├── lib/          ← 纯逻辑(store/tabs/graph-model/graph-layout/graph-lod/qql-block/vault-watch/…)
 │       └── *.test.ts     ← Vitest 纯逻辑测试(node 环境)
 ├── tools/                ← 生成式脚本(gen-benchmark-vault.mjs)
 ├── .github/workflows/    ← ci.yml(测试)+ release.yml(打包矩阵)
-├── licenses/             ← tldraw-LICENSE.md(逐字留存,随包分发)
+├── licenses/             ← 第三方逐字许可证(如 blocknote-LICENSE.md)
 ├── THIRD_PARTY_NOTICES.md
 ├── LICENSE               ← MIT
 └── README.md
@@ -93,56 +93,61 @@ ui 编辑器 ──(防抖)──▶ write_note ──▶ 写 .md 文件
                                     git add+commit
                                          │
                                          ▼
-                                  重调 index_vault → 全量重建快照 → 替换 UI 状态
+                    write_note 等 → 路径级 delta 更新 LiveVault
+                                         ▼
+                    index_vault(force=false) 投影 live → 替换 UI 状态
+                    apply_vault_changes(paths) 路径级同步(watcher)
 ```
 
-写路径只动文件;索引永远是**文件的派生物**,从不反过来。这保证"文件即真相":即便索引全删,重扫即复原。
+写路径只动文件;索引永远是**文件的派生物**,从不反过来。这保证"文件即真相":即便索引全删,`index_vault(force=true)` 全量 WalkDir 即复原。
 
-> **索引刷新有两条触发路径**(均为全量 rebuild,Rust 速度 + vault 规模可控兜住):
-> 1. **前端主动** —— UI 内编辑(防抖 save)、结构操作(建/删/改名)、openVault、手动刷新,前端直接调 `index_vault`。
-> 2. **notify watcher**(Tauri 桌面已落地) —— 外部工具改 `.md`/`.canvas` 时,后端 `notify` 监听 → debounce 350ms → emit `vault-changed` → 前端 `listen` → 节流 500ms 全量 refresh。mock/浏览器无 fs 不监听(种子静态,靠手动刷新)。
+> **索引刷新(增量路径,已落地)**:
+> 1. **打开 vault** —— `index_vault(force=true)` 一次 WalkDir → 内存 `LiveVault{entries,index}`。
+> 2. **写/删/改名** —— 路径级 delta 更新 entry map → `VaultIndex::build_from_map`(**不**全库扫盘);`run_qql` / `search_notes` 只读 live.index。
+> 3. **notify watcher** —— 外部改 `.md`/`.canvas` → debounce 350ms → emit `vault-changed` **相对路径列表** → 前端 `apply_vault_changes`。mock/浏览器无 fs 不监听。
+> 4. **自愈** —— 漏事件时 `index_vault(force=true)` 再 WalkDir。**用户可达**:UI `actions.refreshIndex` 走 force=true;watcher apply 失败也会 force。保存后的节流 refresh 仍 force=false(live 已路径级更新)。
 >
-> 约束不变:"文件即真相、索引是派生物"。watcher 触发的也是全量 rebuild(非增量 diff),故即便 watcher 漏事件,主动 refresh 仍能自愈。
+> 约束不变:"文件即真相、索引是派生物"。图/检索从当前 entry map 重建;NodeId 为 Vec 下标,delta 后快照整表替换。
 
-## IPC 契约(Tauri commands,实际 20 个 + 1 事件)
+## IPC 契约(Tauri commands + 1 事件)
 
 后端暴露给前端的命令(全部薄包装 `core` 或 `run_git` 子进程):
 
 ```rust
 // 读
-list_vault(root) -> Vec<VaultEntry>           // 递归列 .md(路径/标题/mtime/preview)
-read_note(root, path) -> String               // 读正文(纯字节,前端解析)
+list_vault(root) -> Vec<VaultEntry>
+read_note(root, path) -> String
 
-// 写(结构操作后端自动 git 提交,见 F-GIT)
+// 写(结构操作后端自动 git 提交,见 F-GIT;并路径级更新 LiveVault)
 write_note / create_note / delete_note / rename_note(root, ...)
 
-// 索引 + 查询(走 core::VaultIndex)
-index_vault(root) -> VaultSnapshot            // 全量 build → 序列化(notes/graph/by_type/by_tag)
-run_qql(root, qql) -> ResultSet               // qql::parse → query::eval,实时聚合
-search_notes(root, query) -> Vec<SearchHit>   // search::SearchIndex,标题加权
+// 索引 + 查询(LiveVault + core::VaultIndex)
+index_vault(root, force?) -> VaultSnapshot    // force 或缺 live → WalkDir;否则投影 live
+apply_vault_changes(root, paths) -> VaultSnapshot  // 路径级读/删 → rebuild_from_map
+run_qql(root, qql) -> ResultSet               // **只读 live.index**,不 WalkDir
+search_notes(root, query) -> Vec<SearchHit>   // **只读 live.index**
 
 // 对话框 + 诊断
-pick_vault() -> String | null                 // 原生目录选择
-diag_log(msg)                                 // webview → stderr 桥(运行时排错)
+pick_vault() / diag_log / reveal_in_finder
 
-// git(run_git 子进程,无 git2 依赖;前端 git-parse.ts 解析 stdout)
-git_status_raw / git_log_raw / git_commit     // GitPanel:状态/历史/手动提交正文
-git_is_repo / git_deleted_notes / git_restore_note / git_init  // 归档并入 git:删除可还原
+// git
+git_status_raw / git_log_raw / git_commit / git_pull / git_push
+git_is_repo / git_deleted_notes / git_restore_note / git_init
 
 // 文件监听(Tauri 桌面;mock/浏览器 no-op)
-watch_vault(root) / unwatch_vault()           // notify 监听 → debounce → emit "vault-changed"
+watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径列表
 ```
 
-> **事件订阅**:watcher 引入后端首个事件 `vault-changed`(notify 监听外部改动 → debounce emit)。前端
-> `listen("vault-changed")` → 节流全量 `index_vault`。前端主动 refresh 与 watcher 事件殊途同归(都走全量
-> rebuild)。`ResultSet` 形态:`List/Table/Count/Groups/Sum`。
+> **事件订阅**:`vault-changed` payload = `string[]` 相对路径。前端节流后 `apply_vault_changes`。
+> `ResultSet` 形态:`List/Table/Count/Groups/Sum/Histogram`。
 
 ## 性能策略
 
-- **索引**:`VaultIndex::build` 全量 rebuild(Rust),日常百~千级笔记毫秒~秒级。⏳ 增量 watcher 是演进目标(目前靠全量 + 主动 refresh 兜住)。
-- **图谱**:自绘 SVG,节点数 ≤ ~400 流畅(每节点一个 `<g>` DOM);已落地视口剔除(屏外节点不画)。⏳ >400/万级需 LOD + SVG→Canvas/WebGL(见 [deferred](./deferred.md),已有 benchmark vault 生成器 `tools/gen-benchmark-vault.mjs`)。
-- **查询**:Rust 原生(`query::eval` 在不可变快照上),避免前端 JS 全量遍历。
-- **编辑器**:CodeMirror 6 增量解析,大文件不卡;自动保存防抖。
+- **索引**:打开 vault 一次 WalkDir;之后路径级 delta + `build_from_map`(core 纯函数,有单测)。`run_qql`/`search` 不扫盘。
+- **图谱**:`graph-model`(path-stable)+ Worker FR(**Barnes-Hut** n≥280)+ **sigma WebGL** + LOD 簇边/飞入;无 WebGL → SVG。拖/框选/pin/悬空边双路径对齐。
+- **查询**:Rust 原生(`query::eval` 在 live 不可变快照上)。UI 无独立搜索视图:⌘F 文档内、⌘P 快速打开、⌘K 命令。
+- **编辑器**:CodeMirror 源码 + BlockNote WYSIWYG 双模;自动保存防抖。
+- **画布**:Excalidraw(MIT),懒加载。
 
 ## 为什么是这个架构(诚实取舍)
 
@@ -151,9 +156,10 @@ watch_vault(root) / unwatch_vault()           // notify 监听 → debounce → 
 
 ### 为何与初版设计不同(02 原表的务实修正)
 
-- **编辑器:CodeMirror 6 单轨,而非 BlockNote(主)+ CodeMirror(raw)**。初版计划 BlockNote 给 Notion 式块编辑,但 BlockNote 产出自有 JSON block 模型,与 Markdown 的 round-trip **有损**(嵌套列表/表格/对齐回不来)。在没造出差分测试集证明"无损"前,先用 CodeMirror 6 纯源码(round-trip 最稳、体积小),ReadingView(marked)覆盖"看渲染结果"。BlockNote 延后(见 [deferred](./deferred.md)「BlockNote」)。
-- **UI 栈:Tailwind 4 直接 + 少量 Radix,而非 Mantine + Radix + shadcn 全套**。Mantine 的 reset/provider 与 Tailwind 有冲突风险,且引入大依赖;MVP 选择只用 Radix 的无障碍交互组件(dialog/dropdown/tabs/tooltip)+ shadcn 的 `cva/clsx/tailwind-merge` 工具,展示型组件自实现。降依赖体积,tldraw 等差异点才是花力气的地方。
-- **图谱:自绘 SVG,而非 react-force-graph-2d(WebGL)**。零依赖、纯逻辑可单测、日常规模够用;WebGL 留给 >400 节点的大图演进(已有 benchmark vault 做基线测量)。
+- **编辑器:CodeMirror + BlockNote 双模**:源码 round-trip 最稳;WYSIWYG 用 BlockNote(MPL-2.0)。`.md` 仍是真相源。
+- **UI 栈:Tailwind 4 + 少量 Radix**:展示型组件自实现,降依赖体积。
+- **图谱:SVG 起步 → WebGL 大图**:中小 vault 可测可控;万级目标 sigma + Worker + LOD。
+- **画布:Excalidraw 而非 tldraw**:默认 MIT 分发、可托管,无 source-available 生产限制。
 
 ### 为何 git 是唯一版本真相(实际架构决策,初版未写)
 

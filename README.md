@@ -25,7 +25,7 @@ core (Rust:解析 / 图谱 / QQL 求值 / 检索 —— 纯逻辑,IO-free,TDD)
 
 - `core/` —— 纯函数、无 IO、proptest + 单测全守护。
 - `app/src-tauri/` —— 14 个 `#[tauri::command]` 把文件读写、git 与 core 串起来。
-- `ui/` —— 三栏布局(文件树 / 编辑器 / 反链),可切换图谱 / QQL / 搜索视图,⌘K 命令面板。
+- `ui/` —— 三栏布局(文件树 / 编辑器 / 反链),可切换图谱 / QQL / Git;⌘K 命令面板、⌘P 快速打开、⌘F 文档内查找。
   浏览器开发走 `src/lib/mock.ts` 内存后端,**无需编译 Rust 即可预览**。
 
 ## 开发
@@ -52,6 +52,17 @@ ui/node_modules/.bin/tauri dev
 ui/node_modules/.bin/tauri build
 ```
 
+### 安装与覆盖旧版
+
+- Bundle ID 固定为 `dev.openobsidian.desktop`、产品名 `OpenObsidian` —— **每次安装同一包名时请直接替换旧版**,不要并排留多个「OpenObsidian」。
+- **macOS(推荐)**:打开 dmg → 把 `OpenObsidian.app` 拖到「应用程序」;若已存在,选 **「替换」**。也可命令行覆盖:
+  ```bash
+  rm -rf /Applications/OpenObsidian.app
+  cp -R target/release/bundle/macos/OpenObsidian.app /Applications/
+  ```
+- 本地偏好/最近 vault 等在用户目录的 localStorage 与配置里,**替换 .app 不会清这些数据**;要干净试用可另开用户或清相关键。
+- 未签名包首次打开可能被 Gatekeeper 拦:系统设置 → 隐私与安全性 → 仍要打开,或 `xattr -cr /Applications/OpenObsidian.app`。
+
 ## 功能速览
 
 - **Markdown 编辑/阅读**:CodeMirror 6 编辑 + marked 渲染阅读(一键切换),自动保存(防抖)+ ⌘S,frontmatter 感知。
@@ -70,7 +81,7 @@ ui/node_modules/.bin/tauri build
 - **AI 上下文导出**:一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown(AI-native 读侧桥接)。
 - **i18n**:zh(默认)/ en 切换,顶层 chrome 已本地化,持久化。
 - **阅读视图安全**:marked 输出注入 DOM 前经 DOMPurify 清洗(剥离 `<script>`/内联事件,保留 wikilink 委托)。
-- **画布(tldraw)**:无限画布做白板/示意图,`.canvas` 文件即真相、与笔记同构保存。tldraw 懒加载隔离在独立 chunk(非商用许可,详见下文「许可与溯源」)。
+- **画布(Excalidraw,MIT)**:无限画布做白板/示意图,`.canvas` 文件即真相、与笔记同构保存。懒加载隔离在独立 chunk。
 
 ## 许可与溯源(clean-room)
 
@@ -80,6 +91,6 @@ ui/node_modules/.bin/tauri build
 
 直接依赖**绝大多数为 MIT / Apache-2.0**:Tauri 2、React 19、CodeMirror 6、Radix UI、Tailwind CSS 4、Phosphor icons、marked、dompurify、serde / serde_yaml、walkdir、Vitest。
 
-**一处例外:tldraw(画布功能,F-CANVAS)采用其自有的 source-available 非商用许可**,非 MIT。OpenObsidian 是本地优先的单机个人 app,落在 tldraw 的"非生产/开发环境"许可范围内,故本地使用兼容;但**作为托管 web 服务对公众部署需另行向 tldraw 取得商用许可**。tldraw 被隔离在唯一一个懒加载模块里,可一键移除以回到纯 MIT。完整清单与边界见 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md),逐字许可证见 [licenses/tldraw-LICENSE.md](./licenses/tldraw-LICENSE.md)。
+**默认分发为 MIT**:画布使用 [Excalidraw](https://github.com/excalidraw/excalidraw)(MIT),**无** tldraw 等 source-available 生产限制;本地与托管部署均可(仍须遵守各依赖条款,如 BlockNote MPL-2.0)。完整清单见 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md)。
 
 贡献者规矩:新增依赖请登记许可(更新 THIRD_PARTY_NOTICES);任何 PR 不得引入 Tolaria 源码的逐字片段(即使单行),review 时查重。上线前用 `cargo license` / `pnpm licenses list` 复核无 GPL/AGPL 直染依赖。

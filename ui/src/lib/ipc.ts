@@ -75,7 +75,8 @@ export type ResultSet =
   | { Table: QqlRow[] }
   | { Count: number }
   | { Groups: GroupRow[] }
-  | { Sum: number };
+  | { Sum: number }
+  | { Histogram: GroupRow[] };
 
 export interface SearchHit {
   id: number;
@@ -118,8 +119,18 @@ export const ipc = {
     call<void>("delete_note", { root, path }),
   renameNote: (root: string, from: string, to: string) =>
     call<void>("rename_note", { root, from, to }),
-  indexVault: (root: string) =>
-    call<VaultSnapshot>("index_vault", { root }),
+  /**
+   * 索引快照。`force=true` 强制 WalkDir 全量加载(open vault / 自愈);
+   * 默认走内存 live index(路径 delta 后的 build_from_map,无全库扫盘)。
+   */
+  indexVault: (root: string, force = false) =>
+    call<VaultSnapshot>("index_vault", { root, force }),
+  /**
+   * 路径级增量:把 `paths` 从磁盘读入/删除进 live index,返回新快照。
+   * watcher 的 vault-changed payload 走此入口。
+   */
+  applyVaultChanges: (root: string, paths: string[]) =>
+    call<VaultSnapshot>("apply_vault_changes", { root, paths }),
   runQql: (root: string, qql: string) =>
     call<ResultSet>("run_qql", { root, qql }),
   searchNotes: (root: string, query: string) =>
@@ -136,6 +147,10 @@ export const ipc = {
     call<string>("git_log_raw", { root, limit }),
   gitCommit: (root: string, message: string) =>
     call<string>("git_commit", { root, message }),
+  /** `git pull --no-rebase`;冲突时 Err,再刷 status 看 UU。 */
+  gitPull: (root: string) => call<string>("git_pull", { root }),
+  /** `git push` 当前分支。 */
+  gitPush: (root: string) => call<string>("git_push", { root }),
 
   // ── 归档并入 git(删除/还原一体化):删除即 git 提交,还原从历史检出。
   //   工作区无 `.trash/`;唯一真相源是版本库。结构操作(建/删/改名)后端自动提交。

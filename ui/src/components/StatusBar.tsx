@@ -29,7 +29,7 @@ export function StatusBar({
   onToggleLocale,
   t,
 }: Props) {
-  // 画布是 tldraw 的 JSON,不计入文本统计(避免把 JSON 当文章字数)。
+  // 画布是 Excalidraw JSON,不计入文本统计(避免把 JSON 当文章字数)。
   const showStats = !!state.currentPath && !isCanvasPath(state.currentPath);
   const stats = showStats ? countText(state.content) : null;
 

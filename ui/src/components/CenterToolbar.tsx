@@ -18,7 +18,6 @@ import {
   PencilSimple,
   Graph,
   ListMagnifyingGlass,
-  MagnifyingGlass,
   Command,
   GitBranch,
   SidebarSimple,
@@ -68,7 +67,7 @@ const VIEWS: { id: MainView; key: string; icon: typeof PencilSimple }[] = [
   { id: "editor", key: "view.editor", icon: PencilSimple },
   { id: "graph", key: "view.graph", icon: Graph },
   { id: "query", key: "view.query", icon: ListMagnifyingGlass },
-  { id: "search", key: "view.search", icon: MagnifyingGlass },
+  // 搜索视图已移除:文档内查找用 ⌘F;快速打开笔记用 ⌘P(Tolaria 心智)。
   { id: "git", key: "view.git", icon: GitBranch },
 ];
 

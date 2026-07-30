@@ -30,6 +30,15 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { oneDark } from "@codemirror/theme-one-dark";
+import {
+  highlightSelectionMatches,
+  search,
+  searchKeymap,
+  setSearchQuery,
+  SearchQuery,
+  findNext,
+  findPrevious,
+} from "@codemirror/search";
 import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
 import { ipc } from "../lib/ipc";
 import { findQqlBlocks } from "../lib/qql-block";
@@ -176,6 +185,13 @@ function makeWikilinkCompletions(
 export interface EditorHandle {
   /** 把编辑器滚动到某行(1-based),尽量居中。供大纲面板点击跳转。 */
   scrollToLine: (line: number) => void;
+  /**
+   * 文档内查找:设置 SearchQuery(全文高亮全部匹配)+ 跳到下一/上一处。
+   * @returns 是否命中至少一处。
+   */
+  find: (query: string, backward?: boolean) => boolean;
+  /** 清除查找高亮(关 FindBar 时调用)。 */
+  clearFind: () => void;
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
@@ -197,6 +213,51 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           effects: EditorView.scrollIntoView(line.from, { y: "center" }),
         });
       },
+      find: (query: string, backward = false) => {
+        const v = view.current;
+        if (!v) return false;
+        // 空串:清高亮。
+        if (!query) {
+          v.dispatch({
+            effects: setSearchQuery.of(new SearchQuery({ search: "" })),
+          });
+          return false;
+        }
+        // literal + 不区分大小写;SearchQuery 驱动 cm-searchMatch 全文高亮。
+        const sq = new SearchQuery({
+          search: query,
+          caseSensitive: false,
+          literal: true,
+          wholeWord: false,
+        });
+        v.dispatch({ effects: setSearchQuery.of(sq) });
+        // 跳到匹配并选中(findNext/Previous 会选中当前 match)。
+        const hit = backward ? findPrevious(v) : findNext(v);
+        // 若当前选区已在末尾导致 findNext 失败,从文档头再找一次。
+        if (!hit && !backward) {
+          v.dispatch({
+            selection: { anchor: 0 },
+            effects: setSearchQuery.of(sq),
+          });
+          return findNext(v);
+        }
+        if (!hit && backward) {
+          const end = v.state.doc.length;
+          v.dispatch({
+            selection: { anchor: end },
+            effects: setSearchQuery.of(sq),
+          });
+          return findPrevious(v);
+        }
+        return hit;
+      },
+      clearFind: () => {
+        const v = view.current;
+        if (!v) return;
+        v.dispatch({
+          effects: setSearchQuery.of(new SearchQuery({ search: "" })),
+        });
+      },
     }),
     [],
   );
@@ -215,7 +276,23 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       extensions: [
         history(),
         highlightActiveLine(),
-        keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+        // 查找高亮:SearchQuery 驱动 match 装饰。不弹 CM 自带面板(FindBar 自绘)。
+        // ⌘F 由 App 全局拦截 → FindBar,故从 searchKeymap 去掉 Mod-f / Mod-g 冲突项。
+        search({ top: false }),
+        highlightSelectionMatches(),
+        keymap.of([
+          indentWithTab,
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...searchKeymap.filter(
+            (b) =>
+              b.key !== "Mod-f" &&
+              b.key !== "Mod-F" &&
+              b.key !== "Mod-g" &&
+              b.key !== "Shift-Mod-g" &&
+              b.key !== "Mod-Alt-g",
+          ),
+        ]),
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(defaultHighlightStyle),
         themeCompartment.of(editorThemeFor(theme)),
