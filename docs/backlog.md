@@ -39,9 +39,9 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-ED-FMT-BAR | **Source 格式工具条 / 轻量 slash** | 🟡 | ⏳ | 加粗/标题/列表/引用等;现主要靠手敲 md |
-| B-ED-CTX-MENU | **编辑器正文右键菜单** | 🟢 | ⏳ | 列表/图谱有 ContextMenu;CM/BlockNote 正文无 app 级菜单 |
-| B-ED-FIND-PARITY | **⌘F 双模对齐** | 🟡 | 🟡 | source=CM search;wysiwyg=`window.find()`,体验不齐、WKWebView 不稳 |
+| B-ED-FMT-BAR | **Source 格式工具条** | 🟡 | ✅ | `md-format` + Editor 顶栏加粗/标题/列表/引用/wikilink |
+| B-ED-CTX-MENU | **编辑器正文右键菜单** | 🟢 | ✅ | Source 右键:格式 + 复制/剪切/粘贴 |
+| B-ED-FIND-PARITY | **⌘F 双模对齐** | 🟡 | ✅ | ⌘F 统一切 source + CM 高亮(FindBar);关查找可还原 wysiwyg |
 | B-ED-QQL-WYSIWYG | **WYSIWYG 内联 ```qql** | 🟡 | ⏳ | source 有 qql-widget;BlockNote 多半当普通代码块 |
 | B-ED-MODE-UX | **双模切换心智** | 🟢 | 🟡 | 有切换按钮;缺风险提示、模式在 ⌘K/菜单中的入口 |
 | B-ED-MEDIA | **图片粘贴/拖入/预览** | 🟡 | ⏳ | `![]()` 基本当文本 |
@@ -54,9 +54,9 @@
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
 | B-APP-MENU | **系统应用菜单栏** | 🟡 | ⏳ | Tauri 无 File/Edit/View/Window 标准栏 |
-| B-PALETTE-EXPAND | **⌘K 命令扩面** | 🟢 | 🟡 | 现有:open/new/canvas/refresh/切视图;缺模式切换、保存、归档、Reveal、主题、语言、快捷键标注 |
-| B-NAV-CTX | **Nav 树右键** | 🟢 | ⏳ | 文件夹/类型/标签:新建子夹、重命名、删除等 |
-| B-TAB-CTX | **标签页右键** | 🟢 | ⏳ | 关闭其它、复制路径等 |
+| B-PALETTE-EXPAND | **⌘K 命令扩面** | 🟢 | ✅ | 保存/查找/源码·WYSIWYG/归档/Reveal/主题/语言 + 快捷键标注 |
+| B-NAV-CTX | **Nav 树右键** | 🟢 | 🟡 | 文件夹:新建笔记/复制路径 ✅;类型/标签/重命名夹 ⏳ |
+| B-TAB-CTX | **标签页右键** | 🟢 | ✅ | 关闭/关闭其它/复制路径 |
 | B-SETTINGS | **设置页** | 🟡 | ⏳ | 主题/语言/默认编辑模式等无统一设置入口 |
 
 **右键覆盖对照**(实现现状):
@@ -106,13 +106,12 @@
 
 ## 建议实现顺序(产品向)
 
-1. **菜单/命令**(B-APP-MENU 或先 B-PALETTE-EXPAND)+ **编辑器右键**(B-ED-CTX-MENU)— 体感大  
-2. **Source 格式条 / slash**(B-ED-FMT-BAR)+ **双模查找对齐**(B-ED-FIND-PARITY)  
-3. **WYSIWYG qql + 模式 UX**(B-ED-QQL-WYSIWYG / B-ED-MODE-UX)  
-4. **Nav/Tab 右键**(B-NAV-CTX / B-TAB-CTX)  
-5. **B-BN-FIDELITY** 保真测试门禁  
-6. 大件:B-MCP → B-PLUGIN → B-SHEET  
-7. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥  
+1. ~~⌘K 扩面 + 编辑器右键 + 格式条 + Tab 右键 + 查找统一~~ ✅  
+2. **WYSIWYG qql + 模式 UX**(B-ED-QQL-WYSIWYG / B-ED-MODE-UX)  
+3. **B-APP-MENU** 系统菜单;Nav 右键补全;B-SETTINGS  
+4. **B-BN-FIDELITY** 保真测试门禁  
+5. 大件:B-MCP → B-PLUGIN → B-SHEET  
+6. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥  
 
 ---
 

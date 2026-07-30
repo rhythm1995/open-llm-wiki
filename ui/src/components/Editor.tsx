@@ -14,7 +14,23 @@
  * 选 CodeMirror 6 而非 BlockNote 作为 MVP 编辑器:CM 对纯 Markdown 文件的
  * 原生 round-trip 最稳(无富文本↔md 转换损耗),体积更小。富文本所见即所得留待 v2。
  */
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import {
+  Quotes,
+  TextB,
+  TextH,
+  TextItalic,
+  TextT,
+  LinkSimple,
+  ListBullets,
+} from "@phosphor-icons/react";
 import {
   EditorView,
   keymap,
@@ -45,6 +61,17 @@ import { findQqlBlocks } from "../lib/qql-block";
 import { qqlInlineExtension, qqlResultsField, setQqlResult } from "./qql-widget";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
+import {
+  insertWikilink,
+  setLineHeading,
+  toggleBlockQuote,
+  toggleBold,
+  toggleBulletList,
+  toggleInlineCode,
+  toggleItalic,
+  type FormatResult,
+} from "../lib/md-format";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface Props {
   value: string;
@@ -200,6 +227,21 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
 ) {
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+
+  /** 应用 md-format 结果到 CM。 */
+  const applyFormat = useCallback((fn: (text: string, sel: { from: number; to: number }) => FormatResult) => {
+    const v = view.current;
+    if (!v) return;
+    const { from, to } = v.state.selection.main;
+    const text = v.state.doc.toString();
+    const r = fn(text, { from, to });
+    v.dispatch({
+      changes: { from: 0, to: text.length, insert: r.text },
+      selection: { anchor: r.selection.from, head: r.selection.to },
+    });
+    v.focus();
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -323,6 +365,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
             }
             return false;
           },
+          contextmenu(e: MouseEvent) {
+            e.preventDefault();
+            setMenuPos({ x: e.clientX, y: e.clientY });
+            return true;
+          },
         }),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) onChangeRef.current(u.state.doc.toString());
@@ -390,18 +437,189 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, root]);
 
-  // 编辑器宿主始终挂载:CodeMirror 视图在首次挂载时**一次性**创建(上方 [] effect,
-  // 只跑一次)。若写成"无笔记时早退返回另一个不带 ref 的 div",首次渲染 host.current
-  // 为 null,创建 effect 提前返回且永不再跑 → CM 永远不建 → 无法编辑。
-  // 因此空态用覆盖层叠在宿主之上;宿主始终在,CM 始终建好,选笔记即可编辑。
+  const menuItems: MenuItem[] = [
+    {
+      label: t("editor.fmt.bold"),
+      icon: <TextB size={13} />,
+      onClick: () => applyFormat(toggleBold),
+    },
+    {
+      label: t("editor.fmt.italic"),
+      icon: <TextItalic size={13} />,
+      onClick: () => applyFormat(toggleItalic),
+    },
+    {
+      label: t("editor.fmt.code"),
+      icon: <TextT size={13} />,
+      onClick: () => applyFormat(toggleInlineCode),
+    },
+    { separator: true },
+    {
+      label: t("editor.fmt.h2"),
+      icon: <TextH size={13} />,
+      onClick: () => applyFormat((tx, s) => setLineHeading(tx, s, 2)),
+    },
+    {
+      label: t("editor.fmt.bullet"),
+      icon: <ListBullets size={13} />,
+      onClick: () => applyFormat(toggleBulletList),
+    },
+    {
+      label: t("editor.fmt.quote"),
+      icon: <Quotes size={13} />,
+      onClick: () => applyFormat(toggleBlockQuote),
+    },
+    {
+      label: t("editor.fmt.wikilink"),
+      icon: <LinkSimple size={13} />,
+      onClick: () => applyFormat(insertWikilink),
+    },
+    { separator: true },
+    {
+      label: t("editor.ctx.copy"),
+      onClick: () => {
+        const v = view.current;
+        if (!v) return;
+        const { from, to } = v.state.selection.main;
+        const s = v.state.doc.sliceString(from, to);
+        if (s) void navigator.clipboard?.writeText(s);
+      },
+    },
+    {
+      label: t("editor.ctx.cut"),
+      onClick: () => {
+        const v = view.current;
+        if (!v) return;
+        const { from, to } = v.state.selection.main;
+        if (from === to) return;
+        const s = v.state.doc.sliceString(from, to);
+        void navigator.clipboard?.writeText(s);
+        v.dispatch({ changes: { from, to, insert: "" } });
+      },
+    },
+    {
+      label: t("editor.ctx.paste"),
+      onClick: async () => {
+        const v = view.current;
+        if (!v) return;
+        try {
+          const s = await navigator.clipboard.readText();
+          const { from, to } = v.state.selection.main;
+          v.dispatch({
+            changes: { from, to, insert: s },
+            selection: { anchor: from + s.length },
+          });
+        } catch {
+          // 剪贴板权限不足时静默
+        }
+      },
+    },
+  ];
+
+  const fmtBtn =
+    "rounded p-1 text-overlay hover:bg-surface hover:text-text disabled:opacity-30";
+
+  // 编辑器宿主始终挂载:CodeMirror 视图在首次挂载时**一次性**创建。
+  // 空态用覆盖层;宿主始终在。
   return (
-    <div className="relative h-full">
-      <div ref={host} className="h-full overflow-auto" />
-      {!hasNote && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--color-base)] text-overlay">
-          <p className="text-[13px]">{t("empty.selectOrCreate")}</p>
+    <div className="relative flex h-full flex-col">
+      {hasNote && (
+        <div
+          data-testid="editor-fmt-bar"
+          className="flex shrink-0 items-center gap-0.5 border-b border-crust bg-mantle px-1.5 py-0.5"
+        >
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.bold")}
+            onClick={() => applyFormat(toggleBold)}
+          >
+            <TextB size={14} weight="bold" />
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.italic")}
+            onClick={() => applyFormat(toggleItalic)}
+          >
+            <TextItalic size={14} />
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.code")}
+            onClick={() => applyFormat(toggleInlineCode)}
+          >
+            <TextT size={14} />
+          </button>
+          <span className="mx-0.5 h-3 w-px bg-crust" />
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.h1")}
+            onClick={() => applyFormat((tx, s) => setLineHeading(tx, s, 1))}
+          >
+            <TextH size={14} />
+            <span className="ml-0.5 text-[10px]">1</span>
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.h2")}
+            onClick={() => applyFormat((tx, s) => setLineHeading(tx, s, 2))}
+          >
+            <TextH size={14} />
+            <span className="ml-0.5 text-[10px]">2</span>
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.h3")}
+            onClick={() => applyFormat((tx, s) => setLineHeading(tx, s, 3))}
+          >
+            <TextH size={14} />
+            <span className="ml-0.5 text-[10px]">3</span>
+          </button>
+          <span className="mx-0.5 h-3 w-px bg-crust" />
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.bullet")}
+            onClick={() => applyFormat(toggleBulletList)}
+          >
+            <ListBullets size={14} />
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.quote")}
+            onClick={() => applyFormat(toggleBlockQuote)}
+          >
+            <Quotes size={14} />
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.wikilink")}
+            onClick={() => applyFormat(insertWikilink)}
+          >
+            <LinkSimple size={14} />
+          </button>
         </div>
       )}
+      <div className="relative min-h-0 flex-1">
+        <div ref={host} className="h-full overflow-auto" />
+        {!hasNote && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--color-base)] text-overlay">
+            <p className="text-[13px]">{t("empty.selectOrCreate")}</p>
+          </div>
+        )}
+      </div>
+      <ContextMenu
+        items={menuItems}
+        pos={menuPos}
+        onClose={() => setMenuPos(null)}
+      />
     </div>
   );
 });

@@ -170,6 +170,25 @@ export default function App() {
     });
   }, [state.root, actions, t]);
 
+  /** Nav 文件夹右键:在该目录下新建草稿。 */
+  const openNewNoteInFolder = useCallback(
+    (folderPath: string) => {
+      if (!state.root) return;
+      const base = t("newNote.untitled");
+      const dir = folderPath.replace(/\/$/, "");
+      const prefix = dir ? `${dir}/` : "";
+      const taken = new Set(state.entries.map((e) => e.path));
+      let path = `${prefix}${base}.md`;
+      let i = 1;
+      while (taken.has(path)) {
+        path = `${prefix}${base} ${i}.md`;
+        i++;
+      }
+      void actions.createNote(path).then(() => setRenamingPath(path));
+    },
+    [state.root, state.entries, actions, t],
+  );
+
   /** inline 重命名提交(任务3):sanitize 输入为文件名(去非法字符),空值回退 untitled;
    *  commitDraftRename 会 rename 文件名 + 同步草稿 H1 标题(标题=文件名)。Esc 取消。 */
   const commitRename = useCallback(
@@ -273,6 +292,40 @@ export default function App() {
     findPrevModeRef.current = null;
     if (prev && prev !== "source") persistEditMode(prev);
   }, [persistEditMode]);
+
+  const commandExtras = useMemo(
+    () => ({
+      saveNow: () => void actions.saveNow(),
+      openFind: () => openFind(),
+      setEditMode: (m: EditMode) => persistEditMode(m),
+      editMode,
+      toggleTheme,
+      theme,
+      toggleLocale,
+      hasCurrentNote:
+        !!state.currentPath && !isCanvasPath(state.currentPath ?? ""),
+      archiveCurrent: () => {
+        const p = state.currentPath;
+        if (p) void actions.deleteNote(p);
+      },
+      revealCurrent: () => {
+        const root = state.root;
+        const p = state.currentPath;
+        if (root && p && !ipc.isMock()) void ipc.revealInFinder(root, p);
+      },
+    }),
+    [
+      actions,
+      openFind,
+      persistEditMode,
+      editMode,
+      toggleTheme,
+      theme,
+      toggleLocale,
+      state.currentPath,
+      state.root,
+    ],
+  );
 
   // ⌘F 文档内查找(FindBar + 全文高亮)。capture 拦截,避免编辑器吞键。
   useEffect(() => {
@@ -412,6 +465,7 @@ export default function App() {
               // 快速打开/命令面板打开时不高亮左侧筛选(Tolaria:浮层与 Nav 选择解耦)。
               isEditorView={view === "editor" && !paletteOpen}
               onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
+              onNewNoteInFolder={openNewNoteInFolder}
               t={t}
             />
           </div>
@@ -585,6 +639,7 @@ export default function App() {
         }}
         t={t}
         mode={paletteMode}
+        commandExtras={commandExtras}
       />
     </div>
   );

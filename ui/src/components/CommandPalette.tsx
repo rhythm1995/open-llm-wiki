@@ -33,6 +33,16 @@ interface Props {
   t: TFunc;
   /** 默认 commands;quickOpen 时隐藏动作行、笔记优先。 */
   mode?: PaletteMode;
+  /** 扩展命令依赖(保存/模式/主题等)。 */
+  commandExtras?: Omit<
+    import("../lib/palette-commands").PaletteCommandDeps,
+    | "t"
+    | "openPicker"
+    | "onNewNote"
+    | "onNewCanvas"
+    | "onNavigate"
+    | "refreshIndex"
+  >;
 }
 
 export function CommandPalette({
@@ -45,6 +55,7 @@ export function CommandPalette({
   onNavigate,
   t,
   mode = "commands",
+  commandExtras,
 }: Props) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -69,11 +80,11 @@ export function CommandPalette({
       onNewNote,
       onNewCanvas,
       onNavigate,
-      // 产品入口:force 全量自愈(store.actions.refreshIndex → index_vault force=true)
       refreshIndex: () => actions.refreshIndex(),
+      ...commandExtras,
     });
     return filterPaletteCommands(all, q);
-  }, [q, actions, onNavigate, onNewCanvas, onNewNote, t, quick]);
+  }, [q, actions, onNavigate, onNewCanvas, onNewNote, t, quick, commandExtras]);
 
   const total = actions2.length + filtered.length;
 
@@ -147,7 +158,12 @@ export function CommandPalette({
                   )}
                 >
                   <Icon size={14} className="text-overlay" />
-                  {a.label}
+                  <span className="min-w-0 flex-1 truncate">{a.label}</span>
+                  {a.shortcut && (
+                    <span className="ml-2 shrink-0 text-[11px] text-overlay">
+                      {a.shortcut}
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-07-30 Grok — 编辑器/菜单打磨:⌘K 扩面、格式条、右键
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. `palette-commands` 扩:保存/查找/双模/归档/Reveal/主题/语言 + shortcut 展示。
+  2. Source `md-format` + Editor 格式栏 + 正文右键(格式/剪贴板)。
+  3. Tab 右键关闭/关闭其它/复制路径;Nav 文件夹右键新建笔记/复制路径。
+  4. backlog §C/D 状态更新。
+- **验证**:ui typecheck + test。
+
 ### 2026-07-30 Grok — 文档同步:§A 收口 + 编辑器/菜单缺口入 backlog
 
 - **branch**: `feat/phase1-core`。
