@@ -30,7 +30,10 @@ export function StatusBar({
   t,
 }: Props) {
   // 画布是 Excalidraw JSON,不计入文本统计(避免把 JSON 当文章字数)。
-  const showStats = !!state.currentPath && !isCanvasPath(state.currentPath);
+  const showStats =
+    !!state.currentPath &&
+    !isCanvasPath(state.currentPath) &&
+    !state.currentPath.toLowerCase().endsWith(".sheet");
   const stats = showStats ? countText(state.content) : null;
 
   return (

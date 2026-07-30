@@ -11,6 +11,12 @@
 | [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试金字塔、红绿循环、覆盖率门槛 |
 | [06-roadmap.md](./06-roadmap.md) | 分阶段交付;"全部功能"如何被切成可完成的里程碑 |
 | [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
+| [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件媒体 v1 + 并排阅读预览(产品决策与验收;**已落地** B-ED-MEDIA / B-ED-READING) |
+| [09-big-features-v1.md](./09-big-features-v1.md) | 大件 v1 切片:SHEET / PLUGIN / MCP / QQL-TS(**已落地 v1**) |
+| [10-menus-and-search.md](./10-menus-and-search.md) | **菜单 / 命令面板 / 三层搜索** 打磨规划与测试(待实现) |
+| [**backlog.md**](./backlog.md) | **未完成清单总表**(§A–D 与大件 v1 多已齐;真机/签名见剩余) |
+| [deferred.md](./deferred.md) | 难点 / 前置;含编辑器与菜单诚实评估 |
+| [open-questions.md](./open-questions.md) | 待拍板决策 |
 
 ## 一句话定位
 
@@ -20,7 +26,8 @@
 
 - 想了解**为什么造**:从 [01-vision](./01-vision.md) 开始。
 - 想动手**写代码**:先 [02-architecture](./02-architecture.md) + [05-tdd-strategy](./05-tdd-strategy.md),再看 [06-roadmap](./06-roadmap.md) 当前阶段。
-- 想知道**功能边界**:直接看 [04-features](./04-features.md)。
+- 想知道**功能规格**:[04-features](./04-features.md)。
+- 想知道**还没做完什么**:[backlog](./backlog.md)(编辑器/菜单缺口在 §C–D)。
 
 ## 法律状态(摘要)
 

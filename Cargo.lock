@@ -2142,6 +2142,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "openobs-mcp"
+version = "0.1.0"
+dependencies = [
+ "openobs-core",
+ "serde",
+ "serde_json",
+ "walkdir",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

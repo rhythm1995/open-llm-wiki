@@ -26,15 +26,28 @@ function readInitial(): Theme {
   return resolveTheme(stored as Theme | "system" | null, sysDark);
 }
 
-export function useTheme(): { theme: Theme; toggle: () => void } {
-  const [theme, setTheme] = useState<Theme>(readInitial);
+export function useTheme(): {
+  theme: Theme;
+  toggle: () => void;
+  setTheme: (t: Theme) => void;
+} {
+  const [theme, setThemeState] = useState<Theme>(readInitial);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  const setTheme = useCallback((next: Theme) => {
+    setThemeState(next);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {
+      // 无痕模式等场景下静默忽略。
+    }
+  }, []);
+
   const toggle = useCallback(() => {
-    setTheme((t) => {
+    setThemeState((t) => {
       const next = toggleTheme(t);
       try {
         localStorage.setItem(THEME_STORAGE_KEY, next);
@@ -45,5 +58,5 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
     });
   }, []);
 
-  return { theme, toggle };
+  return { theme, toggle, setTheme };
 }

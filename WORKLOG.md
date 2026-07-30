@@ -15,6 +15,134 @@
 
 ---
 
+### 2026-07-30 Grok — 命令/搜索完整测试
+
+- **branch**: `feat/phase1-core`。
+- **做了**:扩 `commands.test`(菜单契约 id、when、rank);`CommandPalette.test.tsx` 三 mode;e2e `palette-search.spec.ts`(⌘K/⌘P/⌘⇧F/Esc)。
+- **验证**:vitest **525**;playwright **18** 全绿。
+
+### 2026-07-30 Grok — 实现:命令注册表 + 菜单 v2 + 三 mode 面板 + 库搜
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. `ui/src/lib/commands/*`:buildAppCommands / filter / rankFiles / mapSearchHits / runCommandById。
+  2. Tauri File/Edit/View 补 new-sheet/reveal/archive/close/find-vault/split/theme/refresh。
+  3. App:`dispatchCommand`;⌘O=开 vault;⌘P=files;⌘⇧F=search;⌘K=commands;⌘W 关标签。
+  4. CommandPalette 三 mode + searchNotes 防抖。
+  5. backlog §H ✅;vitest 507。
+- **下一步**:e2e 烟雾;菜单 i18n 重建(可选)。
+
+### 2026-07-30 Grok — 规划:菜单 / 命令面板 / 三层搜索
+
+- **branch**: `feat/phase1-core`。
+- **做了**:新增 [docs/10-menus-and-search.md](docs/10-menus-and-search.md);backlog §H 六项;诊断:系统菜单薄、`searchNotes` UI 未接、⌘O 与 Open Vault 冲突。
+- **下一步**:按 10 文 Phase1 起实现 registry + 菜单对齐 + 库搜 UI + 测试。
+
+### 2026-07-30 Grok — 产品拍板:SHEET 不做 xlsx 全量 / 实时协作
+
+- **branch**: `feat/phase1-core`。
+- **做了**:文档落档——对照 Tolaria/Obsidian 核心也不以 xlsx 互通与同屏协作为主路径;OpenObsidian 明确 ⛔。共享 vault 继续 git。
+- **下一步**:无此二项工程;合 main / 签名 / 真机图谱等另议。
+
+### 2026-07-30 Grok — F-SHEET v2(多表/冻结/图表/嵌入/IronCalc);插件深化不做
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. sheet schema v2:多 tab、freezeRows/Cols、charts;v1 自动迁移。
+  2. 公式:SUM/AVERAGE/MIN/MAX/COUNT、跨表引用;可选 `@ironcalc/wasm`。
+  3. SheetView:表标签、冻结控件、图表侧栏。
+  4. ````sheet` 围栏 + ReadingPane 嵌入预览(`sheet-block.ts`)。
+  5. 产品决定:**插件深化不做**;backlog B-PLUGIN ⛔。
+- **验证**:ui typecheck + test。
+- **下一步**:合 main / 签名 / 真机图谱。
+
+### 2026-07-30 Grok — 大件 v1:QQL-TS / MCP / PLUGIN / SHEET
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 方案 [docs/09-big-features-v1.md](docs/09-big-features-v1.md)。
+  2. **B-QQL-TS**:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 改走 TS。
+  3. **B-MCP**:`mcp/` crate `openobs-mcp` stdio tools(list/read/write/search/qql)。
+  4. **B-PLUGIN**:manifest + 权限 + iframe 示例插件 → ⌘K 命令。
+  5. **B-SHEET**:`.sheet` schema + SheetView 网格 + 基础公式;store/App 路由。
+  6. backlog §B 四项 ✅(v1);deferred/04/README 同步。
+- **验证**:ui typecheck + **491** tests;cargo check openobs-mcp。
+- **下一步**:插件 vault 扫描 UI;MCP 接 Claude Desktop 配置样例;sheet 深化或差分 QQL。
+
+### 2026-07-30 Grok — 附件媒体 v1 + 并排阅读预览(B-ED-MEDIA / B-ED-READING)
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 产品方案 [docs/08-media-and-split-preview.md](docs/08-media-and-split-preview.md)(Tolaria 落盘 + Obsidian 粘贴/并排习惯)。
+  2. **媒体**:`save_attachment` IPC + mock data URL;`Editor` 粘贴/拖入 → `attachments/` + `![alt](path)`;`ReadingPane` 改写相对 img。
+  3. **并排**:source 下 `editorLayout` edit|split;左 Editor / 右 ReadingPane;设置项 + ⌘K + 工具栏切换。
+  4. Settings:`attachmentsDir` / `editorLayout`;backlog 标 ✅。
+- **理由 / 影响**:补齐笔记插图与阅读对照;非 Live Preview、无相册。
+- **验证**:`pnpm --dir ui typecheck` + `test`;`cargo test -p openobs-app` 相关单测。
+- **下一步 / 接手注意**:真机粘贴 PNG 验收;WYSIWYG 插图后续;大件仍 F-SHEET/F-PLUGIN/MCP/QQL-TS。
+
+### 2026-07-30 Grok — 非大件收口:设置/WYSIWYG qql/原生菜单/保真门禁
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. Settings 面板 + settings.ts;⌘K「设置」;默认编辑模式可配。
+  2. source→wysiwyg 保真提示条;palette/菜单模式切换。
+  3. Wysiwyg 内联 ```qql → run_qql 结果面板。
+  4. Tauri File/Edit/View 菜单 emit `menu-action`。
+  5. Nav type/tag 右键;mock-qql AND/OR;blocknote-fidelity 轻量门禁。
+  6. backlog 非大件项标 ✅。
+- **验证**:typecheck;ui 450 tests;cargo check openobs-app。
+
+### 2026-07-30 Grok — 编辑器/菜单打磨:⌘K 扩面、格式条、右键
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. `palette-commands` 扩:保存/查找/双模/归档/Reveal/主题/语言 + shortcut 展示。
+  2. Source `md-format` + Editor 格式栏 + 正文右键(格式/剪贴板)。
+  3. Tab 右键关闭/关闭其它/复制路径;Nav 文件夹右键新建笔记/复制路径。
+  4. backlog §C/D 状态更新。
+- **验证**:ui typecheck + test。
+
+### 2026-07-30 Grok — 文档同步:§A 收口 + 编辑器/菜单缺口入 backlog
+
+- **branch**: `feat/phase1-core`。
+- **做了**(仅文档):
+  1. `backlog.md` 重写:§A 全 ✅;新增 **§C 编辑器** / **§D 菜单与命令**;删过时「LAYOUT-UI ⏳」;建议顺序改为菜单+编辑器优先。
+  2. `deferred.md`:§A 标已落地;新增「编辑器与菜单」诚实评估。
+  3. `04-features` / `06-roadmap` / `02` / `docs/README`:F-EDITOR/PALETTE/菜单状态改为 🟡 并指 backlog。
+- **下一步**:实现 B-PALETTE-EXPAND + B-ED-CTX-MENU 等(若产品开干)。
+
+### 2026-07-30 Grok — backlog §A 全落地(类型文档/图谱多布局/QQL 扩展)
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. **B-TYPE-DOC**:`type-doc.ts` + Inspector「类型说明」(`types/X.md` / TypeDoc)。
+  2. **B-GRAPH-LAYER/TIME/UI**:`graph-modes.ts` + GraphView 布局下拉(力导向/分层/时间轴)。
+  3. **B-QQL-EXPAND**:core `CONTAINS`/`STARTSWITH`/`ENDSWITH`/`IN`;mock-qql 同步。
+  4. backlog §A 标 ✅。
+- **验证**:cargo test -p openobs-core;pnpm ui typecheck/test。
+
+### 2026-07-30 Grok — 文档:v1 边界改待办 + backlog 总表
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 产品决策落档:原「v1 刻意不做」三项 **要做**——类型文档(UI only)、图谱 type 分层/时间轴、QQL 向 Dataview 常用子集扩展。
+  2. 新增 [docs/backlog.md](docs/backlog.md) 为未完成清单单一事实来源(§A–E + 建议顺序)。
+  3. 同步 04-features / deferred / 06-roadmap / open-questions / docs README。
+- **不做本轮**:未写实现代码(仅文档梳理)。
+- **下一步**:按 backlog 建议顺序实现 B-TYPE-DOC / B-GRAPH-* / B-QQL-EXPAND。
+
+### 2026-07-30 Grok — 打磨收口:标签避让 / 增量布局 / mock-qql + 文档对齐
+
+- **branch**: `feat/phase1-core`(已 push;本批再 commit/push)。
+- **做了**:
+  1. `graph-label.ts` 屏坐标贪心标签避让;SVG + WebGL 共用。
+  2. `graph-layout-budget.ts` 结构/新节点/尺寸驱动的 FR 迭代预算。
+  3. `mock-qql.ts` 浏览器 QQL 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)。
+  4. 文档对齐:04-features / 01 / 02 / 06 / deferred / open-questions(去掉过时 ⏳)。
+- **不做**:真机 1k/5k 帧率验收(用户测)、签名/插件/表格/MCP 等 deferred 大件。
+- **验证**:typecheck · **413** 单测绿。
+
 ### 2026-07-30 Grok — 图谱全功能打磨(Barnes-Hut / LOD 边 / WebGL 交互齐)
 
 - **branch**: `feat/phase1-core`(未 commit)。

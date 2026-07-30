@@ -161,9 +161,15 @@ export function buildSigmaNodeAttrs(
     selected: ReadonlySet<number>;
     textHits: ReadonlySet<number>;
     pinned?: ReadonlySet<number>;
+    focusId?: number | null;
     /** 非 null 时:不在集合内的节点压暗。 */
     neighborFocus?: ReadonlySet<number> | null;
     forceLabelAll: boolean;
+    /**
+     * 允许显示标签的 id(避让结果)。
+     * 未传则回退旧规则(度数/焦点)。
+     */
+    labelAllow?: ReadonlySet<number> | null;
   },
 ): Map<string, SigmaNodeAttrs> {
   const out = new Map<string, SigmaNodeAttrs>();
@@ -171,14 +177,16 @@ export function buildSigmaNodeAttrs(
     const p = pos.get(id);
     const m = meta.get(id);
     if (!p || !m) continue;
-    const forceLabel =
-      opts.forceLabelAll ||
-      m.degree >= 4 ||
+    const important =
       id === opts.currentId ||
       id === opts.hoverId ||
       opts.selected.has(id) ||
       opts.textHits.has(id) ||
-      !!opts.pinned?.has(id);
+      !!opts.pinned?.has(id) ||
+      id === opts.focusId;
+    const forceLabel = opts.labelAllow
+      ? opts.labelAllow.has(id) || important
+      : opts.forceLabelAll || m.degree >= 4 || important;
     const dim =
       opts.neighborFocus != null && !opts.neighborFocus.has(id);
     let color = typeColorResolved(m.type);

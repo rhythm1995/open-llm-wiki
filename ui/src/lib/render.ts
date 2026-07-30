@@ -58,6 +58,7 @@ export function renderMarkdown(md: string): string {
  */
 export function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
-    ADD_ATTR: ["data-target", "class"],
+    ADD_ATTR: ["data-target", "class", "viewBox", "xmlns", "fill", "stroke", "stroke-width", "points", "text-anchor", "font-size", "x", "y", "width", "height", "d"],
+    ADD_TAGS: ["svg", "rect", "polyline", "text", "g", "path", "circle", "line"],
   }) as string;
 }

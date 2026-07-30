@@ -5,12 +5,13 @@
  * 点击激活、× 关闭、中键关闭、**拖拽重排**(HTML5 DnD → reorderTab)。标题取自
  * 快照节点,缺省回退到文件名。
  */
-import { useEffect, useRef, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Copy, X } from "@phosphor-icons/react";
 import type { VaultSnapshot } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface Props {
   openPaths: string[];
@@ -23,12 +24,42 @@ interface Props {
 export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropOn, setDropOn] = useState<number | null>(null);
+  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   // 激活标签的 DOM 引用:激活/打开新标签时把它滚进可视区(溢出场景)。
   const activeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     activeRef.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [activePath, openPaths.length]);
+
+  const menuItems: MenuItem[] = useMemo(() => {
+    if (!menuPath) return [];
+    return [
+      {
+        label: t("tab.menu.close"),
+        icon: <X size={13} />,
+        onClick: () => actions.closeTab(menuPath),
+      },
+      {
+        label: t("tab.menu.closeOthers"),
+        onClick: () => {
+          for (const p of openPaths) {
+            if (p !== menuPath) actions.closeTab(p);
+          }
+        },
+        disabled: openPaths.length <= 1,
+      },
+      { separator: true },
+      {
+        label: t("tab.menu.copyPath"),
+        icon: <Copy size={13} />,
+        onClick: () => {
+          void navigator.clipboard?.writeText(menuPath);
+        },
+      },
+    ];
+  }, [menuPath, openPaths, actions, t]);
 
   if (openPaths.length === 0) return null;
   const titleByPath = new Map((snapshot?.nodes ?? []).map((n) => [n.path, n.title]));
@@ -46,6 +77,11 @@ export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
             role="tab"
             tabIndex={0}
             draggable
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenuPath(path);
+              setMenuPos({ x: e.clientX, y: e.clientY });
+            }}
             onDragStart={(e) => {
               setDragFrom(idx);
               e.dataTransfer.effectAllowed = "move";
@@ -113,6 +149,14 @@ export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
           </div>
         );
       })}
+      <ContextMenu
+        items={menuItems}
+        pos={menuPos}
+        onClose={() => {
+          setMenuPos(null);
+          setMenuPath(null);
+        }}
+      />
     </div>
   );
 }

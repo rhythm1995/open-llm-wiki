@@ -56,6 +56,18 @@ import {
   type Pt,
 } from "../lib/graph-layout";
 import {
+  countMissingPositions,
+  suggestLayoutIterations,
+} from "../lib/graph-layout-budget";
+import { labelPriority, pickVisibleLabels } from "../lib/graph-label";
+import {
+  layoutByTimeline,
+  layoutByTypeLayer,
+  resolveNodeTimeMs,
+  TYPELESS_LABEL,
+  type LayoutMode,
+} from "../lib/graph-modes";
+import {
   buildGraphModel,
   pinIdsToPaths,
   pinPathsToIds,
@@ -167,6 +179,7 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     relations: new Set<EdgeKind>(["wiki", "relation"]),
   }));
   const [showFilters, setShowFilters] = useState(true);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("force");
   const [tf, setTf] = useState({ tx: 0, ty: 0, scale: 1 });
   const [hover, setHover] = useState<number | null>(null);
   const [preview, setPreview] = useState<{
@@ -273,23 +286,69 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     [renderIds, filtered.edges],
   );
 
-  // Worker / sync 布局。
+  // 上一帧结构签名 / 尺寸,用于增量迭代预算。
+  const prevLayoutRef = useRef<{ sig: string; w: number; h: number }>({
+    sig: "",
+    w: 0,
+    h: 0,
+  });
+
+  // 布局:force → Worker FR;type-layer / timeline → 确定性排布(跳过 FR)。
   useEffect(() => {
     if (size.w === 0 || size.h === 0 || renderIds.length === 0) return;
+    const gen = ++layoutGenRef.current;
+
+    if (layoutMode === "type-layer" || layoutMode === "timeline") {
+      const pos = new Map(posRef.current);
+      // 清掉不在渲染集的点
+      for (const id of [...pos.keys()]) {
+        if (!renderSet.has(id)) pos.delete(id);
+      }
+      if (layoutMode === "type-layer") {
+        const typeOf = (id: number) => model.byId.get(id)?.type ?? null;
+        layoutByTypeLayer(renderIds, typeOf, pos, {
+          w: size.w,
+          h: size.h,
+          typeOrder: [...types, TYPELESS_LABEL],
+        });
+      } else {
+        const timeOf = (id: number) => {
+          const n = model.byId.get(id);
+          if (!n) return null;
+          // NodeOut 上 created/modified;GraphNode 镜像 preview 等同字段
+          const full = allNodes.find((x) => x.id === id);
+          return resolveNodeTimeMs({
+            created: full?.created ?? null,
+            modified: full?.modified ?? null,
+          });
+        };
+        layoutByTimeline(renderIds, timeOf, pos, {
+          w: size.w,
+          h: size.h,
+        });
+      }
+      if (gen !== layoutGenRef.current) return;
+      posRef.current = pos;
+      prevLayoutRef.current = { sig, w: size.w, h: size.h };
+      bumpLayout();
+      return;
+    }
+
     const client = layoutClientRef.current;
     if (!client) return;
-    const gen = ++layoutGenRef.current;
     const springs = filtered.edges
       .filter((e) => e.to != null && renderSet.has(e.from) && renderSet.has(e.to))
       .map((e) => ({ from: e.from, to: e.to as number }));
-    const iterations =
-      renderIds.length > 1200
-        ? 45
-        : renderIds.length > 800
-          ? 60
-          : renderIds.length > 250
-            ? 90
-            : 130;
+    const prev = prevLayoutRef.current;
+    const structureChanged = prev.sig !== sig;
+    const sizeChanged = prev.w !== size.w || prev.h !== size.h;
+    const newNodeCount = countMissingPositions(renderIds, posRef.current);
+    const iterations = suggestLayoutIterations({
+      n: renderIds.length,
+      newNodeCount,
+      structureChanged,
+      sizeChanged,
+    });
     void client
       .run({
         ids: renderIds,
@@ -300,16 +359,29 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         h: size.h,
         iterations,
         pinned,
-        // 大图显式 Barnes-Hut;小图 exact(与默认 auto 一致,便于测试断言路径)。
         repulsion:
           renderIds.length >= BARNES_HUT_THRESHOLD ? "barnes-hut" : "exact",
       })
       .then((next) => {
         if (gen !== layoutGenRef.current) return;
         posRef.current = next;
+        prevLayoutRef.current = { sig, w: size.w, h: size.h };
         bumpLayout();
       });
-  }, [sig, size.w, size.h, renderIds, renderSet, adj, filtered.edges, pinned]);
+  }, [
+    sig,
+    size.w,
+    size.h,
+    renderIds,
+    renderSet,
+    adj,
+    filtered.edges,
+    pinned,
+    layoutMode,
+    model,
+    types,
+    allNodes,
+  ]);
 
   const didFitRef = useRef(false);
   useEffect(() => {
@@ -548,14 +620,43 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
       }),
     );
     const leaves = lod.active ? lod.leafIds : renderIds;
+    // 标签避让:用当前相机近似(ratio 越小越放大 → scale 越大)。
+    const approxScale = lodScale;
+    const labelCands = leaves.map((id) => {
+      const p = posRef.current.get(id) ?? { x: 0, y: 0 };
+      const n = model.byId.get(id);
+      return {
+        id,
+        x: p.x,
+        y: p.y,
+        title: n?.title ?? "",
+        priority: labelPriority({
+          degree: degree.get(id) ?? 0,
+          isCurrent: id === currentId,
+          isHover: id === hover,
+          isSelected: selected.has(id),
+          isTextHit: filtered.textHits.has(id),
+          isPinned: pinned.has(id),
+          isFocus: id === filters.focusId,
+        }),
+      };
+    });
+    const labelAllow = pickVisibleLabels(labelCands, {
+      scale: approxScale,
+      tx: size.w / 2,
+      ty: size.h / 2,
+      maxLabels: approxScale < 0.6 ? 40 : approxScale < 1 ? 80 : 200,
+    });
     const nodeAttrs = buildSigmaNodeAttrs(leaves, posRef.current, meta, {
       currentId,
       hoverId: hover,
       selected,
       textHits: filtered.textHits,
       pinned,
+      focusId: filters.focusId,
       neighborFocus: neighbors,
       forceLabelAll: lodScale >= 1.05,
+      labelAllow,
     });
     if (lod.active) {
       for (const [k, v] of buildSigmaClusterAttrs(lod.clusters)) {
@@ -584,9 +685,12 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     neighbors,
     filtered.textHits,
     filtered.edges,
+    filters.focusId,
     lod,
     lodScale,
     layoutTick,
+    size.w,
+    size.h,
   ]);
 
   const sigmaEdges: SigmaEdgeInput[] = useMemo(() => {
@@ -659,7 +763,35 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
   );
   const edgeOpacity = clamp(0.12 + tf.scale * 0.18, 0.12, 0.5);
   const nodeById = new Map(allNodes.map((n) => [n.id, n]));
-  const labelAll = tf.scale >= 1.05;
+  // SVG 标签避让(与 WebGL 同源)。
+  const svgLabelAllow = (() => {
+    if (preferWebgl) return null as Set<number> | null;
+    const cands = culledIds.map((id) => {
+      const p = posRef.current.get(id) ?? { x: 0, y: 0 };
+      const n = nodeById.get(id);
+      return {
+        id,
+        x: p.x,
+        y: p.y,
+        title: n?.title ?? "",
+        priority: labelPriority({
+          degree: degree.get(id) ?? 0,
+          isCurrent: id === currentId,
+          isHover: id === hover,
+          isSelected: selected.has(id),
+          isTextHit: filtered.textHits.has(id),
+          isPinned: pinned.has(id),
+          isFocus: id === filters.focusId,
+        }),
+      };
+    });
+    return pickVisibleLabels(cands, {
+      scale: tf.scale,
+      tx: tf.tx,
+      ty: tf.ty,
+      maxLabels: tf.scale < 0.6 ? 40 : tf.scale < 1 ? 80 : 200,
+    });
+  })();
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-base">
@@ -851,13 +983,12 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
                 const isPin = pinned.has(id);
                 const dim = neighbors != null && !neighbors.has(id);
                 const showLabel =
-                  labelAll ||
-                  deg >= 4 ||
                   isHover ||
                   isCurrent ||
                   isSel ||
                   isTextHit ||
-                  id === filters.focusId;
+                  id === filters.focusId ||
+                  (svgLabelAllow?.has(id) ?? deg >= 4);
                 return (
                   <g
                     key={id}
@@ -999,18 +1130,33 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         </button>
       </div>
 
-      <button
-        onClick={() => setShowFilters((v) => !v)}
-        className={cn(
-          "absolute right-2 top-2 flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
-          showFilters
-            ? "bg-blue text-crust"
-            : "bg-mantle/80 text-overlay hover:text-text",
-        )}
-      >
-        <Funnel size={13} />
-        {t("graph.filter")}
-      </button>
+      <div className="absolute right-2 top-2 flex items-center gap-1">
+        <label className="flex items-center gap-1 rounded bg-mantle/90 px-1.5 py-1 text-[11px] text-overlay backdrop-blur-sm">
+          <span className="sr-only">{t("graph.layout")}</span>
+          <select
+            value={layoutMode}
+            onChange={(e) => setLayoutMode(e.target.value as LayoutMode)}
+            className="max-w-[7.5rem] cursor-pointer bg-transparent text-subtext outline-none"
+            title={t("graph.layout")}
+          >
+            <option value="force">{t("graph.layout.force")}</option>
+            <option value="type-layer">{t("graph.layout.typeLayer")}</option>
+            <option value="timeline">{t("graph.layout.timeline")}</option>
+          </select>
+        </label>
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className={cn(
+            "flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
+            showFilters
+              ? "bg-blue text-crust"
+              : "bg-mantle/80 text-overlay hover:text-text",
+          )}
+        >
+          <Funnel size={13} />
+          {t("graph.filter")}
+        </button>
+      </div>
 
       {boxUi && boxUi.w + boxUi.h > 0 && (
         <div

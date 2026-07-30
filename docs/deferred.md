@@ -1,21 +1,49 @@
 # 延后与难点清单(Deferred)
 
-> 这里集中归档**没有在本轮做、且不打算仓促塞空心 stub** 的能力。每条写明:**现状 / 难在哪 / 做扎实需要什么 / 前置**。难度标记:🔴 硬(算法或工程量)· 🟡 中 · 🟢 易(纯待办)。
+> 这里集中归档**尚未实现、且不仓促塞空心 stub** 的能力。每条写明:**现状 / 难在哪 / 做扎实需要什么 / 前置**。难度标记:🔴 硬 · 🟡 中 · 🟢 易。
 >
-> 与 [06-roadmap](./06-roadmap.md) 的关系:roadmap 的 Phase 2+ 表只给一句话状态;**真正"为什么难、要什么前置"的细节在这里**。roadmap 表已链接回本文。
+> **未做总表**请看 [backlog.md](./backlog.md)(含原 v1 边界改待办)。本文补「为什么难」。  
+> roadmap 一句话状态见 [06-roadmap](./06-roadmap.md)。
 
 ---
 
-## 🟡 图谱大图性能(>400 → 万级)—— **功能已齐 · 真机帧率验收开放**
+## ✅ ~~原 v1 边界三项~~(已落地)
+
+| 项 | backlog | 落地 |
+|---|---|---|
+| 类型文档 | B-TYPE-DOC | Inspector 提示;`types/{Type}.md` |
+| 图谱分层/时间轴 + UI | B-GRAPH-* | `graph-modes` + GraphView select |
+| QQL 扩展 | B-QQL-EXPAND | CONTAINS/STARTSWITH/ENDSWITH/IN |
+
+---
+
+## 🟡 编辑器与菜单(产品打磨 · 非空 stub)
+
+> 总表见 [backlog §C–D](./backlog.md)。此处记**现状 / 难在哪 / 做扎实需要什么**。
+
+### 编辑器
+
+- **现状**:双模 + 格式条/右键/保真提示/WYSIWYG qql ✅;**附件 v1 + source 并排阅读** ✅(见 [08](./08-media-and-split-preview.md))。
+- **仍缺口 / 非 v1**:
+  1. **保真深化**(B-BN-FIDELITY):门禁已有,完整差分/禁用特性表可继续加。
+  2. **WYSIWYG 插图**:source 粘贴/拖入已通;BlockNote 内嵌图片块未做。
+  3. **Live Preview / 相册 / 音视频**:明确不做(08 非目标)。
+- **大件见** backlog §B/E(表格/插件/MCP/QQL-TS 等)。
+
+### 菜单与命令
+
+- **现状**:系统菜单 + ⌘K 扩面 + Settings + Nav/Tab/Editor 右键 ✅(§D)。
+- **可选后续**:更多快捷键绑定、菜单与 palette 完全同源表驱动。
+
+---
+
+## 🟡 图谱大图性能(>400 → 万级)—— **功能+打磨已齐 · 真机帧率验收仍开放**
 
 - **已落地**:
-  1. `graph-model.ts` —— path-stable 主键 + degree + structureSig + topK + pin path
-  2. `graph-layout` —— FR + **Barnes-Hut**(n≥280)O(n log n);Worker 跑布局
-  3. `graph-lod.ts` —— 网格聚类 + **簇间边投影** + 点簇飞入展开
-  4. **sigma + graphology** WebGL;`GraphView` 有 WebGL 即优先;无 GL → SVG
-  5. WebGL 交互对齐 SVG:拖拽+pin、Shift 框选、缩放/fit、悬停邻域压暗、悬空边 ghost、右键菜单
-- **仍开放(真机)**:1k ≥30fps / 5k 可用 / 10k 默认 LOD 帧率验收;标签碰撞可选。
-- **前置**:`tools/gen-benchmark-vault.mjs` 可生成 1k/2k vault。
+  1. `graph-model` / Worker FR / Barnes-Hut / LOD / sigma WebGL / 标签避让 / 增量预算
+  2. 多布局:力导向 + type 分层 + 时间轴 + UI 切换
+  3. 交互双路径:拖拽/pin/框选/邻域/ghost/右键
+- **仅真机验收(不阻塞)**:1k ≥30fps / 5k / 10k LOD。基准:`tools/gen-benchmark-vault.mjs`。
 
 ## ✅ ~~图谱右键菜单~~(已落地)
 
@@ -27,7 +55,7 @@
   - 纯逻辑 `qql-block.ts`(`findQqlBlocks` 围栏块定位 + `resultToHtml` 把 ResultSet→HTML,**编辑器 widget 与阅读视图共用同一渲染器 → 两路一致**,17 单测)。
   - CodeMirror 6:`qql-widget.ts`(StateField 缓存 query→result + ViewPlugin 在闭围栏下一行行首放块级 widget + WidgetType;doc 变化防抖 400ms 重算,语法错降级为 `⚠` 文案)。
   - 阅读视图:marked 渲染后 effect 查 `pre code.language-qql` → run_qql 求值(按 query 缓存)→ 注入 sanitize 过的结果节点。
-  - **mock 限制(诚实)**:core 的 QQL 求值不在浏览器复刻,mock 下 `run_qql` 返回空 List → 内联块在 dev 下显示「无结果」;真机 Tauri 构建走 Rust core 才有真实结果(把 QQL 求值器移植到 TS 是独立大件,不在本轮范围)。
+  - **mock**:`mock-qql` 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)供 vite dev;完整语义仍以 Rust core 为准(全量移植 TS 为独立大件)。
 
 - **已实现**(commit `f6d9a09`):常用 QQL 存成一篇 `type: Query` 的普通笔记,frontmatter
   声明软类型、正文放 ```` ```qql ```` 块。因此自动进索引/图谱/检索,可被 `[[]]` 链接、可被
@@ -41,19 +69,23 @@
 - **做扎实需要**:保真差分测试集 + 明确禁用特性表;长文档性能基线。
 - **前置**:测试集 + 基线(非阻塞日常使用)。
 
-## 🔴 F-SHEET(ironcalc 嵌入式表格)
+## ✅ F-SHEET v2 已落地
 
-- **现状**:延后。
-- **难在哪**:npm 上只发布了 `@ironcalc/wasm` 引擎,**没有 React UI**;自己造表格 UI 是周级以上工程(行列寻址、公式栏、选区、复制粘贴语义、冻结行列、溢出渲染、图表)。
-- **做扎实需要**:等 ironcalc 的 React 组件正式发布;或自研 UI 壳(消费 wasm 引擎的 cells/formulas)。文件格式(嵌入 .md 还是独立 .sheet)也要定。
-- **前置**:ironcalc React 组件可用性复核;若不可用,评估是否自研或换库(如 x-spreadsheet 等)。
+- 多工作表 tabs、冻结行列、bar/line 图表、````sheet` md 嵌入、SUM/AVERAGE/MIN/MAX/COUNT、跨表 `Sheet1!A1`。
+- `@ironcalc/wasm` 可选增强(失败回退内置引擎)。
 
-## 🔴 F-PLUGIN(插件系统)
+### ⛔ 明确不做(2026-07-30 产品拍板)
 
-- **现状**:延后。
-- **难在哪**:"插件系统"不是注册器,是**对外 API 契约 + 沙箱 + 生命周期 + 分发 + 安全模型**的整套。空心注册器是反价值占位。①API 表面:暴露哪些内部能力(笔记读写、图谱、命令注册、设置、事件);②沙箱:Web Worker / iframe / QuickJS,插件崩溃不能拖垮主进程;③生命周期:install/enable/disable/uninstall + 数据迁移;④分发与版本:清单文件、语义版本、依赖;⑤安全:第三方插件不能任意访问文件系统。
-- **做扎实需要**:先把 v1 内部 API 固化稳定,再谈对外暴露的子集;定插件清单格式;选沙箱方案并写 PoC。
-- **前置**:v1 内部能力稳定 + 一份"插件能做什么/不能做什么"的权限清单。
+| 非目标 | 理由(对照) |
+|---|---|
+| **XLSX 全量导入导出** | Tolaria/Obsidian 核心也不以此为主路径(Obsidian 靠插件);vault 真相是自有 `.sheet` JSON |
+| **实时协作(同屏多光标)** | 三家主路径都是本地文件 + 同步(Git/Sync),非 Google Sheets;本项目协作走 **git** |
+
+协作若指多人共享 vault:继续用 git pull/push,不做表格级 CRDT/直播编辑。
+
+## ⛔ F-PLUGIN 深化 —— 产品不做
+
+- v1 宿主代码保留(示例 hello → ⌘K);**不再做** vault 扫描 UI、商店、签名、热更新。
 
 ## 🟡 打包与分发(macOS / Windows / Linux)
 
@@ -79,8 +111,8 @@
   路径,语义最干净,避免 App 侧"默认选择 vs 用户选择"无法区分的死结);命中且仍存在才恢复,
   否则回退首个 `.md`。纯逻辑 `last-note.ts`(6 单测)。
 
-## 🔴 完整 MCP server(F-AI 写侧)
+## 🟡 MCP server v1 已落地 · 深化项
 
-- **现状**:读侧"复制为 AI 上下文"已落地(当前笔记 + 邻居正文拼成 LLM 友好 markdown 入剪贴板)。
-- **难在哪**:完整 MCP server 是让 **agent 反向读写 vault** 的独立工程——stdio / HTTP 的 JSON-RPC、tools 注册(read_note / write_note / search / query / list)、资源订阅、**权限模型**(哪个 client 可写)、并发写冲突。
-- **做扎实需要**:复用 `openobs-core` 的纯逻辑;定 server 传输与 tools 表面;权限白名单;不在此仓促做空心 stub。
+- **已落地**:workspace 成员 `mcp/`(`openobs-mcp`)stdio JSON-RPC;tools:`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`;复用 `openobs-core`。
+- **用法**:`cargo run -p openobs-mcp -- /path/to/vault` 或 `OPENOBS_VAULT=...`。
+- **未做**:HTTP 传输、OAuth、resources 订阅、写冲突策略、细粒度 ACL。

@@ -19,6 +19,7 @@ use openobs_core::{
     ResultSet, Target, VaultIndex,
 };
 use serde::Serialize;
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
@@ -383,6 +384,77 @@ fn write_note(
     // 路径级 delta:更新 live entries,不 WalkDir。
     live_note_upsert(&state, &root, &path, Some(content));
     Ok(())
+}
+
+/// 将 base64 字节写入 vault 内相对路径(附件,非笔记;不进 live index)。
+/// `bytes_base64` 可为纯 base64,或 `data:*;base64,...` data URL。
+#[tauri::command]
+fn save_attachment(root: String, path: String, bytes_base64: String) -> Result<(), String> {
+    let full = resolve_under(&root, &path)?;
+    if let Some(parent) = full.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    let raw = strip_data_url_base64(&bytes_base64);
+    let bytes = decode_base64(raw)?;
+    fs::write(&full, bytes).map_err(err)?;
+    Ok(())
+}
+
+/// 去掉 `data:…;base64,` 前缀(若有)。
+fn strip_data_url_base64(s: &str) -> &str {
+    if let Some(i) = s.find("base64,") {
+        &s[i + "base64,".len()..]
+    } else {
+        s.trim()
+    }
+}
+
+/// 标准 base64 解码(无额外 crate;允许缺省 padding)。
+fn decode_base64(input: &str) -> Result<Vec<u8>, String> {
+    fn val(c: u8) -> Result<u8, String> {
+        match c {
+            b'A'..=b'Z' => Ok(c - b'A'),
+            b'a'..=b'z' => Ok(c - b'a' + 26),
+            b'0'..=b'9' => Ok(c - b'0' + 52),
+            b'+' => Ok(62),
+            b'/' => Ok(63),
+            _ => Err(format!("非法 base64 字符:{}", c as char)),
+        }
+    }
+    let s: Vec<u8> = input
+        .bytes()
+        .filter(|b| !b.is_ascii_whitespace() && *b != b'=')
+        .collect();
+    if s.is_empty() {
+        return Ok(Vec::new());
+    }
+    if s.len() % 4 == 1 {
+        return Err("非法 base64 长度".into());
+    }
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    let mut i = 0;
+    while i + 4 <= s.len() {
+        let n = (u32::from(val(s[i])?) << 18)
+            | (u32::from(val(s[i + 1])?) << 12)
+            | (u32::from(val(s[i + 2])?) << 6)
+            | u32::from(val(s[i + 3])?);
+        out.push(((n >> 16) & 0xff) as u8);
+        out.push(((n >> 8) & 0xff) as u8);
+        out.push((n & 0xff) as u8);
+        i += 4;
+    }
+    let rem = s.len() - i;
+    if rem == 2 {
+        let n = (u32::from(val(s[i])?) << 18) | (u32::from(val(s[i + 1])?) << 12);
+        out.push(((n >> 16) & 0xff) as u8);
+    } else if rem == 3 {
+        let n = (u32::from(val(s[i])?) << 18)
+            | (u32::from(val(s[i + 1])?) << 12)
+            | (u32::from(val(s[i + 2])?) << 6);
+        out.push(((n >> 16) & 0xff) as u8);
+        out.push(((n >> 8) & 0xff) as u8);
+    }
+    Ok(out)
 }
 
 #[tauri::command]
@@ -897,6 +969,102 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
+        .setup(|app| {
+            // 原生菜单:id 与 ui/src/lib/commands 注册表对齐(docs/10)。
+            let file_new = MenuItemBuilder::with_id("new-note", "New Note")
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?;
+            let file_canvas = MenuItemBuilder::with_id("new-canvas", "New Canvas").build(app)?;
+            let file_sheet = MenuItemBuilder::with_id("new-sheet", "New Spreadsheet").build(app)?;
+            let file_open = MenuItemBuilder::with_id("open-vault", "Open Vault…")
+                .accelerator("CmdOrCtrl+O")
+                .build(app)?;
+            let file_save = MenuItemBuilder::with_id("save", "Save")
+                .accelerator("CmdOrCtrl+S")
+                .build(app)?;
+            let file_reveal =
+                MenuItemBuilder::with_id("reveal", "Reveal in Finder").build(app)?;
+            let file_archive =
+                MenuItemBuilder::with_id("archive", "Archive Note").build(app)?;
+            let file_close = MenuItemBuilder::with_id("close-tab", "Close Tab")
+                .accelerator("CmdOrCtrl+W")
+                .build(app)?;
+            let file_settings = MenuItemBuilder::with_id("settings", "Settings…")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+            let edit_find = MenuItemBuilder::with_id("find", "Find in Note")
+                .accelerator("CmdOrCtrl+F")
+                .build(app)?;
+            let edit_find_vault =
+                MenuItemBuilder::with_id("find-vault", "Search in Vault…")
+                    .accelerator("CmdOrCtrl+Shift+F")
+                    .build(app)?;
+            let mode_src = MenuItemBuilder::with_id("mode-source", "Source Mode").build(app)?;
+            let mode_wy = MenuItemBuilder::with_id("mode-wysiwyg", "Wysiwyg Mode").build(app)?;
+            let edit_split =
+                MenuItemBuilder::with_id("toggle-split", "Toggle Split Preview").build(app)?;
+            let view_ed = MenuItemBuilder::with_id("view-editor", "Editor").build(app)?;
+            let view_gr = MenuItemBuilder::with_id("view-graph", "Graph").build(app)?;
+            let view_q = MenuItemBuilder::with_id("view-query", "Query").build(app)?;
+            let view_git = MenuItemBuilder::with_id("view-git", "Git").build(app)?;
+            let view_theme =
+                MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
+            let view_refresh = MenuItemBuilder::with_id("refresh-index", "Refresh Index")
+                .build(app)?;
+
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&file_new)
+                .item(&file_canvas)
+                .item(&file_sheet)
+                .separator()
+                .item(&file_open)
+                .item(&file_save)
+                .separator()
+                .item(&file_reveal)
+                .item(&file_archive)
+                .item(&file_close)
+                .separator()
+                .item(&file_settings)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&PredefinedMenuItem::undo(app, None)?)
+                .item(&PredefinedMenuItem::redo(app, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::cut(app, None)?)
+                .item(&PredefinedMenuItem::copy(app, None)?)
+                .item(&PredefinedMenuItem::paste(app, None)?)
+                .separator()
+                .item(&edit_find)
+                .item(&edit_find_vault)
+                .separator()
+                .item(&mode_src)
+                .item(&mode_wy)
+                .item(&edit_split)
+                .build()?;
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&view_ed)
+                .item(&view_gr)
+                .item(&view_q)
+                .item(&view_git)
+                .separator()
+                .item(&view_theme)
+                .item(&view_refresh)
+                .build()?;
+            let menu = MenuBuilder::new(app)
+                .item(&file_menu)
+                .item(&edit_menu)
+                .item(&view_menu)
+                .build()?;
+            app.set_menu(menu)?;
+            let handle = app.handle().clone();
+            app.on_menu_event(move |_app, event| {
+                let id = event.id().as_ref().to_string();
+                let _ = handle.emit("menu-action", id);
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_vault,
             read_note,
@@ -904,6 +1072,7 @@ pub fn run() {
             create_note,
             delete_note,
             rename_note,
+            save_attachment,
             index_vault,
             apply_vault_changes,
             run_qql,
@@ -930,8 +1099,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_md_rel, live_apply, load_live_from_disk, normalize_rel, path_should_emit, preview_of,
-        LiveVault,
+        decode_base64, is_md_rel, live_apply, load_live_from_disk, normalize_rel, path_should_emit,
+        preview_of, strip_data_url_base64, LiveVault,
     };
     use openobs_core::{parse_query, ResultSet, VaultIndex};
     use std::collections::BTreeMap;
@@ -941,6 +1110,15 @@ mod tests {
         assert_eq!(normalize_rel(r".\a\b.md"), "a/b.md");
         assert!(is_md_rel("x.md"));
         assert!(!is_md_rel("x.canvas"));
+    }
+
+    #[test]
+    fn base64_decode_png_header() {
+        // "iVBORw0KGgo=" is PNG magic prefix
+        let bytes = decode_base64("iVBORw0KGgo=").unwrap();
+        assert_eq!(&bytes[..4], &[0x89, b'P', b'N', b'G']);
+        let from_data = strip_data_url_base64("data:image/png;base64,iVBORw0KGgo=");
+        assert_eq!(from_data, "iVBORw0KGgo=");
     }
 
     #[test]

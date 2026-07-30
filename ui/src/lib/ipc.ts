@@ -9,7 +9,7 @@
  * 命令签名与 `app/src-tauri/src/lib.rs` 的 `#[tauri::command]` 一一对应,DTO 类型
  * 也与后端 serde 序列化字段对齐(包括把 Rust `type_: Option<String>` 还原成 `type`)。
  */
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import * as mock from "./mock";
 
 /** Tauri 2 运行时注入的全局标记。 */
@@ -115,6 +115,35 @@ export const ipc = {
     call<void>("write_note", { root, path, content }),
   createNote: (root: string, path: string, content: string) =>
     call<void>("create_note", { root, path, content }),
+  /**
+   * 写入附件(图片等二进制)。`bytesBase64` 为标准 base64,或 data URL。
+   * 不进笔记索引;阅读侧用 `resolveMediaUrl` 取可加载 URL。
+   */
+  saveAttachment: (root: string, path: string, bytesBase64: string) =>
+    call<void>("save_attachment", {
+      root,
+      path,
+      bytes_base64: bytesBase64,
+    }),
+  /**
+   * 把 vault 相对路径解析为 webview 可加载的图片 URL。
+   * Tauri:`convertFileSrc(绝对路径)`;mock:data URL(粘贴时写入内存)。
+   */
+  resolveMediaUrl: (root: string, relPath: string): string => {
+    const rel = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!isTauri) {
+      return mock.resolveAttachmentUrl(rel);
+    }
+    const abs = root.endsWith("/") || root.endsWith("\\")
+      ? `${root}${rel}`
+      : `${root}/${rel}`;
+    return convertFileSrc(abs);
+  },
+  /** mock 下某附件是否已有缓存 URL(用于 unique 路径;桌面不查盘)。 */
+  attachmentExists: (relPath: string): boolean => {
+    if (isTauri) return false;
+    return mock.attachmentExists(relPath);
+  },
   deleteNote: (root: string, path: string) =>
     call<void>("delete_note", { root, path }),
   renameNote: (root: string, from: string, to: string) =>

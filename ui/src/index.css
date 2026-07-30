@@ -247,6 +247,56 @@ body {
   border-top: 1px solid var(--color-surface);
   margin: 1.4em 0;
 }
+.rendered img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.6em 0;
+}
+
+/* F-SHEET 嵌入阅读视图 */
+.rendered .oo-sheet-embed {
+  margin: 0.8em 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-crust);
+  border-radius: 6px;
+  padding: 0.5em;
+  background: var(--color-mantle);
+}
+.rendered .oo-sheet-embed-title {
+  font-size: 12px;
+  color: var(--color-subtext);
+  margin-bottom: 0.35em;
+}
+.rendered .oo-sheet-embed table {
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.rendered .oo-sheet-embed th,
+.rendered .oo-sheet-embed td {
+  border: 1px solid var(--color-crust);
+  padding: 0.15em 0.45em;
+  min-width: 2.5em;
+}
+.rendered .oo-sheet-embed th {
+  background: var(--color-surface);
+  color: var(--color-overlay);
+  font-weight: 500;
+}
+.rendered .oo-sheet-chart {
+  margin: 0.6em 0;
+}
+.rendered .oo-sheet-chart-title {
+  font-size: 11px;
+  color: var(--color-subtext);
+  margin-bottom: 0.25em;
+}
+.rendered .oo-sheet-missing {
+  color: var(--color-red, #c44);
+  font-size: 12px;
+  padding: 0.5em;
+}
 .rendered table {
   border-collapse: collapse;
 }

@@ -19,11 +19,13 @@ import {
   Archive,
   CaretDown,
   CaretRight,
+  Copy,
   Folder,
   FolderOpen,
   Funnel,
   Hash,
   NoteBlank,
+  Plus,
   Tag,
   Tray,
 } from "@phosphor-icons/react";
@@ -32,6 +34,7 @@ import { isInbox, sameSelection, type NavSelection } from "../lib/nav-filter";
 import { isQueryNode } from "../lib/saved-query";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface TreeNode {
   name: string;
@@ -71,6 +74,8 @@ interface Props {
   isEditorView: boolean;
   /** 笔记拖到文件夹时回调(fromPath, targetDir;空串=根)。 */
   onMoveNote?: (fromPath: string, targetDir: string) => void;
+  /** 在指定文件夹(相对 vault 路径)新建笔记;空串=根。 */
+  onNewNoteInFolder?: (folderPath: string) => void;
   t: TFunc;
 }
 
@@ -83,6 +88,7 @@ export function Nav({
   onNavSelect,
   isEditorView,
   onMoveNote,
+  onNewNoteInFolder,
   t,
 }: Props) {
   // 分组折叠状态:VIEWS/TYPES/TAGS 默认展开,FOLDERS 默认收起。
@@ -91,7 +97,53 @@ export function Nav({
   );
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [ctxMenu, setCtxMenu] = useState<{
+    kind: "folder" | "type" | "tag";
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const nodes = snapshot?.nodes ?? [];
+
+  const ctxMenuItems: MenuItem[] = useMemo(() => {
+    if (!ctxMenu) return [];
+    const { kind, id } = ctxMenu;
+    if (kind === "folder") {
+      return [
+        {
+          label: t("nav.menu.newNoteHere"),
+          icon: <Plus size={13} />,
+          onClick: () => onNewNoteInFolder?.(id),
+          disabled: !onNewNoteInFolder,
+        },
+        {
+          label: t("nav.menu.copyPath"),
+          icon: <Copy size={13} />,
+          onClick: () => {
+            void navigator.clipboard?.writeText(id);
+          },
+        },
+      ];
+    }
+    // type / tag: 聚焦筛选 + 复制标识
+    return [
+      {
+        label: t("nav.menu.focusFilter"),
+        icon: <Funnel size={13} />,
+        onClick: () =>
+          onNavSelect(
+            kind === "type" ? { kind: "type", id } : { kind: "tag", id },
+          ),
+      },
+      {
+        label: t("nav.menu.copyId"),
+        icon: <Copy size={13} />,
+        onClick: () => {
+          void navigator.clipboard?.writeText(id);
+        },
+      },
+    ];
+  }, [ctxMenu, onNewNoteInFolder, onNavSelect, t]);
 
   const inboxCount = useMemo(() => nodes.filter(isInbox).length, [nodes]);
   const queries = useMemo(() => nodes.filter(isQueryNode), [nodes]);
@@ -152,6 +204,17 @@ export function Nav({
   ) => (
     <button
       onClick={() => onNavSelect(sel)}
+      onContextMenu={(e) => {
+        if (sel.kind === "type" || sel.kind === "tag") {
+          e.preventDefault();
+          setCtxMenu({
+            kind: sel.kind,
+            id: sel.id,
+            x: e.clientX,
+            y: e.clientY,
+          });
+        }
+      }}
       className={cn(
         "flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[13px]",
         active ? "bg-surface2 text-text" : "text-subtext hover:bg-surface hover:text-text",
@@ -205,6 +268,15 @@ export function Nav({
             dropping && "ring-1 ring-blue bg-blue/10",
           )}
           style={{ paddingLeft: depth * 12 + 4 }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setCtxMenu({
+              kind: "folder",
+              id: node.path,
+              x: e.clientX,
+              y: e.clientY,
+            });
+          }}
           onDragOver={(e) => {
             if (!onMoveNote) return;
             e.preventDefault();
@@ -366,6 +438,11 @@ export function Nav({
           )}
         </div>
       )}
+      <ContextMenu
+        items={ctxMenuItems}
+        pos={ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : null}
+        onClose={() => setCtxMenu(null)}
+      />
     </div>
   );
 }

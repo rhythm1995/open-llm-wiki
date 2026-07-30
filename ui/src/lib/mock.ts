@@ -10,7 +10,8 @@
  * - index_vault:用 JS **mini-indexer** 复刻 core 的 frontmatter/标题/wikilink
  *   解析,产出 nodes + edges,让图谱与反链在浏览器里可演示。
  * - search_notes:极简 AND 检索(标题×2 加权,见 mock-search.ts),近似 core 供预览。
- * - run_qql:返回空(core 的查询求值不在浏览器复刻)。真机 Tauri 构建里走 Rust core。
+ * - run_qql:浏览器用 mock-qql **子集**(type/status/tag/LIMIT/COUNT/GROUP/histogram);
+ *   复杂查询降级空 List。完整语义真机走 Rust core。
  *
  * ⚠️ mini-indexer 是 core 的**简化近似**,只为预览;语义以 Rust core 为准。
  */
@@ -21,8 +22,25 @@ import type {
   VaultSnapshot,
 } from "./ipc";
 import { mockSearch } from "./mock-search";
+import { runQqlTs, type QqlNote } from "./qql";
 
 const MOCK_ROOT = "/mock-vault";
+
+/**
+ * 附件内存仓(path → data URL)。浏览器 mock 无 fs,粘贴图片落此处供预览。
+ * 与笔记 Map 分离(二进制不进 mini-indexer)。
+ */
+const attachments = new Map<string, string>();
+
+/** 是否已有该相对路径附件(uniqueAttachmentPath 用)。 */
+export function attachmentExists(relPath: string): boolean {
+  return attachments.has(relPath.replace(/\\/g, "/"));
+}
+
+/** 解析 mock 附件 URL;未缓存返回空串(阅读侧表现为破图)。 */
+export function resolveAttachmentUrl(relPath: string): string {
+  return attachments.get(relPath.replace(/\\/g, "/")) ?? "";
+}
 
 /** 种子笔记:一个小型 wiki,带类型/标签/双向链接/悬空链接,覆盖大多数 UI 路径。 */
 function seed(): Map<string, string> {
@@ -334,6 +352,33 @@ function buildSnapshot(): VaultSnapshot {
   return { root: MOCK_ROOT, nodes, edges };
 }
 
+/** 从 live vault + 边表构建 QqlNote(含 body/fm/度数)。 */
+function buildQqlNotes(): QqlNote[] {
+  const snap = buildSnapshot();
+  const parsed = parsePaths((p) => !hasDotSegment(p));
+  const outDeg = new Map<number, number>();
+  const inDeg = new Map<number, number>();
+  for (const e of snap.edges) {
+    outDeg.set(e.from, (outDeg.get(e.from) ?? 0) + 1);
+    if (e.to != null) inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
+  }
+  return parsed.map((p, i) => ({
+    id: i,
+    path: p.path,
+    title: p.title,
+    body: p.body,
+    frontmatter: p.meta,
+    tags: p.tags,
+    type: p.typeStr,
+    backlinkCount: inDeg.get(i) ?? 0,
+    linkCount: outDeg.get(i) ?? 0,
+  }));
+}
+
+function evalMockQql(qql: string) {
+  return runQqlTs(qql, buildQqlNotes());
+}
+
 // ───────────────────────── 命令分发 ─────────────────────────
 
 export async function handle<T>(
@@ -372,6 +417,33 @@ export async function handle<T>(
       vault.set(String(args.path), String(args.content));
       return undefined as unknown as T;
 
+    case "save_attachment": {
+      // 内存存 data URL,阅读/并排预览用 resolveAttachmentUrl。
+      const path = String(args.path).replace(/\\/g, "/");
+      let b64 = String(args.bytes_base64 ?? "");
+      let mime = "image/png";
+      if (b64.startsWith("data:")) {
+        const m = /^data:([^;]+);base64,(.+)$/i.exec(b64);
+        if (m) {
+          mime = m[1] || mime;
+          b64 = m[2];
+        } else {
+          const i = b64.indexOf("base64,");
+          if (i >= 0) b64 = b64.slice(i + "base64,".length);
+        }
+      }
+      // 按扩展名猜 mime(若 data URL 未带)。
+      if (!String(args.bytes_base64 ?? "").startsWith("data:")) {
+        const lower = path.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) mime = "image/jpeg";
+        else if (lower.endsWith(".gif")) mime = "image/gif";
+        else if (lower.endsWith(".webp")) mime = "image/webp";
+        else if (lower.endsWith(".svg")) mime = "image/svg+xml";
+      }
+      attachments.set(path, `data:${mime};base64,${b64}`);
+      return undefined as unknown as T;
+    }
+
     case "delete_note":
       vault.delete(String(args.path));
       return undefined as unknown as T;
@@ -394,10 +466,10 @@ export async function handle<T>(
       // mock 无外部 fs;路径 delta 忽略,返回当前快照(与 live 投影同形)。
       return buildSnapshot() as unknown as T;
 
-    case "run_qql":
-      // core 的重活不在浏览器里复刻;返回空 List 形态保持类型一致。真机走 Rust。
-      console.info("[mock] run_qql 在 mock 模式下返回空,请用 Tauri 构建以获得完整求值。");
-      return { List: [] } as unknown as T;
+    case "run_qql": {
+      // B-QQL-TS:浏览器走全量 TS 求值器(对齐 core AST);桌面仍走 Rust。
+      return evalMockQql(String(args.qql ?? "")) as unknown as T;
+    }
 
     case "search_notes": {
       // 浏览器 mock:极简 AND 检索(标题×2 加权),近似 core 仅供预览。

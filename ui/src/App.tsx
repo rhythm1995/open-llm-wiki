@@ -8,13 +8,14 @@
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Warning, X, Code, PencilSimple } from "@phosphor-icons/react";
+import { listen } from "@tauri-apps/api/event";
 import { Nav } from "./components/Nav";
 import { NoteListView } from "./components/NoteListView";
 import type { NavSelection } from "./lib/nav-filter";
 import { selectionLabel } from "./lib/nav-filter";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { WysiwygView } from "./components/WysiwygView";
+import { ReadingPane } from "./components/ReadingPane";
 import { FindBar } from "./components/FindBar";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
@@ -24,6 +25,7 @@ import { GitPanel } from "./components/GitPanel";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { CenterToolbar } from "./components/CenterToolbar";
 import { StatusBar } from "./components/StatusBar";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
@@ -31,6 +33,16 @@ import { usePersistentState } from "./lib/usePersistentState";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
+import { isSheetPath } from "./lib/sheet";
+import {
+  collectPluginCommands,
+  loadPluginFromManifest,
+  parsePluginMessage,
+  registerPluginCommand,
+  sampleHelloMainSource,
+  sampleHelloManifest,
+  type PluginCommand,
+} from "./lib/plugin-host";
 import { writeLastPath, readLastRoot, clearLastRoot } from "./lib/last-note";
 import {
   EDIT_MODE_KEY,
@@ -38,12 +50,29 @@ import {
   migrateEditMode,
   type EditMode,
 } from "./lib/edit-mode";
+import { modeFidelityHintKey } from "./lib/edit-mode-ux";
+import {
+  ATTACHMENTS_DIR_KEY,
+  DEFAULT_ATTACHMENTS_DIR,
+  EDITOR_LAYOUT_KEY,
+  normalizeAttachmentsDir,
+  type EditorLayoutMode,
+} from "./lib/attachments";
 import type { PaletteMode } from "./components/CommandPalette";
+import {
+  buildAppCommands,
+  runCommandById,
+  type CommandDeps,
+} from "./lib/commands";
+import { Columns, Code, PencilSimple, Warning, X } from "@phosphor-icons/react";
 
 // 画布视图懒加载:Excalidraw 包体大,隔离到独立 chunk(MIT,见 THIRD_PARTY_NOTICES)。
 // 不开画布就不下载该 chunk。
 const CanvasView = lazy(() =>
   import("./components/CanvasView").then((m) => ({ default: m.CanvasView })),
+);
+const SheetView = lazy(() =>
+  import("./components/SheetView").then((m) => ({ default: m.SheetView })),
 );
 
 export default function App() {
@@ -62,11 +91,37 @@ export default function App() {
   const [findQuery, setFindQuery] = useState("");
   /** 打开 Find 前的编辑模式,关闭时还原(避免永久改用户偏好)。 */
   const findPrevModeRef = useRef<EditMode | null>(null);
-  const { theme, toggle: toggleTheme } = useTheme();
-  const { locale, toggle: toggleLocale, t } = useLocale();
+  const { theme, toggle: toggleTheme, setTheme } = useTheme();
+  const { locale, setLocale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
   /** 稳定句柄:FindBar 订阅此 state,避免 ref.current 在首渲为 null。 */
   const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modeHint, setModeHint] = useState<string | null>(null);
+  // 附件目录 / 并排布局(B-ED-MEDIA / B-ED-READING)。
+  const [attachmentsDir, setAttachmentsDir] = useState(() => {
+    try {
+      return normalizeAttachmentsDir(localStorage.getItem(ATTACHMENTS_DIR_KEY));
+    } catch {
+      return DEFAULT_ATTACHMENTS_DIR;
+    }
+  });
+  const [editorLayout, setEditorLayout] = usePersistentState<EditorLayoutMode>(
+    EDITOR_LAYOUT_KEY,
+    "edit",
+  );
+  const persistAttachmentsDir = useCallback((dir: string) => {
+    const n = normalizeAttachmentsDir(dir);
+    setAttachmentsDir(n);
+    try {
+      localStorage.setItem(ATTACHMENTS_DIR_KEY, n);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleSplit = useCallback(() => {
+    setEditorLayout((prev) => (prev === "split" ? "edit" : "split"));
+  }, [setEditorLayout]);
   // 双模式:source / wysiwyg。一次性迁移旧默认 source → wysiwyg(见 edit-mode.ts)。
   const [editMode, setEditMode] = useState<EditMode>(() => {
     try {
@@ -83,15 +138,26 @@ export default function App() {
       return "wysiwyg";
     }
   });
-  const persistEditMode = useCallback((m: EditMode) => {
-    setEditMode(m);
-    try {
-      localStorage.setItem(EDIT_MODE_KEY, JSON.stringify(m));
-      localStorage.setItem(EDIT_MODE_MIGRATED_KEY, "1");
-    } catch {
-      // 隐私模式:内存态即可。
-    }
-  }, []);
+  const editModeRef = useRef(editMode);
+  editModeRef.current = editMode;
+  const persistEditMode = useCallback(
+    (m: EditMode) => {
+      const from = editModeRef.current;
+      const hintKey = modeFidelityHintKey(from, m);
+      if (hintKey) {
+        setModeHint(t(hintKey));
+        window.setTimeout(() => setModeHint(null), 6000);
+      }
+      setEditMode(m);
+      try {
+        localStorage.setItem(EDIT_MODE_KEY, JSON.stringify(m));
+        localStorage.setItem(EDIT_MODE_MIGRATED_KEY, "1");
+      } catch {
+        // 隐私模式:内存态即可。
+      }
+    },
+    [t],
+  );
   // 四区布局:三个非编辑器面板各自可隐藏,状态持久化。切换入口集中在 CenterToolbar
   // 右侧的 Xcode 式切换簇(面板边缘不放按钮)。编辑器常驻,不参与切换。
   const [navOpen, setNavOpen] = usePersistentState("openobs.navOpen", true);
@@ -106,6 +172,50 @@ export default function App() {
   });
   // 当前页是否为画布(.canvas / Excalidraw):是则中栏渲染 CanvasView,隐藏编辑/阅读切换与属性面板。
   const isCanvas = state.currentPath !== null && isCanvasPath(state.currentPath);
+  const isSheet =
+    state.currentPath !== null && isSheetPath(state.currentPath);
+  const isSpecialFile = isCanvas || isSheet;
+
+  // F-PLUGIN v1:示例插件 + 命令表(沙箱 iframe 注册)。
+  const [pluginCommands, setPluginCommands] = useState<PluginCommand[]>([]);
+  const [pluginToast, setPluginToast] = useState<string | null>(null);
+  useEffect(() => {
+    // 启动时挂载示例插件(manifest 内嵌;不写盘)。后续可从 vault 加载。
+    let plugin = loadPluginFromManifest(sampleHelloManifest());
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("sandbox", "allow-scripts");
+    iframe.style.display = "none";
+    iframe.title = "openobs-plugin-hello";
+    document.body.appendChild(iframe);
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.source !== iframe.contentWindow) return;
+      const msg = parsePluginMessage(ev.data);
+      if (!msg) return;
+      if (msg.type === "registerCommand") {
+        plugin = registerPluginCommand(plugin, {
+          id: msg.id,
+          label: msg.label,
+        });
+        setPluginCommands(collectPluginCommands([plugin]));
+      } else if (msg.type === "notify") {
+        setPluginToast(msg.message);
+        window.setTimeout(() => setPluginToast(null), 2500);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    const doc = iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(
+        `<script>${sampleHelloMainSource().replace(/<\/script>/gi, "<\\/script>")}</script>`,
+      );
+      doc.close();
+    }
+    return () => {
+      window.removeEventListener("message", onMsg);
+      iframe.remove();
+    };
+  }, []);
   // vault 显示名(顶栏列表表头与无 vault 入口共用)。
   const vaultName = state.root
     ? state.root.replace(/\/+$/, "").split("/").pop() || state.root
@@ -116,7 +226,7 @@ export default function App() {
   // 第二栏(列表)独立于第三栏视图:切图谱/git/搜索/查询时列表保留,只第三栏内容换。
   // 除非用户本就关了列表(listOpen=false)。——任务4:视图切换不再吞掉第二栏。
   const showList = listOpen && hasVault;
-  const showProps = propsOpen && view === "editor" && !isCanvas;
+  const showProps = propsOpen && view === "editor" && !isSpecialFile;
 
   // 顶栏居中标签:editor 视图取当前 Nav 选择(全部笔记/收件箱/某类型/…);
   // 其余视图取视图名(图谱/查询/搜索/Git)。App 端算好,CenterToolbar 只渲染。
@@ -156,6 +266,12 @@ export default function App() {
     if (name && name.trim()) void actions.createCanvas(name.trim());
   }, [actions, t]);
 
+  /** 新建表格(F-SHEET):询问名称后建 `.sheet`。 */
+  const handleNewSheet = useCallback(() => {
+    const name = window.prompt(t("sheet.namePrompt"), "table");
+    if (name && name.trim()) void actions.createSheet(name.trim());
+  }, [actions, t]);
+
   /**
    * 新建笔记入口(任务3:inline,不弹窗):有 vault 时建一篇草稿(默认模板
    * frontmatter)+ 进列表行 inline 重命名态;无 vault 时唤起选择器(不静默 no-op)。
@@ -169,6 +285,25 @@ export default function App() {
       if (p) setRenamingPath(p);
     });
   }, [state.root, actions, t]);
+
+  /** Nav 文件夹右键:在该目录下新建草稿。 */
+  const openNewNoteInFolder = useCallback(
+    (folderPath: string) => {
+      if (!state.root) return;
+      const base = t("newNote.untitled");
+      const dir = folderPath.replace(/\/$/, "");
+      const prefix = dir ? `${dir}/` : "";
+      const taken = new Set(state.entries.map((e) => e.path));
+      let path = `${prefix}${base}.md`;
+      let i = 1;
+      while (taken.has(path)) {
+        path = `${prefix}${base} ${i}.md`;
+        i++;
+      }
+      void actions.createNote(path).then(() => setRenamingPath(path));
+    },
+    [state.root, state.entries, actions, t],
+  );
 
   /** inline 重命名提交(任务3):sanitize 输入为文件名(去非法字符),空值回退 untitled;
    *  commitDraftRename 会 rename 文件名 + 同步草稿 H1 标题(标题=文件名)。Esc 取消。 */
@@ -188,6 +323,11 @@ export default function App() {
     if (state.root) handleNewCanvas();
     else void actions.openPicker();
   }, [state.root, actions, handleNewCanvas]);
+
+  const openNewSheet = useCallback(() => {
+    if (state.root) handleNewSheet();
+    else void actions.openPicker();
+  }, [state.root, actions, handleNewSheet]);
 
   /**
    * 选中某 Nav 项(智能视图含 Archive / type / folder / query):设 navSelection **并
@@ -217,39 +357,59 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⌘K 命令面板;⌘P / ⌘O 快速打开笔记(仅笔记,不改 Nav 选择/不高亮左侧筛选)。
-  // capture:true —— 编辑器(ProseMirror/CM)可能 stopPropagation,冒泡到不了 window。
+  const openPalette = useCallback((mode: PaletteMode) => {
+    setPaletteMode(mode);
+    setPaletteOpen(true);
+  }, []);
+
+  // path 用 ref,避免 keydown 闭包拿到旧 path。
+  const pathRef = useRef(state.currentPath);
+  pathRef.current = state.currentPath;
+
+  // ⌘K 命令 · ⌘P 快开 · ⌘O 打开 vault · ⌘⇧F 库内全文。
+  // capture:true —— 编辑器可能 stopPropagation。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
-      if (k === "k") {
+      if (k === "k" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
         setPaletteMode("commands");
         setPaletteOpen((v) => !v);
-      } else if (k === "p" || k === "o") {
+      } else if (k === "p" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
-        // 快速打开是独立浮层:不切 view、不改 navSelection(Tolaria QuickOpen)。
-        setPaletteMode("quickOpen");
+        setPaletteMode("files");
         setPaletteOpen((v) => !v);
+      } else if (k === "o" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void actions.openPicker();
+      } else if (k === "f" && e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaletteMode("search");
+        setPaletteOpen(true);
+      } else if (k === "," && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSettingsOpen(true);
+      } else if (k === "w" && !e.shiftKey) {
+        if (!pathRef.current) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void actions.closeTab(pathRef.current);
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-
-  // path/mode 用 ref,避免 keydown 闭包拿到旧 path 导致 ⌘F 静默 no-op。
-  const pathRef = useRef(state.currentPath);
-  pathRef.current = state.currentPath;
-  const editModeRef = useRef(editMode);
-  editModeRef.current = editMode;
+  }, [actions]);
 
   /** 打开文档内查找:进 editor、必要时切 source 以启用 CM 全文高亮。 */
   const openFind = useCallback(() => {
     const path = pathRef.current;
-    if (!path || isCanvasPath(path)) return;
+    if (!path || isCanvasPath(path) || isSheetPath(path)) return;
     setView("editor");
     const mode = editModeRef.current;
     if (mode !== "source") {
@@ -274,11 +434,125 @@ export default function App() {
     if (prev && prev !== "source") persistEditMode(prev);
   }, [persistEditMode]);
 
-  // ⌘F 文档内查找(FindBar + 全文高亮)。capture 拦截,避免编辑器吞键。
+  const commandExtras = useMemo((): Omit<
+    CommandDeps,
+    | "t"
+    | "openPicker"
+    | "onNewNote"
+    | "onNewCanvas"
+    | "onNavigate"
+    | "refreshIndex"
+  > => {
+    const hasNote =
+      !!state.currentPath &&
+      !isCanvasPath(state.currentPath ?? "") &&
+      !isSheetPath(state.currentPath ?? "");
+    return {
+      saveNow: () => void actions.saveNow(),
+      openFind: () => openFind(),
+      openVaultSearch: () => openPalette("search"),
+      openQuickOpen: () => openPalette("files"),
+      setEditMode: (m: EditMode) => persistEditMode(m),
+      toggleTheme,
+      theme,
+      toggleLocale,
+      openSettings: () => setSettingsOpen(true),
+      toggleSplitLayout: () => {
+        if (editModeRef.current !== "source") {
+          persistEditMode("source");
+          setEditorLayout("split");
+        } else {
+          toggleSplit();
+        }
+      },
+      editorLayout,
+      hasCurrentNote: hasNote,
+      hasOpenTab: !!state.currentPath,
+      canReveal: !ipc.isMock(),
+      closeCurrentTab: () => {
+        const p = state.currentPath;
+        if (p) void actions.closeTab(p);
+      },
+      archiveCurrent: () => {
+        const p = state.currentPath;
+        if (p) void actions.deleteNote(p);
+      },
+      revealCurrent: () => {
+        const root = state.root;
+        const p = state.currentPath;
+        if (root && p && !ipc.isMock()) void ipc.revealInFinder(root, p);
+      },
+      onNewSheet: openNewSheet,
+      pluginCommands: pluginCommands.map((c) => ({
+        id: c.id,
+        label: c.label,
+        run: () => {
+          setPluginToast(t("plugin.ran", { name: c.label }));
+          window.setTimeout(() => setPluginToast(null), 2000);
+        },
+      })),
+    };
+  }, [
+    actions,
+    openFind,
+    openPalette,
+    persistEditMode,
+    toggleTheme,
+    theme,
+    toggleLocale,
+    state.currentPath,
+    state.root,
+    toggleSplit,
+    editorLayout,
+    setEditorLayout,
+    openNewSheet,
+    pluginCommands,
+    t,
+  ]);
+
+  /** 菜单 / 快捷键共用:从当前 deps 建表并按 id 执行。 */
+  const dispatchCommand = useCallback(
+    (id: string) => {
+      const cmds = buildAppCommands({
+        t,
+        openPicker: () => void actions.openPicker(),
+        onNewNote: openNewNote,
+        onNewCanvas: openNewCanvas,
+        onNavigate: (v) => setView(v),
+        refreshIndex: () => void actions.refreshIndex(),
+        ...commandExtras,
+      });
+      runCommandById(cmds, id);
+    },
+    [
+      t,
+      actions,
+      openNewNote,
+      openNewCanvas,
+      setView,
+      commandExtras,
+    ],
+  );
+
+  // 桌面应用菜单 → 注册表 id。
+  useEffect(() => {
+    if (ipc.isMock()) return;
+    let unlisten: (() => void) | undefined;
+    void listen<string>("menu-action", (ev) => {
+      dispatchCommand(ev.payload);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [dispatchCommand]);
+
+  // ⌘F 文内查找(不含 Shift → 库搜是 ⌘⇧F)。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod || e.key.toLowerCase() !== "f") return;
+      if (!mod || e.shiftKey || e.key.toLowerCase() !== "f") return;
       e.preventDefault();
       e.stopPropagation();
       if (findOpen) {
@@ -412,6 +686,7 @@ export default function App() {
               // 快速打开/命令面板打开时不高亮左侧筛选(Tolaria:浮层与 Nav 选择解耦)。
               isEditorView={view === "editor" && !paletteOpen}
               onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
+              onNewNoteInFolder={openNewNoteInFolder}
               t={t}
             />
           </div>
@@ -466,18 +741,64 @@ export default function App() {
                         t={t}
                       />
                     </Suspense>
+                  ) : isSheet ? (
+                    <Suspense
+                      fallback={
+                        <div className="flex h-full items-center justify-center text-[13px] text-overlay">
+                          {t("sheet.loading")}
+                        </div>
+                      }
+                    >
+                      <SheetView
+                        key={state.currentPath}
+                        content={state.content}
+                        onSave={actions.setContent}
+                        t={t}
+                      />
+                    </Suspense>
                   ) : editMode === "source" ? (
-                    <Editor
-                      ref={editorRef}
-                      value={state.content}
-                      onChange={actions.setContent}
-                      hasNote={state.currentPath !== null}
-                      theme={theme}
-                      noteTitles={noteTitles}
-                      root={state.root}
-                      onFollow={handleFollow}
-                      t={t}
-                    />
+                    <div
+                      className={
+                        editorLayout === "split"
+                          ? "flex h-full min-h-0"
+                          : "h-full min-h-0"
+                      }
+                      data-testid={
+                        editorLayout === "split" ? "editor-split" : "editor-edit"
+                      }
+                    >
+                      <div
+                        className={
+                          editorLayout === "split"
+                            ? "min-w-0 flex-1 border-r border-crust"
+                            : "h-full"
+                        }
+                      >
+                        <Editor
+                          ref={editorRef}
+                          value={state.content}
+                          onChange={actions.setContent}
+                          hasNote={state.currentPath !== null}
+                          theme={theme}
+                          noteTitles={noteTitles}
+                          root={state.root}
+                          onFollow={handleFollow}
+                          t={t}
+                          attachmentsDir={attachmentsDir}
+                        />
+                      </div>
+                      {editorLayout === "split" && (
+                        <div className="min-w-0 flex-1">
+                          <ReadingPane
+                            content={state.content}
+                            root={state.root}
+                            onFollow={handleFollow}
+                            hasNote={state.currentPath !== null}
+                            t={t}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <WysiwygView
                       key={state.currentPath ?? "empty"}
@@ -487,29 +808,63 @@ export default function App() {
                       noteTitles={noteTitles}
                       hasNote={state.currentPath !== null}
                       theme={theme}
+                      root={state.root}
                       t={t}
                     />
                   )}
-                  {!isCanvas && state.currentPath !== null && (
-                    <button
-                      onClick={() =>
-                        persistEditMode(editMode === "source" ? "wysiwyg" : "source")
-                      }
-                      className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
-                      title={
-                        editMode === "source"
-                          ? t("editor.toWysiwyg")
-                          : t("editor.toSource")
-                      }
+                  {modeHint && !isSpecialFile && (
+                    <div
+                      data-testid="mode-fidelity-hint"
+                      className="absolute bottom-2 left-2 right-2 z-20 rounded border border-yellow/40 bg-mantle/95 px-2.5 py-1.5 text-[11px] text-subtext shadow"
                     >
-                      {editMode === "source" ? (
-                        <PencilSimple size={14} />
-                      ) : (
-                        <Code size={14} />
-                      )}
-                    </button>
+                      {modeHint}
+                    </div>
                   )}
-                  {findOpen && !isCanvas && state.currentPath !== null && (
+                  {!isSpecialFile && state.currentPath !== null && (
+                    <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+                      {editMode === "source" && (
+                        <button
+                          type="button"
+                          data-testid="toggle-split"
+                          onClick={toggleSplit}
+                          className="flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
+                          title={
+                            editorLayout === "split"
+                              ? t("editor.layout.edit")
+                              : t("editor.layout.split")
+                          }
+                        >
+                          <Columns size={14} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          persistEditMode(
+                            editMode === "source" ? "wysiwyg" : "source",
+                          )
+                        }
+                        className="flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
+                        title={
+                          editMode === "source"
+                            ? t("editor.toWysiwyg")
+                            : t("editor.toSource")
+                        }
+                      >
+                        {editMode === "source" ? (
+                          <PencilSimple size={14} />
+                        ) : (
+                          <Code size={14} />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                  {pluginToast && (
+                    <div className="absolute bottom-2 left-1/2 z-30 -translate-x-1/2 rounded bg-mantle px-3 py-1.5 text-[12px] text-text shadow border border-crust">
+                      {pluginToast}
+                    </div>
+                  )}
+                  {findOpen && !isSpecialFile && state.currentPath !== null && (
                     <FindBar
                       query={findQuery}
                       onQueryChange={setFindQuery}
@@ -553,6 +908,7 @@ export default function App() {
               onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
               noteTitles={noteTitles}
               typeOptions={typeOptions}
+              vaultNodes={state.snapshot?.nodes ?? []}
               t={t}
             />
           </div>
@@ -572,10 +928,13 @@ export default function App() {
         open={paletteOpen}
         onOpenChange={(open) => {
           setPaletteOpen(open);
-          // 关闭时复位 mode,避免下次 ⌘K 仍是 quickOpen。
           if (!open) setPaletteMode("commands");
         }}
         snapshot={state.snapshot}
+        entryPaths={state.entries
+          .filter((e) => !e.is_dir)
+          .map((e) => e.path)}
+        recentPaths={state.openPaths}
         actions={actions}
         onNewNote={openNewNote}
         onNewCanvas={openNewCanvas}
@@ -584,6 +943,31 @@ export default function App() {
         }}
         t={t}
         mode={paletteMode}
+        commandExtras={commandExtras}
+      />
+
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={{
+          theme,
+          locale,
+          defaultEditMode: editMode,
+          attachmentsDir,
+          editorLayout,
+        }}
+        onChange={(patch) => {
+          if (patch.theme) setTheme(patch.theme);
+          if (patch.locale) setLocale(patch.locale);
+          if (patch.defaultEditMode) persistEditMode(patch.defaultEditMode);
+          if (patch.attachmentsDir != null) {
+            persistAttachmentsDir(patch.attachmentsDir);
+          }
+          if (patch.editorLayout != null) {
+            setEditorLayout(patch.editorLayout);
+          }
+        }}
+        t={t}
       />
     </div>
   );
