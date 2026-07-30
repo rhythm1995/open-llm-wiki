@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-07-30 Grok — 文档同步:§A 收口 + 编辑器/菜单缺口入 backlog
+
+- **branch**: `feat/phase1-core`。
+- **做了**(仅文档):
+  1. `backlog.md` 重写:§A 全 ✅;新增 **§C 编辑器** / **§D 菜单与命令**;删过时「LAYOUT-UI ⏳」;建议顺序改为菜单+编辑器优先。
+  2. `deferred.md`:§A 标已落地;新增「编辑器与菜单」诚实评估。
+  3. `04-features` / `06-roadmap` / `02` / `docs/README`:F-EDITOR/PALETTE/菜单状态改为 🟡 并指 backlog。
+- **下一步**:实现 B-PALETTE-EXPAND + B-ED-CTX-MENU 等(若产品开干)。
+
 ### 2026-07-30 Grok — backlog §A 全落地(类型文档/图谱多布局/QQL 扩展)
 
 - **branch**: `feat/phase1-core`。

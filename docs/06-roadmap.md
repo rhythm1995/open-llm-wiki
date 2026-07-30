@@ -121,22 +121,19 @@ Tauri 2 外壳 + React 19:
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
-| F-GIT | ✅ | commit/log/pull/push/归档 git。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;完整 MCP ⏳ B-MCP。 |
+| F-GIT | ✅ | commit/log/pull/push/归档。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP ⏳ B-MCP。 |
 | F-L10N | ✅ | zh/en。 |
-| F-CANVAS(Excalidraw) | ✅ | MIT;旧 tldraw 只读。 |
-| F-SHEET | ⏳ | B-SHEET。 |
-| F-PLUGIN | ⏳ | B-PLUGIN。 |
-| BlockNote 双模 | 🟡 | 可用;保真 B-BN-FIDELITY。 |
-| 图谱 WebGL 栈 | ✅ 主路径 | 真机帧率 B-GRAPH-FPS;多布局 B-GRAPH-*。 |
-| 类型文档 | ⏳ | B-TYPE-DOC(原 v1 不做 → 现待办)。 |
-| 图谱分层/时间轴 | ⏳ | B-GRAPH-LAYER / B-GRAPH-TIME。 |
-| QQL 扩展 | ⏳ | B-QQL-EXPAND。 |
+| F-CANVAS | ✅ | Excalidraw MIT。 |
+| F-SHEET / F-PLUGIN | ⏳ | B-SHEET / B-PLUGIN。 |
+| 编辑器双模 | 🟡 | 可用;打磨 §C(格式条/右键/查找/qql 对齐)+ 保真 B-BN-FIDELITY。 |
+| 菜单与命令 | 🟡 | 无系统菜单;⌘K 薄;Nav/Tab/编辑器右键缺 → §D。 |
+| 图谱 | ✅ | WebGL+多布局;真机帧率 B-GRAPH-FPS。 |
+| 类型文档 / QQL 扩展 | ✅ | §A 已落地。 |
 | Live 索引 + ⌘F/⌘P | ✅ | |
-| 打包与分发 | 🟡 | CI/本地 dmg ✅;签名/Updater 🔑。 |
-| saved query / 恢复上次笔记 | ✅ | |
+| 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑。 |
 
-**原则**:不塞空心 stub;原 v1 边界三项已纳入 backlog,要做。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。下一优先:**菜单/命令 + 编辑器打磨**(见 [backlog](./backlog.md) 建议顺序),再大件。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

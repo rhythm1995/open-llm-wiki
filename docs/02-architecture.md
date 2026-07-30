@@ -13,7 +13,7 @@
 | 前端 | **React 19.1 + TypeScript 5.9 + Vite 7** | 生态成熟、类型安全。 |
 | 样式 | **Tailwind CSS 4**(`@tailwindcss/vite`)+ 语义令牌 | 原子化样式;主题靠 `@theme` 的 CSS 变量切换,组件只引用令牌。 |
 | UI 组件 | **少量 Radix**(dialog / dropdown-menu / tabs / tooltip)+ **shadcn 模式**(cva/clsx/tailwind-merge)+ **Phosphor icons** | 无障碍的交互组件用 Radix;展示型组件自实现,降依赖体积。 |
-| 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。round-trip 保真见 [deferred](./deferred.md)。ReadingView(marked + DOMPurify)。 |
+| 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。**打磨缺口**(格式条/右键/双模查找·qql/保真)见 [backlog §C](./backlog.md)。ReadingView(marked + DOMPurify)。 |
 | 图谱渲染 | **sigma.js WebGL** + graphology + Worker FR + Barnes-Hut + LOD;无 WebGL → SVG | 功能齐;真机万级帧率见 [deferred](./deferred.md)。 |
 | 阅读渲染 | **marked 18 + DOMPurify 3** | Markdown → HTML + sanitize;F-READING 安全加固。 |
 | Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |

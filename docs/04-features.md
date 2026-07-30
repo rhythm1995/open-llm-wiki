@@ -69,36 +69,37 @@
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|
-| F-EDITOR | 编辑器 | P0 | ✅ | CodeMirror 源码 + **BlockNote WYSIWYG** 双模(同一 `.md`);ReadingView(marked+DOMPurify)。round-trip 保真子集见 [deferred](./deferred.md)。 |
-| F-VAULT | vault 管理 | P0 | ✅ | 打开/切换;LiveVault 增量索引;忽略 `.git` 等。 |
-| F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | `[[link]]` 解析、补全、点击跳转;反向链接实时。 |
-| F-FILETREE | 文件浏览 | P0 | ✅ | Nav(VIEWS/TYPES/**TAGS**/FOLDERS)+ NoteListView;新建/重命名/删除/**拖拽移动**。 |
-| F-SEARCH | 全文/查找 | P0 | ✅ | ⌘F FindBar(CM 高亮 / wysiwyg window.find);⌘P 快速打开;⌘K 命令。无独立搜索视图。 |
-| F-PROPERTIES | 属性面板 | P1 | ✅ | frontmatter 可视化编辑。 |
-| F-STATUS | status chip | P1 | ✅ | status 彩色 chip + 右键切状态。 |
-| F-TAGS | 标签 | P1 | ✅ | `#tag` + frontmatter tags;Nav **TAGS** 分组过滤列表。 |
-| F-PALETTE | 命令面板 | P1 | ✅ | ⌘K;含刷新索引等。 |
-| F-TABS | 多标签 | P1 | ✅ | 开/关/循环/拖拽重排。 |
-| F-TEMPLATES | 模板 | P2 | ✅ | `templates/` + `{{title}}`/`{{date}}`。 |
-| F-THEMES | 主题 | P2 | ✅ | 深/浅 CSS 变量。 |
-| F-GIT | git 集成 | P2 | ✅ | status/log/commit;**pull/push** + 冲突横幅;删除归档走 git + restore。 |
-| F-TRASH | ~~回收站~~ | P2 | ➡️ 取代 | 归档并入 git。 |
-| F-AI | AI 上下文 + MCP | P2 | 🟡 | 读侧「复制 AI 上下文」✅;完整 MCP server 延后(见 [deferred](./deferred.md))。 |
+| F-EDITOR | 编辑器 | P0 | 🟡 | 双模可用(CM source + BlockNote wysiwyg);**打磨缺口**见 [backlog §C](./backlog.md):格式条、正文右键、双模查找/qql 对齐、保真测试。 |
+| F-VAULT | vault 管理 | P0 | ✅ | 打开/切换;LiveVault 增量索引。 |
+| F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | 解析、补全、点击跳转;反向链接实时。 |
+| F-FILETREE | 文件浏览 | P0 | 🟡 | Nav+列表+拖拽移动 ✅;Nav **右键菜单** ⏳ B-NAV-CTX。 |
+| F-SEARCH | 全文/查找 | P0 | 🟡 | ⌘F/⌘P ✅;wysiwyg 查找与 source 不齐 ⏳ B-ED-FIND-PARITY。 |
+| F-PROPERTIES | 属性面板 | P1 | ✅ | frontmatter 可视化;类型说明提示。 |
+| F-STATUS | status chip | P1 | ✅ | chip + 列表右键切状态。 |
+| F-TAGS | 标签 | P1 | ✅ | 解析 + Nav TAGS。 |
+| F-PALETTE | 命令面板 | P1 | 🟡 | ⌘K 有基础命令;**过瘦** ⏳ B-PALETTE-EXPAND。 |
+| F-TABS | 多标签 | P1 | 🟡 | 开/关/循环/拖拽 ✅;Tab 右键 ⏳ B-TAB-CTX。 |
+| F-TEMPLATES | 模板 | P2 | ✅ | |
+| F-THEMES | 主题 | P2 | ✅ | 深/浅;无独立设置页 ⏳ B-SETTINGS。 |
+| F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
+| F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
+| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP 写侧 ⏳ B-MCP。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
-| F-CANVAS | canvas 画布 | P3 | ✅ | **Excalidraw(MIT)**;旧 tldraw 只读。 |
-| F-SHEET | 表格 | P3 | ⏳ | 见 [deferred](./deferred.md)。 |
-| F-PLUGIN | 插件 API | P3 | ⏳ | 见 [deferred](./deferred.md)。 |
+| F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
+| F-SHEET | 表格 | P3 | ⏳ | B-SHEET。 |
+| F-PLUGIN | 插件 | P3 | ⏳ | B-PLUGIN。 |
+| F-APP-MENU | 系统菜单栏 | P2 | ⏳ | B-APP-MENU;现靠快捷键+顶栏+⌘K。 |
 
-## 范围说明(边界已放宽)
+## 范围说明
 
-**已交付核心**:F-VAULT + F-EDITOR + F-WIKILINK + F-FILETREE + F-SEARCH + **F-GRAPH** + **F-QUERY** + F-TYPE + F-PROPERTIES + F-STATUS + F-PALETTE + F-TABS + 主题 + 模板 + git + L10N + 画布 + 标签区/拖拽/pull 等。
+**已交付核心**:vault / 双模编辑(可用) / wikilink / 列表+标签 / **图谱**(含多布局) / **QQL**(含扩展) / 类型文档提示 / git / 画布 / L10N / live 索引 等。
 
-**原「v1 刻意不做」§A 已落地**(见 [backlog](./backlog.md)):
+**原 v1 边界 §A** ✅ 类型文档 · 图谱分层/时间轴 · QQL CONTAINS/IN 等。
 
-| 原边界 | 现状态 |
-|---|---|
-| 类型文档 | ✅ 仅 UI 提示,不锁 schema |
-| 图谱 type 分层 / 时间轴 | ✅ + 布局切换 UI |
-| QQL 扩展 | ✅ CONTAINS/STARTSWITH/ENDSWITH/IN |
+**当前最大产品缺口**(优先于表格/插件):
 
-**仍大件未做**:F-SHEET · F-PLUGIN · 完整 MCP · 签名分发等 → [backlog](./backlog.md) §B–D;[deferred](./deferred.md) 写难点。
+1. **编辑器打磨** — backlog §C  
+2. **菜单与命令** — backlog §D(系统菜单 / ⌘K 扩面 / Nav·Tab·编辑器右键)  
+3. **大件** — MCP · 插件 · 表格 · 签名分发  
+
+完整 ID 表 → [backlog.md](./backlog.md)。

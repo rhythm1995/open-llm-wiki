@@ -11,8 +11,8 @@
 | [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试金字塔、红绿循环、覆盖率门槛 |
 | [06-roadmap.md](./06-roadmap.md) | 分阶段交付;"全部功能"如何被切成可完成的里程碑 |
 | [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
-| [**backlog.md**](./backlog.md) | **未完成清单总表**(还没做的有哪些;含原 v1 边界改待办) |
-| [deferred.md](./deferred.md) | 未做项的难点 / 前置 / 为什么难 |
+| [**backlog.md**](./backlog.md) | **未完成清单总表**(§A 已齐;§C 编辑器 / §D 菜单为当前产品优先) |
+| [deferred.md](./deferred.md) | 难点 / 前置;含编辑器与菜单诚实评估 |
 | [open-questions.md](./open-questions.md) | 待拍板决策 |
 
 ## 一句话定位
@@ -24,7 +24,7 @@
 - 想了解**为什么造**:从 [01-vision](./01-vision.md) 开始。
 - 想动手**写代码**:先 [02-architecture](./02-architecture.md) + [05-tdd-strategy](./05-tdd-strategy.md),再看 [06-roadmap](./06-roadmap.md) 当前阶段。
 - 想知道**功能规格**:[04-features](./04-features.md)。
-- 想知道**还没做完什么**:直接看 [backlog](./backlog.md)。
+- 想知道**还没做完什么**:[backlog](./backlog.md)(编辑器/菜单缺口在 §C–D)。
 
 ## 法律状态(摘要)
 

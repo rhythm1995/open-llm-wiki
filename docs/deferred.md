@@ -7,28 +7,49 @@
 
 ---
 
-## 🟡 原 v1 边界 → 现待办(概要)
+## ✅ ~~原 v1 边界三项~~(已落地)
 
-> 产品决定:下列三项**要做**。细节与 ID 见 [backlog §A](./backlog.md)。
-
-| 项 | backlog ID | 要点 |
+| 项 | backlog | 落地 |
 |---|---|---|
-| 类型文档 | B-TYPE-DOC | UI 提示 only;type 仍永不强制 |
-| 图谱 type 分层 / 时间轴 | B-GRAPH-LAYER / B-GRAPH-TIME | 力导向仍默认;可切换 |
-| QQL 扩展 | B-QQL-EXPAND | Dataview **常用**子集,非全语法兼容 |
+| 类型文档 | B-TYPE-DOC | Inspector 提示;`types/{Type}.md` |
+| 图谱分层/时间轴 + UI | B-GRAPH-* | `graph-modes` + GraphView select |
+| QQL 扩展 | B-QQL-EXPAND | CONTAINS/STARTSWITH/ENDSWITH/IN |
+
+---
+
+## 🟡 编辑器与菜单(产品打磨 · 非空 stub)
+
+> 总表见 [backlog §C–D](./backlog.md)。此处记**现状 / 难在哪 / 做扎实需要什么**。
+
+### 编辑器
+
+- **现状**:CodeMirror **source** + BlockNote **wysiwyg** 双模,同一 `.md`;`[[` 补全/跳转;source 有 qql-widget 与 ⌘F(CM search);wysiwyg 有 chip/`[[` 建议菜单。
+- **难在哪 / 缺口**:
+  1. **保真**(B-BN-FIDELITY):BlockNote JSON↔md 有损子集;缺差分测试集与禁用特性表。
+  2. **双模不齐**:qql 仅 source 实时 widget;⌘F 在 wysiwyg 走 `window.find()`。
+  3. **写作台感不足**:source 无格式工具条/产品化 slash;正文无 app 级右键;图片粘贴/预览弱。
+  4. **模式心智**:切换入口偏隐,无「有损风险」提示。
+- **做扎实需要**:先 B-ED-CTX-MENU + B-PALETTE-EXPAND(体感);再 B-ED-FMT-BAR / FIND-PARITY / QQL-WYSIWYG;并行 B-BN-FIDELITY 测试门禁。
+
+### 菜单与命令
+
+- **现状**:⌘K 薄命令集;列表行/图谱节点有 ContextMenu;顶栏视图切换 + 三栏显隐。
+- **难在哪 / 缺口**:
+  1. **无系统应用菜单**(B-APP-MENU):File/Edit/View 桌面惯例缺失。
+  2. **⌘K 过瘦**(B-PALETTE-EXPAND):缺模式切换、保存、归档、Reveal、主题/语言、快捷键标注。
+  3. **右键覆盖不均**:编辑器正文 / Nav 树 / Tab 栏无菜单。
+  4. **无设置页**(B-SETTINGS)。
+- **做扎实需要**:Tauri menu 插件或先把动作全挂进 palette;ContextMenu 扩到 Nav/Tab/Editor;设置可用 localStorage 键聚合起步。
 
 ---
 
 ## 🟡 图谱大图性能(>400 → 万级)—— **功能+打磨已齐 · 真机帧率验收仍开放**
 
 - **已落地**:
-  1. `graph-model.ts` —— path-stable 主键 + degree + structureSig + topK + pin path
-  2. `graph-layout` —— FR + **Barnes-Hut**(n≥280);Worker;`graph-layout-budget` 增量迭代
-  3. `graph-lod.ts` —— 网格聚类 + 簇间边 + 点簇飞入
-  4. **sigma + graphology** WebGL;无 GL → SVG
-  5. 交互双路径:拖拽/pin/框选/邻域压暗/悬空边 ghost/右键
-  6. **`graph-label.ts` 标签避让**(屏坐标贪心占格)
-- **仅真机验收(不阻塞)**:1k ≥30fps / 5k / 10k LOD 帧率。基准:`tools/gen-benchmark-vault.mjs`。
+  1. `graph-model` / Worker FR / Barnes-Hut / LOD / sigma WebGL / 标签避让 / 增量预算
+  2. 多布局:力导向 + type 分层 + 时间轴 + UI 切换
+  3. 交互双路径:拖拽/pin/框选/邻域/ghost/右键
+- **仅真机验收(不阻塞)**:1k ≥30fps / 5k / 10k LOD。基准:`tools/gen-benchmark-vault.mjs`。
 
 ## ✅ ~~图谱右键菜单~~(已落地)
 
