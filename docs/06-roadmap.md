@@ -122,10 +122,10 @@ Tauri 2 外壳 + React 19:
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP ⏳ B-MCP。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。 |
-| F-SHEET / F-PLUGIN | ⏳ | B-SHEET / B-PLUGIN。 |
+| F-SHEET / F-PLUGIN | 🟡 | v1 表格+插件宿主 ✅;见 docs/09。 |
 | 编辑器双模 | 🟡 | 可用;打磨 §C(格式条/右键/查找/qql 对齐)+ 保真 B-BN-FIDELITY。 |
 | 菜单与命令 | 🟡 | 无系统菜单;⌘K 薄;Nav/Tab/编辑器右键缺 → §D。 |
 | 图谱 | ✅ | WebGL+多布局;真机帧率 B-GRAPH-FPS。 |

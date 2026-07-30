@@ -28,7 +28,7 @@ const nodes: MockQqlNode[] = [
   },
 ];
 
-describe("mockEvalQql", () => {
+describe("mockEvalQql (delegates to QQL-TS)", () => {
   it("WHERE type + List", () => {
     const r = mockEvalQql(`WHERE type = "Concept"`, nodes);
     expect(r).toEqual({ List: [1, 3] });
@@ -39,13 +39,13 @@ describe("mockEvalQql", () => {
     expect(r).toEqual({ List: [1] });
   });
 
-  it("COUNT", () => {
-    const r = mockEvalQql(`WHERE type = "Concept" COUNT`, nodes);
+  it("RENDER count", () => {
+    const r = mockEvalQql(`WHERE type = "Concept" RENDER count`, nodes);
     expect(r).toEqual({ Count: 2 });
   });
 
-  it("GROUP BY type", () => {
-    const r = mockEvalQql(`GROUP BY type`, nodes);
+  it("RENDER group_by(type)", () => {
+    const r = mockEvalQql(`RENDER group_by(type)`, nodes);
     expect(r).toHaveProperty("Groups");
     if ("Groups" in r) {
       expect(r.Groups.find((g) => g.key === "Concept")?.count).toBe(2);
@@ -64,8 +64,8 @@ describe("mockEvalQql", () => {
     });
   });
 
-  it("tag 过滤", () => {
-    const r = mockEvalQql(`WHERE tags = "x"`, nodes);
+  it("#tag 过滤", () => {
+    const r = mockEvalQql(`WHERE #x`, nodes);
     expect(r).toEqual({ List: [1, 3] });
   });
 
@@ -80,17 +80,19 @@ describe("mockEvalQql", () => {
     expect(mockEvalQql(`WHERE title CONTAINS "A"`, nodes)).toEqual({
       List: [1],
     });
-    expect(mockEvalQql(`WHERE path STARTSWITH "a"`, nodes)).toEqual({
-      List: [1],
+    expect(mockEvalQql(`WHERE path STARTSWITH "b"`, nodes)).toEqual({
+      List: [2],
     });
   });
 
   it("AND / OR", () => {
     expect(
-      mockEvalQql(`WHERE type = "Concept" AND tags = "x"`, nodes),
-    ).toEqual({ List: [1, 3] });
-    expect(
-      mockEvalQql(`WHERE type = "Note" OR title CONTAINS "A"`, nodes),
-    ).toEqual({ List: [2, 1] });
+      mockEvalQql(`WHERE type = "Concept" AND #z`, nodes),
+    ).toEqual({ List: [3] });
+    const or = mockEvalQql(
+      `WHERE type = "Note" OR status = "Draft"`,
+      nodes,
+    );
+    expect(or).toEqual({ List: [2, 3] });
   });
 });

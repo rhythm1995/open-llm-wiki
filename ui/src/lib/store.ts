@@ -496,6 +496,44 @@ export function useVault() {
     [refreshIndex],
   );
 
+  /**
+   * 新建表格(F-SHEET):写默认 `.sheet` JSON 并打开。
+   * 与 canvas 同路径策略,不进笔记索引。
+   */
+  const createSheet = useCallback(
+    async (name: string) => {
+      const root = latest.current.root;
+      if (!root) return;
+      const { emptySheetContent } = await import("./sheet");
+      const path = name.toLowerCase().endsWith(".sheet") ? name : `${name}.sheet`;
+      try {
+        await ipc.createNote(root, path, emptySheetContent());
+        const entries = await ipc.listVault(root);
+        navHistory.current = recordNavigation(
+          navHistory.current,
+          latest.current.path,
+          path,
+        );
+        bumpNav();
+        const content = emptySheetContent();
+        setState((s) => ({
+          ...s,
+          entries,
+          currentPath: path,
+          openPaths: s.openPaths.includes(path)
+            ? s.openPaths
+            : [...s.openPaths, path],
+          content,
+          dirty: false,
+        }));
+        await refreshIndex(root);
+      } catch (e) {
+        setState((s) => ({ ...s, error: String(e) }));
+      }
+    },
+    [refreshIndex],
+  );
+
   const deleteNote = useCallback(
     async (path: string) => {
       const root = latest.current.root;
@@ -858,6 +896,7 @@ export function useVault() {
       createNoteFromTemplate,
       createDraftNote,
       createCanvas,
+      createSheet,
       deleteNote,
       renameNote,
       moveNote,

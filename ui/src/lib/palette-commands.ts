@@ -19,8 +19,10 @@ import {
   Moon,
   PencilSimple,
   Plus,
+  PuzzlePiece,
   Rectangle,
   Sun,
+  Table,
   TextT,
   Gear,
   Translate,
@@ -48,8 +50,12 @@ export interface PaletteCommandDeps {
   openPicker: () => void;
   onNewNote: () => void;
   onNewCanvas: () => void;
+  /** 新建 .sheet 表格。 */
+  onNewSheet?: () => void;
   onNavigate: (v: MainViewId) => void;
   refreshIndex: () => void;
+  /** 插件注册的命令(F-PLUGIN v1)。 */
+  pluginCommands?: { id: string; label: string; run: () => void }[];
   /** 立即保存。 */
   saveNow?: () => void;
   /** 打开文档内查找。 */
@@ -115,6 +121,23 @@ export function buildPaletteCommands(
       run: () => refreshIndex(),
     },
   ];
+
+  if (deps.onNewSheet) {
+    cmds.push({
+      id: "new-sheet",
+      label: t("palette.action.newSheet"),
+      icon: Table as PaletteIcon,
+      run: () => deps.onNewSheet!(),
+    });
+  }
+  for (const pc of deps.pluginCommands ?? []) {
+    cmds.push({
+      id: `plugin:${pc.id}`,
+      label: pc.label,
+      icon: PuzzlePiece as PaletteIcon,
+      run: () => pc.run(),
+    });
+  }
 
   if (deps.saveNow) {
     cmds.push({

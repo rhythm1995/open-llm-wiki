@@ -69,19 +69,15 @@
 - **做扎实需要**:保真差分测试集 + 明确禁用特性表;长文档性能基线。
 - **前置**:测试集 + 基线(非阻塞日常使用)。
 
-## 🔴 F-SHEET(ironcalc 嵌入式表格)
+## 🟡 F-SHEET v1 已落地 · 深化项
 
-- **现状**:延后。
-- **难在哪**:npm 上只发布了 `@ironcalc/wasm` 引擎,**没有 React UI**;自己造表格 UI 是周级以上工程(行列寻址、公式栏、选区、复制粘贴语义、冻结行列、溢出渲染、图表)。
-- **做扎实需要**:等 ironcalc 的 React 组件正式发布;或自研 UI 壳(消费 wasm 引擎的 cells/formulas)。文件格式(嵌入 .md 还是独立 .sheet)也要定。
-- **前置**:ironcalc React 组件可用性复核;若不可用,评估是否自研或换库(如 x-spreadsheet 等)。
+- **已落地**:独立 `.sheet` JSON + `SheetView` 网格 + 基础公式(`+ - * /`、引用、括号、环检测);⌘K 新建。见 [09](./09-big-features-v1.md)。
+- **未做**:ironcalc、图表、冻结窗格、嵌入 md、多 sheet、协作。
 
-## 🔴 F-PLUGIN(插件系统)
+## 🟡 F-PLUGIN v1 已落地 · 深化项
 
-- **现状**:延后。
-- **难在哪**:"插件系统"不是注册器,是**对外 API 契约 + 沙箱 + 生命周期 + 分发 + 安全模型**的整套。空心注册器是反价值占位。①API 表面:暴露哪些内部能力(笔记读写、图谱、命令注册、设置、事件);②沙箱:Web Worker / iframe / QuickJS,插件崩溃不能拖垮主进程;③生命周期:install/enable/disable/uninstall + 数据迁移;④分发与版本:清单文件、语义版本、依赖;⑤安全:第三方插件不能任意访问文件系统。
-- **做扎实需要**:先把 v1 内部 API 固化稳定,再谈对外暴露的子集;定插件清单格式;选沙箱方案并写 PoC。
-- **前置**:v1 内部能力稳定 + 一份"插件能做什么/不能做什么"的权限清单。
+- **已落地**:`plugin.json` 清单 + 权限白名单 + iframe sandbox + `commands.register` → ⌘K;示例 hello 插件。
+- **未做**:从 vault `.openobs/plugins/` 扫描加载 UI、生命周期面板、签名/商店、notes.read 真读、热更新。
 
 ## 🟡 打包与分发(macOS / Windows / Linux)
 
@@ -107,8 +103,8 @@
   路径,语义最干净,避免 App 侧"默认选择 vs 用户选择"无法区分的死结);命中且仍存在才恢复,
   否则回退首个 `.md`。纯逻辑 `last-note.ts`(6 单测)。
 
-## 🔴 完整 MCP server(F-AI 写侧)
+## 🟡 MCP server v1 已落地 · 深化项
 
-- **现状**:读侧"复制为 AI 上下文"已落地(当前笔记 + 邻居正文拼成 LLM 友好 markdown 入剪贴板)。
-- **难在哪**:完整 MCP server 是让 **agent 反向读写 vault** 的独立工程——stdio / HTTP 的 JSON-RPC、tools 注册(read_note / write_note / search / query / list)、资源订阅、**权限模型**(哪个 client 可写)、并发写冲突。
-- **做扎实需要**:复用 `openobs-core` 的纯逻辑;定 server 传输与 tools 表面;权限白名单;不在此仓促做空心 stub。
+- **已落地**:workspace 成员 `mcp/`(`openobs-mcp`)stdio JSON-RPC;tools:`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`;复用 `openobs-core`。
+- **用法**:`cargo run -p openobs-mcp -- /path/to/vault` 或 `OPENOBS_VAULT=...`。
+- **未做**:HTTP 传输、OAuth、resources 订阅、写冲突策略、细粒度 ACL。

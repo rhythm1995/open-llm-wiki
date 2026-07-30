@@ -15,6 +15,19 @@
 
 ---
 
+### 2026-07-30 Grok — 大件 v1:QQL-TS / MCP / PLUGIN / SHEET
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 方案 [docs/09-big-features-v1.md](docs/09-big-features-v1.md)。
+  2. **B-QQL-TS**:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 改走 TS。
+  3. **B-MCP**:`mcp/` crate `openobs-mcp` stdio tools(list/read/write/search/qql)。
+  4. **B-PLUGIN**:manifest + 权限 + iframe 示例插件 → ⌘K 命令。
+  5. **B-SHEET**:`.sheet` schema + SheetView 网格 + 基础公式;store/App 路由。
+  6. backlog §B 四项 ✅(v1);deferred/04/README 同步。
+- **验证**:ui typecheck + **491** tests;cargo check openobs-mcp。
+- **下一步**:插件 vault 扫描 UI;MCP 接 Claude Desktop 配置样例;sheet 深化或差分 QQL。
+
 ### 2026-07-30 Grok — 附件媒体 v1 + 并排阅读预览(B-ED-MEDIA / B-ED-READING)
 
 - **branch**: `feat/phase1-core`。

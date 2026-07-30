@@ -33,6 +33,16 @@ import { usePersistentState } from "./lib/usePersistentState";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
+import { isSheetPath } from "./lib/sheet";
+import {
+  collectPluginCommands,
+  loadPluginFromManifest,
+  parsePluginMessage,
+  registerPluginCommand,
+  sampleHelloMainSource,
+  sampleHelloManifest,
+  type PluginCommand,
+} from "./lib/plugin-host";
 import { writeLastPath, readLastRoot, clearLastRoot } from "./lib/last-note";
 import {
   EDIT_MODE_KEY,
@@ -55,6 +65,9 @@ import { Columns, Code, PencilSimple, Warning, X } from "@phosphor-icons/react";
 // 不开画布就不下载该 chunk。
 const CanvasView = lazy(() =>
   import("./components/CanvasView").then((m) => ({ default: m.CanvasView })),
+);
+const SheetView = lazy(() =>
+  import("./components/SheetView").then((m) => ({ default: m.SheetView })),
 );
 
 export default function App() {
@@ -154,6 +167,50 @@ export default function App() {
   });
   // 当前页是否为画布(.canvas / Excalidraw):是则中栏渲染 CanvasView,隐藏编辑/阅读切换与属性面板。
   const isCanvas = state.currentPath !== null && isCanvasPath(state.currentPath);
+  const isSheet =
+    state.currentPath !== null && isSheetPath(state.currentPath);
+  const isSpecialFile = isCanvas || isSheet;
+
+  // F-PLUGIN v1:示例插件 + 命令表(沙箱 iframe 注册)。
+  const [pluginCommands, setPluginCommands] = useState<PluginCommand[]>([]);
+  const [pluginToast, setPluginToast] = useState<string | null>(null);
+  useEffect(() => {
+    // 启动时挂载示例插件(manifest 内嵌;不写盘)。后续可从 vault 加载。
+    let plugin = loadPluginFromManifest(sampleHelloManifest());
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("sandbox", "allow-scripts");
+    iframe.style.display = "none";
+    iframe.title = "openobs-plugin-hello";
+    document.body.appendChild(iframe);
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.source !== iframe.contentWindow) return;
+      const msg = parsePluginMessage(ev.data);
+      if (!msg) return;
+      if (msg.type === "registerCommand") {
+        plugin = registerPluginCommand(plugin, {
+          id: msg.id,
+          label: msg.label,
+        });
+        setPluginCommands(collectPluginCommands([plugin]));
+      } else if (msg.type === "notify") {
+        setPluginToast(msg.message);
+        window.setTimeout(() => setPluginToast(null), 2500);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    const doc = iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(
+        `<script>${sampleHelloMainSource().replace(/<\/script>/gi, "<\\/script>")}</script>`,
+      );
+      doc.close();
+    }
+    return () => {
+      window.removeEventListener("message", onMsg);
+      iframe.remove();
+    };
+  }, []);
   // vault 显示名(顶栏列表表头与无 vault 入口共用)。
   const vaultName = state.root
     ? state.root.replace(/\/+$/, "").split("/").pop() || state.root
@@ -164,7 +221,7 @@ export default function App() {
   // 第二栏(列表)独立于第三栏视图:切图谱/git/搜索/查询时列表保留,只第三栏内容换。
   // 除非用户本就关了列表(listOpen=false)。——任务4:视图切换不再吞掉第二栏。
   const showList = listOpen && hasVault;
-  const showProps = propsOpen && view === "editor" && !isCanvas;
+  const showProps = propsOpen && view === "editor" && !isSpecialFile;
 
   // 顶栏居中标签:editor 视图取当前 Nav 选择(全部笔记/收件箱/某类型/…);
   // 其余视图取视图名(图谱/查询/搜索/Git)。App 端算好,CenterToolbar 只渲染。
@@ -202,6 +259,12 @@ export default function App() {
   const handleNewCanvas = useCallback(() => {
     const name = window.prompt(t("canvas.namePrompt"), "whiteboard");
     if (name && name.trim()) void actions.createCanvas(name.trim());
+  }, [actions, t]);
+
+  /** 新建表格(F-SHEET):询问名称后建 `.sheet`。 */
+  const handleNewSheet = useCallback(() => {
+    const name = window.prompt(t("sheet.namePrompt"), "table");
+    if (name && name.trim()) void actions.createSheet(name.trim());
   }, [actions, t]);
 
   /**
@@ -255,6 +318,11 @@ export default function App() {
     if (state.root) handleNewCanvas();
     else void actions.openPicker();
   }, [state.root, actions, handleNewCanvas]);
+
+  const openNewSheet = useCallback(() => {
+    if (state.root) handleNewSheet();
+    else void actions.openPicker();
+  }, [state.root, actions, handleNewSheet]);
 
   /**
    * 选中某 Nav 项(智能视图含 Archive / type / folder / query):设 navSelection **并
@@ -314,7 +382,7 @@ export default function App() {
   /** 打开文档内查找:进 editor、必要时切 source 以启用 CM 全文高亮。 */
   const openFind = useCallback(() => {
     const path = pathRef.current;
-    if (!path || isCanvasPath(path)) return;
+    if (!path || isCanvasPath(path) || isSheetPath(path)) return;
     setView("editor");
     const mode = editModeRef.current;
     if (mode !== "source") {
@@ -360,7 +428,9 @@ export default function App() {
       },
       editorLayout,
       hasCurrentNote:
-        !!state.currentPath && !isCanvasPath(state.currentPath ?? ""),
+        !!state.currentPath &&
+        !isCanvasPath(state.currentPath ?? "") &&
+        !isSheetPath(state.currentPath ?? ""),
       archiveCurrent: () => {
         const p = state.currentPath;
         if (p) void actions.deleteNote(p);
@@ -370,6 +440,15 @@ export default function App() {
         const p = state.currentPath;
         if (root && p && !ipc.isMock()) void ipc.revealInFinder(root, p);
       },
+      onNewSheet: openNewSheet,
+      pluginCommands: pluginCommands.map((c) => ({
+        id: c.id,
+        label: c.label,
+        run: () => {
+          setPluginToast(t("plugin.ran", { name: c.label }));
+          window.setTimeout(() => setPluginToast(null), 2000);
+        },
+      })),
     }),
     [
       actions,
@@ -384,6 +463,9 @@ export default function App() {
       toggleSplit,
       editorLayout,
       setEditorLayout,
+      openNewSheet,
+      pluginCommands,
+      t,
     ],
   );
 
@@ -641,6 +723,21 @@ export default function App() {
                         t={t}
                       />
                     </Suspense>
+                  ) : isSheet ? (
+                    <Suspense
+                      fallback={
+                        <div className="flex h-full items-center justify-center text-[13px] text-overlay">
+                          {t("sheet.loading")}
+                        </div>
+                      }
+                    >
+                      <SheetView
+                        key={state.currentPath}
+                        content={state.content}
+                        onSave={actions.setContent}
+                        t={t}
+                      />
+                    </Suspense>
                   ) : editMode === "source" ? (
                     <div
                       className={
@@ -697,7 +794,7 @@ export default function App() {
                       t={t}
                     />
                   )}
-                  {modeHint && !isCanvas && (
+                  {modeHint && !isSpecialFile && (
                     <div
                       data-testid="mode-fidelity-hint"
                       className="absolute bottom-2 left-2 right-2 z-20 rounded border border-yellow/40 bg-mantle/95 px-2.5 py-1.5 text-[11px] text-subtext shadow"
@@ -705,7 +802,7 @@ export default function App() {
                       {modeHint}
                     </div>
                   )}
-                  {!isCanvas && state.currentPath !== null && (
+                  {!isSpecialFile && state.currentPath !== null && (
                     <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
                       {editMode === "source" && (
                         <button
@@ -744,7 +841,12 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                  {findOpen && !isCanvas && state.currentPath !== null && (
+                  {pluginToast && (
+                    <div className="absolute bottom-2 left-1/2 z-30 -translate-x-1/2 rounded bg-mantle px-3 py-1.5 text-[12px] text-text shadow border border-crust">
+                      {pluginToast}
+                    </div>
+                  )}
+                  {findOpen && !isSpecialFile && state.currentPath !== null && (
                     <FindBar
                       query={findQuery}
                       onQueryChange={setFindQuery}

@@ -21,15 +21,15 @@
 
 ---
 
-## B. 产品大件(未做)
+## B. 产品大件
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ⏳ | ironcalc 仅 wasm、无 React UI;或换库/自研 |
-| B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⏳ | API + 沙箱 + 生命周期 + 分发 + 安全 |
-| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ⏳ | 读侧「复制 AI 上下文」✅;agent 读写 vault 未做 |
+| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v1:`.sheet` JSON + 网格 + `=A1+B1` 公式;见 [09](./09-big-features-v1.md) |
+| B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ✅ | v1:manifest + 权限白名单 + iframe 沙箱 + ⌘K 注册;无商店/签名 |
+| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | v1:`openobs-mcp` stdio JSON-RPC;list/read/write/search/qql |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 轻量门禁:`blocknote-fidelity` 安全样例 + 风险清单 + wikilink/fm 往返测 |
-| B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ⏳ | **大件/可选**;mock-qql 子集够 dev(非本轮) |
+| B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ✅ | v1:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 走 TS |
 
 ---
 
@@ -75,7 +75,7 @@
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
 | B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | **非本轮**(真机) |
-| B-QQL-MOCK-GAP | mock-qql 与 core 差 | 🟡 | 🟡 | AND/OR/path/title 已扩;完整 AST 仍大件 |
+| B-QQL-MOCK-GAP | mock-qql 与 core 差 | 🟡 | ✅ | mock 改走 QQL-TS 全量求值;与 core 语义对齐(差分 CI 可选) |
 
 ---
 
@@ -104,8 +104,8 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~非大件打磨(编辑器/菜单/设置/轻量保真)~~ ✅  
-2. 大件:B-MCP → B-PLUGIN → B-SHEET  
+1. ~~非大件打磨~~ ✅ · ~~媒体/并排~~ ✅ · ~~大件 v1(MCP/PLUGIN/SHEET/QQL-TS)~~ ✅  
+2. 大件深化:插件 vault 加载 UI、MCP 资源订阅、sheet 嵌入 md、QQL TS↔Rust 差分  
 3. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥  
 
 ---
