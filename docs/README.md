@@ -13,6 +13,7 @@
 | [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
 | [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件媒体 v1 + 并排阅读预览(产品决策与验收;**已落地** B-ED-MEDIA / B-ED-READING) |
 | [09-big-features-v1.md](./09-big-features-v1.md) | 大件 v1 切片:SHEET / PLUGIN / MCP / QQL-TS(**已落地 v1**) |
+| [10-menus-and-search.md](./10-menus-and-search.md) | **菜单 / 命令面板 / 三层搜索** 打磨规划与测试(待实现) |
 | [**backlog.md**](./backlog.md) | **未完成清单总表**(§A–D 与大件 v1 多已齐;真机/签名见剩余) |
 | [deferred.md](./deferred.md) | 难点 / 前置;含编辑器与菜单诚实评估 |
 | [open-questions.md](./open-questions.md) | 待拍板决策 |

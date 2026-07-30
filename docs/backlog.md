@@ -102,11 +102,22 @@
 
 ---
 
+## H. 菜单 · 命令面板 · 搜索(打磨中 · 见 [10](./10-menus-and-search.md))
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-CMD-REGISTRY | 单一命令注册表 + `runCommand` | 🟡 | ✅ | `ui/src/lib/commands/*` |
+| B-APP-MENU-V2 | 系统菜单补齐 + ⌘O=Open Vault | 🟡 | ✅ | File/Edit/View 扩;menu-action→dispatch |
+| B-PALETTE-V2 | 面板三 mode:commands/files/search | 🟡 | ✅ | ⌘K/⌘P/⌘⇧F;⌘O=开 vault |
+| B-SEARCH-UI | 库内全文 UI 接 `searchNotes` | 🟡 | ✅ | Palette mode=search |
+| B-SEARCH-RANK | 快开排序纯函数 | 🟢 | ✅ | `rankFiles` + canvas/sheet |
+| B-CMD-TEST | 注册表/过滤 vitest | 🟡 | ✅ | commands.test + palette-commands;e2e 可续 |
+
 ## 建议实现顺序(产品向)
 
-1. ~~非大件打磨~~ ✅ · ~~媒体/并排~~ ✅ · ~~大件 v1~~ ✅ · ~~SHEET v2~~ ✅  
-2. 插件深化 **明确不做**;可选:MCP 客户端配置样例、QQL TS↔Rust 差分 CI  
-3. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥;合 main  
+1. ~~非大件 / 媒体 / 大件 v1 / SHEET v2~~ ✅  
+2. **菜单+搜索打磨**([10](./10-menus-and-search.md)):REGISTRY → MENU-V2 → PALETTE/SEARCH-UI → 测试  
+3. 并行:B-GRAPH-FPS 真机;签名/Updater;合 main  
 
 ---
 

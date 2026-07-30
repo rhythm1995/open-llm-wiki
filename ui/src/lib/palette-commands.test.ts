@@ -1,5 +1,5 @@
 /**
- * 命令面板:refresh-index + 扩展命令可达。
+ * 命令面板:兼容 API + 注册表行为。
  */
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -12,7 +12,9 @@ import { translate } from "./i18n";
 const t = (key: string, vars?: Record<string, string | number>) =>
   translate("zh", key, vars);
 
-function baseDeps(over: Partial<Parameters<typeof buildPaletteCommands>[0]> = {}) {
+function baseDeps(
+  over: Partial<Parameters<typeof buildPaletteCommands>[0]> = {},
+) {
   return {
     t,
     openPicker: () => {},
@@ -51,28 +53,34 @@ describe("buildPaletteCommands — refresh-index force heal", () => {
 });
 
 describe("buildPaletteCommands — expand", () => {
-  it("含 save / find / mode / shortcut", () => {
+  it("open-vault 为 ⌘O;含 save / find / find-vault", () => {
     const saveNow = vi.fn();
     const openFind = vi.fn();
+    const openVaultSearch = vi.fn();
     const setEditMode = vi.fn();
     const cmds = buildPaletteCommands(
       baseDeps({
         saveNow,
         openFind,
+        openVaultSearch,
         setEditMode,
         hasCurrentNote: true,
         archiveCurrent: () => {},
         revealCurrent: () => {},
+        canReveal: true,
         toggleTheme: () => {},
         theme: "dark",
         toggleLocale: () => {},
       }),
     );
+    expect(cmds.find((c) => c.id === "open-vault")?.shortcut).toBe("⌘O");
     expect(cmds.find((c) => c.id === "save")?.shortcut).toBe("⌘S");
     cmds.find((c) => c.id === "save")!.run();
     expect(saveNow).toHaveBeenCalled();
     cmds.find((c) => c.id === "find")!.run();
     expect(openFind).toHaveBeenCalled();
+    cmds.find((c) => c.id === "find-vault")!.run();
+    expect(openVaultSearch).toHaveBeenCalled();
     cmds.find((c) => c.id === "mode-source")!.run();
     expect(setEditMode).toHaveBeenCalledWith("source");
     expect(cmds.some((c) => c.id === "archive")).toBe(true);

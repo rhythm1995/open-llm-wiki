@@ -15,6 +15,23 @@
 
 ---
 
+### 2026-07-30 Grok — 实现:命令注册表 + 菜单 v2 + 三 mode 面板 + 库搜
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. `ui/src/lib/commands/*`:buildAppCommands / filter / rankFiles / mapSearchHits / runCommandById。
+  2. Tauri File/Edit/View 补 new-sheet/reveal/archive/close/find-vault/split/theme/refresh。
+  3. App:`dispatchCommand`;⌘O=开 vault;⌘P=files;⌘⇧F=search;⌘K=commands;⌘W 关标签。
+  4. CommandPalette 三 mode + searchNotes 防抖。
+  5. backlog §H ✅;vitest 507。
+- **下一步**:e2e 烟雾;菜单 i18n 重建(可选)。
+
+### 2026-07-30 Grok — 规划:菜单 / 命令面板 / 三层搜索
+
+- **branch**: `feat/phase1-core`。
+- **做了**:新增 [docs/10-menus-and-search.md](docs/10-menus-and-search.md);backlog §H 六项;诊断:系统菜单薄、`searchNotes` UI 未接、⌘O 与 Open Vault 冲突。
+- **下一步**:按 10 文 Phase1 起实现 registry + 菜单对齐 + 库搜 UI + 测试。
+
 ### 2026-07-30 Grok — 产品拍板:SHEET 不做 xlsx 全量 / 实时协作
 
 - **branch**: `feat/phase1-core`。

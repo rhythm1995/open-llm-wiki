@@ -1,285 +1,71 @@
 /**
- * palette-commands —— 命令面板内置动作(可测)。
- *
- * 含 refresh-index(force 自愈)、视图切换、编辑模式、保存、主题/语言、归档等。
+ * palette-commands —— 兼容层。
+ * 实现迁至 `commands/` 注册表;本文件保持旧 API 供测试与 import。
  */
-import type { ComponentType } from "react";
 import {
-  Archive,
-  ArrowsClockwise,
-  Code,
-  Columns,
-  FileText,
-  FloppyDisk,
-  FolderOpen,
-  GitBranch,
-  Graph,
-  ListMagnifyingGlass,
-  MagnifyingGlass,
-  Moon,
-  PencilSimple,
-  Plus,
-  PuzzlePiece,
-  Rectangle,
-  Sun,
-  Table,
-  TextT,
-  Gear,
-  Translate,
-} from "@phosphor-icons/react";
-import type { TFunc } from "./i18n";
+  buildAppCommands,
+  filterCommands,
+  type AppCommand,
+  type CommandDeps,
+  type CommandIcon,
+  type MainViewId,
+} from "./commands";
 
-export type PaletteIcon = ComponentType<{
-  size?: number | string;
-  className?: string;
-}>;
+export type PaletteIcon = CommandIcon;
 
 export interface PaletteCommand {
   id: string;
   label: string;
   icon: PaletteIcon;
-  /** 展示用快捷键提示(不负责绑定)。 */
   shortcut?: string;
   run: () => void;
 }
 
-export type MainViewId = "editor" | "graph" | "query" | "git";
+export type { MainViewId };
 
-export interface PaletteCommandDeps {
-  t: TFunc;
-  openPicker: () => void;
-  onNewNote: () => void;
-  onNewCanvas: () => void;
-  /** 新建 .sheet 表格。 */
-  onNewSheet?: () => void;
-  onNavigate: (v: MainViewId) => void;
-  refreshIndex: () => void;
-  /** 插件注册的命令(F-PLUGIN v1)。 */
-  pluginCommands?: { id: string; label: string; run: () => void }[];
-  /** 立即保存。 */
-  saveNow?: () => void;
-  /** 打开文档内查找。 */
-  openFind?: () => void;
-  /** 切换 source/wysiwyg。 */
-  toggleEditMode?: () => void;
-  setEditMode?: (m: "source" | "wysiwyg") => void;
-  editMode?: "source" | "wysiwyg";
-  /** 主题切换。 */
-  toggleTheme?: () => void;
-  theme?: "light" | "dark";
-  /** 语言切换。 */
-  toggleLocale?: () => void;
-  /** 归档当前笔记。 */
-  archiveCurrent?: () => void;
-  /** 在 Finder 中显示当前笔记。 */
-  revealCurrent?: () => void;
-  hasCurrentNote?: boolean;
-  /** 打开设置面板。 */
-  openSettings?: () => void;
-  /** 切换 source 并排阅读预览。 */
-  toggleSplitLayout?: () => void;
-  editorLayout?: "edit" | "split";
+/** @deprecated 使用 CommandDeps */
+export type PaletteCommandDeps = CommandDeps;
+
+export function buildPaletteCommands(deps: CommandDeps): PaletteCommand[] {
+  return buildAppCommands(deps)
+    .filter((c) => c.inPalette !== false)
+    .map(toPalette);
 }
 
-/** 构造 ⌘K 命令列表(非 quickOpen)。 */
-export function buildPaletteCommands(
-  deps: PaletteCommandDeps,
-): PaletteCommand[] {
-  const {
-    t,
-    openPicker,
-    onNewNote,
-    onNewCanvas,
-    onNavigate,
-    refreshIndex,
-  } = deps;
-  const cmds: PaletteCommand[] = [
-    {
-      id: "open",
-      label: t("palette.action.openVault"),
-      icon: FolderOpen as PaletteIcon,
-      shortcut: "⌘O",
-      run: () => openPicker(),
-    },
-    {
-      id: "new",
-      label: t("palette.action.newNote"),
-      icon: Plus as PaletteIcon,
-      shortcut: "⌘N",
-      run: () => onNewNote(),
-    },
-    {
-      id: "new-canvas",
-      label: t("palette.action.newCanvas"),
-      icon: Rectangle as PaletteIcon,
-      run: () => onNewCanvas(),
-    },
-    {
-      id: "refresh-index",
-      label: t("palette.action.refreshIndex"),
-      icon: ArrowsClockwise as PaletteIcon,
-      run: () => refreshIndex(),
-    },
-  ];
-
-  if (deps.onNewSheet) {
-    cmds.push({
-      id: "new-sheet",
-      label: t("palette.action.newSheet"),
-      icon: Table as PaletteIcon,
-      run: () => deps.onNewSheet!(),
-    });
-  }
-  for (const pc of deps.pluginCommands ?? []) {
-    cmds.push({
-      id: `plugin:${pc.id}`,
-      label: pc.label,
-      icon: PuzzlePiece as PaletteIcon,
-      run: () => pc.run(),
-    });
-  }
-
-  if (deps.saveNow) {
-    cmds.push({
-      id: "save",
-      label: t("palette.action.save"),
-      icon: FloppyDisk as PaletteIcon,
-      shortcut: "⌘S",
-      run: () => deps.saveNow!(),
-    });
-  }
-  if (deps.openFind) {
-    cmds.push({
-      id: "find",
-      label: t("palette.action.find"),
-      icon: MagnifyingGlass as PaletteIcon,
-      shortcut: "⌘F",
-      run: () => deps.openFind!(),
-    });
-  }
-  if (deps.setEditMode) {
-    cmds.push({
-      id: "mode-source",
-      label: t("palette.action.modeSource"),
-      icon: Code as PaletteIcon,
-      run: () => deps.setEditMode!("source"),
-    });
-    cmds.push({
-      id: "mode-wysiwyg",
-      label: t("palette.action.modeWysiwyg"),
-      icon: TextT as PaletteIcon,
-      run: () => deps.setEditMode!("wysiwyg"),
-    });
-  } else if (deps.toggleEditMode) {
-    cmds.push({
-      id: "toggle-edit-mode",
-      label: t("palette.action.toggleEditMode"),
-      icon: PencilSimple as PaletteIcon,
-      run: () => deps.toggleEditMode!(),
-    });
-  }
-  if (deps.archiveCurrent && deps.hasCurrentNote) {
-    cmds.push({
-      id: "archive",
-      label: t("palette.action.archive"),
-      icon: Archive as PaletteIcon,
-      run: () => deps.archiveCurrent!(),
-    });
-  }
-  if (deps.revealCurrent && deps.hasCurrentNote) {
-    cmds.push({
-      id: "reveal",
-      label: t("palette.action.reveal"),
-      icon: FolderOpen as PaletteIcon,
-      run: () => deps.revealCurrent!(),
-    });
-  }
-  if (deps.toggleTheme) {
-    cmds.push({
-      id: "toggle-theme",
-      label:
-        deps.theme === "dark"
-          ? t("toolbar.theme.light")
-          : t("toolbar.theme.dark"),
-      icon: (deps.theme === "dark" ? Sun : Moon) as PaletteIcon,
-      run: () => deps.toggleTheme!(),
-    });
-  }
-  if (deps.toggleLocale) {
-    cmds.push({
-      id: "toggle-locale",
-      label: t("palette.action.toggleLocale"),
-      icon: Translate as PaletteIcon,
-      run: () => deps.toggleLocale!(),
-    });
-  }
-  if (deps.openSettings) {
-    cmds.push({
-      id: "settings",
-      label: t("palette.action.settings"),
-      icon: Gear as PaletteIcon,
-      shortcut: "⌘,",
-      run: () => deps.openSettings!(),
-    });
-  }
-  if (deps.toggleSplitLayout) {
-    cmds.push({
-      id: "toggle-split",
-      label:
-        deps.editorLayout === "split"
-          ? t("palette.action.splitOff")
-          : t("palette.action.splitOn"),
-      icon: Columns as PaletteIcon,
-      run: () => deps.toggleSplitLayout!(),
-    });
-  }
-
-  cmds.push(
-    {
-      id: "v-editor",
-      label: `${t("palette.action.viewPrefix")}${t("view.editor")}`,
-      icon: PencilSimple as PaletteIcon,
-      run: () => onNavigate("editor"),
-    },
-    {
-      id: "v-graph",
-      label: `${t("palette.action.viewPrefix")}${t("view.graph")}`,
-      icon: Graph as PaletteIcon,
-      run: () => onNavigate("graph"),
-    },
-    {
-      id: "v-query",
-      label: `${t("palette.action.viewPrefix")}${t("view.query")}`,
-      icon: ListMagnifyingGlass as PaletteIcon,
-      run: () => onNavigate("query"),
-    },
-    {
-      id: "v-git",
-      label: `${t("palette.action.viewPrefix")}${t("view.git")}`,
-      icon: GitBranch as PaletteIcon,
-      run: () => onNavigate("git"),
-    },
-  );
-
-  return cmds;
+function toPalette(c: AppCommand): PaletteCommand {
+  return {
+    id: c.id,
+    label: c.label,
+    icon: c.icon,
+    shortcut: c.shortcut,
+    run: c.run,
+  };
 }
 
 export function filterPaletteCommands(
   commands: PaletteCommand[],
   query: string,
 ): PaletteCommand[] {
-  const s = query.trim().toLowerCase();
-  if (!s) return commands;
-  return commands.filter(
-    (a) =>
-      a.label.toLowerCase().includes(s) ||
-      a.id.toLowerCase().includes(s) ||
-      (a.shortcut?.toLowerCase().includes(s) ?? false),
-  );
+  // 适配旧类型:构造成 filterCommands 可用的最小结构
+  const asApp: AppCommand[] = commands.map((c) => ({
+    id: c.id,
+    label: c.label,
+    icon: c.icon,
+    shortcut: c.shortcut,
+    category: "go" as const,
+    run: c.run,
+  }));
+  return filterCommands(asApp, query).map((c) => ({
+    id: c.id,
+    label: c.label,
+    icon: c.icon,
+    shortcut: c.shortcut,
+    run: c.run,
+  }));
 }
 
 export function hasRefreshIndexCommand(commands: PaletteCommand[]): boolean {
   return commands.some((c) => c.id === "refresh-index");
 }
 
-export { FileText };
+export { FileText } from "@phosphor-icons/react";

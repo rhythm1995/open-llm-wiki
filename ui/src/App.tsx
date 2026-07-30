@@ -59,6 +59,11 @@ import {
   type EditorLayoutMode,
 } from "./lib/attachments";
 import type { PaletteMode } from "./components/CommandPalette";
+import {
+  buildAppCommands,
+  runCommandById,
+  type CommandDeps,
+} from "./lib/commands";
 import { Columns, Code, PencilSimple, Warning, X } from "@phosphor-icons/react";
 
 // 画布视图懒加载:Excalidraw 包体大,隔离到独立 chunk(MIT,见 THIRD_PARTY_NOTICES)。
@@ -352,32 +357,54 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ⌘K 命令面板;⌘P / ⌘O 快速打开笔记(仅笔记,不改 Nav 选择/不高亮左侧筛选)。
-  // capture:true —— 编辑器(ProseMirror/CM)可能 stopPropagation,冒泡到不了 window。
+  const openPalette = useCallback((mode: PaletteMode) => {
+    setPaletteMode(mode);
+    setPaletteOpen(true);
+  }, []);
+
+  // path 用 ref,避免 keydown 闭包拿到旧 path。
+  const pathRef = useRef(state.currentPath);
+  pathRef.current = state.currentPath;
+
+  // ⌘K 命令 · ⌘P 快开 · ⌘O 打开 vault · ⌘⇧F 库内全文。
+  // capture:true —— 编辑器可能 stopPropagation。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
-      if (k === "k") {
+      if (k === "k" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
         setPaletteMode("commands");
         setPaletteOpen((v) => !v);
-      } else if (k === "p" || k === "o") {
+      } else if (k === "p" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
-        // 快速打开是独立浮层:不切 view、不改 navSelection(Tolaria QuickOpen)。
-        setPaletteMode("quickOpen");
+        setPaletteMode("files");
         setPaletteOpen((v) => !v);
+      } else if (k === "o" && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        void actions.openPicker();
+      } else if (k === "f" && e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaletteMode("search");
+        setPaletteOpen(true);
+      } else if (k === "," && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSettingsOpen(true);
+      } else if (k === "w" && !e.shiftKey) {
+        if (!pathRef.current) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void actions.closeTab(pathRef.current);
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-
-  // path 用 ref,避免 keydown 闭包拿到旧 path 导致 ⌘F 静默 no-op。
-  const pathRef = useRef(state.currentPath);
-  pathRef.current = state.currentPath;
+  }, [actions]);
 
   /** 打开文档内查找:进 editor、必要时切 source 以启用 CM 全文高亮。 */
   const openFind = useCallback(() => {
@@ -407,18 +434,30 @@ export default function App() {
     if (prev && prev !== "source") persistEditMode(prev);
   }, [persistEditMode]);
 
-  const commandExtras = useMemo(
-    () => ({
+  const commandExtras = useMemo((): Omit<
+    CommandDeps,
+    | "t"
+    | "openPicker"
+    | "onNewNote"
+    | "onNewCanvas"
+    | "onNavigate"
+    | "refreshIndex"
+  > => {
+    const hasNote =
+      !!state.currentPath &&
+      !isCanvasPath(state.currentPath ?? "") &&
+      !isSheetPath(state.currentPath ?? "");
+    return {
       saveNow: () => void actions.saveNow(),
       openFind: () => openFind(),
+      openVaultSearch: () => openPalette("search"),
+      openQuickOpen: () => openPalette("files"),
       setEditMode: (m: EditMode) => persistEditMode(m),
-      editMode,
       toggleTheme,
       theme,
       toggleLocale,
       openSettings: () => setSettingsOpen(true),
       toggleSplitLayout: () => {
-        // 并排仅 source 有意义:若在 wysiwyg 先切 source 再开 split。
         if (editModeRef.current !== "source") {
           persistEditMode("source");
           setEditorLayout("split");
@@ -427,10 +466,13 @@ export default function App() {
         }
       },
       editorLayout,
-      hasCurrentNote:
-        !!state.currentPath &&
-        !isCanvasPath(state.currentPath ?? "") &&
-        !isSheetPath(state.currentPath ?? ""),
+      hasCurrentNote: hasNote,
+      hasOpenTab: !!state.currentPath,
+      canReveal: !ipc.isMock(),
+      closeCurrentTab: () => {
+        const p = state.currentPath;
+        if (p) void actions.closeTab(p);
+      },
       archiveCurrent: () => {
         const p = state.currentPath;
         if (p) void actions.deleteNote(p);
@@ -449,92 +491,68 @@ export default function App() {
           window.setTimeout(() => setPluginToast(null), 2000);
         },
       })),
-    }),
+    };
+  }, [
+    actions,
+    openFind,
+    openPalette,
+    persistEditMode,
+    toggleTheme,
+    theme,
+    toggleLocale,
+    state.currentPath,
+    state.root,
+    toggleSplit,
+    editorLayout,
+    setEditorLayout,
+    openNewSheet,
+    pluginCommands,
+    t,
+  ]);
+
+  /** 菜单 / 快捷键共用:从当前 deps 建表并按 id 执行。 */
+  const dispatchCommand = useCallback(
+    (id: string) => {
+      const cmds = buildAppCommands({
+        t,
+        openPicker: () => void actions.openPicker(),
+        onNewNote: openNewNote,
+        onNewCanvas: openNewCanvas,
+        onNavigate: (v) => setView(v),
+        refreshIndex: () => void actions.refreshIndex(),
+        ...commandExtras,
+      });
+      runCommandById(cmds, id);
+    },
     [
-      actions,
-      openFind,
-      persistEditMode,
-      editMode,
-      toggleTheme,
-      theme,
-      toggleLocale,
-      state.currentPath,
-      state.root,
-      toggleSplit,
-      editorLayout,
-      setEditorLayout,
-      openNewSheet,
-      pluginCommands,
       t,
+      actions,
+      openNewNote,
+      openNewCanvas,
+      setView,
+      commandExtras,
     ],
   );
 
-  // 桌面应用菜单 → 与 palette 同源动作。
+  // 桌面应用菜单 → 注册表 id。
   useEffect(() => {
     if (ipc.isMock()) return;
     let unlisten: (() => void) | undefined;
     void listen<string>("menu-action", (ev) => {
-      const id = ev.payload;
-      switch (id) {
-        case "new-note":
-          openNewNote();
-          break;
-        case "new-canvas":
-          openNewCanvas();
-          break;
-        case "open-vault":
-          void actions.openPicker();
-          break;
-        case "save":
-          void actions.saveNow();
-          break;
-        case "find":
-          openFind();
-          break;
-        case "settings":
-          setSettingsOpen(true);
-          break;
-        case "view-editor":
-          setView("editor");
-          break;
-        case "view-graph":
-          setView("graph");
-          break;
-        case "view-query":
-          setView("query");
-          break;
-        case "view-git":
-          setView("git");
-          break;
-        case "mode-source":
-          persistEditMode("source");
-          break;
-        case "mode-wysiwyg":
-          persistEditMode("wysiwyg");
-          break;
-        default:
-          break;
-      }
+      dispatchCommand(ev.payload);
     }).then((fn) => {
       unlisten = fn;
     });
     return () => {
       unlisten?.();
     };
-  }, [
-    actions,
-    openNewNote,
-    openNewCanvas,
-    openFind,
-    persistEditMode,
-    setView,
-  ]);
+  }, [dispatchCommand]);
 
-  // ⌘F 文档内查找(FindBar + 全文高亮)。capture 拦截,避免编辑器吞键。
+  // ⌘F 文内查找(不含 Shift → 库搜是 ⌘⇧F)。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (!mod || e.key.toLowerCase() !== "f") return;
+      if (!mod || e.shiftKey || e.key.toLowerCase() !== "f") return;
       e.preventDefault();
       e.stopPropagation();
       if (findOpen) {
@@ -910,10 +928,13 @@ export default function App() {
         open={paletteOpen}
         onOpenChange={(open) => {
           setPaletteOpen(open);
-          // 关闭时复位 mode,避免下次 ⌘K 仍是 quickOpen。
           if (!open) setPaletteMode("commands");
         }}
         snapshot={state.snapshot}
+        entryPaths={state.entries
+          .filter((e) => !e.is_dir)
+          .map((e) => e.path)}
+        recentPaths={state.openPaths}
         actions={actions}
         onNewNote={openNewNote}
         onNewCanvas={openNewCanvas}
