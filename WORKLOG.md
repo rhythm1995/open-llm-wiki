@@ -15,6 +15,18 @@
 
 ---
 
+### 2026-07-30 Grok — 附件媒体 v1 + 并排阅读预览(B-ED-MEDIA / B-ED-READING)
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 产品方案 [docs/08-media-and-split-preview.md](docs/08-media-and-split-preview.md)(Tolaria 落盘 + Obsidian 粘贴/并排习惯)。
+  2. **媒体**:`save_attachment` IPC + mock data URL;`Editor` 粘贴/拖入 → `attachments/` + `![alt](path)`;`ReadingPane` 改写相对 img。
+  3. **并排**:source 下 `editorLayout` edit|split;左 Editor / 右 ReadingPane;设置项 + ⌘K + 工具栏切换。
+  4. Settings:`attachmentsDir` / `editorLayout`;backlog 标 ✅。
+- **理由 / 影响**:补齐笔记插图与阅读对照;非 Live Preview、无相册。
+- **验证**:`pnpm --dir ui typecheck` + `test`;`cargo test -p openobs-app` 相关单测。
+- **下一步 / 接手注意**:真机粘贴 PNG 验收;WYSIWYG 插图后续;大件仍 F-SHEET/F-PLUGIN/MCP/QQL-TS。
+
 ### 2026-07-30 Grok — 非大件收口:设置/WYSIWYG qql/原生菜单/保真门禁
 
 - **branch**: `feat/phase1-core`。

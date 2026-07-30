@@ -8,7 +8,6 @@
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Warning, X, Code, PencilSimple } from "@phosphor-icons/react";
 import { listen } from "@tauri-apps/api/event";
 import { Nav } from "./components/Nav";
 import { NoteListView } from "./components/NoteListView";
@@ -16,6 +15,7 @@ import type { NavSelection } from "./lib/nav-filter";
 import { selectionLabel } from "./lib/nav-filter";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { WysiwygView } from "./components/WysiwygView";
+import { ReadingPane } from "./components/ReadingPane";
 import { FindBar } from "./components/FindBar";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
@@ -41,7 +41,15 @@ import {
   type EditMode,
 } from "./lib/edit-mode";
 import { modeFidelityHintKey } from "./lib/edit-mode-ux";
+import {
+  ATTACHMENTS_DIR_KEY,
+  DEFAULT_ATTACHMENTS_DIR,
+  EDITOR_LAYOUT_KEY,
+  normalizeAttachmentsDir,
+  type EditorLayoutMode,
+} from "./lib/attachments";
 import type { PaletteMode } from "./components/CommandPalette";
+import { Columns, Code, PencilSimple, Warning, X } from "@phosphor-icons/react";
 
 // 画布视图懒加载:Excalidraw 包体大,隔离到独立 chunk(MIT,见 THIRD_PARTY_NOTICES)。
 // 不开画布就不下载该 chunk。
@@ -72,6 +80,30 @@ export default function App() {
   const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modeHint, setModeHint] = useState<string | null>(null);
+  // 附件目录 / 并排布局(B-ED-MEDIA / B-ED-READING)。
+  const [attachmentsDir, setAttachmentsDir] = useState(() => {
+    try {
+      return normalizeAttachmentsDir(localStorage.getItem(ATTACHMENTS_DIR_KEY));
+    } catch {
+      return DEFAULT_ATTACHMENTS_DIR;
+    }
+  });
+  const [editorLayout, setEditorLayout] = usePersistentState<EditorLayoutMode>(
+    EDITOR_LAYOUT_KEY,
+    "edit",
+  );
+  const persistAttachmentsDir = useCallback((dir: string) => {
+    const n = normalizeAttachmentsDir(dir);
+    setAttachmentsDir(n);
+    try {
+      localStorage.setItem(ATTACHMENTS_DIR_KEY, n);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleSplit = useCallback(() => {
+    setEditorLayout((prev) => (prev === "split" ? "edit" : "split"));
+  }, [setEditorLayout]);
   // 双模式:source / wysiwyg。一次性迁移旧默认 source → wysiwyg(见 edit-mode.ts)。
   const [editMode, setEditMode] = useState<EditMode>(() => {
     try {
@@ -317,6 +349,16 @@ export default function App() {
       theme,
       toggleLocale,
       openSettings: () => setSettingsOpen(true),
+      toggleSplitLayout: () => {
+        // 并排仅 source 有意义:若在 wysiwyg 先切 source 再开 split。
+        if (editModeRef.current !== "source") {
+          persistEditMode("source");
+          setEditorLayout("split");
+        } else {
+          toggleSplit();
+        }
+      },
+      editorLayout,
       hasCurrentNote:
         !!state.currentPath && !isCanvasPath(state.currentPath ?? ""),
       archiveCurrent: () => {
@@ -339,6 +381,9 @@ export default function App() {
       toggleLocale,
       state.currentPath,
       state.root,
+      toggleSplit,
+      editorLayout,
+      setEditorLayout,
     ],
   );
 
@@ -597,17 +642,48 @@ export default function App() {
                       />
                     </Suspense>
                   ) : editMode === "source" ? (
-                    <Editor
-                      ref={editorRef}
-                      value={state.content}
-                      onChange={actions.setContent}
-                      hasNote={state.currentPath !== null}
-                      theme={theme}
-                      noteTitles={noteTitles}
-                      root={state.root}
-                      onFollow={handleFollow}
-                      t={t}
-                    />
+                    <div
+                      className={
+                        editorLayout === "split"
+                          ? "flex h-full min-h-0"
+                          : "h-full min-h-0"
+                      }
+                      data-testid={
+                        editorLayout === "split" ? "editor-split" : "editor-edit"
+                      }
+                    >
+                      <div
+                        className={
+                          editorLayout === "split"
+                            ? "min-w-0 flex-1 border-r border-crust"
+                            : "h-full"
+                        }
+                      >
+                        <Editor
+                          ref={editorRef}
+                          value={state.content}
+                          onChange={actions.setContent}
+                          hasNote={state.currentPath !== null}
+                          theme={theme}
+                          noteTitles={noteTitles}
+                          root={state.root}
+                          onFollow={handleFollow}
+                          t={t}
+                          attachmentsDir={attachmentsDir}
+                        />
+                      </div>
+                      {editorLayout === "split" && (
+                        <div className="min-w-0 flex-1">
+                          <ReadingPane
+                            content={state.content}
+                            root={state.root}
+                            onFollow={handleFollow}
+                            hasNote={state.currentPath !== null}
+                            t={t}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <WysiwygView
                       key={state.currentPath ?? "empty"}
@@ -630,23 +706,43 @@ export default function App() {
                     </div>
                   )}
                   {!isCanvas && state.currentPath !== null && (
-                    <button
-                      onClick={() =>
-                        persistEditMode(editMode === "source" ? "wysiwyg" : "source")
-                      }
-                      className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
-                      title={
-                        editMode === "source"
-                          ? t("editor.toWysiwyg")
-                          : t("editor.toSource")
-                      }
-                    >
-                      {editMode === "source" ? (
-                        <PencilSimple size={14} />
-                      ) : (
-                        <Code size={14} />
+                    <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+                      {editMode === "source" && (
+                        <button
+                          type="button"
+                          data-testid="toggle-split"
+                          onClick={toggleSplit}
+                          className="flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
+                          title={
+                            editorLayout === "split"
+                              ? t("editor.layout.edit")
+                              : t("editor.layout.split")
+                          }
+                        >
+                          <Columns size={14} />
+                        </button>
                       )}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          persistEditMode(
+                            editMode === "source" ? "wysiwyg" : "source",
+                          )
+                        }
+                        className="flex items-center gap-1 rounded bg-surface/80 px-2 py-1 text-[12px] text-subtext hover:bg-surface2"
+                        title={
+                          editMode === "source"
+                            ? t("editor.toWysiwyg")
+                            : t("editor.toSource")
+                        }
+                      >
+                        {editMode === "source" ? (
+                          <PencilSimple size={14} />
+                        ) : (
+                          <Code size={14} />
+                        )}
+                      </button>
+                    </div>
                   )}
                   {findOpen && !isCanvas && state.currentPath !== null && (
                     <FindBar
@@ -734,11 +830,19 @@ export default function App() {
           theme,
           locale,
           defaultEditMode: editMode,
+          attachmentsDir,
+          editorLayout,
         }}
         onChange={(patch) => {
           if (patch.theme) setTheme(patch.theme);
           if (patch.locale) setLocale(patch.locale);
           if (patch.defaultEditMode) persistEditMode(patch.defaultEditMode);
+          if (patch.attachmentsDir != null) {
+            persistAttachmentsDir(patch.attachmentsDir);
+          }
+          if (patch.editorLayout != null) {
+            setEditorLayout(patch.editorLayout);
+          }
         }}
         t={t}
       />

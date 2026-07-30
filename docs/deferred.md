@@ -23,23 +23,17 @@
 
 ### 编辑器
 
-- **现状**:CodeMirror **source** + BlockNote **wysiwyg** 双模,同一 `.md`;`[[` 补全/跳转;source 有 qql-widget 与 ⌘F(CM search);wysiwyg 有 chip/`[[` 建议菜单。
-- **难在哪 / 缺口**:
-  1. **保真**(B-BN-FIDELITY):BlockNote JSON↔md 有损子集;缺差分测试集与禁用特性表。
-  2. **双模不齐**:qql 仅 source 实时 widget;⌘F 在 wysiwyg 走 `window.find()`。
-  3. **写作台感不足**:source 无格式工具条/产品化 slash;正文无 app 级右键;图片粘贴/预览弱。
-  4. **模式心智**:切换入口偏隐,无「有损风险」提示。
-- **做扎实需要**:先 B-ED-CTX-MENU + B-PALETTE-EXPAND(体感);再 B-ED-FMT-BAR / FIND-PARITY / QQL-WYSIWYG;并行 B-BN-FIDELITY 测试门禁。
+- **现状**:双模 + 格式条/右键/保真提示/WYSIWYG qql ✅;**附件 v1 + source 并排阅读** ✅(见 [08](./08-media-and-split-preview.md))。
+- **仍缺口 / 非 v1**:
+  1. **保真深化**(B-BN-FIDELITY):门禁已有,完整差分/禁用特性表可继续加。
+  2. **WYSIWYG 插图**:source 粘贴/拖入已通;BlockNote 内嵌图片块未做。
+  3. **Live Preview / 相册 / 音视频**:明确不做(08 非目标)。
+- **大件见** backlog §B/E(表格/插件/MCP/QQL-TS 等)。
 
 ### 菜单与命令
 
-- **现状**:⌘K 薄命令集;列表行/图谱节点有 ContextMenu;顶栏视图切换 + 三栏显隐。
-- **难在哪 / 缺口**:
-  1. **无系统应用菜单**(B-APP-MENU):File/Edit/View 桌面惯例缺失。
-  2. **⌘K 过瘦**(B-PALETTE-EXPAND):缺模式切换、保存、归档、Reveal、主题/语言、快捷键标注。
-  3. **右键覆盖不均**:编辑器正文 / Nav 树 / Tab 栏无菜单。
-  4. **无设置页**(B-SETTINGS)。
-- **做扎实需要**:Tauri menu 插件或先把动作全挂进 palette;ContextMenu 扩到 Nav/Tab/Editor;设置可用 localStorage 键聚合起步。
+- **现状**:系统菜单 + ⌘K 扩面 + Settings + Nav/Tab/Editor 右键 ✅(§D)。
+- **可选后续**:更多快捷键绑定、菜单与 palette 完全同源表驱动。
 
 ---
 

@@ -26,6 +26,22 @@ import { mockEvalQql, nodesFromOut } from "./mock-qql";
 
 const MOCK_ROOT = "/mock-vault";
 
+/**
+ * 附件内存仓(path → data URL)。浏览器 mock 无 fs,粘贴图片落此处供预览。
+ * 与笔记 Map 分离(二进制不进 mini-indexer)。
+ */
+const attachments = new Map<string, string>();
+
+/** 是否已有该相对路径附件(uniqueAttachmentPath 用)。 */
+export function attachmentExists(relPath: string): boolean {
+  return attachments.has(relPath.replace(/\\/g, "/"));
+}
+
+/** 解析 mock 附件 URL;未缓存返回空串(阅读侧表现为破图)。 */
+export function resolveAttachmentUrl(relPath: string): string {
+  return attachments.get(relPath.replace(/\\/g, "/")) ?? "";
+}
+
 /** 种子笔记:一个小型 wiki,带类型/标签/双向链接/悬空链接,覆盖大多数 UI 路径。 */
 function seed(): Map<string, string> {
   const notes: Record<string, string> = {
@@ -373,6 +389,33 @@ export async function handle<T>(
     case "create_note":
       vault.set(String(args.path), String(args.content));
       return undefined as unknown as T;
+
+    case "save_attachment": {
+      // 内存存 data URL,阅读/并排预览用 resolveAttachmentUrl。
+      const path = String(args.path).replace(/\\/g, "/");
+      let b64 = String(args.bytes_base64 ?? "");
+      let mime = "image/png";
+      if (b64.startsWith("data:")) {
+        const m = /^data:([^;]+);base64,(.+)$/i.exec(b64);
+        if (m) {
+          mime = m[1] || mime;
+          b64 = m[2];
+        } else {
+          const i = b64.indexOf("base64,");
+          if (i >= 0) b64 = b64.slice(i + "base64,".length);
+        }
+      }
+      // 按扩展名猜 mime(若 data URL 未带)。
+      if (!String(args.bytes_base64 ?? "").startsWith("data:")) {
+        const lower = path.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) mime = "image/jpeg";
+        else if (lower.endsWith(".gif")) mime = "image/gif";
+        else if (lower.endsWith(".webp")) mime = "image/webp";
+        else if (lower.endsWith(".svg")) mime = "image/svg+xml";
+      }
+      attachments.set(path, `data:${mime};base64,${b64}`);
+      return undefined as unknown as T;
+    }
 
     case "delete_note":
       vault.delete(String(args.path));

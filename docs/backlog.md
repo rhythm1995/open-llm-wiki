@@ -42,8 +42,8 @@
 | B-ED-FIND-PARITY | ⌘F 双模对齐 | 🟡 | ✅ | 切 source + CM 高亮 |
 | B-ED-QQL-WYSIWYG | WYSIWYG 内联 qql | 🟡 | ✅ | `collectWysiwygQqlJobs` + `run_qql` 结果面板 |
 | B-ED-MODE-UX | 双模切换心智 | 🟢 | ✅ | 保真提示 + ⌘K/菜单/设置默认模式 |
-| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ⏳ | **非目标**(plan non-goals: full media library) |
-| B-ED-READING | 并排预览 | 🟢 | ⏳ | 有阅读切换;并排为增强项,未做 |
+| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ✅ | v1:`save_attachment`+mock;粘贴/拖入→`attachments/`;阅读改写 img;`docs/08` |
+| B-ED-READING | 并排预览 | 🟢 | ✅ | v1:source 左编辑\|右 ReadingPane;`editorLayout` 持久化;非 Live Preview |
 
 ---
 

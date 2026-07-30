@@ -71,6 +71,13 @@ import {
   toggleItalic,
   type FormatResult,
 } from "../lib/md-format";
+import {
+  blobToDataUrl,
+  collectImageFiles,
+  DEFAULT_ATTACHMENTS_DIR,
+  markdownImageSnippet,
+  uniqueAttachmentPath,
+} from "../lib/attachments";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -88,6 +95,8 @@ interface Props {
   theme: Theme;
   /** 本地化(仅空态文案用到)。 */
   t: TFunc;
+  /** 附件相对目录(默认 attachments)。 */
+  attachmentsDir?: string;
 }
 
 const LINK_RE = /\[\[([^\]]+)\]\]/g;
@@ -222,12 +231,27 @@ export interface EditorHandle {
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
-  { value, onChange, onFollow, noteTitles, root, hasNote, theme, t },
+  {
+    value,
+    onChange,
+    onFollow,
+    noteTitles,
+    root,
+    hasNote,
+    theme,
+    t,
+    attachmentsDir = DEFAULT_ATTACHMENTS_DIR,
+  },
   ref,
 ) {
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const rootRef = useRef(root);
+  rootRef.current = root;
+  const dirRef = useRef(attachmentsDir);
+  dirRef.current = attachmentsDir;
 
   /** 应用 md-format 结果到 CM。 */
   const applyFormat = useCallback((fn: (text: string, sel: { from: number; to: number }) => FormatResult) => {
@@ -311,6 +335,42 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   const titlesRef = useRef(noteTitles);
   titlesRef.current = noteTitles;
 
+  /** 在光标处插入 Markdown 图片;先落盘/ mock 附件再写语法。 */
+  const insertImageFiles = useCallback(async (files: File[]) => {
+    const ed = view.current;
+    const vaultRoot = rootRef.current;
+    if (!ed || !vaultRoot || files.length === 0) return;
+    let from = ed.state.selection.main.from;
+    let to = ed.state.selection.main.to;
+    for (const file of files) {
+      try {
+        const rel = uniqueAttachmentPath(
+          dirRef.current,
+          file.name || "image.png",
+          (p) => ipc.attachmentExists(p),
+        );
+        const dataUrl = await blobToDataUrl(file);
+        await ipc.saveAttachment(vaultRoot, rel, dataUrl);
+        const snippet = markdownImageSnippet(rel, file.name || "image");
+        const needNl =
+          from > 0 && ed.state.doc.sliceString(from - 1, from) !== "\n";
+        const insert = `${needNl ? "\n" : ""}${snippet}\n`;
+        ed.dispatch({
+          changes: { from, to, insert },
+          selection: { anchor: from + insert.length },
+        });
+        from = from + insert.length;
+        to = from;
+      } catch {
+        // 单张失败不阻断其余
+      }
+    }
+    ed.focus();
+  }, []);
+
+  const insertImageFilesRef = useRef(insertImageFiles);
+  insertImageFilesRef.current = insertImageFiles;
+
   useEffect(() => {
     if (!host.current) return;
     const v = new EditorView({
@@ -369,6 +429,28 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
             e.preventDefault();
             setMenuPos({ x: e.clientX, y: e.clientY });
             return true;
+          },
+          // B-ED-MEDIA:粘贴图片 → vault 附件 + 插入 md。
+          paste(e: ClipboardEvent) {
+            const images = collectImageFiles(e.clipboardData);
+            if (images.length === 0) return false;
+            e.preventDefault();
+            void insertImageFilesRef.current(images);
+            return true;
+          },
+          drop(e: DragEvent) {
+            const images = collectImageFiles(e.dataTransfer);
+            if (images.length === 0) return false;
+            e.preventDefault();
+            void insertImageFilesRef.current(images);
+            return true;
+          },
+          dragover(e: DragEvent) {
+            if (collectImageFiles(e.dataTransfer).length > 0) {
+              e.preventDefault();
+              return true;
+            }
+            return false;
           },
         }),
         EditorView.updateListener.of((u) => {
@@ -522,7 +604,35 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
   // 编辑器宿主始终挂载:CodeMirror 视图在首次挂载时**一次性**创建。
   // 空态用覆盖层;宿主始终在。
   return (
-    <div className="relative flex h-full flex-col">
+    <div
+      className="relative flex h-full flex-col"
+      data-testid="source-editor"
+      onDragEnter={(e) => {
+        if (collectImageFiles(e.dataTransfer).length > 0) {
+          e.preventDefault();
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDragOver={(e) => {
+        if (collectImageFiles(e.dataTransfer).length > 0) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDrop={(e) => {
+        setDragOver(false);
+        const images = collectImageFiles(e.dataTransfer);
+        if (images.length === 0) return;
+        e.preventDefault();
+        void insertImageFiles(images);
+      }}
+    >
+      {dragOver && hasNote && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center border-2 border-dashed border-blue/60 bg-blue/10 text-[13px] text-blue">
+          {t("editor.dropImage")}
+        </div>
+      )}
       {hasNote && (
         <div
           data-testid="editor-fmt-bar"

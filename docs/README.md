@@ -11,7 +11,8 @@
 | [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试金字塔、红绿循环、覆盖率门槛 |
 | [06-roadmap.md](./06-roadmap.md) | 分阶段交付;"全部功能"如何被切成可完成的里程碑 |
 | [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
-| [**backlog.md**](./backlog.md) | **未完成清单总表**(§A 已齐;§C 编辑器 / §D 菜单为当前产品优先) |
+| [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件媒体 v1 + 并排阅读预览(产品决策与验收;**已落地** B-ED-MEDIA / B-ED-READING) |
+| [**backlog.md**](./backlog.md) | **未完成清单总表**(§A/C 媒体与并排已齐;大件见 §B/E) |
 | [deferred.md](./deferred.md) | 难点 / 前置;含编辑器与菜单诚实评估 |
 | [open-questions.md](./open-questions.md) | 待拍板决策 |
 

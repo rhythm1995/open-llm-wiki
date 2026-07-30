@@ -1,12 +1,13 @@
 /**
- * SettingsPanel —— 应用偏好(主题/语言/默认编辑模式)。
- * 落盘键与 useTheme / useLocale / editMode 共用。
+ * SettingsPanel —— 应用偏好(主题/语言/默认编辑模式/附件目录/并排布局)。
+ * 落盘键与 useTheme / useLocale / editMode / attachments 共用。
  */
 import type { EditMode } from "../lib/edit-mode";
 import type { Locale } from "../lib/i18n";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
 import type { AppSettings } from "../lib/settings";
+import type { EditorLayoutMode } from "../lib/attachments";
 import { X } from "@phosphor-icons/react";
 
 interface Props {
@@ -69,7 +70,7 @@ export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
           </select>
         </label>
 
-        <label className="mb-2 block text-[12px] text-subtext">
+        <label className="mb-3 block text-[12px] text-subtext">
           <span className="mb-1 block text-overlay">
             {t("settings.defaultEditMode")}
           </span>
@@ -84,7 +85,46 @@ export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
             <option value="source">{t("settings.mode.source")}</option>
           </select>
         </label>
-        <p className="text-[11px] text-overlay">{t("settings.defaultEditModeHint")}</p>
+        <p className="mb-3 text-[11px] text-overlay">
+          {t("settings.defaultEditModeHint")}
+        </p>
+
+        <label className="mb-3 block text-[12px] text-subtext">
+          <span className="mb-1 block text-overlay">
+            {t("settings.attachmentsDir")}
+          </span>
+          <input
+            type="text"
+            className="w-full rounded border border-crust bg-base px-2 py-1.5 font-mono text-text"
+            value={settings.attachmentsDir}
+            data-testid="settings-attachments-dir"
+            onChange={(e) => onChange({ attachmentsDir: e.target.value })}
+            spellCheck={false}
+          />
+        </label>
+        <p className="mb-3 text-[11px] text-overlay">
+          {t("settings.attachmentsDirHint")}
+        </p>
+
+        <label className="mb-2 block text-[12px] text-subtext">
+          <span className="mb-1 block text-overlay">
+            {t("settings.editorLayout")}
+          </span>
+          <select
+            className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+            value={settings.editorLayout}
+            data-testid="settings-editor-layout"
+            onChange={(e) =>
+              onChange({
+                editorLayout: e.target.value as EditorLayoutMode,
+              })
+            }
+          >
+            <option value="edit">{t("settings.layout.edit")}</option>
+            <option value="split">{t("settings.layout.split")}</option>
+          </select>
+        </label>
+        <p className="text-[11px] text-overlay">{t("settings.editorLayoutHint")}</p>
       </div>
     </div>
   );

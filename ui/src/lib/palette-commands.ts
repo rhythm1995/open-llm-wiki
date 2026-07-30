@@ -8,6 +8,7 @@ import {
   Archive,
   ArrowsClockwise,
   Code,
+  Columns,
   FileText,
   FloppyDisk,
   FolderOpen,
@@ -69,6 +70,9 @@ export interface PaletteCommandDeps {
   hasCurrentNote?: boolean;
   /** 打开设置面板。 */
   openSettings?: () => void;
+  /** 切换 source 并排阅读预览。 */
+  toggleSplitLayout?: () => void;
+  editorLayout?: "edit" | "split";
 }
 
 /** 构造 ⌘K 命令列表(非 quickOpen)。 */
@@ -193,6 +197,17 @@ export function buildPaletteCommands(
       icon: Gear as PaletteIcon,
       shortcut: "⌘,",
       run: () => deps.openSettings!(),
+    });
+  }
+  if (deps.toggleSplitLayout) {
+    cmds.push({
+      id: "toggle-split",
+      label:
+        deps.editorLayout === "split"
+          ? t("palette.action.splitOff")
+          : t("palette.action.splitOn"),
+      icon: Columns as PaletteIcon,
+      run: () => deps.toggleSplitLayout!(),
     });
   }
 
