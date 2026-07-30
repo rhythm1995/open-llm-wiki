@@ -15,6 +15,18 @@
 
 ---
 
+### 2026-07-30 Grok — 非大件收口:设置/WYSIWYG qql/原生菜单/保真门禁
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. Settings 面板 + settings.ts;⌘K「设置」;默认编辑模式可配。
+  2. source→wysiwyg 保真提示条;palette/菜单模式切换。
+  3. Wysiwyg 内联 ```qql → run_qql 结果面板。
+  4. Tauri File/Edit/View 菜单 emit `menu-action`。
+  5. Nav type/tag 右键;mock-qql AND/OR;blocknote-fidelity 轻量门禁。
+  6. backlog 非大件项标 ✅。
+- **验证**:typecheck;ui 450 tests;cargo check openobs-app。
+
 ### 2026-07-30 Grok — 编辑器/菜单打磨:⌘K 扩面、格式条、右键
 
 - **branch**: `feat/phase1-core`。

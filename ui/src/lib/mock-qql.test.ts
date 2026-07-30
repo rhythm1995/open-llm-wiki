@@ -84,4 +84,13 @@ describe("mockEvalQql", () => {
       List: [1],
     });
   });
+
+  it("AND / OR", () => {
+    expect(
+      mockEvalQql(`WHERE type = "Concept" AND tags = "x"`, nodes),
+    ).toEqual({ List: [1, 3] });
+    expect(
+      mockEvalQql(`WHERE type = "Note" OR title CONTAINS "A"`, nodes),
+    ).toEqual({ List: [2, 1] });
+  });
 });

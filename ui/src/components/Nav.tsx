@@ -97,32 +97,53 @@ export function Nav({
   );
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [folderMenu, setFolderMenu] = useState<{
-    path: string;
+  const [ctxMenu, setCtxMenu] = useState<{
+    kind: "folder" | "type" | "tag";
+    id: string;
     x: number;
     y: number;
   } | null>(null);
   const nodes = snapshot?.nodes ?? [];
 
-  const folderMenuItems: MenuItem[] = useMemo(() => {
-    if (!folderMenu) return [];
-    const path = folderMenu.path;
+  const ctxMenuItems: MenuItem[] = useMemo(() => {
+    if (!ctxMenu) return [];
+    const { kind, id } = ctxMenu;
+    if (kind === "folder") {
+      return [
+        {
+          label: t("nav.menu.newNoteHere"),
+          icon: <Plus size={13} />,
+          onClick: () => onNewNoteInFolder?.(id),
+          disabled: !onNewNoteInFolder,
+        },
+        {
+          label: t("nav.menu.copyPath"),
+          icon: <Copy size={13} />,
+          onClick: () => {
+            void navigator.clipboard?.writeText(id);
+          },
+        },
+      ];
+    }
+    // type / tag: 聚焦筛选 + 复制标识
     return [
       {
-        label: t("nav.menu.newNoteHere"),
-        icon: <Plus size={13} />,
-        onClick: () => onNewNoteInFolder?.(path),
-        disabled: !onNewNoteInFolder,
+        label: t("nav.menu.focusFilter"),
+        icon: <Funnel size={13} />,
+        onClick: () =>
+          onNavSelect(
+            kind === "type" ? { kind: "type", id } : { kind: "tag", id },
+          ),
       },
       {
-        label: t("nav.menu.copyPath"),
+        label: t("nav.menu.copyId"),
         icon: <Copy size={13} />,
         onClick: () => {
-          void navigator.clipboard?.writeText(path);
+          void navigator.clipboard?.writeText(id);
         },
       },
     ];
-  }, [folderMenu, onNewNoteInFolder, t]);
+  }, [ctxMenu, onNewNoteInFolder, onNavSelect, t]);
 
   const inboxCount = useMemo(() => nodes.filter(isInbox).length, [nodes]);
   const queries = useMemo(() => nodes.filter(isQueryNode), [nodes]);
@@ -183,6 +204,17 @@ export function Nav({
   ) => (
     <button
       onClick={() => onNavSelect(sel)}
+      onContextMenu={(e) => {
+        if (sel.kind === "type" || sel.kind === "tag") {
+          e.preventDefault();
+          setCtxMenu({
+            kind: sel.kind,
+            id: sel.id,
+            x: e.clientX,
+            y: e.clientY,
+          });
+        }
+      }}
       className={cn(
         "flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[13px]",
         active ? "bg-surface2 text-text" : "text-subtext hover:bg-surface hover:text-text",
@@ -238,7 +270,12 @@ export function Nav({
           style={{ paddingLeft: depth * 12 + 4 }}
           onContextMenu={(e) => {
             e.preventDefault();
-            setFolderMenu({ path: node.path, x: e.clientX, y: e.clientY });
+            setCtxMenu({
+              kind: "folder",
+              id: node.path,
+              x: e.clientX,
+              y: e.clientY,
+            });
           }}
           onDragOver={(e) => {
             if (!onMoveNote) return;
@@ -402,9 +439,9 @@ export function Nav({
         </div>
       )}
       <ContextMenu
-        items={folderMenuItems}
-        pos={folderMenu ? { x: folderMenu.x, y: folderMenu.y } : null}
-        onClose={() => setFolderMenu(null)}
+        items={ctxMenuItems}
+        pos={ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : null}
+        onClose={() => setCtxMenu(null)}
       />
     </div>
   );

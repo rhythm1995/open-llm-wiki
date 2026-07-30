@@ -9,6 +9,7 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Warning, X, Code, PencilSimple } from "@phosphor-icons/react";
+import { listen } from "@tauri-apps/api/event";
 import { Nav } from "./components/Nav";
 import { NoteListView } from "./components/NoteListView";
 import type { NavSelection } from "./lib/nav-filter";
@@ -24,6 +25,7 @@ import { GitPanel } from "./components/GitPanel";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { CenterToolbar } from "./components/CenterToolbar";
 import { StatusBar } from "./components/StatusBar";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
@@ -38,6 +40,7 @@ import {
   migrateEditMode,
   type EditMode,
 } from "./lib/edit-mode";
+import { modeFidelityHintKey } from "./lib/edit-mode-ux";
 import type { PaletteMode } from "./components/CommandPalette";
 
 // 画布视图懒加载:Excalidraw 包体大,隔离到独立 chunk(MIT,见 THIRD_PARTY_NOTICES)。
@@ -62,11 +65,13 @@ export default function App() {
   const [findQuery, setFindQuery] = useState("");
   /** 打开 Find 前的编辑模式,关闭时还原(避免永久改用户偏好)。 */
   const findPrevModeRef = useRef<EditMode | null>(null);
-  const { theme, toggle: toggleTheme } = useTheme();
-  const { locale, toggle: toggleLocale, t } = useLocale();
+  const { theme, toggle: toggleTheme, setTheme } = useTheme();
+  const { locale, setLocale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
   /** 稳定句柄:FindBar 订阅此 state,避免 ref.current 在首渲为 null。 */
   const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modeHint, setModeHint] = useState<string | null>(null);
   // 双模式:source / wysiwyg。一次性迁移旧默认 source → wysiwyg(见 edit-mode.ts)。
   const [editMode, setEditMode] = useState<EditMode>(() => {
     try {
@@ -83,15 +88,26 @@ export default function App() {
       return "wysiwyg";
     }
   });
-  const persistEditMode = useCallback((m: EditMode) => {
-    setEditMode(m);
-    try {
-      localStorage.setItem(EDIT_MODE_KEY, JSON.stringify(m));
-      localStorage.setItem(EDIT_MODE_MIGRATED_KEY, "1");
-    } catch {
-      // 隐私模式:内存态即可。
-    }
-  }, []);
+  const editModeRef = useRef(editMode);
+  editModeRef.current = editMode;
+  const persistEditMode = useCallback(
+    (m: EditMode) => {
+      const from = editModeRef.current;
+      const hintKey = modeFidelityHintKey(from, m);
+      if (hintKey) {
+        setModeHint(t(hintKey));
+        window.setTimeout(() => setModeHint(null), 6000);
+      }
+      setEditMode(m);
+      try {
+        localStorage.setItem(EDIT_MODE_KEY, JSON.stringify(m));
+        localStorage.setItem(EDIT_MODE_MIGRATED_KEY, "1");
+      } catch {
+        // 隐私模式:内存态即可。
+      }
+    },
+    [t],
+  );
   // 四区布局:三个非编辑器面板各自可隐藏,状态持久化。切换入口集中在 CenterToolbar
   // 右侧的 Xcode 式切换簇(面板边缘不放按钮)。编辑器常驻,不参与切换。
   const [navOpen, setNavOpen] = usePersistentState("openobs.navOpen", true);
@@ -259,11 +275,9 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  // path/mode 用 ref,避免 keydown 闭包拿到旧 path 导致 ⌘F 静默 no-op。
+  // path 用 ref,避免 keydown 闭包拿到旧 path 导致 ⌘F 静默 no-op。
   const pathRef = useRef(state.currentPath);
   pathRef.current = state.currentPath;
-  const editModeRef = useRef(editMode);
-  editModeRef.current = editMode;
 
   /** 打开文档内查找:进 editor、必要时切 source 以启用 CM 全文高亮。 */
   const openFind = useCallback(() => {
@@ -302,6 +316,7 @@ export default function App() {
       toggleTheme,
       theme,
       toggleLocale,
+      openSettings: () => setSettingsOpen(true),
       hasCurrentNote:
         !!state.currentPath && !isCanvasPath(state.currentPath ?? ""),
       archiveCurrent: () => {
@@ -326,6 +341,67 @@ export default function App() {
       state.root,
     ],
   );
+
+  // 桌面应用菜单 → 与 palette 同源动作。
+  useEffect(() => {
+    if (ipc.isMock()) return;
+    let unlisten: (() => void) | undefined;
+    void listen<string>("menu-action", (ev) => {
+      const id = ev.payload;
+      switch (id) {
+        case "new-note":
+          openNewNote();
+          break;
+        case "new-canvas":
+          openNewCanvas();
+          break;
+        case "open-vault":
+          void actions.openPicker();
+          break;
+        case "save":
+          void actions.saveNow();
+          break;
+        case "find":
+          openFind();
+          break;
+        case "settings":
+          setSettingsOpen(true);
+          break;
+        case "view-editor":
+          setView("editor");
+          break;
+        case "view-graph":
+          setView("graph");
+          break;
+        case "view-query":
+          setView("query");
+          break;
+        case "view-git":
+          setView("git");
+          break;
+        case "mode-source":
+          persistEditMode("source");
+          break;
+        case "mode-wysiwyg":
+          persistEditMode("wysiwyg");
+          break;
+        default:
+          break;
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [
+    actions,
+    openNewNote,
+    openNewCanvas,
+    openFind,
+    persistEditMode,
+    setView,
+  ]);
 
   // ⌘F 文档内查找(FindBar + 全文高亮)。capture 拦截,避免编辑器吞键。
   useEffect(() => {
@@ -541,8 +617,17 @@ export default function App() {
                       noteTitles={noteTitles}
                       hasNote={state.currentPath !== null}
                       theme={theme}
+                      root={state.root}
                       t={t}
                     />
+                  )}
+                  {modeHint && !isCanvas && (
+                    <div
+                      data-testid="mode-fidelity-hint"
+                      className="absolute bottom-2 left-2 right-2 z-20 rounded border border-yellow/40 bg-mantle/95 px-2.5 py-1.5 text-[11px] text-subtext shadow"
+                    >
+                      {modeHint}
+                    </div>
                   )}
                   {!isCanvas && state.currentPath !== null && (
                     <button
@@ -640,6 +725,22 @@ export default function App() {
         t={t}
         mode={paletteMode}
         commandExtras={commandExtras}
+      />
+
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={{
+          theme,
+          locale,
+          defaultEditMode: editMode,
+        }}
+        onChange={(patch) => {
+          if (patch.theme) setTheme(patch.theme);
+          if (patch.locale) setLocale(patch.locale);
+          if (patch.defaultEditMode) persistEditMode(patch.defaultEditMode);
+        }}
+        t={t}
       />
     </div>
   );

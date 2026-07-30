@@ -28,47 +28,45 @@
 | B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ⏳ | ironcalc 仅 wasm、无 React UI;或换库/自研 |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⏳ | API + 沙箱 + 生命周期 + 分发 + 安全 |
 | B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ⏳ | 读侧「复制 AI 上下文」✅;agent 读写 vault 未做 |
-| B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | 🟡 | 双模可用;缺差分测试集 + 禁用特性表 + 长文基线 |
-| B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ⏳ | 可选;mock-qql 子集够 dev |
+| B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 轻量门禁:`blocknote-fidelity` 安全样例 + 风险清单 + wikilink/fm 往返测 |
+| B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ⏳ | **大件/可选**;mock-qql 子集够 dev(非本轮) |
 
 ---
 
-## C. 编辑器体验(缺口大 · 产品打磨优先)
-
-> 主路径「能写 md」已成立;离「打磨过的写作台」仍有距离。详见 [deferred §编辑器与菜单](./deferred.md)。
+## C. 编辑器体验
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-ED-FMT-BAR | **Source 格式工具条** | 🟡 | ✅ | `md-format` + Editor 顶栏加粗/标题/列表/引用/wikilink |
-| B-ED-CTX-MENU | **编辑器正文右键菜单** | 🟢 | ✅ | Source 右键:格式 + 复制/剪切/粘贴 |
-| B-ED-FIND-PARITY | **⌘F 双模对齐** | 🟡 | ✅ | ⌘F 统一切 source + CM 高亮(FindBar);关查找可还原 wysiwyg |
-| B-ED-QQL-WYSIWYG | **WYSIWYG 内联 ```qql** | 🟡 | ⏳ | source 有 qql-widget;BlockNote 多半当普通代码块 |
-| B-ED-MODE-UX | **双模切换心智** | 🟢 | 🟡 | 有切换按钮;缺风险提示、模式在 ⌘K/菜单中的入口 |
-| B-ED-MEDIA | **图片粘贴/拖入/预览** | 🟡 | ⏳ | `![]()` 基本当文本 |
-| B-ED-READING | **阅读/并排预览** | 🟢 | 🟡 | 有阅读切换;无并排预览等布局 |
+| B-ED-FMT-BAR | Source 格式工具条 | 🟡 | ✅ | |
+| B-ED-CTX-MENU | Source 正文右键 | 🟢 | ✅ | |
+| B-ED-FIND-PARITY | ⌘F 双模对齐 | 🟡 | ✅ | 切 source + CM 高亮 |
+| B-ED-QQL-WYSIWYG | WYSIWYG 内联 qql | 🟡 | ✅ | `collectWysiwygQqlJobs` + `run_qql` 结果面板 |
+| B-ED-MODE-UX | 双模切换心智 | 🟢 | ✅ | 保真提示 + ⌘K/菜单/设置默认模式 |
+| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ⏳ | **非目标**(plan non-goals: full media library) |
+| B-ED-READING | 并排预览 | 🟢 | ⏳ | 有阅读切换;并排为增强项,未做 |
 
 ---
 
-## D. 菜单与命令(桌面感弱)
+## D. 菜单与命令
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-APP-MENU | **系统应用菜单栏** | 🟡 | ⏳ | Tauri 无 File/Edit/View/Window 标准栏 |
-| B-PALETTE-EXPAND | **⌘K 命令扩面** | 🟢 | ✅ | 保存/查找/源码·WYSIWYG/归档/Reveal/主题/语言 + 快捷键标注 |
-| B-NAV-CTX | **Nav 树右键** | 🟢 | 🟡 | 文件夹:新建笔记/复制路径 ✅;类型/标签/重命名夹 ⏳ |
-| B-TAB-CTX | **标签页右键** | 🟢 | ✅ | 关闭/关闭其它/复制路径 |
-| B-SETTINGS | **设置页** | 🟡 | ⏳ | 主题/语言/默认编辑模式等无统一设置入口 |
+| B-APP-MENU | 系统应用菜单栏 | 🟡 | ✅ | Tauri File/Edit/View → `menu-action` 事件 |
+| B-PALETTE-EXPAND | ⌘K 命令扩面 | 🟢 | ✅ | + 设置入口 |
+| B-NAV-CTX | Nav 树右键 | 🟢 | ✅ | 文件夹新建;类型/标签筛选+复制 |
+| B-TAB-CTX | 标签页右键 | 🟢 | ✅ | |
+| B-SETTINGS | 设置页 | 🟡 | ✅ | 主题/语言/默认编辑模式 |
 
-**右键覆盖对照**(实现现状):
+**右键覆盖**:
 
 | 区域 | 状态 |
 |---|---|
-| 笔记列表行 | ✅ 重命名 / wikilink / status / 归档 / 删除 / Finder |
-| 图谱节点 | ✅ 打开 / 聚焦 / pin / 复制 / 隐藏类型 |
-| 编辑器正文 | ❌ |
-| Nav 文件夹/类型/标签 | ❌ |
-| Tab 栏 | ❌ |
-| 画布 | Excalidraw 自带,未统一到 app |
+| 笔记列表行 | ✅ |
+| 图谱节点 | ✅ |
+| 编辑器正文(source) | ✅ |
+| Nav 文件夹/类型/标签 | ✅ |
+| Tab 栏 | ✅ |
+| 画布 | Excalidraw 自带 |
 
 ---
 
@@ -76,8 +74,8 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-FPS | **万级帧率验收** | 🟡 | 🧪 | 代码已齐;1k≥30fps / 5k / 10k LOD 真机门禁 |
-| B-QQL-MOCK-GAP | **mock-qql 与 core 语义差** | 🟡 | 🟡 | 复杂 AND/OR/关系函数 mock 仍降级 |
+| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | **非本轮**(真机) |
+| B-QQL-MOCK-GAP | mock-qql 与 core 差 | 🟡 | 🟡 | AND/OR/path/title 已扩;完整 AST 仍大件 |
 
 ---
 
@@ -106,12 +104,9 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~⌘K 扩面 + 编辑器右键 + 格式条 + Tab 右键 + 查找统一~~ ✅  
-2. **WYSIWYG qql + 模式 UX**(B-ED-QQL-WYSIWYG / B-ED-MODE-UX)  
-3. **B-APP-MENU** 系统菜单;Nav 右键补全;B-SETTINGS  
-4. **B-BN-FIDELITY** 保真测试门禁  
-5. 大件:B-MCP → B-PLUGIN → B-SHEET  
-6. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥  
+1. ~~非大件打磨(编辑器/菜单/设置/轻量保真)~~ ✅  
+2. 大件:B-MCP → B-PLUGIN → B-SHEET  
+3. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥  
 
 ---
 

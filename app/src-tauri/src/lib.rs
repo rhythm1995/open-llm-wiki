@@ -19,6 +19,7 @@ use openobs_core::{
     ResultSet, Target, VaultIndex,
 };
 use serde::Serialize;
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
@@ -897,6 +898,73 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
+        .setup(|app| {
+            // 原生菜单:动作经 menu-action 事件交给前端(与 ⌘K 同源)。
+            let file_new = MenuItemBuilder::with_id("new-note", "New Note")
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?;
+            let file_canvas = MenuItemBuilder::with_id("new-canvas", "New Canvas").build(app)?;
+            let file_open = MenuItemBuilder::with_id("open-vault", "Open Vault…")
+                .accelerator("CmdOrCtrl+O")
+                .build(app)?;
+            let file_save = MenuItemBuilder::with_id("save", "Save")
+                .accelerator("CmdOrCtrl+S")
+                .build(app)?;
+            let file_settings = MenuItemBuilder::with_id("settings", "Settings…")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+            let edit_find = MenuItemBuilder::with_id("find", "Find in Note")
+                .accelerator("CmdOrCtrl+F")
+                .build(app)?;
+            let mode_src = MenuItemBuilder::with_id("mode-source", "Source Mode").build(app)?;
+            let mode_wy = MenuItemBuilder::with_id("mode-wysiwyg", "Wysiwyg Mode").build(app)?;
+            let view_ed = MenuItemBuilder::with_id("view-editor", "Editor").build(app)?;
+            let view_gr = MenuItemBuilder::with_id("view-graph", "Graph").build(app)?;
+            let view_q = MenuItemBuilder::with_id("view-query", "Query").build(app)?;
+            let view_git = MenuItemBuilder::with_id("view-git", "Git").build(app)?;
+
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&file_new)
+                .item(&file_canvas)
+                .separator()
+                .item(&file_open)
+                .item(&file_save)
+                .separator()
+                .item(&file_settings)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&PredefinedMenuItem::undo(app, None)?)
+                .item(&PredefinedMenuItem::redo(app, None)?)
+                .separator()
+                .item(&PredefinedMenuItem::cut(app, None)?)
+                .item(&PredefinedMenuItem::copy(app, None)?)
+                .item(&PredefinedMenuItem::paste(app, None)?)
+                .separator()
+                .item(&edit_find)
+                .item(&mode_src)
+                .item(&mode_wy)
+                .build()?;
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&view_ed)
+                .item(&view_gr)
+                .item(&view_q)
+                .item(&view_git)
+                .build()?;
+            let menu = MenuBuilder::new(app)
+                .item(&file_menu)
+                .item(&edit_menu)
+                .item(&view_menu)
+                .build()?;
+            app.set_menu(menu)?;
+            let handle = app.handle().clone();
+            app.on_menu_event(move |_app, event| {
+                let id = event.id().as_ref().to_string();
+                let _ = handle.emit("menu-action", id);
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_vault,
             read_note,

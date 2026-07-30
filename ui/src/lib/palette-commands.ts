@@ -21,6 +21,7 @@ import {
   Rectangle,
   Sun,
   TextT,
+  Gear,
   Translate,
 } from "@phosphor-icons/react";
 import type { TFunc } from "./i18n";
@@ -66,6 +67,8 @@ export interface PaletteCommandDeps {
   /** 在 Finder 中显示当前笔记。 */
   revealCurrent?: () => void;
   hasCurrentNote?: boolean;
+  /** 打开设置面板。 */
+  openSettings?: () => void;
 }
 
 /** 构造 ⌘K 命令列表(非 quickOpen)。 */
@@ -181,6 +184,15 @@ export function buildPaletteCommands(
       label: t("palette.action.toggleLocale"),
       icon: Translate as PaletteIcon,
       run: () => deps.toggleLocale!(),
+    });
+  }
+  if (deps.openSettings) {
+    cmds.push({
+      id: "settings",
+      label: t("palette.action.settings"),
+      icon: Gear as PaletteIcon,
+      shortcut: "⌘,",
+      run: () => deps.openSettings!(),
     });
   }
 

@@ -78,4 +78,13 @@ describe("buildPaletteCommands — expand", () => {
     expect(cmds.some((c) => c.id === "archive")).toBe(true);
     expect(cmds.some((c) => c.id === "reveal")).toBe(true);
   });
+
+  it("含 settings 入口", () => {
+    const openSettings = vi.fn();
+    const cmds = buildPaletteCommands(baseDeps({ openSettings }));
+    const row = cmds.find((c) => c.id === "settings");
+    expect(row).toBeDefined();
+    row!.run();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
 });

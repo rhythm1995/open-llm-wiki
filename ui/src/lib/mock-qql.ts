@@ -113,48 +113,100 @@ function showFields(q: string): string[] | null {
     .filter(Boolean);
 }
 
-function filterNodes(q: string, nodes: MockQqlNode[]): MockQqlNode[] {
+/** 单段谓词(无 AND/OR 拆分后)过滤。 */
+function filterByAtom(atom: string, nodes: MockQqlNode[]): MockQqlNode[] {
   let out = [...nodes];
-  const typeEq = parseEq(q, "type");
+  const typeEq = parseEq(atom, "type");
   if (typeEq != null) {
     out = out.filter((n) => (n.type ?? "Note") === typeEq);
   }
-  const typeIn = parseInList(q, "type");
+  const typeIn = parseInList(atom, "type");
   if (typeIn) {
     const set = new Set(typeIn.map((s) => s.toLowerCase()));
     out = out.filter((n) => set.has((n.type ?? "Note").toLowerCase()));
   }
-  const statusEq = parseEq(q, "status");
+  const statusEq = parseEq(atom, "status");
   if (statusEq != null) {
     out = out.filter((n) => (n.status ?? "") === statusEq);
   }
-  // tags: 支持 CONTAINS / = "tag" 粗匹配
-  const tagEq = parseEq(q, "tags") ?? parseEq(q, "tag");
+  const tagEq = parseEq(atom, "tags") ?? parseEq(atom, "tag");
   if (tagEq != null) {
     const t = tagEq.toLowerCase();
     out = out.filter((n) => n.tags.some((x) => x.toLowerCase() === t));
   }
-  const tagContains = /\btags?\s+CONTAINS\s+["']([^"']+)["']/i.exec(q);
+  const tagContains = /\btags?\s+CONTAINS\s+["']([^"']+)["']/i.exec(atom);
   if (tagContains) {
     const t = tagContains[1].toLowerCase();
     out = out.filter((n) =>
       n.tags.some((x) => x.toLowerCase().includes(t)),
     );
   }
-  const titleC = parseContains(q, "title");
+  const titleC = parseContains(atom, "title");
   if (titleC) {
     const t = titleC.toLowerCase();
     out = out.filter((n) => n.title.toLowerCase().includes(t));
   }
-  const pathSw = parseStartsWith(q, "path");
+  const pathC = parseContains(atom, "path");
+  if (pathC) {
+    const p = pathC.toLowerCase();
+    out = out.filter((n) => n.path.toLowerCase().includes(p));
+  }
+  const pathSw = parseStartsWith(atom, "path");
   if (pathSw) {
     const p = pathSw.toLowerCase();
     out = out.filter((n) => n.path.toLowerCase().startsWith(p));
   }
-  const pathEw = parseEndsWith(q, "path");
+  const pathEw = parseEndsWith(atom, "path");
   if (pathEw) {
     const p = pathEw.toLowerCase();
     out = out.filter((n) => n.path.toLowerCase().endsWith(p));
+  }
+  // #tag
+  const hashTag = /(?:^|\s)#([\w\-/]+)/.exec(atom);
+  if (hashTag) {
+    const t = hashTag[1].toLowerCase();
+    out = out.filter((n) => n.tags.some((x) => x.toLowerCase() === t));
+  }
+  return out;
+}
+
+/**
+ * WHERE 子句粗拆:先 OR 再 AND(与常见 DQL 优先级简化对齐,非完整 AST)。
+ */
+function filterNodes(q: string, nodes: MockQqlNode[]): MockQqlNode[] {
+  const whereM = /\bWHERE\b([\s\S]*?)(?=\b(?:SORT|LIMIT|SHOW|GROUP|RENDER|COUNT)\b|$)/i.exec(
+    q,
+  );
+  const whereBody = (whereM ? whereM[1] : q).trim();
+  if (!whereBody || /^(SORT|LIMIT|SHOW|GROUP|RENDER|COUNT)\b/i.test(whereBody)) {
+    return [...nodes];
+  }
+  // 去掉 WHERE 关键字若整串当 where
+  const body = whereBody.replace(/^\s*WHERE\s+/i, "").trim();
+  if (!body) return [...nodes];
+
+  const orParts = body.split(/\bOR\b/i).map((s) => s.trim()).filter(Boolean);
+  if (orParts.length === 0) return [...nodes];
+
+  const idSets: MockQqlNode[][] = orParts.map((orPart) => {
+    const andParts = orPart.split(/\bAND\b/i).map((s) => s.trim()).filter(Boolean);
+    let cur = [...nodes];
+    for (const atom of andParts) {
+      cur = filterByAtom(atom, cur);
+    }
+    return cur;
+  });
+
+  // 并集按 id 去重保序
+  const seen = new Set<number>();
+  const out: MockQqlNode[] = [];
+  for (const part of idSets) {
+    for (const n of part) {
+      if (!seen.has(n.id)) {
+        seen.add(n.id);
+        out.push(n);
+      }
+    }
   }
   return out;
 }
