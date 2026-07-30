@@ -15,6 +15,12 @@
 
 ---
 
+### 2026-07-30 Grok — 产品拍板:SHEET 不做 xlsx 全量 / 实时协作
+
+- **branch**: `feat/phase1-core`。
+- **做了**:文档落档——对照 Tolaria/Obsidian 核心也不以 xlsx 互通与同屏协作为主路径;OpenObsidian 明确 ⛔。共享 vault 继续 git。
+- **下一步**:无此二项工程;合 main / 签名 / 真机图谱等另议。
+
 ### 2026-07-30 Grok — F-SHEET v2(多表/冻结/图表/嵌入/IronCalc);插件深化不做
 
 - **branch**: `feat/phase1-core`。

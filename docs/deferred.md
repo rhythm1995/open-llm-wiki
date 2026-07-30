@@ -72,7 +72,16 @@
 ## ✅ F-SHEET v2 已落地
 
 - 多工作表 tabs、冻结行列、bar/line 图表、````sheet` md 嵌入、SUM/AVERAGE/MIN/MAX/COUNT、跨表 `Sheet1!A1`。
-- `@ironcalc/wasm` 可选增强(失败回退内置引擎)。协作/XLSX 导入仍非目标。
+- `@ironcalc/wasm` 可选增强(失败回退内置引擎)。
+
+### ⛔ 明确不做(2026-07-30 产品拍板)
+
+| 非目标 | 理由(对照) |
+|---|---|
+| **XLSX 全量导入导出** | Tolaria/Obsidian 核心也不以此为主路径(Obsidian 靠插件);vault 真相是自有 `.sheet` JSON |
+| **实时协作(同屏多光标)** | 三家主路径都是本地文件 + 同步(Git/Sync),非 Google Sheets;本项目协作走 **git** |
+
+协作若指多人共享 vault:继续用 git pull/push,不做表格级 CRDT/直播编辑。
 
 ## ⛔ F-PLUGIN 深化 —— 产品不做
 

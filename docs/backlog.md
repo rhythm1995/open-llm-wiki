@@ -25,7 +25,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2:多 sheet、冻结、图表、md ````sheet` 嵌入、SUM 等、IronCalc 可选;插件深化**不做** |
+| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 T/O 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
 | B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | v1:`openobs-mcp` stdio JSON-RPC;list/read/write/search/qql |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 轻量门禁:`blocknote-fidelity` 安全样例 + 风险清单 + wikilink/fm 往返测 |
