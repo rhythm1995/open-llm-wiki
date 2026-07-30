@@ -69,15 +69,14 @@
 - **做扎实需要**:保真差分测试集 + 明确禁用特性表;长文档性能基线。
 - **前置**:测试集 + 基线(非阻塞日常使用)。
 
-## 🟡 F-SHEET v1 已落地 · 深化项
+## ✅ F-SHEET v2 已落地
 
-- **已落地**:独立 `.sheet` JSON + `SheetView` 网格 + 基础公式(`+ - * /`、引用、括号、环检测);⌘K 新建。见 [09](./09-big-features-v1.md)。
-- **未做**:ironcalc、图表、冻结窗格、嵌入 md、多 sheet、协作。
+- 多工作表 tabs、冻结行列、bar/line 图表、````sheet` md 嵌入、SUM/AVERAGE/MIN/MAX/COUNT、跨表 `Sheet1!A1`。
+- `@ironcalc/wasm` 可选增强(失败回退内置引擎)。协作/XLSX 导入仍非目标。
 
-## 🟡 F-PLUGIN v1 已落地 · 深化项
+## ⛔ F-PLUGIN 深化 —— 产品不做
 
-- **已落地**:`plugin.json` 清单 + 权限白名单 + iframe sandbox + `commands.register` → ⌘K;示例 hello 插件。
-- **未做**:从 vault `.openobs/plugins/` 扫描加载 UI、生命周期面板、签名/商店、notes.read 真读、热更新。
+- v1 宿主代码保留(示例 hello → ⌘K);**不再做** vault 扫描 UI、商店、签名、热更新。
 
 ## 🟡 打包与分发(macOS / Windows / Linux)
 

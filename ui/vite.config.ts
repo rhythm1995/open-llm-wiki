@@ -16,6 +16,11 @@ export default defineConfig({
     host: "127.0.0.1",
   },
   envPrefix: ["VITE_", "TAURI_"],
+  // IronCalc wasm:不预打包,运行时加载。
+  optimizeDeps: {
+    exclude: ["@ironcalc/wasm"],
+  },
+  assetsInclude: ["**/*.wasm"],
   build: {
     target: "es2022",
     sourcemap: !!process.env.TAURI_DEBUG,

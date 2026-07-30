@@ -1,13 +1,14 @@
 /**
  * ReadingPane —— 只读 Markdown 阅读侧(B-ED-READING 并排右栏)。
  *
- * renderMarkdown → sanitize → rewrite 相对 img src → 注入 DOM。
- * wikilink 点击委托 onFollow(与设计稿 F-READING 一致)。
+ * sheet 围栏 → 表格预览;renderMarkdown → sanitize → 改写 img。
+ * wikilink 点击委托 onFollow。
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { rewriteHtmlImageSrcs } from "../lib/attachments";
 import { ipc } from "../lib/ipc";
 import { renderMarkdown, sanitize } from "../lib/render";
+import { rewriteMarkdownSheetBlocks } from "../lib/sheet-block";
 import type { TFunc } from "../lib/i18n";
 
 interface Props {
@@ -23,12 +24,37 @@ export function ReadingPane({ content, root, onFollow, t, hasNote }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const onFollowRef = useRef(onFollow);
   onFollowRef.current = onFollow;
+  const [html, setHtml] = useState("");
 
-  const html = useMemo(() => {
-    if (!hasNote) return "";
-    const raw = sanitize(renderMarkdown(content));
-    if (!root) return raw;
-    return rewriteHtmlImageSrcs(raw, (rel) => ipc.resolveMediaUrl(root, rel));
+  useEffect(() => {
+    if (!hasNote) {
+      setHtml("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const withSheets = await rewriteMarkdownSheetBlocks(
+        content,
+        async (path) => {
+          if (!root) return null;
+          try {
+            return await ipc.readNote(root, path);
+          } catch {
+            return null;
+          }
+        },
+      );
+      let raw = sanitize(renderMarkdown(withSheets));
+      if (root) {
+        raw = rewriteHtmlImageSrcs(raw, (rel) =>
+          ipc.resolveMediaUrl(root, rel),
+        );
+      }
+      if (!cancelled) setHtml(raw);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [content, root, hasNote]);
 
   useEffect(() => {
@@ -66,7 +92,6 @@ export function ReadingPane({ content, root, onFollow, t, hasNote }: Props) {
       <div
         ref={hostRef}
         className="rendered note-content mx-auto max-w-3xl"
-        // 已 sanitize + img 改写;wikilink 走委托。
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

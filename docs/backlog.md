@@ -25,8 +25,8 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v1:`.sheet` JSON + 网格 + `=A1+B1` 公式;见 [09](./09-big-features-v1.md) |
-| B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ✅ | v1:manifest + 权限白名单 + iframe 沙箱 + ⌘K 注册;无商店/签名 |
+| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2:多 sheet、冻结、图表、md ````sheet` 嵌入、SUM 等、IronCalc 可选;插件深化**不做** |
+| B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
 | B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | v1:`openobs-mcp` stdio JSON-RPC;list/read/write/search/qql |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 轻量门禁:`blocknote-fidelity` 安全样例 + 风险清单 + wikilink/fm 往返测 |
 | B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ✅ | v1:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 走 TS |
@@ -104,9 +104,9 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~非大件打磨~~ ✅ · ~~媒体/并排~~ ✅ · ~~大件 v1(MCP/PLUGIN/SHEET/QQL-TS)~~ ✅  
-2. 大件深化:插件 vault 加载 UI、MCP 资源订阅、sheet 嵌入 md、QQL TS↔Rust 差分  
-3. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥  
+1. ~~非大件打磨~~ ✅ · ~~媒体/并排~~ ✅ · ~~大件 v1~~ ✅ · ~~SHEET v2~~ ✅  
+2. 插件深化 **明确不做**;可选:MCP 客户端配置样例、QQL TS↔Rust 差分 CI  
+3. 并行:B-GRAPH-FPS 真机;签名/Updater 配密钥;合 main  
 
 ---
 

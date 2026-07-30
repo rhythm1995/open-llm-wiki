@@ -9,8 +9,8 @@
 |---|---|---|
 | **B-QQL-TS** | TS 全量解析+求值(对齐 core AST/语义);mock `run_qql` 走 TS | 与 Rust 逐字节差分 CI;wasm 绑定 |
 | **B-MCP** | 独立 `openobs-mcp` stdio JSON-RPC:list/read/write/search/qql | OAuth、远程 HTTP、细粒度多租户权限 |
-| **B-PLUGIN** | 本地 manifest + 能力白名单 + 命令注册 + iframe 消息宿主 | 商店分发、签名、热更新、任意 fs |
-| **B-SHEET** | 独立 `.sheet` JSON + 网格 UI + 基础公式(`=A1+B1` 等) | ironcalc 全 UI、图表、冻结窗格、嵌入 md 单元格 |
+| **B-PLUGIN** | v1 宿主保留 | **产品决定不做深化**(商店/签名/vault 扫描 UI) |
+| **B-SHEET** | v2:多表、冻结、图表、md 嵌入、SUM 族、IronCalc 可选 | XLSX 全量导入导出、协作 |
 
 ## 架构落点
 

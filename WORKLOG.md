@@ -15,6 +15,18 @@
 
 ---
 
+### 2026-07-30 Grok — F-SHEET v2(多表/冻结/图表/嵌入/IronCalc);插件深化不做
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. sheet schema v2:多 tab、freezeRows/Cols、charts;v1 自动迁移。
+  2. 公式:SUM/AVERAGE/MIN/MAX/COUNT、跨表引用;可选 `@ironcalc/wasm`。
+  3. SheetView:表标签、冻结控件、图表侧栏。
+  4. ````sheet` 围栏 + ReadingPane 嵌入预览(`sheet-block.ts`)。
+  5. 产品决定:**插件深化不做**;backlog B-PLUGIN ⛔。
+- **验证**:ui typecheck + test。
+- **下一步**:合 main / 签名 / 真机图谱。
+
 ### 2026-07-30 Grok — 大件 v1:QQL-TS / MCP / PLUGIN / SHEET
 
 - **branch**: `feat/phase1-core`。

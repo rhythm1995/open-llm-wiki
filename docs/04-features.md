@@ -86,8 +86,8 @@
 | F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 stdio ✅(`openobs-mcp`)。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
-| F-SHEET | 表格 | P3 | 🟡 | v1 `.sheet` 网格+公式 ✅;ironcalc/图表/嵌入 md 未做。 |
-| F-PLUGIN | 插件 | P3 | 🟡 | v1 manifest+iframe 沙箱+命令注册 ✅;商店/签名未做。 |
+| F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc 可选。 |
+| F-PLUGIN | 插件 | P3 | ⛔ | v1 宿主保留;**产品不做深化**。 |
 | F-APP-MENU | 系统菜单栏 | P2 | ⏳ | B-APP-MENU;现靠快捷键+顶栏+⌘K。 |
 
 ## 范围说明

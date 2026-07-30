@@ -47,6 +47,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
+      '@ironcalc/wasm':
+        specifier: 0.8.2
+        version: 0.8.2
       '@phosphor-icons/react':
         specifier: ^2.1.7
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -586,6 +589,9 @@ packages:
 
   '@iconify/utils@3.1.4':
     resolution: {integrity: sha512-b1S7B1k9ohZ+iNTi2ATxbRYG9fTrJmUT0rc46bvVnNxqNRGW7dyo/vRREwyniI5IRN2RSJHDcm+s3BjWrSAjHw==}
+
+  '@ironcalc/wasm@0.8.2':
+    resolution: {integrity: sha512-EJ7hA7ePe8mW93MqqvrTvJJ1BuWdIpFhiODHLYJgNQ/NVwA/n4vKD75AgqVeVnVxw6GN5hSGjSly3AiCd9X2ng==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -3857,6 +3863,8 @@ snapshots:
       '@antfu/install-pkg': 1.1.0
       '@iconify/types': 2.0.0
       import-meta-resolve: 4.2.0
+
+  '@ironcalc/wasm@0.8.2': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
