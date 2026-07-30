@@ -23,9 +23,9 @@
 - **实时**:LiveVault 路径级 delta + watcher;`structureSignature` gate 布局;位置 Map 跨帧持久 + 暖启动。
 - **布局**:
   - ✅ 力导向(默认,FR + Barnes-Hut)。
-  - ⏳ **按 type 分层**(B-GRAPH-LAYER)。
-  - ⏳ **按时间轴**(created/modified)(B-GRAPH-TIME)。
-  - ⏳ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
+  - ✅ **按 type 分层**(B-GRAPH-LAYER)。
+  - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
+  - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
 
 > UI 蓝本参考 Tolaria 关系渲染与 Obsidian graph 的交互心智,实现独立编写。未做项见 [backlog](./backlog.md)。
 
@@ -47,7 +47,7 @@
 - **输出**(`ResultSet`):`List` / `Table` / `Count` / `Groups` / `Sum` / **`Histogram`**。
 - **实时**:查询在 live 不可变快照上执行;写/watcher 路径级更新索引。
 - **浏览器 mock**:`mock-qql` 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)供 `vite dev` 预览;完整语义以 Rust 为准。
-- **扩展(待办 B-QQL-EXPAND)**:在 DQL 风语法上继续靠近 Dataview **常用子集**(更完整 WHERE、关系聚合、日期比较、更多 RENDER 等)。**不**追求 Dataview 全语法逐字兼容;迁移成本低即可。
+- **扩展** ✅(B-QQL-EXPAND):`CONTAINS` / `STARTSWITH` / `ENDSWITH` / `IN (...)` 等常用子集。**不**追求 Dataview 全语法逐字兼容。
 - **与 cairn**:Health KPI 可落成 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
 ---
@@ -58,7 +58,7 @@
 
 - `type:` 是 `Option<String>`,任意值,**永不校验、永不阻止保存、永不报错**(底线,不因类型文档改变)。
 - 缺失 → 默认 `Note`。app 据 type 分组/着色。
-- **类型文档(type document)** ⏳ **待办(B-TYPE-DOC)**:某 type 可关联一篇说明笔记,作字段/约定/示例的 **UI 提示**;**不**构成 schema 约束、不阻止保存。曾标「v1 不做」,现纳入正式 backlog。
+- **类型文档(type document)** ✅(B-TYPE-DOC):`types/{Type}.md` 或 `type: TypeDoc`;Inspector「类型说明」**仅 UI 提示**,不构成 schema 约束。
 - 约定键(`status`/`tags`/`created`)识别即富行为,但全可忽略。
 
 ---
@@ -93,12 +93,12 @@
 
 **已交付核心**:F-VAULT + F-EDITOR + F-WIKILINK + F-FILETREE + F-SEARCH + **F-GRAPH** + **F-QUERY** + F-TYPE + F-PROPERTIES + F-STATUS + F-PALETTE + F-TABS + 主题 + 模板 + git + L10N + 画布 + 标签区/拖拽/pull 等。
 
-**原「v1 刻意不做」已改为待办**(见 [backlog](./backlog.md) §A):
+**原「v1 刻意不做」§A 已落地**(见 [backlog](./backlog.md)):
 
 | 原边界 | 现状态 |
 |---|---|
-| 类型文档 | ⏳ B-TYPE-DOC(仅 UI 提示,不锁 schema) |
-| 图谱 type 分层 / 时间轴 | ⏳ B-GRAPH-LAYER / B-GRAPH-TIME |
-| QQL≈Dataview 全量 | ⏳ B-QQL-EXPAND(常用子集扩展,非逐字兼容) |
+| 类型文档 | ✅ 仅 UI 提示,不锁 schema |
+| 图谱 type 分层 / 时间轴 | ✅ + 布局切换 UI |
+| QQL 扩展 | ✅ CONTAINS/STARTSWITH/ENDSWITH/IN |
 
 **仍大件未做**:F-SHEET · F-PLUGIN · 完整 MCP · 签名分发等 → [backlog](./backlog.md) §B–D;[deferred](./deferred.md) 写难点。

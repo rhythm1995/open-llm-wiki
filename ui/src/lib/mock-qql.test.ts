@@ -72,4 +72,16 @@ describe("mockEvalQql", () => {
   it("空查询 → 空 List", () => {
     expect(mockEvalQql("", nodes)).toEqual({ List: [] });
   });
+
+  it("IN / CONTAINS / STARTSWITH", () => {
+    expect(mockEvalQql(`WHERE type IN ("Note")`, nodes)).toEqual({
+      List: [2],
+    });
+    expect(mockEvalQql(`WHERE title CONTAINS "A"`, nodes)).toEqual({
+      List: [1],
+    });
+    expect(mockEvalQql(`WHERE path STARTSWITH "a"`, nodes)).toEqual({
+      List: [1],
+    });
+  });
 });

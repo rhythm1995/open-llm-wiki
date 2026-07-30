@@ -61,6 +61,13 @@ import {
 } from "../lib/graph-layout-budget";
 import { labelPriority, pickVisibleLabels } from "../lib/graph-label";
 import {
+  layoutByTimeline,
+  layoutByTypeLayer,
+  resolveNodeTimeMs,
+  TYPELESS_LABEL,
+  type LayoutMode,
+} from "../lib/graph-modes";
+import {
   buildGraphModel,
   pinIdsToPaths,
   pinPathsToIds,
@@ -172,6 +179,7 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     relations: new Set<EdgeKind>(["wiki", "relation"]),
   }));
   const [showFilters, setShowFilters] = useState(true);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("force");
   const [tf, setTf] = useState({ tx: 0, ty: 0, scale: 1 });
   const [hover, setHover] = useState<number | null>(null);
   const [preview, setPreview] = useState<{
@@ -285,12 +293,49 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     h: 0,
   });
 
-  // Worker / sync 布局(增量预算:结构未变或仅少量新节点时少迭代)。
+  // 布局:force → Worker FR;type-layer / timeline → 确定性排布(跳过 FR)。
   useEffect(() => {
     if (size.w === 0 || size.h === 0 || renderIds.length === 0) return;
+    const gen = ++layoutGenRef.current;
+
+    if (layoutMode === "type-layer" || layoutMode === "timeline") {
+      const pos = new Map(posRef.current);
+      // 清掉不在渲染集的点
+      for (const id of [...pos.keys()]) {
+        if (!renderSet.has(id)) pos.delete(id);
+      }
+      if (layoutMode === "type-layer") {
+        const typeOf = (id: number) => model.byId.get(id)?.type ?? null;
+        layoutByTypeLayer(renderIds, typeOf, pos, {
+          w: size.w,
+          h: size.h,
+          typeOrder: [...types, TYPELESS_LABEL],
+        });
+      } else {
+        const timeOf = (id: number) => {
+          const n = model.byId.get(id);
+          if (!n) return null;
+          // NodeOut 上 created/modified;GraphNode 镜像 preview 等同字段
+          const full = allNodes.find((x) => x.id === id);
+          return resolveNodeTimeMs({
+            created: full?.created ?? null,
+            modified: full?.modified ?? null,
+          });
+        };
+        layoutByTimeline(renderIds, timeOf, pos, {
+          w: size.w,
+          h: size.h,
+        });
+      }
+      if (gen !== layoutGenRef.current) return;
+      posRef.current = pos;
+      prevLayoutRef.current = { sig, w: size.w, h: size.h };
+      bumpLayout();
+      return;
+    }
+
     const client = layoutClientRef.current;
     if (!client) return;
-    const gen = ++layoutGenRef.current;
     const springs = filtered.edges
       .filter((e) => e.to != null && renderSet.has(e.from) && renderSet.has(e.to))
       .map((e) => ({ from: e.from, to: e.to as number }));
@@ -314,7 +359,6 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         h: size.h,
         iterations,
         pinned,
-        // 大图显式 Barnes-Hut;小图 exact(与默认 auto 一致,便于测试断言路径)。
         repulsion:
           renderIds.length >= BARNES_HUT_THRESHOLD ? "barnes-hut" : "exact",
       })
@@ -324,7 +368,20 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         prevLayoutRef.current = { sig, w: size.w, h: size.h };
         bumpLayout();
       });
-  }, [sig, size.w, size.h, renderIds, renderSet, adj, filtered.edges, pinned]);
+  }, [
+    sig,
+    size.w,
+    size.h,
+    renderIds,
+    renderSet,
+    adj,
+    filtered.edges,
+    pinned,
+    layoutMode,
+    model,
+    types,
+    allNodes,
+  ]);
 
   const didFitRef = useRef(false);
   useEffect(() => {
@@ -1073,18 +1130,33 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         </button>
       </div>
 
-      <button
-        onClick={() => setShowFilters((v) => !v)}
-        className={cn(
-          "absolute right-2 top-2 flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
-          showFilters
-            ? "bg-blue text-crust"
-            : "bg-mantle/80 text-overlay hover:text-text",
-        )}
-      >
-        <Funnel size={13} />
-        {t("graph.filter")}
-      </button>
+      <div className="absolute right-2 top-2 flex items-center gap-1">
+        <label className="flex items-center gap-1 rounded bg-mantle/90 px-1.5 py-1 text-[11px] text-overlay backdrop-blur-sm">
+          <span className="sr-only">{t("graph.layout")}</span>
+          <select
+            value={layoutMode}
+            onChange={(e) => setLayoutMode(e.target.value as LayoutMode)}
+            className="max-w-[7.5rem] cursor-pointer bg-transparent text-subtext outline-none"
+            title={t("graph.layout")}
+          >
+            <option value="force">{t("graph.layout.force")}</option>
+            <option value="type-layer">{t("graph.layout.typeLayer")}</option>
+            <option value="timeline">{t("graph.layout.timeline")}</option>
+          </select>
+        </label>
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className={cn(
+            "flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
+            showFilters
+              ? "bg-blue text-crust"
+              : "bg-mantle/80 text-overlay hover:text-text",
+          )}
+        >
+          <Funnel size={13} />
+          {t("graph.filter")}
+        </button>
+      </div>
 
       {boxUi && boxUi.w + boxUi.h > 0 && (
         <div

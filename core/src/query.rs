@@ -81,6 +81,12 @@ pub enum Predicate {
     Cmp(FieldRef, Cmp, Literal),
     /// 文本字段含子串(标题/正文/路径/字符串键;列表则任一元素含)。
     Contains(FieldRef, String),
+    /// 前缀匹配(Dataview 常用)。
+    StartsWith(FieldRef, String),
+    /// 后缀匹配。
+    EndsWith(FieldRef, String),
+    /// 字段值 ∈ 列表(字符串/列表任一元素命中;大小写不敏感)。
+    InList(FieldRef, Vec<String>),
     /// 逻辑非。
     Not(Box<Predicate>),
     /// 逻辑与(空 → 恒真)。
@@ -278,6 +284,9 @@ pub fn matches(p: &Predicate, n: &Note, graph: &Graph, id: NodeId) -> bool {
         HasField(rf) => !matches!(field_value(rf, n, graph, id), FVal::Missing),
         Cmp(rf, op, lit) => cmp_eval(&field_value(rf, n, graph, id), *op, lit),
         Contains(rf, needle) => contains_eval(&field_value(rf, n, graph, id), needle),
+        StartsWith(rf, prefix) => prefix_eval(&field_value(rf, n, graph, id), prefix, true),
+        EndsWith(rf, suffix) => prefix_eval(&field_value(rf, n, graph, id), suffix, false),
+        InList(rf, list) => in_list_eval(&field_value(rf, n, graph, id), list),
         Not(inner) => !matches(inner, n, graph, id),
         And(ps) => ps.iter().all(|p| matches(p, n, graph, id)),
         Or(ps) => ps.iter().any(|p| matches(p, n, graph, id)),
@@ -319,6 +328,42 @@ fn contains_eval(v: &FVal, needle: &str) -> bool {
         FVal::Str(s) => s.to_lowercase().contains(&nl),
         FVal::List(items) => items.iter().any(|it| it.to_lowercase().contains(&nl)),
         _ => false,
+    }
+}
+
+/// `start=true` → starts_with;否则 ends_with。列表任一元素命中即可。
+fn prefix_eval(v: &FVal, affix: &str, start: bool) -> bool {
+    if affix.is_empty() {
+        return true;
+    }
+    let a = affix.to_lowercase();
+    let check = |s: &str| {
+        let sl = s.to_lowercase();
+        if start {
+            sl.starts_with(&a)
+        } else {
+            sl.ends_with(&a)
+        }
+    };
+    match v {
+        FVal::Str(s) => check(s),
+        FVal::List(items) => items.iter().any(|it| check(it)),
+        _ => false,
+    }
+}
+
+fn in_list_eval(v: &FVal, list: &[String]) -> bool {
+    if list.is_empty() {
+        return false;
+    }
+    let lows: Vec<String> = list.iter().map(|s| s.to_lowercase()).collect();
+    let hit = |s: &str| lows.iter().any(|x| x == &s.to_lowercase());
+    match v {
+        FVal::Str(s) => hit(s),
+        FVal::List(items) => items.iter().any(|it| hit(it)),
+        FVal::Num(n) => hit(&format_num(*n)),
+        FVal::Bool(b) => hit(&b.to_string()),
+        FVal::Missing => false,
     }
 }
 
@@ -618,6 +663,32 @@ mod tests {
         assert_eq!(list_ids(&run(&notes, &g, &q(FieldRef::Title, "cap"))), vec![0]);
         assert_eq!(list_ids(&run(&notes, &g, &q(FieldRef::Body, "rust"))), vec![0]);
         assert_eq!(list_ids(&run(&notes, &g, &q(FieldRef::Path, "dir"))), vec![0]);
+    }
+
+    #[test]
+    fn startswith_endswith_inlist() {
+        let (notes, g) = build(&[
+            ("---\ntype: Concept\n---\n# Alpha", "notes/a.md"),
+            ("---\ntype: Note\n---\n# Beta", "x/b.md"),
+        ]);
+        let q = Query {
+            filter: Predicate::StartsWith(FieldRef::Path, "notes/".into()),
+            ..Query::new()
+        };
+        assert_eq!(list_ids(&run(&notes, &g, &q)), vec![0]);
+        let q = Query {
+            filter: Predicate::EndsWith(FieldRef::Path, "b.md".into()),
+            ..Query::new()
+        };
+        assert_eq!(list_ids(&run(&notes, &g, &q)), vec![1]);
+        let q = Query {
+            filter: Predicate::InList(
+                FieldRef::Type,
+                vec!["Concept".into(), "Entity".into()],
+            ),
+            ..Query::new()
+        };
+        assert_eq!(list_ids(&run(&notes, &g, &q)), vec![0]);
     }
 
     #[test]

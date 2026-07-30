@@ -20,13 +20,16 @@
 //! | `#tag` | `HasTag` |
 //! | `has <字段>` | `HasField` |
 //! | `<字段> = / != / > / >= / < / <=  "字"\|3\|true` | `Cmp` |
-//! | `<字段> ~ "x"` | `Contains`(子串,大小写不敏感) |
+//! | `<字段> ~ "x"` 或 `CONTAINS "x"` | `Contains`(子串,大小写不敏感) |
+//! | `<字段> STARTSWITH / ENDSWITH "x"` | 前缀 / 后缀 |
+//! | `<字段> IN ("a", "b")` | 值 ∈ 列表 |
 //! | `NOT <原子>` / `<a> AND <b>` / `<a> OR <b>` / `( <谓词> )` | 逻辑组合,优先级 NOT > AND > OR |
 //!
 //! # 字段(`<字段>`)
 //!
 //! `title` / `body` / `path` / `type` 为内置;`<键>` 取 frontmatter;`<键>.len()` 取长度。
 //! 特例:`tags.len()`、`mentioned_in.len()`(反链入度)、`links.len()`(出度)。
+//! `status` / `created` / `modified` 为常用 frontmatter 键糖(仍走 Key)。
 //!
 //! 字符串值必须加引号;数字 / `true` / `false` 不加。
 
@@ -113,8 +116,12 @@ enum Tok {
     Ge,
     Lt,
     Le,
-    // 子串
+    // 子串 / 前缀 / 后缀 / 列表
     Tilde,
+    ContainsOp,
+    StartsWithOp,
+    EndsWithOp,
+    InOp,
     And,
     Or,
     Not,
@@ -252,6 +259,10 @@ fn lex(input: &str) -> R<Vec<Tok>> {
                     "AS" => Tok::As,
                     "ASC" => Tok::Asc,
                     "DESC" => Tok::Desc,
+                    "CONTAINS" => Tok::ContainsOp,
+                    "STARTSWITH" => Tok::StartsWithOp,
+                    "ENDSWITH" => Tok::EndsWithOp,
+                    "IN" => Tok::InOp,
                     "TRUE" => Tok::Bool(true),
                     "FALSE" => Tok::Bool(false),
                     _ => Tok::Ident(word),
@@ -431,18 +442,35 @@ fn parse_atom(c: &mut PCursor) -> R<Predicate> {
                     let lit = parse_literal(c)?;
                     Ok(Predicate::Cmp(rf, tok_to_cmp(&op)?, lit))
                 }
-                Some(Tok::Tilde) => {
+                Some(Tok::Tilde) | Some(Tok::ContainsOp) => {
                     c.bump();
                     let s = match c.bump() {
                         Some(Tok::Str(s)) => s,
                         other => {
-                            return Err(ParseError(format!("'~' 后须为字符串,得到 {other:?}")))
+                            return Err(ParseError(format!(
+                                "CONTAINS/~ 后须为字符串,得到 {other:?}"
+                            )))
                         }
                     };
                     Ok(Predicate::Contains(rf, s))
                 }
+                Some(Tok::StartsWithOp) => {
+                    c.bump();
+                    let s = expect_str(c, "STARTSWITH")?;
+                    Ok(Predicate::StartsWith(rf, s))
+                }
+                Some(Tok::EndsWithOp) => {
+                    c.bump();
+                    let s = expect_str(c, "ENDSWITH")?;
+                    Ok(Predicate::EndsWith(rf, s))
+                }
+                Some(Tok::InOp) => {
+                    c.bump();
+                    let list = parse_str_list(c)?;
+                    Ok(Predicate::InList(rf, list))
+                }
                 other => Err(ParseError(format!(
-                    "字段后应为比较运算符 / '~',得到 {other:?}"
+                    "字段后应为比较运算符 / CONTAINS / STARTSWITH / ENDSWITH / IN / '~',得到 {other:?}"
                 ))),
             }
         }
@@ -469,6 +497,48 @@ fn parse_literal(c: &mut PCursor) -> R<Literal> {
         other => Err(ParseError(format!(
             "应为字面量(字符串/数字/bool),得到 {other:?}"
         ))),
+    }
+}
+
+fn expect_str(c: &mut PCursor, ctx: &str) -> R<String> {
+    match c.bump() {
+        Some(Tok::Str(s)) => Ok(s),
+        other => Err(ParseError(format!(
+            "{ctx} 后须为字符串,得到 {other:?}"
+        ))),
+    }
+}
+
+/// `IN ("a", "b")` 或 `IN "a"`(单值)。
+fn parse_str_list(c: &mut PCursor) -> R<Vec<String>> {
+    if matches!(c.peek(), Some(Tok::LParen)) {
+        c.bump();
+        let mut out = Vec::new();
+        if matches!(c.peek(), Some(Tok::RParen)) {
+            c.bump();
+            return Ok(out);
+        }
+        loop {
+            out.push(expect_str(c, "IN")?);
+            match c.peek().cloned() {
+                Some(Tok::Comma) => {
+                    c.bump();
+                    continue;
+                }
+                Some(Tok::RParen) => {
+                    c.bump();
+                    break;
+                }
+                other => {
+                    return Err(ParseError(format!(
+                        "IN 列表中期望 ',' 或 ')',得到 {other:?}"
+                    )));
+                }
+            }
+        }
+        Ok(out)
+    } else {
+        Ok(vec![expect_str(c, "IN")?])
     }
 }
 
@@ -674,6 +744,30 @@ mod tests {
         assert_eq!(
             p(r#"status ~ "act""#),
             Predicate::Contains(F::Key("status".into()), "act".into())
+        );
+    }
+
+    #[test]
+    fn contains_startswith_endswith_in() {
+        assert_eq!(
+            p(r#"title CONTAINS "cap""#),
+            Predicate::Contains(F::Title, "cap".into())
+        );
+        assert_eq!(
+            p(r#"path STARTSWITH "notes/""#),
+            Predicate::StartsWith(F::Path, "notes/".into())
+        );
+        assert_eq!(
+            p(r#"path ENDSWITH ".md""#),
+            Predicate::EndsWith(F::Path, ".md".into())
+        );
+        assert_eq!(
+            p(r#"type IN ("Concept", "Entity")"#),
+            Predicate::InList(F::Type, vec!["Concept".into(), "Entity".into()])
+        );
+        assert_eq!(
+            p(r#"status IN "Active""#),
+            Predicate::InList(F::Key("status".into()), vec!["Active".into()])
         );
     }
 

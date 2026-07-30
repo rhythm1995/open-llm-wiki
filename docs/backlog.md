@@ -13,10 +13,11 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-TYPE-DOC | **类型文档(type document)** | 🟡 | ⏳ | 某 `type` 可有一篇说明笔记(约定/示例/字段提示),**仅 UI 提示层**,不构成 schema 约束、不绑保存。原 P4「v1 不做」作废。 |
-| B-GRAPH-LAYER | **图谱按 type 分层布局** | 🟡 | ⏳ | 力导向之外:节点按 type 落在水平/垂直带;可切换回 FR。 |
-| B-GRAPH-TIME | **图谱按时间轴布局** | 🟡 | ⏳ | 按 `created` / `modified` 排布;缺日期节点落「未知」带。 |
-| B-QQL-EXPAND | **QQL 向 Dataview 常用子集扩展** | 🔴 | ⏳ | 在现有 DQL 风 AST/求值上扩:更完整 WHERE(字段路径、`contains`、关系聚合)、JOIN/嵌套、更多 RENDER、日期比较等。**不是**逐字兼容 Dataview 全语法;目标是迁移成本低。完整移植到浏览器 TS 仍可选(见 B-QQL-TS)。 |
+| B-TYPE-DOC | **类型文档(type document)** | 🟡 | ✅ | `types/{Type}.md` 或 `type: TypeDoc`;Inspector「类型说明」提示 only。 |
+| B-GRAPH-LAYER | **图谱按 type 分层布局** | 🟡 | ✅ | `graph-modes.layoutByTypeLayer` + GraphView 切换。 |
+| B-GRAPH-TIME | **图谱按时间轴布局** | 🟡 | ✅ | `layoutByTimeline`(created/modified);未知落右带。 |
+| B-GRAPH-LAYOUT-UI | **布局模式切换 UI** | 🟢 | ✅ | GraphView 右上角 select:力导向 / 类型分层 / 时间轴。 |
+| B-QQL-EXPAND | **QQL 向 Dataview 常用子集扩展** | 🔴 | ✅ | `CONTAINS`/`STARTSWITH`/`ENDSWITH`/`IN (...)`;mock-qql 同步。非全语法兼容。 |
 
 ---
 
@@ -72,12 +73,11 @@
 
 ## 建议实现顺序(产品向)
 
-1. **B-TYPE-DOC** + **B-GRAPH-LAYER** / **B-GRAPH-TIME** + **B-GRAPH-LAYOUT-UI**(原 v1 边界,用户面可见)  
-2. **B-QQL-EXPAND**(查询差异化加深)  
-3. **B-BN-FIDELITY**(日常编辑质量)  
-4. **B-MCP**(AI 写侧)  
-5. **B-PLUGIN** → **B-SHEET**(生态 / 重 UI)  
-6. 并行:**B-GRAPH-FPS** 你本地验;**B-SIGN-*** / **B-UPDATER** 配密钥后开  
+1. ~~§A 原 v1 边界~~ ✅  
+2. **B-BN-FIDELITY**(日常编辑质量)  
+3. **B-MCP**(AI 写侧)  
+4. **B-PLUGIN** → **B-SHEET**(生态 / 重 UI)  
+5. 并行:**B-GRAPH-FPS** 真机验;**B-SIGN-*** / **B-UPDATER** 配密钥后开  
 
 ---
 

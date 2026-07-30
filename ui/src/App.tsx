@@ -553,6 +553,7 @@ export default function App() {
               onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
               noteTitles={noteTitles}
               typeOptions={typeOptions}
+              vaultNodes={state.snapshot?.nodes ?? []}
               t={t}
             />
           </div>

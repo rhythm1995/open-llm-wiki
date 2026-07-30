@@ -49,6 +49,43 @@ function parseEq(q: string, field: string): string | null {
   return m ? m[1] : null;
 }
 
+function parseInList(q: string, field: string): string[] | null {
+  const re = new RegExp(
+    `\\b${field}\\s+IN\\s*\\(([^)]+)\\)`,
+    "i",
+  );
+  const m = re.exec(q);
+  if (!m) return null;
+  return m[1]
+    .split(",")
+    .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+}
+
+function parseContains(q: string, field: string): string | null {
+  const re = new RegExp(
+    `\\b${field}\\s+(?:CONTAINS|~)\\s*["']([^"']+)["']`,
+    "i",
+  );
+  return re.exec(q)?.[1] ?? null;
+}
+
+function parseStartsWith(q: string, field: string): string | null {
+  const re = new RegExp(
+    `\\b${field}\\s+STARTSWITH\\s*["']([^"']+)["']`,
+    "i",
+  );
+  return re.exec(q)?.[1] ?? null;
+}
+
+function parseEndsWith(q: string, field: string): string | null {
+  const re = new RegExp(
+    `\\b${field}\\s+ENDSWITH\\s*["']([^"']+)["']`,
+    "i",
+  );
+  return re.exec(q)?.[1] ?? null;
+}
+
 function wantsCount(q: string): boolean {
   return /\bCOUNT\b/i.test(q) && !/\bSHOW\b/i.test(q);
 }
@@ -82,6 +119,11 @@ function filterNodes(q: string, nodes: MockQqlNode[]): MockQqlNode[] {
   if (typeEq != null) {
     out = out.filter((n) => (n.type ?? "Note") === typeEq);
   }
+  const typeIn = parseInList(q, "type");
+  if (typeIn) {
+    const set = new Set(typeIn.map((s) => s.toLowerCase()));
+    out = out.filter((n) => set.has((n.type ?? "Note").toLowerCase()));
+  }
   const statusEq = parseEq(q, "status");
   if (statusEq != null) {
     out = out.filter((n) => (n.status ?? "") === statusEq);
@@ -98,6 +140,21 @@ function filterNodes(q: string, nodes: MockQqlNode[]): MockQqlNode[] {
     out = out.filter((n) =>
       n.tags.some((x) => x.toLowerCase().includes(t)),
     );
+  }
+  const titleC = parseContains(q, "title");
+  if (titleC) {
+    const t = titleC.toLowerCase();
+    out = out.filter((n) => n.title.toLowerCase().includes(t));
+  }
+  const pathSw = parseStartsWith(q, "path");
+  if (pathSw) {
+    const p = pathSw.toLowerCase();
+    out = out.filter((n) => n.path.toLowerCase().startsWith(p));
+  }
+  const pathEw = parseEndsWith(q, "path");
+  if (pathEw) {
+    const p = pathEw.toLowerCase();
+    out = out.filter((n) => n.path.toLowerCase().endsWith(p));
   }
   return out;
 }

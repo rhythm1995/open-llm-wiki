@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-07-30 Grok — backlog §A 全落地(类型文档/图谱多布局/QQL 扩展)
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. **B-TYPE-DOC**:`type-doc.ts` + Inspector「类型说明」(`types/X.md` / TypeDoc)。
+  2. **B-GRAPH-LAYER/TIME/UI**:`graph-modes.ts` + GraphView 布局下拉(力导向/分层/时间轴)。
+  3. **B-QQL-EXPAND**:core `CONTAINS`/`STARTSWITH`/`ENDSWITH`/`IN`;mock-qql 同步。
+  4. backlog §A 标 ✅。
+- **验证**:cargo test -p openobs-core;pnpm ui typecheck/test。
+
 ### 2026-07-30 Grok — 文档:v1 边界改待办 + backlog 总表
 
 - **branch**: `feat/phase1-core`。

@@ -12,7 +12,7 @@
  *     · 其余        → 标量 / 逗号列表文本 input
  *   编辑经 frontmatter.ts 的纯函数生成新正文,交给 autosave;语义仍以 core 为准。
  */
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   ArrowsClockwise,
   ArrowsLeftRight,
@@ -24,6 +24,7 @@ import {
   Check,
   Clipboard,
   X,
+  FileText,
 } from "@phosphor-icons/react";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Backlink, VaultActions } from "../lib/store";
@@ -41,6 +42,7 @@ import {
 import { filterByTitles } from "../lib/wikilink";
 import { parseOutline } from "../lib/outline";
 import { statusChipClass } from "../lib/status-chip";
+import { resolveTypeDoc } from "../lib/type-doc";
 import { cn } from "../lib/cn";
 
 interface Props {
@@ -55,6 +57,8 @@ interface Props {
   noteTitles: string[];
   /** vault 内出现过的 type 值去重(type 下拉选项)。 */
   typeOptions: string[];
+  /** 全库节点(解析类型文档)。 */
+  vaultNodes?: NodeOut[];
   t: TFunc;
 }
 
@@ -66,10 +70,26 @@ export function Inspector({
   onJumpToLine,
   noteTitles,
   typeOptions,
+  vaultNodes = [],
   t,
 }: Props) {
   const [tab, setTab] = useState("backlinks");
   const [copied, setCopied] = useState(false);
+
+  // hooks 须在 early return 前。
+  const typeDoc = useMemo(() => {
+    if (!node?.type) return null;
+    return resolveTypeDoc(
+      node.type,
+      vaultNodes.map((n) => ({
+        id: n.id,
+        path: n.path,
+        title: n.title,
+        type: n.type,
+        preview: n.preview,
+      })),
+    );
+  }, [node?.type, vaultNodes]);
 
   if (!node) {
     return (
@@ -135,6 +155,32 @@ export function Inspector({
             </span>
           ))}
         </div>
+        {/* 类型文档(仅提示,不强制) */}
+        {node.type && (
+          <div className="mt-1.5 rounded border border-crust/80 bg-surface/40 px-2 py-1.5 text-[11px]">
+            <div className="mb-0.5 flex items-center gap-1 text-overlay">
+              <FileText size={11} />
+              <span>{t("inspector.typeDoc.title")}</span>
+            </div>
+            {typeDoc ? (
+              <button
+                type="button"
+                className="w-full text-left text-blue hover:underline"
+                onClick={() => actions.selectNote(typeDoc.path)}
+                title={typeDoc.path}
+              >
+                <span className="font-medium">{typeDoc.title}</span>
+                {typeDoc.hint && (
+                  <span className="mt-0.5 line-clamp-2 block text-subtext">
+                    {typeDoc.hint}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <p className="text-overlay">{t("inspector.typeDoc.none")}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <Tabs.Root value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
