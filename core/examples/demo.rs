@@ -143,7 +143,7 @@ fn print_resultset(v: &VaultIndex, rs: &openobs_core::ResultSet) {
         }
         ResultSet::Count(n) => println!("  计数 = {n}"),
         ResultSet::Sum(x) => println!("  求和 = {x}"),
-        ResultSet::Groups(groups) => {
+        ResultSet::Groups(groups) | ResultSet::Histogram(groups) => {
             for g in groups {
                 println!("  · {:<16} {}", g.key, g.count);
             }

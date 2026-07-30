@@ -3,12 +3,18 @@ import { filterByNav, isInbox, sameSelection, type NavSelection } from "./nav-fi
 import type { NodeOut } from "./ipc";
 
 // 与 wikilink.test.ts 同款的 per-file helper(本库约定:每文件自带 N)。
-const N = (id: number, path: string, title: string, type: string | null): NodeOut => ({
+const N = (
+  id: number,
+  path: string,
+  title: string,
+  type: string | null,
+  tags: string[] = [],
+): NodeOut => ({
   id,
   path,
   title,
   type,
-  tags: [],
+  tags,
   status: null,
   created: null,
   modified: 0,
@@ -16,9 +22,9 @@ const N = (id: number, path: string, title: string, type: string | null): NodeOu
 });
 
 const NODES: NodeOut[] = [
-  N(0, "index.md", "Index", "Note"),
-  N(1, "zettelkasten.md", "Zettelkasten", "Concept"),
-  N(2, "evergreen.md", "Evergreen", "Concept"),
+  N(0, "index.md", "Index", "Note", ["meta"]),
+  N(1, "zettelkasten.md", "Zettelkasten", "Concept", ["pk"]),
+  N(2, "evergreen.md", "Evergreen", "Concept", ["pk", "meta"]),
   N(3, "sources/karpathy.md", "Karpathy", "Source"),
   N(4, "scratch.md", "Scratch", null), // 未分类 → inbox
   N(5, "sub/deep/nested.md", "Nested", "Note"),
@@ -63,6 +69,16 @@ describe("filterByNav — folder", () => {
   it("递归子目录也命中", () => {
     const r = filterByNav(NODES, { kind: "folder", id: "sub" });
     expect(r.map((n) => n.path)).toEqual(["sub/deep/nested.md"]);
+  });
+});
+
+describe("filterByNav — tag", () => {
+  it("只留带该标签的笔记", () => {
+    const r = filterByNav(NODES, { kind: "tag", id: "pk" });
+    expect(r.map((n) => n.id).sort()).toEqual([1, 2]);
+  });
+  it("无匹配 → 空", () => {
+    expect(filterByNav(NODES, { kind: "tag", id: "nope" })).toEqual([]);
   });
 });
 

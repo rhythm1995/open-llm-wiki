@@ -119,6 +119,79 @@ describe("relaxLayout", () => {
       expect(p.y).toBeLessThanOrEqual(375);
     }
   });
+
+  it("Barnes-Hut:大图不抛错且点在边界内", () => {
+    const pos = new Map<number, Pt>();
+    const ids = Array.from({ length: 120 }, (_, i) => i);
+    seedNodes(ids, new Map(), pos, { w: 800, h: 600 }, () => 0.4);
+    const springs: Spring[] = [];
+    for (let i = 1; i < ids.length; i++) {
+      if (i % 3 === 0) springs.push({ from: ids[i - 1], to: ids[i] });
+    }
+    expect(() =>
+      relaxLayout(ids, springs, pos, {
+        w: 800,
+        h: 600,
+        pad: 20,
+        iterations: 25,
+        repulsion: "barnes-hut",
+      }),
+    ).not.toThrow();
+    for (const id of ids) {
+      const p = pos.get(id)!;
+      expect(p.x).toBeGreaterThanOrEqual(20);
+      expect(p.x).toBeLessThanOrEqual(780);
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+    }
+  });
+
+  it("Barnes-Hut 与 exact 对小图方向一致(排斥拉开)", () => {
+    const make = () =>
+      new Map<number, Pt>([
+        [0, { x: 200, y: 200 }],
+        [1, { x: 205, y: 200 }],
+        [2, { x: 200, y: 205 }],
+      ]);
+    const ids = [0, 1, 2];
+    const exact = make();
+    const bh = make();
+    relaxLayout(ids, [], exact, {
+      w: 400,
+      h: 400,
+      iterations: 40,
+      repulsion: "exact",
+    });
+    relaxLayout(ids, [], bh, {
+      w: 400,
+      h: 400,
+      iterations: 40,
+      repulsion: "barnes-hut",
+      barnesHutTheta: 0.5,
+    });
+    // 两者都应把挤在一起的点拉开(相对初值跨度变大)。
+    const span = (m: Map<number, Pt>) => {
+      const xs = ids.map((i) => m.get(i)!.x);
+      return Math.max(...xs) - Math.min(...xs);
+    };
+    expect(span(exact)).toBeGreaterThan(5);
+    expect(span(bh)).toBeGreaterThan(5);
+  });
+
+  it("pinned 在 barnes-hut 下也不动", () => {
+    const pos = new Map<number, Pt>([
+      [0, { x: 50, y: 50 }],
+      [1, { x: 300, y: 300 }],
+    ]);
+    relaxLayout([0, 1], [{ from: 0, to: 1 }], pos, {
+      w: 400,
+      h: 400,
+      iterations: 50,
+      repulsion: "barnes-hut",
+      pinned: new Set([0]),
+    });
+    expect(pos.get(0)).toEqual({ x: 50, y: 50 });
+  });
 });
 
 describe("bbox", () => {

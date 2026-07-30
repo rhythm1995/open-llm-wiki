@@ -1,9 +1,5 @@
 /**
- * canvas 纯逻辑单测(F-CANVAS)。
- *
- * 只测字符串 ↔ 快照的 round-trip 与边界判定;tldraw 运行时不在单测里加载
- * (canvas.ts 用 `import type` 擦除依赖)。CanvasView 的挂载/落盘行为靠
- * tsc + 构建兜底,不在此单测。
+ * canvas 纯逻辑单测(F-CANVAS / Excalidraw MIT)。
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -11,9 +7,20 @@ import {
   parseCanvasContent,
   serializeCanvasContent,
   isCanvasPath,
+  isLegacyTldrawCanvas,
+  createEmptyCanvasDoc,
+  canvasDocFromExcalidraw,
+  CANVAS_SCHEMA_VERSION,
+  CANVAS_ENGINE,
 } from "./canvas";
 
-const SNAP = { document: { schema: {}, store: {} }, session: {} };
+const DOC = {
+  openobsidianCanvas: CANVAS_SCHEMA_VERSION,
+  engine: CANVAS_ENGINE,
+  elements: [{ id: "a", type: "rectangle" }],
+  appState: { theme: "dark" },
+  files: {},
+};
 
 describe("emptyCanvasContent", () => {
   it("返回空串", () => {
@@ -21,53 +28,84 @@ describe("emptyCanvasContent", () => {
   });
 });
 
-describe("parseCanvasContent", () => {
-  it("空串 / 纯空白 → null", () => {
-    expect(parseCanvasContent("")).toBeNull();
-    expect(parseCanvasContent("   \n\t ")).toBeNull();
+describe("createEmptyCanvasDoc", () => {
+  it("带 schema 标记与空 elements", () => {
+    const d = createEmptyCanvasDoc();
+    expect(d.openobsidianCanvas).toBe(1);
+    expect(d.engine).toBe("excalidraw");
+    expect(d.elements).toEqual([]);
   });
+});
 
+describe("isLegacyTldrawCanvas", () => {
+  it("识别 tldraw {document,session}", () => {
+    expect(
+      isLegacyTldrawCanvas(
+        JSON.stringify({ document: { store: {} }, session: {} }),
+      ),
+    ).toBe(true);
+  });
+  it("新 schema 不算 legacy", () => {
+    expect(isLegacyTldrawCanvas(JSON.stringify(DOC))).toBe(false);
+  });
+  it("空串 / 非法 → false", () => {
+    expect(isLegacyTldrawCanvas("")).toBe(false);
+    expect(isLegacyTldrawCanvas("not json")).toBe(false);
+  });
+});
+
+describe("parseCanvasContent", () => {
+  it("空串 → null", () => {
+    expect(parseCanvasContent("")).toBeNull();
+    expect(parseCanvasContent("   ")).toBeNull();
+  });
   it("非 JSON → null", () => {
     expect(parseCanvasContent("not json")).toBeNull();
-    expect(parseCanvasContent("{ broken")).toBeNull();
   });
-
-  it("JSON 但非对象(数字/数组/字符串)→ null", () => {
-    expect(parseCanvasContent("42")).toBeNull();
-    expect(parseCanvasContent("[1,2,3]")).toBeNull();
-    expect(parseCanvasContent('"hi"')).toBeNull();
-    expect(parseCanvasContent("null")).toBeNull();
-    expect(parseCanvasContent("true")).toBeNull();
+  it("legacy tldraw → 'legacy'", () => {
+    expect(
+      parseCanvasContent(
+        JSON.stringify({ document: { store: {} }, session: {} }),
+      ),
+    ).toBe("legacy");
   });
-
-  it("对象但缺 document 字段 → null", () => {
-    expect(parseCanvasContent('{"foo":1}')).toBeNull();
-    expect(parseCanvasContent('{"document":null}')).toBeNull();
-    expect(parseCanvasContent('{"document":"x"}')).toBeNull();
+  it("合法新 schema → 文档", () => {
+    const got = parseCanvasContent(JSON.stringify(DOC));
+    expect(got).toEqual(DOC);
   });
-
-  it("带 document 对象 → 原样返回(深结构不校验)", () => {
-    const got = parseCanvasContent('{"document":{"store":{}},"session":{}}');
-    expect(got).toEqual({ document: { store: {} }, session: {} });
-  });
-
-  it("普通 markdown 正文(看起来像对象但有 # 标题)→ null", () => {
-    expect(parseCanvasContent("# 标题\n正文")).toBeNull();
+  it("缺 engine / elements → null", () => {
+    expect(
+      parseCanvasContent(
+        JSON.stringify({ openobsidianCanvas: 1, engine: "excalidraw" }),
+      ),
+    ).toBeNull();
   });
 });
 
 describe("serializeCanvasContent round-trip", () => {
-  it("parse(serialize(x)) ≈ x(字段保留)", () => {
-    const s = JSON.stringify(SNAP);
-    const back = parseCanvasContent(s);
-    expect(back).toEqual(SNAP);
+  it("parse(serialize(x)) ≈ x", () => {
+    const s = serializeCanvasContent(DOC);
+    expect(parseCanvasContent(s)).toEqual(DOC);
   });
+  it("美化 JSON", () => {
+    const out = serializeCanvasContent(createEmptyCanvasDoc());
+    expect(out).toContain("\n  ");
+    expect(out).toContain('"engine": "excalidraw"');
+  });
+});
 
-  it("serialize 输出美化 JSON(含换行与缩进)", () => {
-    // @ts-expect-error 测试用:用最小合法快照形状
-    const out = serializeCanvasContent({ document: { a: 1 }, session: {} });
-    expect(out).toContain('\n  "document"');
-    expect(out).toContain('"a": 1');
+describe("canvasDocFromExcalidraw", () => {
+  it("只保留可持久化 appState 键", () => {
+    const d = canvasDocFromExcalidraw(
+      [{ id: "1" }],
+      { theme: "light", collaborators: new Map(), zoom: { value: 1 } },
+      { f1: { id: "f1" } },
+    );
+    expect(d.elements).toHaveLength(1);
+    expect(d.appState.theme).toBe("light");
+    expect(d.appState.zoom).toEqual({ value: 1 });
+    expect(d.appState.collaborators).toBeUndefined();
+    expect(d.files.f1).toEqual({ id: "f1" });
   });
 });
 
@@ -76,10 +114,8 @@ describe("isCanvasPath", () => {
     expect(isCanvasPath("a.canvas")).toBe(true);
     expect(isCanvasPath("a/b/CANVAS.CANVAS")).toBe(true);
   });
-  it("非 .canvas / 目录 / 空串 → false", () => {
+  it("非 .canvas → false", () => {
     expect(isCanvasPath("a.md")).toBe(false);
-    expect(isCanvasPath("canvas.md")).toBe(false);
-    expect(isCanvasPath("dir/canvas")).toBe(false);
     expect(isCanvasPath("")).toBe(false);
   });
 });

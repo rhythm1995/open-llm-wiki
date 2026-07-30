@@ -47,14 +47,14 @@ flowchart TD
   IPC{{"🔌 Tauri IPC 边界<br/>invoke() ↔ #[command]<br/>(浏览器 dev 走 mock 分支)"}}
 
   subgraph TS["🟦 前端纯逻辑 · TypeScript(vitest · 可脱离 Tauri 测)"]
-    LIB["store · tabs · graph-layout · graph-filter<br/>qql-block · wikilink · frontmatter · nav-filter<br/>render · git-parse · saved-query · i18n · theme"]
+    LIB["store · tabs · graph-model · graph-layout · graph-filter · graph-lod<br/>qql-block · wikilink · frontmatter · nav-filter · vault-watch<br/>render · git-parse · saved-query · i18n · theme"]
   end
 
   subgraph REACT["🎨 React 19 + Tailwind v4(组件)"]
     direction LR
-    ED["Editor(CodeMirror 6)<br/>ReadingView(marked+DOMPurify)"]
-    GR["GraphView(自绘 SVG 力导向)<br/>QueryPanel · qql-widget(内联 ```qql)"]
-    NAV["Nav · NoteListView · ArchiveView<br/>Inspector · SearchPanel · GitPanel · CommandPalette"]
+    ED["Editor(CodeMirror 6 + FindBar)<br/>WysiwygView(BlockNote) · CanvasView(Excalidraw)"]
+    GR["GraphView(WebGL sigma + Worker 布局 / SVG 回退)<br/>QueryPanel · qql-widget(内联 ```qql)"]
+    NAV["Nav · NoteListView · ArchiveView<br/>Inspector · GitPanel · CommandPalette"]
   end
 
   %% 主数据流
@@ -95,7 +95,7 @@ flowchart LR
 
 > **关键**:`VaultIndex` 是顶层聚合——`build()` 一次性把 parse/index/graph/search 全跑完,产出不可变快照;
 > `query()` / `search()` 是快照上的只读查询。Tauri 命令 `index_vault` 把这个快照序列化给前端;
-> `run_qql` / `search_notes` 则是按需的窄查询。**没有增量索引**(全量 rebuild),靠 Rust 速度 + vault 规模
+> `run_qql` / `search_notes` 则是按需的窄查询(读 **LiveVault** 内存索引,不每次 WalkDir)。打开 vault 全量一次;写/删/改名/watcher 走路径级 delta。
 > 可控(日常百~千级笔记)兜住——这是有意的简单取舍。
 
 ---
@@ -110,7 +110,7 @@ LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Op
 | **Raw** | 不可变原始源 | 笔记的 `type: Source`;不可变语义由 **git 版本真相**保证(re-ingest 产新 Summary,旧版可还原) | `type: Source` · `git_restore_note` · ArchiveView |
 | **Wiki** | LLM 生成的派生知识 | `Summary` / `Entity` / `Concept` 软类型 + 关系边(`derived_into` / `mentioned_in` / `contradicts`) | `type: Summary\|Entity\|Concept` · Inspector 关系编辑 · GraphView |
 | **Schema** | 类型与关系的契约 | `core::index` 解析 `type:`/frontmatter;`Type` 文档定义软类型;`AGENTS.md` 作 schema 提示(兼容 cairn) | `type_of()` · `relationship_links()` · Type 文档 · AGENTS.md |
-| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(关系可视化)+ **QQL**(聚合导航)+ **全文检索**+ Nav 智能视图(VIEWS/TYPES/FOLDERS) | GraphView · QueryPanel/qql-widget · SearchPanel · `index_vault` |
+| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(关系可视化)+ **QQL**(聚合导航)+ **⌘F/⌘P/⌘K**+ Nav 智能视图(VIEWS/TYPES/TAGS/FOLDERS) | GraphView · QueryPanel/qql-widget · FindBar · CommandPalette · `index_vault` |
 | **Health** | 度量与反馈环 | **用 QQL 实时算**,而非手写 wiki-health 快照 —— 见下文「Health 即查询」 | `run_qql` + saved `type: Query` 笔记 |
 
 ### Health 即查询(核心洞察)
@@ -167,7 +167,7 @@ sequenceDiagram
   IPC->>App: 转发
   App->>Core: VaultIndex.query(q) / .search(terms)
   Core-->>App: ResultSet / SearchHit[]
-  App-->>UI: 渲染结果(QueryPanel / qql-widget / SearchPanel)
+  App-->>UI: 渲染结果(QueryPanel / qql-widget / ⌘F FindBar)
 ```
 
 ---
@@ -178,26 +178,23 @@ sequenceDiagram
 
 | 维度 | 02 初版设计 | 实际落地 | 原因 / 记录 |
 |---|---|---|---|
-| 编辑器 | BlockNote(主)+ CodeMirror(raw) | **CodeMirror 6 单轨**(ReadingView 覆盖渲染) | BlockNote 的 JSON↔Markdown round-trip 有损,延后到证明无损再做([deferred](./deferred.md)「BlockNote」) |
-| 图谱 | react-force-graph-2d(WebGL) | **自绘 SVG 力导向**(FR 算法,纯 `graph-layout.ts`) | 零依赖、可单测、中小图够用;>400 节点的 WebGL/LOD 是待打磨项([deferred](./deferred.md)「图谱大图性能」) |
-| UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 直接 + 少量 Radix**(自实现轻量组件) | 降依赖体积、对齐 Tolaria 视觉 |
-| Canvas | — | **tldraw**(source-available 非商用)隔离在懒加载 chunk | 唯一非 MIT 依赖,刻意收束在单模块([THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)) |
+| 编辑器 | BlockNote(主)+ CodeMirror(raw) | **CodeMirror 源码 + BlockNote WYSIWYG** 双模,同一 `.md` | WYSIWYG 落地;源码仍为 round-trip 逃生舱 |
+| 图谱 | react-force-graph-2d(WebGL) | **sigma WebGL + Worker FR + LOD**(小图 SVG 回退) | 见 deferred;path-stable model |
+| UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 + 少量 Radix** | 降依赖体积 |
+| Canvas | — | **Excalidraw(MIT)** 懒加载 | 已替换 tldraw;默认纯 MIT 分发 |
+| 索引 | 每次全量 WalkDir | **LiveVault 路径级 delta** + force 自愈 | open 一次全量;写/watcher 增量 |
 
-> 原则没变:依赖只选成熟 + MIT/Apache(tldraw 是唯一记录在案的边界,且可一键移除)。
+> 原则没变:依赖只选成熟 + MIT/Apache(或 MPL 弱 copyleft);画布不再引入 source-available 生产限制。
 
 ---
 
 ## 6. 设计原则(为什么这样切)
 
-1. **纯逻辑 IO-free 内核** —— `core` 不碰 FS/git/网络/时间;99 个单测全在纯函数上。所有副作用挤到 `app` 层。
-   好处:核心算法(parse/图谱/QQL/检索)可穷尽测试、可复用(未来 MCP server 直接复用 `core`)。
-2. **前端对称的纯逻辑层** —— `ui/src/lib/` 与后端对称地放纯逻辑(tabs/graph-layout/qql-block/wikilink…),
-   265 个 vitest 单测可脱离 Tauri 跑(`mock.ts` 兜底)。IO 薄壳在 `ipc.ts` 一处。
-3. **文件即真相 + git 唯一版本源** —— 没有 `.trash/` 平行机制;删除/还原全走 git,结构操作自动提交、正文手动提交
-   (保住 commit 卫生)。归档视图 = git 历史。
-4. **软类型,不靠文件夹** —— 类型由 frontmatter `type:` 推断,关系由 wikilink + frontmatter 关系键;文件夹不承载语义。
-   这正是 LLM Wiki「Schema 层」的落地,也是与 Obsidian/Tolaria 互通的基础。
-5. **tldraw 隔离** —— 许可风险收束在 `CanvasView.tsx` 一个懒加载模块,删它即回纯 MIT。
+1. **纯逻辑 IO-free 内核** —— `core` 不碰 FS/git/网络/时间;单测全在纯函数上。所有副作用挤到 `app` 层。
+2. **前端对称的纯逻辑层** —— `ui/src/lib/` 放 tabs/graph-layout/qql-block/wikilink/vault-watch…;IO 薄壳在 `ipc.ts`。
+3. **文件即真相 + git 唯一版本源** —— 删除/还原全走 git;结构操作自动提交、正文手动提交。
+4. **软类型,不靠文件夹** —— `type:` + wikilink + 关系键;文件夹不承载语义。
+5. **画布 MIT** —— Excalidraw 懒加载隔离;旧 tldraw 文件只读兼容。
 6. **clean-room** —— 以 Tolaria 公开设计为蓝本,严禁复制其 AGPL 源码。
 
 ---

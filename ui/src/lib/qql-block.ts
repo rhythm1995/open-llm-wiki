@@ -111,6 +111,15 @@ export function resultToHtml(
     ).join("");
     return `<ul class="qql-result qql-groups">${items}</ul>`;
   }
+  if ("Histogram" in result) {
+    if (result.Histogram.length === 0) return `<div class="qql-result qql-empty">无直方</div>`;
+    const max = Math.max(1, ...result.Histogram.map((g) => g.count));
+    const items = result.Histogram.map((g) => {
+      const pct = Math.round((g.count / max) * 100);
+      return `<li><span class="qql-key">${esc(g.key || "(空)")}</span><span class="qql-bar" style="width:${pct}%"></span><span class="qql-badge">${g.count}</span></li>`;
+    }).join("");
+    return `<ul class="qql-result qql-histogram">${items}</ul>`;
+  }
   if ("Table" in result) {
     if (result.Table.length === 0) return `<div class="qql-result qql-empty">无行</div>`;
     const cols = result.Table[0].fields?.length ?? 0;

@@ -5,6 +5,7 @@
 //!
 //! 设计原则:命令函数只做 IO 与 core 之间的胶水,不写业务逻辑。
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -14,8 +15,8 @@ use std::time::Duration;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use openobs_core::{
-    frontmatter_str, parse_query, tags as note_tags, type_of, EdgeKind, ResultSet, Target,
-    VaultIndex,
+    apply_entry_deltas, frontmatter_str, parse_query, tags as note_tags, type_of, EdgeKind,
+    ResultSet, Target, VaultIndex,
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -132,15 +133,47 @@ fn preview_of(body: &str) -> String {
     }
 }
 
-/// 扫描 vault 下所有 .md,构建 core 索引。
-fn build_index(root: &str) -> Result<VaultIndex, String> {
+// ───────────────────────── 内存 live 索引 ─────────────────────────
+//
+// 打开 vault = 全量 walk 一次 → LiveVault{entries,index}。
+// 之后写/删/改名/watcher 路径 delta 只读受影响文件,改 entries map 再
+// VaultIndex::build_from_map —— **不**再 WalkDir 全库。
+// run_qql / search_notes 只读 live.index。
+// index_vault(force=true) 或 root 切换时再全量 walk 自愈。
+
+/// 内存中的 vault 索引(与磁盘 .md 集对应;canvas 不进 index)。
+struct LiveVault {
+    root: String,
+    /// 相对 path → 正文(.md only)。
+    entries: BTreeMap<String, String>,
+    index: VaultIndex,
+}
+
+struct LiveVaultState(Mutex<Option<LiveVault>>);
+
+fn is_md_rel(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("md"))
+        .unwrap_or(false)
+}
+
+/// 规范化 vault 内相对路径(统一 `/`,去掉前导 `./`)。
+fn normalize_rel(path: &str) -> String {
+    path.replace('\\', "/")
+        .trim_start_matches("./")
+        .to_string()
+}
+
+/// 全量 walk 读入全部 .md → LiveVault(IO 仅此路径在 open/force 时发生)。
+fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
     let root_path = Path::new(root);
     if !root_path.is_dir() {
         return Err(format!("不是目录:{root}"));
     }
-    let mut entries: Vec<(String, String)> = Vec::new();
-    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian 等),使回收站与隐藏
-    // 配置不出现在图谱/检索里。filter_entry 对目录会连同其子孙一并剪枝。
+    let mut entries: BTreeMap<String, String> = BTreeMap::new();
+    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian 等)。
     for entry in WalkDir::new(root_path)
         .min_depth(1)
         .into_iter()
@@ -154,15 +187,119 @@ fn build_index(root: &str) -> Result<VaultIndex, String> {
         if p.extension().and_then(|x| x.to_str()) != Some("md") {
             continue;
         }
-        let rel = p
-            .strip_prefix(root_path)
-            .unwrap_or(p)
-            .to_string_lossy()
-            .to_string();
+        let rel = normalize_rel(
+            &p.strip_prefix(root_path)
+                .unwrap_or(p)
+                .to_string_lossy(),
+        );
         let content = fs::read_to_string(p).map_err(err)?;
-        entries.push((rel, content));
+        entries.insert(rel, content);
     }
-    Ok(VaultIndex::build(entries))
+    let index = VaultIndex::build_from_map(&entries);
+    Ok(LiveVault {
+        root: root.to_string(),
+        entries,
+        index,
+    })
+}
+
+/// 确保 state 持有 `root` 的 live 索引;缺失或 root 不同则全量加载。
+fn ensure_live(state: &LiveVaultState, root: &str) -> Result<(), String> {
+    let mut g = state.0.lock().map_err(|e| e.to_string())?;
+    let need = match g.as_ref() {
+        None => true,
+        Some(v) => v.root != root,
+    };
+    if need {
+        *g = Some(load_live_from_disk(root)?);
+    }
+    Ok(())
+}
+
+/// 对 live 应用路径级 delta 并重建 index(纯 map 更新 + build_from_map)。
+fn live_apply(
+    live: &mut LiveVault,
+    deltas: impl IntoIterator<Item = (String, Option<String>)>,
+) {
+    apply_entry_deltas(&mut live.entries, deltas);
+    live.index = VaultIndex::build_from_map(&live.entries);
+}
+
+/// 把磁盘上若干相对路径读入/删除后打进 live(不存在 → remove)。
+fn live_sync_paths(live: &mut LiveVault, root: &str, paths: &[String]) -> Result<(), String> {
+    let mut deltas: Vec<(String, Option<String>)> = Vec::new();
+    for raw in paths {
+        let rel = normalize_rel(raw);
+        if !is_md_rel(&rel) {
+            continue;
+        }
+        // 点段路径不进索引(与 walk 过滤一致)。
+        if rel.split('/').any(|s| s.starts_with('.')) {
+            continue;
+        }
+        let full = resolve_under(root, &rel)?;
+        if full.is_file() {
+            let content = fs::read_to_string(&full).map_err(err)?;
+            deltas.push((rel, Some(content)));
+        } else {
+            deltas.push((rel, None));
+        }
+    }
+    if !deltas.is_empty() {
+        live_apply(live, deltas);
+    }
+    Ok(())
+}
+
+/// 若 live 与 root 匹配,把一次 .md 写/删反映进内存(已持锁外的内容由调用方提供)。
+fn live_note_upsert(state: &LiveVaultState, root: &str, path: &str, content: Option<String>) {
+    let Ok(mut g) = state.0.lock() else {
+        return;
+    };
+    let Some(live) = g.as_mut() else {
+        return;
+    };
+    if live.root != root || !is_md_rel(path) {
+        return;
+    }
+    let rel = normalize_rel(path);
+    live_apply(live, vec![(rel, content)]);
+}
+
+/// 从 live 投影前端快照。
+fn snapshot_from_live(live: &LiveVault) -> VaultSnapshot {
+    let nodes = project_nodes(&live.root, &live.index);
+    let edges = live
+        .index
+        .graph()
+        .edges
+        .iter()
+        .map(|e| EdgeOut {
+            from: e.from,
+            to: match &e.to {
+                Target::Resolved(id) => Some(*id),
+                _ => None,
+            },
+            unresolved: match &e.to {
+                Target::Unresolved(s) => Some(s.clone()),
+                _ => None,
+            },
+            kind: match &e.kind {
+                EdgeKind::Wiki => "wiki".into(),
+                EdgeKind::Relation(_) => "relation".into(),
+            },
+            relation: match &e.kind {
+                EdgeKind::Relation(k) => Some(k.clone()),
+                _ => None,
+            },
+            anchor: e.anchor.clone(),
+        })
+        .collect();
+    VaultSnapshot {
+        root: live.root.clone(),
+        nodes,
+        edges,
+    }
 }
 
 /// 把 core 索引投影成前端 NodeOut(主索引与回收站索引共用此投影)。
@@ -203,7 +340,7 @@ fn list_vault(root: String) -> Result<Vec<VaultEntry>, String> {
         let name = e.file_name().to_string_lossy().to_string();
         let p = e.path();
         let is_dir = p.is_dir();
-        // 文件树里允许 .md(笔记)与 .canvas(tldraw 画布)。其余扩展名隐藏。
+        // 文件树里允许 .md(笔记)与 .canvas(Excalidraw 画布)。其余扩展名隐藏。
         // 索引(build_index)只取 .md —— 画布 JSON 不会被当作 markdown 解析。
         if !is_dir {
             let ext = p.extension().and_then(|x| x.to_str());
@@ -232,39 +369,89 @@ fn read_note(root: String, path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn write_note(root: String, path: String, content: String) -> Result<(), String> {
+fn write_note(
+    root: String,
+    path: String,
+    content: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
     let full = resolve_under(&root, &path)?;
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
-    fs::write(&full, content).map_err(err)
+    fs::write(&full, &content).map_err(err)?;
+    // 路径级 delta:更新 live entries,不 WalkDir。
+    live_note_upsert(&state, &root, &path, Some(content));
+    Ok(())
 }
 
 #[tauri::command]
-fn create_note(root: String, path: String, content: String) -> Result<(), String> {
-    write_note(root.clone(), path.clone(), content)?;
+fn create_note(
+    root: String,
+    path: String,
+    content: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
+    write_note(root.clone(), path.clone(), content, state)?;
     // 结构操作自动提交(仅此路径);正文编辑不提交,保 commit 卫生。
     git_commit_paths(&root, &format!("Create {}", title_of(&path)), &[&path]);
     Ok(())
 }
 
 #[tauri::command]
-fn delete_note(root: String, path: String) -> Result<(), String> {
+fn delete_note(
+    root: String,
+    path: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
     let full = resolve_under(&root, &path)?;
     fs::remove_file(&full).map_err(err)?;
+    live_note_upsert(&state, &root, &path, None);
     // 删除即提交:该笔记自此进入 git 历史,可在「归档」还原(到上次提交的内容)。
     git_commit_paths(&root, &format!("Delete {}", title_of(&path)), &[&path]);
     Ok(())
 }
 
 #[tauri::command]
-fn rename_note(root: String, from: String, to: String) -> Result<(), String> {
+fn rename_note(
+    root: String,
+    from: String,
+    to: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
     let src = resolve_under(&root, &from)?;
     let dst = resolve_under(&root, &to)?;
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
     fs::rename(&src, &dst).map_err(err)?;
+    // 内存:移出 from,读 to 写入(或 map 内移动)。
+    if let Ok(mut g) = state.0.lock() {
+        if let Some(live) = g.as_mut() {
+            if live.root == root {
+                let from_n = normalize_rel(&from);
+                let to_n = normalize_rel(&to);
+                let mut deltas = Vec::new();
+                if is_md_rel(&from_n) {
+                    let moved = live.entries.remove(&from_n);
+                    deltas.push((from_n, None));
+                    if is_md_rel(&to_n) {
+                        let content = moved.or_else(|| fs::read_to_string(&dst).ok());
+                        if let Some(c) = content {
+                            deltas.push((to_n, Some(c)));
+                        }
+                    }
+                } else if is_md_rel(&to_n) {
+                    if let Ok(c) = fs::read_to_string(&dst) {
+                        deltas.push((to_n, Some(c)));
+                    }
+                }
+                if !deltas.is_empty() {
+                    live_apply(live, deltas);
+                }
+            }
+        }
+    }
     git_commit_paths(
         &root,
         &format!("Rename {} → {}", title_of(&from), title_of(&to)),
@@ -273,53 +460,66 @@ fn rename_note(root: String, from: String, to: String) -> Result<(), String> {
     Ok(())
 }
 
-/// 全量索引快照(节点 + 统一边),供图谱/反向链接/类型标签面板。
+/// 索引快照(节点 + 统一边)。
+/// `force=true` 或 live 未加载/root 不匹配 → 全量 WalkDir 自愈;
+/// 否则直接投影内存 live.index(**无**磁盘全扫)。
 #[tauri::command]
-fn index_vault(root: String) -> Result<VaultSnapshot, String> {
-    let idx = build_index(&root)?;
-    let nodes = project_nodes(&root, &idx);
-    let edges = idx
-        .graph()
-        .edges
-        .iter()
-        .map(|e| EdgeOut {
-            from: e.from,
-            to: match &e.to {
-                Target::Resolved(id) => Some(*id),
-                _ => None,
-            },
-            unresolved: match &e.to {
-                Target::Unresolved(s) => Some(s.clone()),
-                _ => None,
-            },
-            kind: match &e.kind {
-                EdgeKind::Wiki => "wiki".into(),
-                EdgeKind::Relation(_) => "relation".into(),
-            },
-            relation: match &e.kind {
-                EdgeKind::Relation(k) => Some(k.clone()),
-                _ => None,
-            },
-            anchor: e.anchor.clone(),
-        })
-        .collect();
-    Ok(VaultSnapshot { root, nodes, edges })
+fn index_vault(
+    root: String,
+    force: Option<bool>,
+    state: State<LiveVaultState>,
+) -> Result<VaultSnapshot, String> {
+    let force = force.unwrap_or(false);
+    let mut g = state.0.lock().map_err(|e| e.to_string())?;
+    if force || g.as_ref().map(|v| v.root != root).unwrap_or(true) {
+        *g = Some(load_live_from_disk(&root)?);
+    }
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
+    Ok(snapshot_from_live(live))
 }
 
-/// QQL 文本查询 → ResultSet(列表/表格/计数/分组/求和)。直接序列化 core 的 ResultSet。
+/// 路径级刷新:对给定相对路径从磁盘读/删 → 打进 live → 返回快照。
+/// watcher 与主动 refresh 的共用入口;非 .md 路径忽略。
 #[tauri::command]
-fn run_qql(root: String, qql: String) -> Result<ResultSet, String> {
-    let idx = build_index(&root)?;
+fn apply_vault_changes(
+    root: String,
+    paths: Vec<String>,
+    state: State<LiveVaultState>,
+) -> Result<VaultSnapshot, String> {
+    ensure_live(&state, &root)?;
+    let mut g = state.0.lock().map_err(|e| e.to_string())?;
+    let live = g.as_mut().ok_or_else(|| "live index missing".to_string())?;
+    live_sync_paths(live, &root, &paths)?;
+    Ok(snapshot_from_live(live))
+}
+
+/// QQL 文本查询 → ResultSet。**只读 live.index**,不 WalkDir。
+#[tauri::command]
+fn run_qql(
+    root: String,
+    qql: String,
+    state: State<LiveVaultState>,
+) -> Result<ResultSet, String> {
+    ensure_live(&state, &root)?;
+    let g = state.0.lock().map_err(|e| e.to_string())?;
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
     let query = parse_query(&qql).map_err(|e| e.to_string())?;
-    Ok(idx.query(&query))
+    Ok(live.index.query(&query))
 }
 
-/// 全文检索(AND)。返回按分降序的 (节点 id, 分数)。
+/// 全文检索(AND)。**只读 live.index**,不 WalkDir。
 #[tauri::command]
-fn search_notes(root: String, query: String) -> Result<Vec<SearchHit>, String> {
-    let idx = build_index(&root)?;
+fn search_notes(
+    root: String,
+    query: String,
+    state: State<LiveVaultState>,
+) -> Result<Vec<SearchHit>, String> {
+    ensure_live(&state, &root)?;
+    let g = state.0.lock().map_err(|e| e.to_string())?;
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
     let terms: Vec<&str> = query.split_whitespace().collect();
-    Ok(idx
+    Ok(live
+        .index
         .search(&terms)
         .into_iter()
         .map(|(id, score)| SearchHit { id, score })
@@ -475,6 +675,19 @@ fn git_commit(root: String, message: String) -> Result<String, String> {
     run_git(&root, &["commit", "-m", &message])
 }
 
+/// `git pull --no-rebase`。成功返回 stdout;冲突时 git 非零退出,stderr 回传前端。
+/// 前端可再刷 `git status` 看 UU 冲突路径。
+#[tauri::command]
+fn git_pull(root: String) -> Result<String, String> {
+    run_git(&root, &["pull", "--no-rebase"])
+}
+
+/// `git push` 当前分支。成功返回 stdout。
+#[tauri::command]
+fn git_push(root: String) -> Result<String, String> {
+    run_git(&root, &["push"])
+}
+
 /// vault 是否为 git 仓库。前端据此决定「归档」展示历史还是「初始化 git」空态。
 #[tauri::command]
 fn git_is_repo(root: String) -> Result<bool, String> {
@@ -529,11 +742,11 @@ fn git_deleted_notes(root: String) -> Result<Vec<DeletedNote>, String> {
 
 /// 从 git 历史还原一篇已删除笔记:取其最近删除提交,`git checkout <hash>^ -- <path>`
 /// 把删除前的版本检回工作区并暂存。返回还原路径。
-#[tauri::command]
-fn git_restore_note(root: String, path: String) -> Result<String, String> {
+/// git 还原核心(无 Tauri State,供集成测试直接调用)。
+fn git_restore_note_inner(root: &str, path: &str) -> Result<String, String> {
     let hash_out = run_git(
-        &root,
-        &["log", "--all", "--diff-filter=D", "--format=%H", "--", &path],
+        root,
+        &["log", "--all", "--diff-filter=D", "--format=%H", "--", path],
     )?;
     let hash = hash_out
         .lines()
@@ -543,8 +756,26 @@ fn git_restore_note(root: String, path: String) -> Result<String, String> {
         .to_string();
     // `<hash>^` = 删除提交的父提交,即删除前的最后版本。
     let parent = format!("{hash}^");
-    run_git(&root, &["checkout", &parent, "--", &path])?;
-    run_git(&root, &["add", "--", &path])?;
+    run_git(root, &["checkout", &parent, "--", path])?;
+    run_git(root, &["add", "--", path])?;
+    Ok(path.to_string())
+}
+
+#[tauri::command]
+fn git_restore_note(
+    root: String,
+    path: String,
+    state: State<LiveVaultState>,
+) -> Result<String, String> {
+    let path = git_restore_note_inner(&root, &path)?;
+    // 还原后把该路径同步进 live(与 watcher 同路径级入口)。
+    if let Ok(mut g) = state.0.lock() {
+        if let Some(live) = g.as_mut() {
+            if live.root == root {
+                let _ = live_sync_paths(live, &root, &[path.clone()]);
+            }
+        }
+    }
     Ok(path)
 }
 
@@ -558,14 +789,12 @@ fn git_init(root: String) -> Result<(), String> {
     Ok(())
 }
 
-// ───────────────────────── 文件监听(增量触发)─────────────────────────
+// ───────────────────────── 文件监听(路径级增量)─────────────────────────
 //
-// notify 监听 vault 目录树(递归)。文件变化经 debounce(静默 350ms 合并)后 emit
-// "vault-changed",前端 listen 到即 index_vault 全量重建。v1:watcher 只当**触发器**,
-// 仍全量 rebuild —— 这与"索引是文件的派生物、文件即真相"一致;真增量 diff 是后续演进。
-//
-// 过滤:只对 .md/.canvas、且路径无点开头段(.git/.obs 等)的变化 emit,避免 git 自动
-// 提交产生的 .git 噪音反复触发刷新。mock/浏览器模式不监听(无 OS fs)。
+// notify 监听 vault 目录树(递归)。变化 debounce 350ms 后 emit "vault-changed"
+// **payload = 相对路径列表**;前端调 apply_vault_changes 把这些路径读入/删除 live
+// entries 再 build_from_map —— 不再 WalkDir 全库。漏事件时 UI 可 force index_vault
+// 全量自愈。过滤:只对 .md/.canvas 且无点段路径 emit。
 
 struct WatcherState(Mutex<Option<RecommendedWatcher>>);
 
@@ -586,13 +815,22 @@ fn path_should_emit(p: &std::path::Path) -> bool {
     )
 }
 
-/// 一次 notify 事件是否值得通知前端:至少一个变化路径命中 `path_should_emit`。
-fn should_emit_change(ev: &notify::Event) -> bool {
-    ev.paths.iter().any(|p| path_should_emit(p))
+/// 事件中命中过滤的相对路径(相对 vault root;统一 `/`)。
+fn event_rel_paths(root: &Path, ev: &notify::Event) -> Vec<String> {
+    let mut out = Vec::new();
+    for p in &ev.paths {
+        if !path_should_emit(p) {
+            continue;
+        }
+        if let Ok(rel) = p.strip_prefix(root) {
+            out.push(normalize_rel(&rel.to_string_lossy()));
+        }
+    }
+    out
 }
 
-/// 启动对 vault 的递归监听(切换 vault 时先停旧的)。变化 debounce 后 emit
-/// "vault-changed";前端据此全量刷新索引。
+/// 启动对 vault 的递归监听(切换 vault 时先停旧的)。
+/// debounce 后 emit `vault-changed` + 变更相对路径列表 → 前端 apply_vault_changes。
 #[tauri::command]
 fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Result<(), String> {
     // 先停旧 watcher(drop → channel 断开 → debounce 线程退出)。
@@ -611,25 +849,28 @@ fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Resu
         notify::Config::default(),
     )
     .map_err(|e| e.to_string())?;
+    let root_path = PathBuf::from(&root);
     watcher
-        .watch(Path::new(&root), RecursiveMode::Recursive)
+        .watch(&root_path, RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
 
-    // debounce 线程:事件静默 350ms 后才 emit,合并一次保存产生的多个 fs 事件。
+    // debounce 线程:合并静默窗口内路径,emit 去重后的相对路径列表。
     let app_handle = app.clone();
+    let root_for_thread = root_path;
     thread::spawn(move || {
-        let mut pending = false;
+        let mut pending: BTreeSet<String> = BTreeSet::new();
         loop {
             match rx.recv_timeout(Duration::from_millis(350)) {
                 Ok(ev) => {
-                    if should_emit_change(&ev) {
-                        pending = true;
+                    for rel in event_rel_paths(&root_for_thread, &ev) {
+                        pending.insert(rel);
                     }
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    if pending {
-                        let _ = app_handle.emit("vault-changed", ());
-                        pending = false;
+                    if !pending.is_empty() {
+                        let paths: Vec<String> = pending.iter().cloned().collect();
+                        pending.clear();
+                        let _ = app_handle.emit("vault-changed", paths);
                     }
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -655,6 +896,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(WatcherState(Mutex::new(None)))
+        .manage(LiveVaultState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             list_vault,
             read_note,
@@ -663,6 +905,7 @@ pub fn run() {
             delete_note,
             rename_note,
             index_vault,
+            apply_vault_changes,
             run_qql,
             search_notes,
             pick_vault,
@@ -671,6 +914,8 @@ pub fn run() {
             git_status_raw,
             git_log_raw,
             git_commit,
+            git_pull,
+            git_push,
             git_is_repo,
             git_deleted_notes,
             git_restore_note,
@@ -684,7 +929,19 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{path_should_emit, preview_of};
+    use super::{
+        is_md_rel, live_apply, load_live_from_disk, normalize_rel, path_should_emit, preview_of,
+        LiveVault,
+    };
+    use openobs_core::{parse_query, ResultSet, VaultIndex};
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn normalize_and_md_helpers() {
+        assert_eq!(normalize_rel(r".\a\b.md"), "a/b.md");
+        assert!(is_md_rel("x.md"));
+        assert!(!is_md_rel("x.canvas"));
+    }
 
     #[test]
     fn preview_strips_leading_h1_and_collapses_whitespace() {
@@ -737,13 +994,78 @@ mod tests {
         // 无扩展名。
         assert!(!path_should_emit(std::path::Path::new("README")));
     }
+
+    /// live_apply 后索引查询 = 同 entries 全量 build。
+    #[test]
+    fn live_apply_query_matches_full_build_from_map() {
+        let mut live = LiveVault {
+            root: "/tmp/v".into(),
+            entries: BTreeMap::new(),
+            index: VaultIndex::build(vec![]),
+        };
+        live_apply(
+            &mut live,
+            vec![
+                (
+                    "a.md".into(),
+                    Some("---\ntype: Concept\n---\n# A\n#tag1\n".into()),
+                ),
+                (
+                    "b.md".into(),
+                    Some("---\ntype: Source\n---\n# B\nbody truth\n".into()),
+                ),
+            ],
+        );
+        live_apply(
+            &mut live,
+            vec![
+                ("a.md".into(), None),
+                (
+                    "c.md".into(),
+                    Some("---\ntype: Concept\n---\n# C\n".into()),
+                ),
+            ],
+        );
+        let full = VaultIndex::build_from_map(&live.entries);
+        assert_eq!(live.index.len(), full.len());
+        let q = parse_query(r#"WHERE type = "Concept" RENDER count"#).unwrap();
+        match (live.index.query(&q), full.query(&q)) {
+            (ResultSet::Count(a), ResultSet::Count(b)) => assert_eq!(a, b),
+            other => panic!("expected Count, got {other:?}"),
+        }
+        assert_eq!(live.index.search(&["truth"]).len(), 1);
+    }
+
+    #[test]
+    fn load_live_from_disk_roundtrip_tmp() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path().to_str().unwrap();
+        std::fs::write(
+            dir.path().join("n.md"),
+            "---\ntype: Note\n---\n# N\nhello index\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(dir.path().join(".git")).unwrap();
+        std::fs::write(dir.path().join(".git/x.md"), "# hidden\n").unwrap();
+        let live = load_live_from_disk(root).unwrap();
+        assert_eq!(live.entries.len(), 1);
+        assert!(live.entries.contains_key("n.md"));
+        let q = parse_query("WHERE type = \"Note\" RENDER list").unwrap();
+        match live.index.query(&q) {
+            ResultSet::List(ids) => assert_eq!(ids.len(), 1),
+            _ => panic!("list"),
+        }
+    }
 }
 
 /// git 归档一体化(Phase 1)集成测试:真实 round-trip 过系统 git(无 GUI 下的最强确认)。
 /// 覆盖 is_repo / init / 选择性提交( commit 卫生 )/ 已删笔记列出 / 还原。
 #[cfg(test)]
 mod git_tests {
-    use super::{git_commit_paths, git_deleted_notes, git_init, git_is_repo_inner, git_restore_note, run_git};
+    use super::{
+        git_commit_paths, git_deleted_notes, git_init, git_is_repo_inner, git_restore_note_inner,
+        run_git,
+    };
 
     /// 独占临时 vault + 设本地 git 身份(沙箱无全局 user 配置也能提交)+ 关 gpg 签名。
     fn fresh_repo() -> tempfile::TempDir {
@@ -819,7 +1141,7 @@ mod git_tests {
         assert!(!deleted[0].deleted_at.is_empty());
 
         // 还原:文件回到工作区,内容为删除前的最后提交版本。
-        git_restore_note(root.to_string(), "gone.md".to_string()).unwrap();
+        git_restore_note_inner(root, "gone.md").unwrap();
         let body = std::fs::read_to_string(format!("{root}/gone.md")).unwrap();
         assert!(body.contains("original body"));
     }

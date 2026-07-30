@@ -555,6 +555,10 @@ fn parse_render(body: &[Tok]) -> R<Render> {
             let rf = parse_render_field(&mut c)?;
             Render::Sum(rf)
         }
+        "histogram" => {
+            let rf = parse_render_field(&mut c)?;
+            Render::Histogram(rf)
+        }
         _ => return Err(ParseError(format!("未知 RENDER 模式:{mode}"))),
     };
     expect_end(&c, "RENDER")?;
@@ -810,7 +814,15 @@ mod tests {
 
     #[test]
     fn err_unknown_render_mode() {
-        assert!(parse("RENDER histogram").is_err());
+        assert!(parse("RENDER histogram").is_err()); // 缺字段
+        assert_eq!(
+            parse("RENDER histogram(type)").unwrap().render,
+            Render::Histogram(F::Type)
+        );
+        assert_eq!(
+            parse("RENDER histogram status").unwrap().render,
+            Render::Histogram(F::Key("status".into()))
+        );
     }
 
     #[test]

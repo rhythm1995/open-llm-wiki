@@ -96,7 +96,7 @@ last_verified: {{date}}
 > 摘要占位。
 
 `,
-    // F-CANVAS 演示:空白 tldraw 画布(空串 = 新画布;首次落笔后存为快照 JSON)。
+    // F-CANVAS 演示:空白 Excalidraw 画布(空串 = 新画布;首次落笔后存 schema JSON)。
     "whiteboard.canvas": "",
   };
   const m = new Map<string, string>();
@@ -234,7 +234,7 @@ function parsedToNode(p: Parsed, i: number): NodeOut {
 }
 
 /** 解析满足 `include` 的 .md 笔记(按路径排序;node id 即下标)。
- *  仅取 `.md`;`.canvas`(tldraw 快照 JSON)不当作 markdown 解析,避免把 JSON
+ *  仅取 `.md`;`.canvas`(Excalidraw JSON)不当作 markdown 解析,避免把 JSON
  *  误当 frontmatter / wikilink 污染图谱。画布在文件树里仍可见(list_vault 不过滤)。 */
 function parsePaths(include: (path: string) => boolean): Parsed[] {
   const entries = [...vault.entries()]
@@ -387,6 +387,11 @@ export async function handle<T>(
       return undefined as unknown as T;
 
     case "index_vault":
+      // force 在 mock 无差异(内存 map 即真相)。
+      return buildSnapshot() as unknown as T;
+
+    case "apply_vault_changes":
+      // mock 无外部 fs;路径 delta 忽略,返回当前快照(与 live 投影同形)。
       return buildSnapshot() as unknown as T;
 
     case "run_qql":
@@ -410,6 +415,8 @@ export async function handle<T>(
     case "git_log_raw":
       return "" as unknown as T;
     case "git_commit":
+    case "git_pull":
+    case "git_push":
       throw new Error("mock 模式下 git 不可用;请在桌面 app 中打开 git 仓库。");
 
     // 归档并入 git:mock 下不是 git 仓库 → ArchiveView 渲染非 git 空态(mock 提示)。

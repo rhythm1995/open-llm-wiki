@@ -1,28 +1,26 @@
 /**
  * CommandPalette —— ⌘K 命令面板(Radix Dialog)。
  *
- * 一个输入框模糊过滤所有笔记 + 内置动作(打开 vault、新建、切换视图)。上下键移动、
- * 回车激活。参考 Obsidian/Raycast 的命令面板范式。
+ * 内置动作来自 `palette-commands.ts`(含 refresh-index force 自愈)。
+ * quickOpen(⌘P) 仅笔记列表。
  */
 import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  FolderOpen,
-  Plus,
-  PencilSimple,
-  Graph,
-  ListMagnifyingGlass,
-  MagnifyingGlass,
-  FileText,
-  GitBranch,
-  Rectangle,
-} from "@phosphor-icons/react";
+import { FileText } from "@phosphor-icons/react";
 import type { VaultActions } from "../lib/store";
 import type { VaultSnapshot } from "../lib/ipc";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
+import {
+  buildPaletteCommands,
+  filterPaletteCommands,
+  type MainViewId,
+} from "../lib/palette-commands";
 
-export type MainView = "editor" | "graph" | "query" | "search" | "git";
+export type MainView = MainViewId;
+
+/** commands = ⌘K 命令+笔记;quickOpen = ⌘P 仅快速打开笔记。 */
+export type PaletteMode = "commands" | "quickOpen";
 
 interface Props {
   open: boolean;
@@ -33,6 +31,8 @@ interface Props {
   onNewCanvas: () => void;
   onNavigate: (v: MainView) => void;
   t: TFunc;
+  /** 默认 commands;quickOpen 时隐藏动作行、笔记优先。 */
+  mode?: PaletteMode;
 }
 
 export function CommandPalette({
@@ -44,9 +44,11 @@ export function CommandPalette({
   onNewCanvas,
   onNavigate,
   t,
+  mode = "commands",
 }: Props) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
+  const quick = mode === "quickOpen";
 
   const notes = snapshot?.nodes ?? [];
   const filtered = useMemo(() => {
@@ -59,32 +61,42 @@ export function CommandPalette({
     );
   }, [notes, q]);
 
-  const actions2 = useMemo(
-    () => [
-      { id: "open", label: t("palette.action.openVault"), icon: FolderOpen, run: () => actions.openPicker() },
-      { id: "new", label: t("palette.action.newNote"), icon: Plus, run: () => onNewNote() },
-      { id: "new-canvas", label: t("palette.action.newCanvas"), icon: Rectangle, run: () => onNewCanvas() },
-      { id: "v-editor", label: `${t("palette.action.viewPrefix")}${t("view.editor")}`, icon: PencilSimple, run: () => onNavigate("editor") },
-      { id: "v-graph", label: `${t("palette.action.viewPrefix")}${t("view.graph")}`, icon: Graph, run: () => onNavigate("graph") },
-      { id: "v-query", label: `${t("palette.action.viewPrefix")}${t("view.query")}`, icon: ListMagnifyingGlass, run: () => onNavigate("query") },
-      { id: "v-search", label: `${t("palette.action.viewPrefix")}${t("view.search")}`, icon: MagnifyingGlass, run: () => onNavigate("search") },
-      { id: "v-git", label: `${t("palette.action.viewPrefix")}${t("view.git")}`, icon: GitBranch, run: () => onNavigate("git") },
-    ].filter((a) => a.label.toLowerCase().includes(q.trim().toLowerCase())),
-    [q, actions, onNavigate, onNewCanvas, t],
-  );
+  const actions2 = useMemo(() => {
+    if (quick) return [];
+    const all = buildPaletteCommands({
+      t,
+      openPicker: () => actions.openPicker(),
+      onNewNote,
+      onNewCanvas,
+      onNavigate,
+      // 产品入口:force 全量自愈(store.actions.refreshIndex → index_vault force=true)
+      refreshIndex: () => actions.refreshIndex(),
+    });
+    return filterPaletteCommands(all, q);
+  }, [q, actions, onNavigate, onNewCanvas, onNewNote, t, quick]);
 
   const total = actions2.length + filtered.length;
 
   useEffect(() => {
     setSel(0);
-  }, [q, open]);
+  }, [q]);
+
+  useEffect(() => {
+    if (open) {
+      setQ("");
+      setSel(0);
+    }
+  }, [open, mode]);
 
   const activate = (i: number) => {
     if (i < actions2.length) {
       actions2[i].run();
     } else {
       const node = filtered[i - actions2.length];
-      if (node) actions.selectNote(node.path);
+      if (node) {
+        actions.selectNote(node.path);
+        onNavigate("editor");
+      }
     }
     onOpenChange(false);
   };
@@ -107,13 +119,17 @@ export function CommandPalette({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50" />
         <Dialog.Content className="fixed left-1/2 top-[20%] w-[560px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-surface2 bg-mantle shadow-2xl outline-none">
-          <Dialog.Title className="sr-only">{t("palette.title")}</Dialog.Title>
+          <Dialog.Title className="sr-only">
+            {quick ? t("palette.quickOpenTitle") : t("palette.title")}
+          </Dialog.Title>
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
-            placeholder={t("palette.placeholder")}
+            placeholder={
+              quick ? t("palette.quickOpenPlaceholder") : t("palette.placeholder")
+            }
             className="w-full border-b border-crust bg-transparent px-3 py-2.5 text-[14px] text-text outline-none placeholder:text-overlay"
           />
           <div className="max-h-[60vh] overflow-y-auto p-1">
@@ -122,6 +138,7 @@ export function CommandPalette({
               return (
                 <button
                   key={a.id}
+                  data-palette-cmd={a.id}
                   onMouseEnter={() => setSel(i)}
                   onClick={() => activate(i)}
                   className={cn(
@@ -135,6 +152,11 @@ export function CommandPalette({
               );
             })}
             {filtered.length > 0 && actions2.length > 0 && (
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-overlay">
+                {t("palette.section.notes")}
+              </div>
+            )}
+            {quick && filtered.length > 0 && (
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-overlay">
                 {t("palette.section.notes")}
               </div>

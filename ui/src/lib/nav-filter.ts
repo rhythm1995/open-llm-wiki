@@ -22,6 +22,7 @@ export type NavSelection =
   | { kind: "inbox" }
   | { kind: "archive" }
   | { kind: "type"; id: string }
+  | { kind: "tag"; id: string }
   | { kind: "folder"; id: string }
   | { kind: "query"; id: string };
 
@@ -45,6 +46,8 @@ export function filterByNav(nodes: NodeOut[], sel: NavSelection): NodeOut[] {
       return [];
     case "type":
       return nodes.filter((n) => (n.type ?? "") === sel.id);
+    case "tag":
+      return nodes.filter((n) => n.tags.includes(sel.id));
     case "folder": {
       const prefix = sel.id.endsWith("/") ? sel.id : `${sel.id}/`;
       return nodes.filter((n) => n.path === sel.id || n.path.startsWith(prefix));
@@ -80,6 +83,8 @@ export function selectionLabel(
       return t("nav.archive");
     case "type":
       return sel.id === "" ? t("nav.untyped") : sel.id;
+    case "tag":
+      return `#${sel.id}`;
     case "folder":
       return sel.id.split("/").pop() || sel.id;
     case "query": {

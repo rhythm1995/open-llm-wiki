@@ -101,3 +101,18 @@ export function statusLabel(entry: GitStatusEntry): string {
   if (index === "U" || worktree === "U") return "冲";
   return entry.raw.trim() || "?";
 }
+
+/** 是否为未合并/冲突路径(XY 任一为 U,或双方均改的 AA/DD 等)。 */
+export function isConflictEntry(entry: GitStatusEntry): boolean {
+  return entry.index === "U" || entry.worktree === "U" || entry.raw === "AA" || entry.raw === "DD";
+}
+
+/** status 列表中是否含冲突路径。 */
+export function hasConflicts(entries: GitStatusEntry[]): boolean {
+  return entries.some(isConflictEntry);
+}
+
+/** 抽出冲突路径(给 UI 横幅列表)。 */
+export function conflictPaths(entries: GitStatusEntry[]): string[] {
+  return entries.filter(isConflictEntry).map((e) => e.path);
+}

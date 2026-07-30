@@ -32,6 +32,7 @@ const EXAMPLES = [
   `WHERE type = "Concept" SORT mentioned_in.len() DESC SHOW title, status, mentioned_in.len() AS depth`,
   `RENDER count WHERE type = "Concept"`,
   `RENDER group_by(type)`,
+  `RENDER histogram(type)`,
   `WHERE status != "done" SORT title ASC SHOW title, status`,
   `RENDER sum(score)`,
 ];
@@ -264,6 +265,37 @@ function ResultView({
           ))}
         </tbody>
       </table>
+    );
+  }
+  if ("Histogram" in result) {
+    const rows = result.Histogram;
+    const max = Math.max(1, ...rows.map((g) => g.count));
+    return (
+      <div className="space-y-2 p-3">
+        <div className="text-[11px] uppercase tracking-wide text-overlay">
+          {t("query.histogram")}
+        </div>
+        {rows.length === 0 ? (
+          <p className="text-[12px] text-overlay">{t("query.empty")}</p>
+        ) : (
+          rows.map((g: GroupRow) => (
+            <div key={g.key} className="flex items-center gap-2 text-[12px]">
+              <span className="w-28 shrink-0 truncate text-text" title={g.key}>
+                {g.key || "(空)"}
+              </span>
+              <div className="h-3 min-w-0 flex-1 rounded bg-surface">
+                <div
+                  className="h-full rounded bg-blue/70"
+                  style={{ width: `${(g.count / max) * 100}%` }}
+                />
+              </div>
+              <span className="w-8 shrink-0 text-right tabular-nums text-subtext">
+                {g.count}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
     );
   }
   if ("List" in result) {

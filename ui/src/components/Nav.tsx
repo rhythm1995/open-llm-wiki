@@ -22,6 +22,7 @@ import {
   Folder,
   FolderOpen,
   Funnel,
+  Hash,
   NoteBlank,
   Tag,
   Tray,
@@ -68,8 +69,12 @@ interface Props {
   /** 当前是否为 editor 视图。非 editor(图谱/搜索/git/查询)时,Nav 不高亮任何项——
    *  navSelection 此时仅是"上次列表过滤",与当前视图无关,高亮会误导(任务2)。 */
   isEditorView: boolean;
+  /** 笔记拖到文件夹时回调(fromPath, targetDir;空串=根)。 */
+  onMoveNote?: (fromPath: string, targetDir: string) => void;
   t: TFunc;
 }
+
+const NOTE_DRAG_MIME = "application/x-openobs-note";
 
 export function Nav({
   entries,
@@ -77,12 +82,14 @@ export function Nav({
   navSelection,
   onNavSelect,
   isEditorView,
+  onMoveNote,
   t,
 }: Props) {
-  // 分组折叠状态:VIEWS/TYPES 默认展开,FOLDERS 默认收起。
+  // 分组折叠状态:VIEWS/TYPES/TAGS 默认展开,FOLDERS 默认收起。
   const [openSections, setOpenSections] = useState<Set<string>>(
-    new Set(["views", "types"]),
+    new Set(["views", "types", "tags"]),
   );
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const nodes = snapshot?.nodes ?? [];
 
@@ -98,7 +105,22 @@ export function Nav({
       return a[0].localeCompare(b[0]);
     });
   }, [nodes]);
+  // 标签去重 + 计数(F-TAGS 视图入口)。
+  const tags = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of nodes) for (const tg of n.tags) m.set(tg, (m.get(tg) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [nodes]);
   const tree = useMemo(() => buildTree(entries), [entries]);
+
+  const acceptNoteDrop = (e: React.DragEvent, targetDir: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget(null);
+    const from = e.dataTransfer.getData(NOTE_DRAG_MIME) || e.dataTransfer.getData("text/plain");
+    if (!from || !onMoveNote) return;
+    onMoveNote(from, targetDir);
+  };
 
   const toggleSection = (key: string) =>
     setOpenSections((prev) => {
@@ -173,14 +195,24 @@ export function Nav({
     }
     const open = expandedFolders.has(node.path);
     const active = isEditorView && sameSelection(navSelection, { kind: "folder", id: node.path });
+    const dropping = dropTarget === node.path;
     return (
       <div key={node.path}>
         <div
           className={cn(
             "group flex w-full items-center gap-1 rounded pr-1 text-left text-[13px]",
             active ? "bg-surface2 text-text" : "text-subtext hover:bg-surface hover:text-text",
+            dropping && "ring-1 ring-blue bg-blue/10",
           )}
           style={{ paddingLeft: depth * 12 + 4 }}
+          onDragOver={(e) => {
+            if (!onMoveNote) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setDropTarget(node.path);
+          }}
+          onDragLeave={() => setDropTarget((cur) => (cur === node.path ? null : cur))}
+          onDrop={(e) => acceptNoteDrop(e, node.path)}
         >
           <button
             onClick={() => toggleFolder(node.path)}
@@ -283,10 +315,48 @@ export function Nav({
             </div>
           )}
 
-          {/* ▼ FOLDERS:目录树(默认收起)。 */}
+          {/* ▼ TAGS:标签视图(F-TAGS)。 */}
+          {sectionHeader("tags", <Hash size={12} />, t("nav.section.tags"), tags.length)}
+          {openSections.has("tags") && (
+            <div className="mb-1 mt-0.5 flex flex-col gap-0.5">
+              {tags.length === 0 ? (
+                <p className="px-2 py-1 text-[12px] text-overlay">{t("nav.tags.empty")}</p>
+              ) : (
+                tags.map(([id, count]) =>
+                  itemRow(
+                    { kind: "tag", id },
+                    <Hash size={13} />,
+                    `#${id}`,
+                    isEditorView && sameSelection(navSelection, { kind: "tag", id }),
+                    count,
+                  ),
+                )
+              )}
+            </div>
+          )}
+
+          {/* ▼ FOLDERS:目录树(默认收起);可接受列表拖放。 */}
           {sectionHeader("folders", <Folder size={12} weight="fill" />, t("nav.section.folders"))}
           {openSections.has("folders") && (
             <div className="mt-0.5">
+              {/* 根目录放置区:把笔记拖回 vault 根。 */}
+              {onMoveNote && (
+                <div
+                  className={cn(
+                    "mb-0.5 rounded px-2 py-1 text-[12px] text-overlay",
+                    dropTarget === "" ? "bg-blue/10 ring-1 ring-blue text-text" : "hover:bg-surface",
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDropTarget("");
+                  }}
+                  onDragLeave={() => setDropTarget((cur) => (cur === "" ? null : cur))}
+                  onDrop={(e) => acceptNoteDrop(e, "")}
+                >
+                  {t("nav.dropToRoot")}
+                </div>
+              )}
               {entries.length === 0 ? (
                 <p className="px-2 py-1 text-[12px] text-overlay">{t("sidebar.empty")}</p>
               ) : (
