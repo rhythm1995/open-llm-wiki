@@ -11,7 +11,7 @@
 
 ## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
 
-### F-GRAPH 图谱可视化 [P0] ✅ 已落地
+### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地 · ⏳ 多布局待办
 
 **一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的力导向图。
 
@@ -21,9 +21,13 @@
 - **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停预览、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
 - **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 文本 query 高亮 / 深度 hops。
 - **实时**:LiveVault 路径级 delta + watcher;`structureSignature` gate 布局;位置 Map 跨帧持久 + 暖启动。
-- **布局**:力导向(默认)。「按 type 分层」「按时间排列」未做(v2+ 可选)。
+- **布局**:
+  - ✅ 力导向(默认,FR + Barnes-Hut)。
+  - ⏳ **按 type 分层**(B-GRAPH-LAYER)。
+  - ⏳ **按时间轴**(created/modified)(B-GRAPH-TIME)。
+  - ⏳ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
 
-> UI 蓝本参考 Tolaria 关系渲染与 Obsidian graph 的交互心智,实现独立编写。
+> UI 蓝本参考 Tolaria 关系渲染与 Obsidian graph 的交互心智,实现独立编写。未做项见 [backlog](./backlog.md)。
 
 ### F-QUERY 实时聚合查询 [P0] ✅ 已落地
 
@@ -43,17 +47,18 @@
 - **输出**(`ResultSet`):`List` / `Table` / `Count` / `Groups` / `Sum` / **`Histogram`**。
 - **实时**:查询在 live 不可变快照上执行;写/watcher 路径级更新索引。
 - **浏览器 mock**:`mock-qql` 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)供 `vite dev` 预览;完整语义以 Rust 为准。
+- **扩展(待办 B-QQL-EXPAND)**:在 DQL 风语法上继续靠近 Dataview **常用子集**(更完整 WHERE、关系聚合、日期比较、更多 RENDER 等)。**不**追求 Dataview 全语法逐字兼容;迁移成本低即可。
 - **与 cairn**:Health KPI 可落成 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
 ---
 
 ## 软类型系统
 
-### F-TYPE 软类型 [P0]
+### F-TYPE 软类型 [P0] ✅ 主路径 · ⏳ 类型文档待办
 
-- `type:` 是 `Option<String>`,任意值,**永不校验、永不阻止保存、永不报错**。
+- `type:` 是 `Option<String>`,任意值,**永不校验、永不阻止保存、永不报错**(底线,不因类型文档改变)。
 - 缺失 → 默认 `Note`。app 据 type 分组/着色。
-- **类型文档(type document)** 在 v1 **不做**;v2 可加,仅 UI 提示,不构成 schema 约束。
+- **类型文档(type document)** ⏳ **待办(B-TYPE-DOC)**:某 type 可关联一篇说明笔记,作字段/约定/示例的 **UI 提示**;**不**构成 schema 约束、不阻止保存。曾标「v1 不做」,现纳入正式 backlog。
 - 约定键(`status`/`tags`/`created`)识别即富行为,但全可忽略。
 
 ---
@@ -84,8 +89,16 @@
 | F-SHEET | 表格 | P3 | ⏳ | 见 [deferred](./deferred.md)。 |
 | F-PLUGIN | 插件 API | P3 | ⏳ | 见 [deferred](./deferred.md)。 |
 
-## v1 功能边界(明确不做,防 scope creep)
+## 范围说明(边界已放宽)
 
-v1 = F-VAULT + F-EDITOR + F-WIKILINK + F-FILETREE + F-SEARCH + **F-GRAPH** + **F-QUERY** + F-TYPE + F-PROPERTIES + F-STATUS + F-PALETTE + F-TABS + 深色主题。其余全 v2+。
+**已交付核心**:F-VAULT + F-EDITOR + F-WIKILINK + F-FILETREE + F-SEARCH + **F-GRAPH** + **F-QUERY** + F-TYPE + F-PROPERTIES + F-STATUS + F-PALETTE + F-TABS + 主题 + 模板 + git + L10N + 画布 + 标签区/拖拽/pull 等。
 
-> **实际进度**:v1 全部落地且超出(模板/主题/git/L10N/画布/标签区/拖拽/pull 等)。剩余大件见 [deferred](./deferred.md)。
+**原「v1 刻意不做」已改为待办**(见 [backlog](./backlog.md) §A):
+
+| 原边界 | 现状态 |
+|---|---|
+| 类型文档 | ⏳ B-TYPE-DOC(仅 UI 提示,不锁 schema) |
+| 图谱 type 分层 / 时间轴 | ⏳ B-GRAPH-LAYER / B-GRAPH-TIME |
+| QQL≈Dataview 全量 | ⏳ B-QQL-EXPAND(常用子集扩展,非逐字兼容) |
+
+**仍大件未做**:F-SHEET · F-PLUGIN · 完整 MCP · 签名分发等 → [backlog](./backlog.md) §B–D;[deferred](./deferred.md) 写难点。

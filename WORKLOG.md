@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-07-30 Grok — 文档:v1 边界改待办 + backlog 总表
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 产品决策落档:原「v1 刻意不做」三项 **要做**——类型文档(UI only)、图谱 type 分层/时间轴、QQL 向 Dataview 常用子集扩展。
+  2. 新增 [docs/backlog.md](docs/backlog.md) 为未完成清单单一事实来源(§A–E + 建议顺序)。
+  3. 同步 04-features / deferred / 06-roadmap / open-questions / docs README。
+- **不做本轮**:未写实现代码(仅文档梳理)。
+- **下一步**:按 backlog 建议顺序实现 B-TYPE-DOC / B-GRAPH-* / B-QQL-EXPAND。
+
 ### 2026-07-30 Grok — 打磨收口:标签避让 / 增量布局 / mock-qql + 文档对齐
 
 - **branch**: `feat/phase1-core`(已 push;本批再 commit/push)。

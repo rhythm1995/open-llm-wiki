@@ -115,25 +115,28 @@ Tauri 2 外壳 + React 19:
 - ✅ **图谱视口剔除**:`visibleNodeIds` 纯函数(graph→屏幕坐标判定)+ 6 单测;GraphView 节点数 > 200 时屏外节点/边不画,降 SVG DOM 量(80px 留白减 pop-in)。LOD 聚类 / Canvas/WebGL / Worker 仍是独立大件(见 deferred)。
 - ✅ **验证加固**:全绿——UI **265 单测**(23 文件,本轮 +28:tabs 6 / graph-layout 6 / qql-block 17 - 重计偏差 1);tsc clean;构建重嵌 app + 运行时 diag_log 0 `[webview]` 报错。
 
-### Phase 2+ 能力(v2/v3,不阻塞 v1)—— 与诚实取舍
+### 后续能力与诚实取舍
 
-> 延后项的**难点拆解与前置条件**统一在 [deferred.md](./deferred.md)(每条写明"难在哪 / 做扎实需要什么")。下表只给一句话状态。
+> **未做总表**:[backlog.md](./backlog.md)。难点拆解:[deferred.md](./deferred.md)。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
-| F-GIT | ✅ 本会话 | 见上。 |
-| F-AI(+MCP) | 🟡 部分 | 读侧"复制 AI 上下文"已落地;完整 MCP server 是独立工程(见 [deferred](./deferred.md)「完整 MCP server」),不在此仓促做空心 stub。 |
-| F-L10N | ✅ 完整 | 基础设施 + 顶层 chrome + 全部深层面板(本会话补完)已落地(zh/en)。 |
-| F-CANVAS(Excalidraw) | ✅ | MIT 画布;旧 tldraw 只读兼容(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
-| F-SHEET(ironcalc) | ⏳ 延后 | npm 仅发 wasm 引擎、无 React UI(见 [deferred](./deferred.md)「F-SHEET」)。 |
-| F-PLUGIN | ⏳ 延后 | 见 [deferred](./deferred.md)「F-PLUGIN」。 |
-| BlockNote 双模 | ✅ 部分 | WYSIWYG 已落地;无损 round-trip 子集仍见 [deferred](./deferred.md)。 |
-| 图谱大图(WebGL/LOD/Worker) | ✅ 功能+打磨齐 | Barnes-Hut + 增量预算 + 标签避让 + LOD + sigma;真机帧率门禁仍见 deferred。 |
-| Live 索引 + ⌘F/⌘P | ✅ | 路径级 delta;无搜索视图;FindBar + quick open。 |
-| 打包与分发 | ✅ CI 骨架 / 🟡 签名待凭证 | 骨架见上(Phase 5 行);签名/公证/Updater 见 [deferred.md](./deferred.md)「打包与分发」(gated 在用户凭证)。 |
-| saved query view / 恢复上次笔记 | ✅ 本轮 | 已落地(见 [deferred](./deferred.md) 顶部两条 ✅):QQL 存成自举 `type:Query` 笔记;打开 vault 恢复上次看的笔记。 |
+| F-GIT | ✅ | commit/log/pull/push/归档 git。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;完整 MCP ⏳ B-MCP。 |
+| F-L10N | ✅ | zh/en。 |
+| F-CANVAS(Excalidraw) | ✅ | MIT;旧 tldraw 只读。 |
+| F-SHEET | ⏳ | B-SHEET。 |
+| F-PLUGIN | ⏳ | B-PLUGIN。 |
+| BlockNote 双模 | 🟡 | 可用;保真 B-BN-FIDELITY。 |
+| 图谱 WebGL 栈 | ✅ 主路径 | 真机帧率 B-GRAPH-FPS;多布局 B-GRAPH-*。 |
+| 类型文档 | ⏳ | B-TYPE-DOC(原 v1 不做 → 现待办)。 |
+| 图谱分层/时间轴 | ⏳ | B-GRAPH-LAYER / B-GRAPH-TIME。 |
+| QQL 扩展 | ⏳ | B-QQL-EXPAND。 |
+| Live 索引 + ⌘F/⌘P | ✅ | |
+| 打包与分发 | 🟡 | CI/本地 dmg ✅;签名/Updater 🔑。 |
+| saved query / 恢复上次笔记 | ✅ | |
 
-**原则**:宁可诚实延后并写明"需要什么才能做扎实",也不仓促塞进空心 stub 制造"看起来有"的假象——后者才是真正留坑。已完成的三项(F-GIT / F-AI 读侧 / F-L10N)都遵循 TDD:纯逻辑先行 + 单测,IO 薄壳在后。
+**原则**:不塞空心 stub;原 v1 边界三项已纳入 backlog,要做。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

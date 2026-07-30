@@ -18,10 +18,10 @@
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
-| P1 | 图谱默认布局 | ✅【已升级】力导向 + WebGL(sigma)/Worker/Barnes-Hut/LOD | 另可选"按 type 分层""按时间轴",v2 再议。 |
-| P2 | QQL 语法 | ✅【已定】DQL 风格(`WHERE/SORT/LIMIT/SHOW`) | 已选定 A 方案并实现文本解析器 `qql::parse`(string → Query AST),demo 里可敲文本查询。 |
-| P3 | 是否支持 cairn 协议原生 | 【默认】是 | 识别 Source/Summary/Entity/Concept + 关系键,直接当 cairn GUI 运行时。 |
-| P4 | type 系统是否保留"类型文档" | 【默认】v1 不做 | 这是 Tolaria "绑人"的源头;v2 再议,且仅作 UI 提示。 |
+| P1 | 图谱默认布局 | ✅【已定】力导向 + WebGL/Worker/BH/LOD 为默认 | **另做** type 分层 + 时间轴(B-GRAPH-LAYER/TIME),可切换;不再「v2 再议跳过」。 |
+| P2 | QQL 语法 | ✅【已定】DQL 风格基线 | 基线已落地;继续扩展常用子集(B-QQL-EXPAND),不追求 Dataview 逐字全兼容。 |
+| P3 | 是否支持 cairn 协议原生 | 【默认】是 | 识别 Source/Summary/Entity/Concept + 关系键。 |
+| P4 | 类型文档 | ✅【已定要做】仅 UI 提示 | **做**(B-TYPE-DOC):关联说明笔记/字段提示;**永不** schema 校验或阻止保存(防 Tolaria 式绑人)。原「v1 不做」作废。 |
 
 ## 暂时跳过(待你验收后继续)
 
