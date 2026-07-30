@@ -111,7 +111,7 @@
 | B-PALETTE-V2 | 面板三 mode:commands/files/search | 🟡 | ✅ | ⌘K/⌘P/⌘⇧F;⌘O=开 vault |
 | B-SEARCH-UI | 库内全文 UI 接 `searchNotes` | 🟡 | ✅ | Palette mode=search |
 | B-SEARCH-RANK | 快开排序纯函数 | 🟢 | ✅ | `rankFiles` + canvas/sheet |
-| B-CMD-TEST | 注册表/过滤 vitest | 🟡 | ✅ | commands.test + palette-commands;e2e 可续 |
+| B-CMD-TEST | 注册表/过滤 + 面板 + e2e | 🟡 | ✅ | commands.test 20; CommandPalette.test 7; e2e palette-search 5 |
 
 ## 建议实现顺序(产品向)
 

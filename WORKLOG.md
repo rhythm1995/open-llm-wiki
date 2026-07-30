@@ -15,6 +15,12 @@
 
 ---
 
+### 2026-07-30 Grok — 命令/搜索完整测试
+
+- **branch**: `feat/phase1-core`。
+- **做了**:扩 `commands.test`(菜单契约 id、when、rank);`CommandPalette.test.tsx` 三 mode;e2e `palette-search.spec.ts`(⌘K/⌘P/⌘⇧F/Esc)。
+- **验证**:vitest **525**;playwright **18** 全绿。
+
 ### 2026-07-30 Grok — 实现:命令注册表 + 菜单 v2 + 三 mode 面板 + 库搜
 
 - **branch**: `feat/phase1-core`。

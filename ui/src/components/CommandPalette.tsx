@@ -232,7 +232,7 @@ export function CommandPalette({
                 <button
                   key={a.id}
                   type="button"
-                  data-palette-cmd={a.id}
+                  data-testid={`palette-cmd-${a.id}`}
                   onMouseEnter={() => setSel(i)}
                   onClick={() => activate(i)}
                   className={cn(
@@ -268,7 +268,7 @@ export function CommandPalette({
                 <button
                   key={n.path}
                   type="button"
-                  data-palette-file={n.path}
+                  data-testid={`palette-file-${n.path}`}
                   onMouseEnter={() => setSel(i)}
                   onClick={() => activate(i)}
                   className={cn(
@@ -301,7 +301,7 @@ export function CommandPalette({
                   <button
                     key={`${h.id}-${h.path}`}
                     type="button"
-                    data-palette-search={h.path}
+                    data-testid={`palette-search-${h.path}`}
                     onMouseEnter={() => setSel(i)}
                     onClick={() => activate(i)}
                     className={cn(
