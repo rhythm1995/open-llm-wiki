@@ -26,7 +26,7 @@
 - **现状**:双模 + 格式条/右键/保真提示/WYSIWYG qql ✅;附件 v1 + source 并排 ✅([08](./08-media-and-split-preview.md));§C 主路径齐。
 - **仍缺口 / 可选**:
   1. **保真深化**(B-BN-FIDELITY):门禁已有,完整差分/禁用特性表可继续加。
-  2. **WYSIWYG 插图**:source 粘贴/拖入已通;BlockNote 内嵌图片块未做。
+  2. ~~**WYSIWYG 插图**~~ ✅:粘贴/拖入与 source 同路径(attachments + md 图)。
   3. **Live Preview / 相册 / 音视频**:明确不做(08 非目标)。
 
 ### 菜单与命令

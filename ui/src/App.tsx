@@ -809,6 +809,7 @@ export default function App() {
                       hasNote={state.currentPath !== null}
                       theme={theme}
                       root={state.root}
+                      attachmentsDir={attachmentsDir}
                       t={t}
                     />
                   )}

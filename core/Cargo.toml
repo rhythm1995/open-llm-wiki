@@ -17,3 +17,5 @@ serde_yaml = "0.9"
 [dev-dependencies]
 # 属性测试(解析器防 panic)。
 proptest = "1"
+# QQL 差分 fixture(JSON)。
+serde_json = "1"

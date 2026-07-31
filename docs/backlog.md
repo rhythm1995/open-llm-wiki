@@ -42,7 +42,7 @@
 | B-ED-FIND-PARITY | ⌘F 双模对齐 | 🟡 | ✅ | 切 source + CM 高亮 |
 | B-ED-QQL-WYSIWYG | WYSIWYG 内联 qql | 🟡 | ✅ | `collectWysiwygQqlJobs` + `run_qql` 结果面板 |
 | B-ED-MODE-UX | 双模切换心智 | 🟢 | ✅ | 保真提示 + ⌘K/菜单/设置默认模式 |
-| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ✅ | v1:`save_attachment`+mock;粘贴/拖入→`attachments/`;阅读改写 img;`docs/08` |
+| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ✅ | source+**wysiwyg** 粘贴/拖入→`attachments/`;阅读改写 img |
 | B-ED-READING | 并排预览 | 🟢 | ✅ | v1:source 左编辑\|右 ReadingPane;`editorLayout` 持久化;非 Live Preview |
 
 ---
@@ -74,9 +74,9 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | **代码齐**;`gen-benchmark-vault.mjs` 有;缺本机测得的 fps 数字 |
+| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | 代码齐+生成器;单元冒烟 1k Barnes-Hut 限时;fps 数字仍靠本机 GUI |
 | B-QQL-MOCK-GAP | mock 与 core 语义 | 🟡 | ✅ | mock `run_qql`→QQL-TS;各侧单测齐 |
-| B-QQL-PARITY-CI | TS↔Rust 同批查询差分 | 🟡 | ⏳ 可选 | **核实:不存在**共享 fixture CI;要防漂移可另加 golden 查询集 |
+| B-QQL-PARITY-CI | TS↔Rust 同批查询差分 | 🟡 | ✅ | `fixtures/qql-parity/cases.json` + core test + `qql/parity.test.ts` |
 
 ---
 

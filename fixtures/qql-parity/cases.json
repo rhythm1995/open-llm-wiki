@@ -1,0 +1,77 @@
+{
+  "notes": [
+    {
+      "path": "alpha.md",
+      "content": "---\ntype: Concept\nstatus: Active\nscore: 3\ntags: [method]\n---\n# Alpha\n\nhello world\n"
+    },
+    {
+      "path": "folder/beta.md",
+      "content": "---\ntype: Note\nstatus: Done\ntags: [meta]\n---\n# Beta\n\nother\n"
+    },
+    {
+      "path": "gamma.md",
+      "content": "---\ntype: Concept\nstatus: Active\nscore: 10\ntags: [method, ai]\n---\n# Gamma\n\nconcept body\n"
+    }
+  ],
+  "cases": [
+    {
+      "name": "type_eq_list_sort_title",
+      "qql": "WHERE type = \"Concept\" SORT title ASC",
+      "expect": { "kind": "list", "paths": ["alpha.md", "gamma.md"] }
+    },
+    {
+      "name": "type_count",
+      "qql": "WHERE type = \"Concept\" RENDER count",
+      "expect": { "kind": "count", "n": 2 }
+    },
+    {
+      "name": "body_contains",
+      "qql": "WHERE body CONTAINS \"hello\"",
+      "expect": { "kind": "list", "paths": ["alpha.md"] }
+    },
+    {
+      "name": "type_in_limit",
+      "qql": "WHERE type IN (\"Concept\") LIMIT 1 SORT title ASC",
+      "expect": { "kind": "list", "paths": ["alpha.md"] }
+    },
+    {
+      "name": "hash_tag",
+      "qql": "WHERE #meta",
+      "expect": { "kind": "list", "paths": ["folder/beta.md"] }
+    },
+    {
+      "name": "and_type_tag",
+      "qql": "WHERE type = \"Concept\" AND #ai",
+      "expect": { "kind": "list", "paths": ["gamma.md"] }
+    },
+    {
+      "name": "path_startswith",
+      "qql": "WHERE path STARTSWITH \"folder/\"",
+      "expect": { "kind": "list", "paths": ["folder/beta.md"] }
+    },
+    {
+      "name": "sum_score",
+      "qql": "WHERE type = \"Concept\" RENDER sum(score)",
+      "expect": { "kind": "sum", "value": 13 }
+    },
+    {
+      "name": "show_table",
+      "qql": "WHERE type = \"Note\" SHOW title, status",
+      "expect": {
+        "kind": "table",
+        "rows": [{ "path": "folder/beta.md", "fields": ["Beta", "Done"] }]
+      }
+    },
+    {
+      "name": "group_by_type",
+      "qql": "RENDER group_by(type)",
+      "expect": {
+        "kind": "groups",
+        "groups": [
+          { "key": "Concept", "count": 2 },
+          { "key": "Note", "count": 1 }
+        ]
+      }
+    }
+  ]
+}
