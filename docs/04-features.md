@@ -11,7 +11,7 @@
 
 ## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
 
-### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地 · ⏳ 多布局待办
+### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局)
 
 **一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的力导向图。
 
@@ -46,7 +46,7 @@
   2. **saved query**——`type: Query` 笔记自举(纯逻辑 `saved-query.ts`)。
 - **输出**(`ResultSet`):`List` / `Table` / `Count` / `Groups` / `Sum` / **`Histogram`**。
 - **实时**:查询在 live 不可变快照上执行;写/watcher 路径级更新索引。
-- **浏览器 mock**:`mock-qql` 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)供 `vite dev` 预览;完整语义以 Rust 为准。
+- **浏览器 mock**:`run_qql` 走 **QQL-TS 全量求值**(`ui/src/lib/qql/*`,B-QQL-TS);桌面仍走 Rust `openobs-core`。**尚无** TS↔Rust 同批查询自动差分 CI(可选硬化,见 backlog)。
 - **扩展** ✅(B-QQL-EXPAND):`CONTAINS` / `STARTSWITH` / `ENDSWITH` / `IN (...)` 等常用子集。**不**追求 Dataview 全语法逐字兼容。
 - **与 cairn**:Health KPI 可落成 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
@@ -54,7 +54,7 @@
 
 ## 软类型系统
 
-### F-TYPE 软类型 [P0] ✅ 主路径 · ⏳ 类型文档待办
+### F-TYPE 软类型 [P0] ✅ 主路径 + 类型文档提示
 
 - `type:` 是 `Option<String>`,任意值,**永不校验、永不阻止保存、永不报错**(底线,不因类型文档改变)。
 - 缺失 → 默认 `Note`。app 据 type 分组/着色。
@@ -69,18 +69,18 @@
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|
-| F-EDITOR | 编辑器 | P0 | 🟡 | 双模+格式条/右键/qql/保真 ✅;附件粘贴与 source **并排阅读** v1 ✅([08](./08-media-and-split-preview.md));非 Live Preview。 |
+| F-EDITOR | 编辑器 | P0 | 🟡 | 双模+格式条/右键/qql/保真门禁 ✅;source 附件+并排阅读 ✅([08](./08-media-and-split-preview.md));可选:WYSIWYG 插图、保真加深。 |
 | F-VAULT | vault 管理 | P0 | ✅ | 打开/切换;LiveVault 增量索引。 |
 | F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | 解析、补全、点击跳转;反向链接实时。 |
 | F-FILETREE | 文件浏览 | P0 | ✅ | Nav+列表+拖拽+右键。 |
-| F-SEARCH | 全文/查找 | P0 | ✅ | ⌘F/⌘P;Find 时强制 source 高亮。 |
+| F-SEARCH | 全文/查找 | P0 | ✅ | ⌘F 文内;⌘P 快开;⌘⇧F 库内全文([10](./10-menus-and-search.md))。 |
 | F-PROPERTIES | 属性面板 | P1 | ✅ | frontmatter 可视化;类型说明提示。 |
 | F-STATUS | status chip | P1 | ✅ | chip + 列表右键切状态。 |
 | F-TAGS | 标签 | P1 | ✅ | 解析 + Nav TAGS。 |
-| F-PALETTE | 命令面板 | P1 | ✅ | ⌘K 扩面+设置+并排切换。 |
+| F-PALETTE | 命令面板 | P1 | ✅ | ⌘K/⌘P/⌘⇧F 三 mode;注册表同源([10](./10-menus-and-search.md))。 |
 | F-TABS | 多标签 | P1 | ✅ | 开/关/循环/拖拽+右键。 |
 | F-TEMPLATES | 模板 | P2 | ✅ | |
-| F-THEMES | 主题 | P2 | ✅ | 深/浅;无独立设置页 ⏳ B-SETTINGS。 |
+| F-THEMES | 主题 | P2 | ✅ | 深/浅;Settings 面板 ✅。 |
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
 | F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 stdio ✅(`openobs-mcp`)。 |
@@ -88,18 +88,19 @@
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
 | F-PLUGIN | 插件 | P3 | ⛔ | v1 宿主保留;**产品不做深化**。 |
-| F-APP-MENU | 系统菜单栏 | P2 | ⏳ | B-APP-MENU;现靠快捷键+顶栏+⌘K。 |
+| F-APP-MENU | 系统菜单栏 | P2 | ✅ | File/Edit/View 与命令注册表对齐(B-APP-MENU-V2)。 |
 
 ## 范围说明
 
-**已交付核心**:vault / 双模编辑(可用) / wikilink / 列表+标签 / **图谱**(含多布局) / **QQL**(含扩展) / 类型文档提示 / git / 画布 / L10N / live 索引 等。
+**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(含多布局+WebGL) / **QQL**(Rust+TS) / 类型文档 / git / 画布 / 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
 
-**原 v1 边界 §A** ✅ 类型文档 · 图谱分层/时间轴 · QQL CONTAINS/IN 等。
+**原 v1 边界 §A** ✅ · **§C 编辑器 / §D 菜单 / §H 命令搜索** ✅ · **大件 v1** ✅(插件深化 ⛔)。
 
-**当前最大产品缺口**(优先于表格/插件):
+**当前仍开放 / 值得做**(非「功能空白」):
 
-1. **编辑器打磨** — backlog §C  
-2. **菜单与命令** — backlog §D(系统菜单 / ⌘K 扩面 / Nav·Tab·编辑器右键)  
-3. **大件** — MCP · 插件 · 表格 · 签名分发  
+1. **合 main / AGENTS.md 叙事**(流程与人类文档)  
+2. **写作体验可选**:WYSIWYG 插图、BlockNote 保真加深  
+3. **真机**:图谱 1k/5k 帧率(B-GRAPH-FPS);签名/Updater 凭证门  
+4. **可选硬化**:QQL TS↔Rust 同批差分 CI(目前两边各自有单测,无共享 fixture CI)  
 
 完整 ID 表 → [backlog.md](./backlog.md)。

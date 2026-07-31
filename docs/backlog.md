@@ -42,7 +42,7 @@
 | B-ED-FIND-PARITY | ⌘F 双模对齐 | 🟡 | ✅ | 切 source + CM 高亮 |
 | B-ED-QQL-WYSIWYG | WYSIWYG 内联 qql | 🟡 | ✅ | `collectWysiwygQqlJobs` + `run_qql` 结果面板 |
 | B-ED-MODE-UX | 双模切换心智 | 🟢 | ✅ | 保真提示 + ⌘K/菜单/设置默认模式 |
-| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ✅ | v1:`save_attachment`+mock;粘贴/拖入→`attachments/`;阅读改写 img;`docs/08` |
+| B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ✅ | source+**wysiwyg** 粘贴/拖入→`attachments/`;阅读改写 img |
 | B-ED-READING | 并排预览 | 🟢 | ✅ | v1:source 左编辑\|右 ReadingPane;`editorLayout` 持久化;非 Live Preview |
 
 ---
@@ -74,8 +74,9 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | **非本轮**(真机) |
-| B-QQL-MOCK-GAP | mock-qql 与 core 差 | 🟡 | ✅ | mock 改走 QQL-TS 全量求值;与 core 语义对齐(差分 CI 可选) |
+| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | 代码齐+生成器;单元冒烟 1k Barnes-Hut 限时;fps 数字仍靠本机 GUI |
+| B-QQL-MOCK-GAP | mock 与 core 语义 | 🟡 | ✅ | mock `run_qql`→QQL-TS;各侧单测齐 |
+| B-QQL-PARITY-CI | TS↔Rust 同批查询差分 | 🟡 | ✅ | `fixtures/qql-parity/cases.json` + core test + `qql/parity.test.ts` |
 
 ---
 
@@ -102,7 +103,7 @@
 
 ---
 
-## H. 菜单 · 命令面板 · 搜索(打磨中 · 见 [10](./10-menus-and-search.md))
+## H. 菜单 · 命令面板 · 搜索(见 [10](./10-menus-and-search.md)) ✅
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
@@ -115,9 +116,19 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~非大件 / 媒体 / 大件 v1 / SHEET v2~~ ✅  
-2. **菜单+搜索打磨**([10](./10-menus-and-search.md)):REGISTRY → MENU-V2 → PALETTE/SEARCH-UI → 测试  
-3. 并行:B-GRAPH-FPS 真机;签名/Updater;合 main  
+1. ~~功能主路径 / 大件 v1 / 菜单搜索~~ ✅  
+2. **合 main** + AGENTS.md 叙事(人类)  
+3. 可选:WYSIWYG 插图 / 保真加深 / B-QQL-PARITY-CI  
+4. 真机:B-GRAPH-FPS;`node tools/gen-benchmark-vault.mjs`  
+5. 对外:签名/Updater 凭证  
+
+### 三项核实(2026-07-31)
+
+| 说法 | 是否成立 | 结论 |
+|---|---|---|
+| QQL TS↔Rust 差分 CI | **问题存在** | 无共享 golden 查询自动比对;TS `qql.test` 与 Rust `query`/`qql` 测试**各自**覆盖。防漂移=可选新开 B-QQL-PARITY-CI |
+| 04/06「最大缺口=编辑器菜单」 | **文案过时** | 已改:§C/§D/§H 已 ✅ |
+| 图谱 1k/5k 帧率 | **半成立** | 渲染/布局代码齐 + 生成器有;缺**测得的帧率数据**与 CI |
 
 ---
 

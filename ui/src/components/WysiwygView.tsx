@@ -27,7 +27,7 @@
  *
  * 许可:BlockNote MPL-2.0(见 THIRD_PARTY_NOTICES)。
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { mergeFrontmatter, splitFrontmatter } from "../lib/frontmatter";
@@ -43,6 +43,12 @@ import {
   type WysiwygQqlStatus,
 } from "../lib/wysiwyg-qql";
 import { sanitize } from "../lib/render";
+import {
+  blobToDataUrl,
+  collectImageFiles,
+  DEFAULT_ATTACHMENTS_DIR,
+} from "../lib/attachments";
+import { planImagesInsert } from "../lib/wysiwyg-media";
 
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
@@ -67,6 +73,8 @@ interface Props {
   t: TFunc;
   /** vault 根;用于 run_qql(与 source qql-widget 同路径)。 */
   root?: string | null;
+  /** 附件目录(默认 attachments)。 */
+  attachmentsDir?: string;
 }
 
 export function WysiwygView({
@@ -78,6 +86,7 @@ export function WysiwygView({
   theme,
   t,
   root = null,
+  attachmentsDir = DEFAULT_ATTACHMENTS_DIR,
 }: Props) {
   // 仅挂载时取一次 body;切笔记靠 App 的 key={currentPath} 重建触发,不在此响应 content 变化。
   const initialBody = useMemo(() => splitFrontmatter(content).body, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,6 +102,39 @@ export function WysiwygView({
   onFollowRef.current = onFollow;
   const titlesRef = useRef(noteTitles);
   titlesRef.current = noteTitles;
+  const rootRef = useRef(root);
+  rootRef.current = root;
+  const dirRef = useRef(attachmentsDir);
+  dirRef.current = attachmentsDir;
+
+  /** 粘贴/拖入图片 → 附件落盘 + 插入 md 图片块。 */
+  const insertImageFiles = useCallback(
+    async (files: File[]) => {
+      const vaultRoot = rootRef.current;
+      if (!vaultRoot || files.length === 0) return;
+      const plans = planImagesInsert(
+        files.map((f) => ({ name: f.name, type: f.type })),
+        dirRef.current,
+        (p) => ipc.attachmentExists(p),
+      );
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const plan = plans[i];
+          const dataUrl = await blobToDataUrl(files[i]);
+          await ipc.saveAttachment(vaultRoot, plan.relPath, dataUrl);
+          const blocks = editor.tryParseMarkdownToBlocks(plan.snippet);
+          const cursor = editor.getTextCursorPosition();
+          editor.insertBlocks(blocks, cursor.block, "after");
+        } catch {
+          // 单张失败不阻断
+        }
+      }
+      handleChange();
+    },
+    // handleChange 稳定读 ref;editor 挂载后固定
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor],
+  );
 
   // 挂载:把 body 解析成块,wikilink 升级成 chip,替换掉 editor 的初始空段落。
   useEffect(() => {
@@ -190,7 +232,30 @@ export function WysiwygView({
 
   return (
     // click 事件代理:点 wikilink chip → 读 data-wikilink → onFollow(target)。
-    <div className="flex h-full flex-col overflow-hidden bg-base">
+    <div
+      className="flex h-full flex-col overflow-hidden bg-base"
+      data-testid="wysiwyg-editor"
+      onPaste={(e) => {
+        const images = collectImageFiles(e.clipboardData);
+        if (images.length === 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void insertImageFiles(images);
+      }}
+      onDragOver={(e) => {
+        if (collectImageFiles(e.dataTransfer).length > 0) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDrop={(e) => {
+        const images = collectImageFiles(e.dataTransfer);
+        if (images.length === 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void insertImageFiles(images);
+      }}
+    >
       <div
         className="min-h-0 flex-1 overflow-auto"
         onClick={(e) => {

@@ -9,7 +9,7 @@
 ### Phase 0 — 设计 + 地基 + 第一片绿 ✅(本次)
 
 - 完整设计文档(`docs/`,七份)。
-- 项目骨架:workspace、LICENSE(MIT)、Rust core crate、前端 manifest、测试基建(cargo test / Vitest / mock 层;⏳ Playwright 待引入)。
+- 项目骨架:workspace、LICENSE(MIT)、Rust core crate、前端 manifest、测试基建(cargo test / Vitest / mock 层 / **Playwright e2e**)。
 - **第一个 TDD 切片**:`core::parse`——markdown + frontmatter + wikilink 解析,红绿实现,全测试。这是图谱和查询的共同地基。
 - 产出:一个 `cargo test` 全绿、有据可查的地基。
 
@@ -43,14 +43,14 @@ Tauri 2 外壳 + React 19:
 - 节点按软类型着色、按连接度变大小;wiki/relation 边区分;悬空链接短桩;当前节点高亮;点击跳转。
 - ✅ **过滤面板**(核心竞争力):按 type / tag / relation 显隐、隐藏孤儿、聚焦当前笔记 N 跳邻域(纯逻辑 `graph-filter.ts`,已测)。
 - ✅ **平移缩放**:滚轮缩放(以光标为中心)、拖拽平移、按钮缩放/重置。
-- 待打磨:大图性能优化 >400 节点(LOD/聚类、Canvas/WebGL、Web Worker);右键菜单已落地(见 Phase 5+ 续四)。
+- ✅ 大图路径:WebGL + Worker + Barnes-Hut + LOD + 标签避让;真机 1k/5k 帧率仍开放(B-GRAPH-FPS,`tools/gen-benchmark-vault.mjs`)。
 
 ### Phase 4 — 实时聚合(差异化 #2)✅(本次完成)
 
 - ✅ F-QUERY:**QQL 文本查询面板**(`WHERE … SORT … SHOW … RENDER …`),core `qql::parse + query::eval` 求值,结果按 List/Table/Count/Groups/Sum 形态渲染、点击跳转。
 - ✅ 统一字段模型 + 比较运算符(`==/!=/>/>=/</<=`)+ `.len()` 度数访问器 + 聚合渲染(`count/list/group_by(field)/sum(field)`)+ `AS` 列别名。
 - ✅ qql 文本解析层(Phase 1 只建了求值器,本轮按"DQL 风格语法"补全文本层)。
-- 待打磨:内联 ```qql 查询块渲染、saved view 持久化面板。
+- ✅ 内联 ```qql + saved query 面板(见后续 Phase)。
 
 ### Phase 5 — v1 收口(基本完成)
 
@@ -111,9 +111,9 @@ Tauri 2 外壳 + React 19:
 清掉原列在打磨项里的三件中小件,均循 TDD(纯逻辑先行 + 单测):
 
 - ✅ **标签循环快捷键**:`tabReduce` 加 `cycle` 动作(环回到首/尾)+ 6 单测;`store.cycleTab(dir)` 切换并读盘;App 全局 keydown 挂 Ctrl+Tab / Ctrl+Shift+Tab / ⌘/Ctrl+Shift+[ ] / ⌘/Ctrl+PageUp/Down。浏览器 dev 抢占 Ctrl+Tab(已知),桌面 webview 可用。
-- ✅ **内联 ```qql 查询块渲染**:正文 ```qql 块在编辑器内实时求值,只读块级 widget 渲染结果在块下方;阅读视图同样求值渲染。纯逻辑 `qql-block.ts`(`findQqlBlocks` + `resultToHtml`,**两路共用渲染器**,17 单测);CM `qql-widget.ts`(StateField + ViewPlugin 块级 widget + 防抖 400ms 重算 + 错误降级)。**mock 限制**:QQL 求值未移植到 TS,dev 下显示「无结果」,真机走 Rust core。
-- ✅ **图谱视口剔除**:`visibleNodeIds` 纯函数(graph→屏幕坐标判定)+ 6 单测;GraphView 节点数 > 200 时屏外节点/边不画,降 SVG DOM 量(80px 留白减 pop-in)。LOD 聚类 / Canvas/WebGL / Worker 仍是独立大件(见 deferred)。
-- ✅ **验证加固**:全绿——UI **265 单测**(23 文件,本轮 +28:tabs 6 / graph-layout 6 / qql-block 17 - 重计偏差 1);tsc clean;构建重嵌 app + 运行时 diag_log 0 `[webview]` 报错。
+- ✅ **内联 ```qql 查询块渲染**:正文 ```qql 块在编辑器内实时求值;阅读视图同路径。**mock/dev**:`run_qql` 走 QQL-TS 全量求值器;桌面走 Rust core。
+- ✅ **图谱视口剔除 + WebGL 主路径**:SVG 兜底;Worker FR / Barnes-Hut / LOD 已落地(见 deferred 真机帧率)。
+- ✅ **验证加固**:UI vitest + Playwright e2e;core cargo test;本地 `tauri build` 出未签名 dmg。
 
 ### 后续能力与诚实取舍
 
@@ -125,15 +125,16 @@ Tauri 2 外壳 + React 19:
 | F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。 |
-| F-SHEET / F-PLUGIN | 🟡 | v1 表格+插件宿主 ✅;见 docs/09。 |
-| 编辑器双模 | 🟡 | 可用;打磨 §C(格式条/右键/查找/qql 对齐)+ 保真 B-BN-FIDELITY。 |
-| 菜单与命令 | 🟡 | 无系统菜单;⌘K 薄;Nav/Tab/编辑器右键缺 → §D。 |
-| 图谱 | ✅ | WebGL+多布局;真机帧率 B-GRAPH-FPS。 |
-| 类型文档 / QQL 扩展 | ✅ | §A 已落地。 |
-| Live 索引 + ⌘F/⌘P | ✅ | |
-| 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑。 |
+| F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
+| F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
+| 编辑器双模 | 🟡 | §C 主路径 ✅;可选 WYSIWYG 插图 / 保真加深。 |
+| 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
+| 图谱 | ✅ | WebGL+多布局;真机帧率 B-GRAPH-FPS 仍开放。 |
+| 类型文档 / QQL 扩展 / QQL-TS | ✅ | §A + B-QQL-TS;可选 TS↔Rust 差分 CI。 |
+| Live 索引 + 三层搜索 | ✅ | |
+| 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑;合 main 待操作。 |
 
-**原则**:不塞空心 stub。下一优先:**菜单/命令 + 编辑器打磨**(见 [backlog](./backlog.md) 建议顺序),再大件。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。下一优先:**合 main / 文档债** → 可选写作体验(WYSIWYG 图) → 真机帧率/签名。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 
