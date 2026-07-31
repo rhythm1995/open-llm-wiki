@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-07-31 Grok — 文档对齐 + 三项核实(QQL 差分/缺口文案/图谱帧率)
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 改写 [04-features](docs/04-features.md) / [06-roadmap](docs/06-roadmap.md) 过时「最大缺口=编辑器/菜单」与 mock-qql/菜单 ⏳ 状态。
+  2. **核实**:QQL 差分 CI **不存在**(可选 B-QQL-PARITY-CI);图谱生成器 **有**、帧率数字 **无**;文档债已消。
+  3. backlog §E 补 B-QQL-PARITY-CI;deferred 图谱/qql 表述对齐。
+- **下一步**:合 main 或 WYSIWYG 插图 / 本机跑 benchmark vault。
+
 ### 2026-07-30 Grok — 命令/搜索完整测试
 
 - **branch**: `feat/phase1-core`。

@@ -17,33 +17,35 @@
 
 ---
 
-## 🟡 编辑器与菜单(产品打磨 · 非空 stub)
+## 🟡 编辑器(主路径齐 · 可选加深)
 
-> 总表见 [backlog §C–D](./backlog.md)。此处记**现状 / 难在哪 / 做扎实需要什么**。
+> 总表见 [backlog §C–D/§H](./backlog.md)。
 
 ### 编辑器
 
-- **现状**:双模 + 格式条/右键/保真提示/WYSIWYG qql ✅;**附件 v1 + source 并排阅读** ✅(见 [08](./08-media-and-split-preview.md))。
-- **仍缺口 / 非 v1**:
+- **现状**:双模 + 格式条/右键/保真提示/WYSIWYG qql ✅;附件 v1 + source 并排 ✅([08](./08-media-and-split-preview.md));§C 主路径齐。
+- **仍缺口 / 可选**:
   1. **保真深化**(B-BN-FIDELITY):门禁已有,完整差分/禁用特性表可继续加。
   2. **WYSIWYG 插图**:source 粘贴/拖入已通;BlockNote 内嵌图片块未做。
   3. **Live Preview / 相册 / 音视频**:明确不做(08 非目标)。
-- **大件见** backlog §B/E(表格/插件/MCP/QQL-TS 等)。
 
 ### 菜单与命令
 
-- **现状**:系统菜单 + ⌘K 扩面 + Settings + Nav/Tab/Editor 右键 ✅(§D)。
-- **可选后续**:更多快捷键绑定、菜单与 palette 完全同源表驱动。
+- **现状**:系统菜单 v2 + 命令注册表 + ⌘K/⌘P/⌘⇧F + Settings + 右键 ✅(§D/§H,[10](./10-menus-and-search.md))。
+- **可选后续**:菜单文案随 locale 重建。
 
 ---
 
-## 🟡 图谱大图性能(>400 → 万级)—— **功能+打磨已齐 · 真机帧率验收仍开放**
+## 🟡 图谱大图性能(>400 → 万级)—— **代码齐 · 缺真机帧率数字**
 
 - **已落地**:
   1. `graph-model` / Worker FR / Barnes-Hut / LOD / sigma WebGL / 标签避让 / 增量预算
   2. 多布局:力导向 + type 分层 + 时间轴 + UI 切换
   3. 交互双路径:拖拽/pin/框选/邻域/ghost/右键
-- **仅真机验收(不阻塞)**:1k ≥30fps / 5k / 10k LOD。基准:`tools/gen-benchmark-vault.mjs`。
+- **核实(2026-07-31)**:
+  - ✅ 生成器存在:`tools/gen-benchmark-vault.mjs`(默认 1000 篇 → `./benchmark-vault/`,可改 count)。
+  - ❌ **无** CI/自动化帧率测量;脚本注释写明「帧率只能在 GUI 里目视」。
+  - 开放项仍是 **B-GRAPH-FPS**:本机 `node tools/gen-benchmark-vault.mjs 1000` → Tauri 打开 vault → 观察 1k/5k 交互是否可接受。
 
 ## ✅ ~~图谱右键菜单~~(已落地)
 
@@ -55,7 +57,7 @@
   - 纯逻辑 `qql-block.ts`(`findQqlBlocks` 围栏块定位 + `resultToHtml` 把 ResultSet→HTML,**编辑器 widget 与阅读视图共用同一渲染器 → 两路一致**,17 单测)。
   - CodeMirror 6:`qql-widget.ts`(StateField 缓存 query→result + ViewPlugin 在闭围栏下一行行首放块级 widget + WidgetType;doc 变化防抖 400ms 重算,语法错降级为 `⚠` 文案)。
   - 阅读视图:marked 渲染后 effect 查 `pre code.language-qql` → run_qql 求值(按 query 缓存)→ 注入 sanitize 过的结果节点。
-  - **mock**:`mock-qql` 子集(type/status/tag/LIMIT/COUNT/GROUP/histogram)供 vite dev;完整语义仍以 Rust core 为准(全量移植 TS 为独立大件)。
+  - **mock/dev**:`run_qql` 走 QQL-TS(`ui/src/lib/qql`);桌面 Rust core。两边各自有单测,**无**同批 fixture 自动差分 CI。
 
 - **已实现**(commit `f6d9a09`):常用 QQL 存成一篇 `type: Query` 的普通笔记,frontmatter
   声明软类型、正文放 ```` ```qql ```` 块。因此自动进索引/图谱/检索,可被 `[[]]` 链接、可被

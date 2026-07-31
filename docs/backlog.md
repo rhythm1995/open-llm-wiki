@@ -74,8 +74,9 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | **非本轮**(真机) |
-| B-QQL-MOCK-GAP | mock-qql 与 core 差 | 🟡 | ✅ | mock 改走 QQL-TS 全量求值;与 core 语义对齐(差分 CI 可选) |
+| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | **代码齐**;`gen-benchmark-vault.mjs` 有;缺本机测得的 fps 数字 |
+| B-QQL-MOCK-GAP | mock 与 core 语义 | 🟡 | ✅ | mock `run_qql`→QQL-TS;各侧单测齐 |
+| B-QQL-PARITY-CI | TS↔Rust 同批查询差分 | 🟡 | ⏳ 可选 | **核实:不存在**共享 fixture CI;要防漂移可另加 golden 查询集 |
 
 ---
 
@@ -102,7 +103,7 @@
 
 ---
 
-## H. 菜单 · 命令面板 · 搜索(打磨中 · 见 [10](./10-menus-and-search.md))
+## H. 菜单 · 命令面板 · 搜索(见 [10](./10-menus-and-search.md)) ✅
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
@@ -115,9 +116,19 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~非大件 / 媒体 / 大件 v1 / SHEET v2~~ ✅  
-2. **菜单+搜索打磨**([10](./10-menus-and-search.md)):REGISTRY → MENU-V2 → PALETTE/SEARCH-UI → 测试  
-3. 并行:B-GRAPH-FPS 真机;签名/Updater;合 main  
+1. ~~功能主路径 / 大件 v1 / 菜单搜索~~ ✅  
+2. **合 main** + AGENTS.md 叙事(人类)  
+3. 可选:WYSIWYG 插图 / 保真加深 / B-QQL-PARITY-CI  
+4. 真机:B-GRAPH-FPS;`node tools/gen-benchmark-vault.mjs`  
+5. 对外:签名/Updater 凭证  
+
+### 三项核实(2026-07-31)
+
+| 说法 | 是否成立 | 结论 |
+|---|---|---|
+| QQL TS↔Rust 差分 CI | **问题存在** | 无共享 golden 查询自动比对;TS `qql.test` 与 Rust `query`/`qql` 测试**各自**覆盖。防漂移=可选新开 B-QQL-PARITY-CI |
+| 04/06「最大缺口=编辑器菜单」 | **文案过时** | 已改:§C/§D/§H 已 ✅ |
+| 图谱 1k/5k 帧率 | **半成立** | 渲染/布局代码齐 + 生成器有;缺**测得的帧率数据**与 CI |
 
 ---
 
