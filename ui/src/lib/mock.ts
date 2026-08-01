@@ -458,6 +458,12 @@ export async function handle<T>(
       }
       return undefined as unknown as T;
 
+    case "read_graph_layout":
+      // mock 无磁盘:布局快照未落盘。
+      return null as unknown as T;
+    case "save_graph_layout":
+      return undefined as unknown as T;
+
     case "index_vault":
       // force 在 mock 无差异(内存 map 即真相)。
       return buildSnapshot() as unknown as T;

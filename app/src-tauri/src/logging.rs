@@ -1,0 +1,512 @@
+//! Client log bus (L1): level filter + file NDJSON + stderr + panic hook.
+//!
+//! Pure helpers are unit-tested without Tauri. IO lives in `LogBus`.
+//! See docs/12-client-logging.md.
+
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde_json::json;
+
+// ─── Levels / profiles ───────────────────────────────────────────
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+pub enum LogLevel {
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warn = 3,
+    Error = 4,
+    Fatal = 5,
+}
+
+impl LogLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Trace => "trace",
+            Self::Debug => "debug",
+            Self::Info => "info",
+            Self::Warn => "warn",
+            Self::Error => "error",
+            Self::Fatal => "fatal",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "trace" => Some(Self::Trace),
+            "debug" => Some(Self::Debug),
+            "info" => Some(Self::Info),
+            "warn" | "warning" => Some(Self::Warn),
+            "error" => Some(Self::Error),
+            "fatal" => Some(Self::Fatal),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogProfile {
+    /// Debug builds default: debug+.
+    Dev,
+    /// Maximum detail.
+    Verbose,
+    /// Release default: error+fatal only.
+    Prod,
+}
+
+impl LogProfile {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "dev" | "development" => Some(Self::Dev),
+            "verbose" | "trace" | "debug" => Some(Self::Verbose),
+            "prod" | "production" | "release" => Some(Self::Prod),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Dev => "dev",
+            Self::Verbose => "verbose",
+            Self::Prod => "prod",
+        }
+    }
+
+    pub fn min_level(self) -> LogLevel {
+        match self {
+            Self::Verbose => LogLevel::Trace,
+            Self::Dev => LogLevel::Debug,
+            Self::Prod => LogLevel::Error,
+        }
+    }
+}
+
+/// Resolve profile: env `OPENOBS_LOG_PROFILE` → else debug_assertions → Dev else Prod.
+pub fn resolve_profile_from_env() -> LogProfile {
+    if let Ok(raw) = std::env::var("OPENOBS_LOG_PROFILE") {
+        if let Some(p) = LogProfile::parse(&raw) {
+            return p;
+        }
+    }
+    if cfg!(debug_assertions) {
+        LogProfile::Dev
+    } else {
+        LogProfile::Prod
+    }
+}
+
+pub fn should_emit(level: LogLevel, min: LogLevel) -> bool {
+    level >= min
+}
+
+// ─── Formatting (pure) ───────────────────────────────────────────
+
+/// Build one NDJSON line (no trailing newline required by caller to append).
+pub fn format_ndjson_line(
+    ts: &str,
+    level: LogLevel,
+    target: &str,
+    msg: &str,
+    fields: Option<&serde_json::Value>,
+    session_id: &str,
+) -> String {
+    let mut map = serde_json::Map::new();
+    map.insert("ts".into(), json!(ts));
+    map.insert("level".into(), json!(level.as_str()));
+    map.insert("target".into(), json!(target));
+    map.insert("msg".into(), json!(msg));
+    map.insert("session_id".into(), json!(session_id));
+    if let Some(f) = fields {
+        if !f.is_null() {
+            map.insert("fields".into(), f.clone());
+        }
+    }
+    serde_json::Value::Object(map).to_string()
+}
+
+pub fn daily_log_filename(ymd: &str) -> String {
+    format!("openobs-{ymd}.log")
+}
+
+pub fn error_log_filename(ymd: &str) -> String {
+    format!("openobs-{ymd}.error.log")
+}
+
+/// UTC date `YYYY-MM-DD` from unix seconds.
+pub fn utc_ymd_from_unix(secs: u64) -> String {
+    // Civil date from days since Unix epoch (algorithm: Howard Hinnant).
+    let z = (secs / 86_400) as i64 + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+/// ISO-8601-ish UTC timestamp with millis.
+pub fn utc_ts_now() -> String {
+    let dur = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = dur.as_secs();
+    let millis = dur.subsec_millis();
+    let ymd = utc_ymd_from_unix(secs);
+    let tod = secs % 86_400;
+    let h = tod / 3600;
+    let min = (tod % 3600) / 60;
+    let s = tod % 60;
+    format!("{ymd}T{h:02}:{min:02}:{s:02}.{millis:03}Z")
+}
+
+/// Keep `keep_days` of `openobs-YYYY-MM-DD*.log`; return paths to delete (oldest first).
+pub fn prune_candidates(
+    names: &[String],
+    today_ymd: &str,
+    keep_days: u32,
+) -> Vec<String> {
+    let mut dated: Vec<(String, String)> = names
+        .iter()
+        .filter_map(|n| {
+            // openobs-YYYY-MM-DD.log or .error.log
+            let rest = n.strip_prefix("openobs-")?;
+            let ymd = rest.get(0..10)?;
+            if ymd.len() != 10 || ymd.as_bytes()[4] != b'-' {
+                return None;
+            }
+            Some((ymd.to_string(), n.clone()))
+        })
+        .collect();
+    dated.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    if dated.is_empty() {
+        return Vec::new();
+    }
+    // Unique dates sorted
+    let mut dates: Vec<String> = dated.iter().map(|(d, _)| d.clone()).collect();
+    dates.dedup();
+    if dates.len() <= keep_days as usize {
+        return Vec::new();
+    }
+    let drop_n = dates.len() - keep_days as usize;
+    let drop_dates: std::collections::HashSet<&str> =
+        dates.iter().take(drop_n).map(|s| s.as_str()).collect();
+    // Never drop today's files even if keep_days is 0 edge case
+    dated
+        .into_iter()
+        .filter(|(d, _)| drop_dates.contains(d.as_str()) && d != today_ymd)
+        .map(|(_, n)| n)
+        .collect()
+}
+
+fn short_session_id() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("{:x}", nanos % 0xffff_ffff)
+}
+
+// ─── Bus ─────────────────────────────────────────────────────────
+
+struct BusInner {
+    dir: PathBuf,
+    session_id: String,
+    /// Min level as u8 (LogLevel).
+    min_level: AtomicU8,
+    profile: Mutex<LogProfile>,
+    /// Serialize file writes.
+    write_lock: Mutex<()>,
+}
+
+static BUS: OnceLock<BusInner> = OnceLock::new();
+
+fn bus() -> Option<&'static BusInner> {
+    BUS.get()
+}
+
+/// Initialize global bus. Idempotent (first call wins).
+pub fn init(log_dir: PathBuf, profile: LogProfile) {
+    let _ = BUS.get_or_init(|| {
+        let _ = fs::create_dir_all(&log_dir);
+        let min = profile.min_level() as u8;
+        let session_id = short_session_id();
+        let inner = BusInner {
+            dir: log_dir,
+            session_id: session_id.clone(),
+            min_level: AtomicU8::new(min),
+            profile: Mutex::new(profile),
+            write_lock: Mutex::new(()),
+        };
+        // Startup banner always goes to stderr; file only if level allows info or lower min.
+        let banner = format!(
+            "log bus init profile={} session={} dir={}",
+            profile.as_str(),
+            session_id,
+            inner.dir.display()
+        );
+        eprintln!("[openobs] {banner}");
+        // Write info line if allowed
+        let fields = json!({ "profile": profile.as_str() });
+        emit_raw(
+            &inner,
+            LogLevel::Info,
+            "app",
+            "logging started",
+            Some(&fields),
+        );
+        prune_dir(&inner.dir, 14);
+        inner
+    });
+}
+
+pub fn install_panic_hook() {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            (*s).to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "panic".to_string()
+        };
+        let loc = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "?".into());
+        emit(
+            LogLevel::Fatal,
+            "panic",
+            &msg,
+            Some(json!({ "location": loc })),
+        );
+        prev(info);
+    }));
+}
+
+pub fn set_profile(profile: LogProfile) {
+    if let Some(b) = bus() {
+        b.min_level
+            .store(profile.min_level() as u8, Ordering::Relaxed);
+        if let Ok(mut g) = b.profile.lock() {
+            *g = profile;
+        }
+        emit(
+            LogLevel::Info,
+            "app",
+            "log profile changed",
+            Some(json!({ "profile": profile.as_str() })),
+        );
+    }
+}
+
+pub fn current_profile() -> Option<LogProfile> {
+    bus().and_then(|b| b.profile.lock().ok().map(|g| *g))
+}
+
+pub fn log_dir() -> Option<PathBuf> {
+    bus().map(|b| b.dir.clone())
+}
+
+pub fn session_id() -> Option<String> {
+    bus().map(|b| b.session_id.clone())
+}
+
+pub fn emit(level: LogLevel, target: &str, msg: &str, fields: Option<serde_json::Value>) {
+    if let Some(b) = bus() {
+        emit_raw(b, level, target, msg, fields.as_ref());
+    } else {
+        // Not initialized: stderr only for errors
+        if level >= LogLevel::Error {
+            eprintln!("[{}] {target}: {msg}", level.as_str());
+        }
+    }
+}
+
+fn emit_raw(
+    b: &BusInner,
+    level: LogLevel,
+    target: &str,
+    msg: &str,
+    fields: Option<&serde_json::Value>,
+) {
+    let min = LogLevel::from_u8(b.min_level.load(Ordering::Relaxed));
+    if !should_emit(level, min) {
+        return;
+    }
+    let ts = utc_ts_now();
+    let line = format_ndjson_line(&ts, level, target, msg, fields, &b.session_id);
+
+    // stderr for warn+
+    if level >= LogLevel::Warn {
+        eprintln!("[{}] {target}: {msg}", level.as_str());
+    } else if cfg!(debug_assertions) && level >= LogLevel::Info {
+        eprintln!("[{}] {target}: {msg}", level.as_str());
+    }
+
+    let _guard = b.write_lock.lock().unwrap_or_else(|e| e.into_inner());
+    let ymd = utc_ymd_from_unix(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    );
+    let main_path = b.dir.join(daily_log_filename(&ymd));
+    if let Err(e) = append_line(&main_path, &line) {
+        eprintln!("[openobs] log file write failed: {e}");
+    }
+    if level >= LogLevel::Error {
+        let err_path = b.dir.join(error_log_filename(&ymd));
+        let _ = append_line(&err_path, &line);
+    }
+}
+
+impl LogLevel {
+    fn from_u8(v: u8) -> Self {
+        match v {
+            0 => Self::Trace,
+            1 => Self::Debug,
+            2 => Self::Info,
+            3 => Self::Warn,
+            4 => Self::Error,
+            _ => Self::Fatal,
+        }
+    }
+}
+
+fn append_line(path: &Path, line: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let mut f = OpenOptions::new().create(true).append(true).open(path)?;
+    f.write_all(line.as_bytes())?;
+    f.write_all(b"\n")?;
+    Ok(())
+}
+
+fn prune_dir(dir: &Path, keep_days: u32) {
+    let Ok(rd) = fs::read_dir(dir) else {
+        return;
+    };
+    let names: Vec<String> = rd
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect();
+    let today = utc_ymd_from_unix(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    );
+    for name in prune_candidates(&names, &today, keep_days) {
+        let _ = fs::remove_file(dir.join(name));
+    }
+}
+
+/// Open log directory in system file manager (best-effort).
+pub fn open_dir_in_os(dir: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(dir)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(dir)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(dir)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    #[allow(unreachable_code)]
+    Err("unsupported platform".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn level_order_and_filter() {
+        assert!(should_emit(LogLevel::Error, LogLevel::Error));
+        assert!(!should_emit(LogLevel::Info, LogLevel::Error));
+        assert!(should_emit(LogLevel::Debug, LogLevel::Debug));
+        assert!(should_emit(LogLevel::Fatal, LogLevel::Error));
+    }
+
+    #[test]
+    fn profile_min_levels() {
+        assert_eq!(LogProfile::Prod.min_level(), LogLevel::Error);
+        assert_eq!(LogProfile::Dev.min_level(), LogLevel::Debug);
+        assert_eq!(LogProfile::Verbose.min_level(), LogLevel::Trace);
+    }
+
+    #[test]
+    fn ndjson_round_shape() {
+        let line = format_ndjson_line(
+            "2026-08-02T00:00:00.000Z",
+            LogLevel::Info,
+            "ipc.test",
+            "hello",
+            Some(&json!({"n": 1})),
+            "abc",
+        );
+        let v: serde_json::Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(v["level"], "info");
+        assert_eq!(v["target"], "ipc.test");
+        assert_eq!(v["msg"], "hello");
+        assert_eq!(v["session_id"], "abc");
+        assert_eq!(v["fields"]["n"], 1);
+    }
+
+    #[test]
+    fn utc_ymd_known() {
+        // 2026-08-02 00:00:00 UTC — compute via known epoch
+        // 2024-01-01 00:00:00 UTC = 1704067200
+        assert_eq!(utc_ymd_from_unix(1704067200), "2024-01-01");
+    }
+
+    #[test]
+    fn prune_keeps_recent() {
+        let names = vec![
+            "openobs-2026-07-01.log".into(),
+            "openobs-2026-07-01.error.log".into(),
+            "openobs-2026-07-20.log".into(),
+            "openobs-2026-08-01.log".into(),
+            "openobs-2026-08-02.log".into(),
+            "notes.txt".into(),
+        ];
+        let drop = prune_candidates(&names, "2026-08-02", 2);
+        // keep 2 most recent dates: 08-01, 08-02 → drop 07-01 and 07-20
+        assert!(drop.iter().any(|n| n.contains("2026-07-01")));
+        assert!(drop.iter().any(|n| n.contains("2026-07-20")));
+        assert!(!drop.iter().any(|n| n.contains("2026-08-02")));
+        assert!(!drop.iter().any(|n| n.contains("2026-08-01")));
+    }
+
+    #[test]
+    fn parse_level_profile() {
+        assert_eq!(LogLevel::parse("WARN"), Some(LogLevel::Warn));
+        assert_eq!(LogProfile::parse("production"), Some(LogProfile::Prod));
+    }
+}

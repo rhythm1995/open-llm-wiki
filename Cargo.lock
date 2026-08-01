@@ -2149,6 +2149,7 @@ dependencies = [
  "openobs-core",
  "serde",
  "serde_json",
+ "tempfile",
  "walkdir",
 ]
 

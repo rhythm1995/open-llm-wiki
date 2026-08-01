@@ -126,6 +126,15 @@ export const ipc = {
       bytes_base64: bytesBase64,
     }),
   /**
+   * 读取落盘的图谱布局快照(B-GRAPH-POS-PERSIST)。无文件 → null。
+   * 文件位于 `<root>/.openobsidian/graph-layout.json`。
+   */
+  readGraphLayout: (root: string) =>
+    call<string | null>("read_graph_layout", { root }),
+  /** 写入图谱布局快照(创建 `.openobsidian/` 目录)。 */
+  saveGraphLayout: (root: string, json: string) =>
+    call<void>("save_graph_layout", { root, json }),
+  /**
    * 把 vault 相对路径解析为 webview 可加载的图片 URL。
    * Tauri:`convertFileSrc(绝对路径)`;mock:data URL(粘贴时写入内存)。
    */

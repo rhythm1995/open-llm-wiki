@@ -5,6 +5,8 @@
 //!
 //! 设计原则:命令函数只做 IO 与 core 之间的胶水,不写业务逻辑。
 
+mod logging;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,7 +22,7 @@ use openobs_core::{
 };
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
 
@@ -380,10 +382,48 @@ fn write_note(
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
-    fs::write(&full, &content).map_err(err)?;
+    let nbytes = content.len();
+    fs::write(&full, &content).map_err(|e| {
+        logging::emit(
+            logging::LogLevel::Error,
+            "ipc.write_note",
+            "write failed",
+            Some(serde_json::json!({ "path": &path, "err": e.to_string() })),
+        );
+        err(e)
+    })?;
     // 路径级 delta:更新 live entries,不 WalkDir。
     live_note_upsert(&state, &root, &path, Some(content));
+    logging::emit(
+        logging::LogLevel::Debug,
+        "ipc.write_note",
+        "ok",
+        Some(serde_json::json!({ "path": path, "bytes": nbytes })),
+    );
     Ok(())
+}
+
+/// 读取图谱布局快照(B-GRAPH-POS-PERSIST)。
+/// 文件缺失 → `Ok(None)`(首次启动 / 未落盘)。其余 IO 错误透传。
+/// 路径固定为 `<root>/.openobsidian/graph-layout.json`(默认 gitignore,见 P6-7)。
+#[tauri::command]
+fn read_graph_layout(root: String) -> Result<Option<String>, String> {
+    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    match fs::read_to_string(&full) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// 写入图谱布局快照(自动创建 `.openobsidian/` 目录)。
+#[tauri::command]
+fn save_graph_layout(root: String, json: String) -> Result<(), String> {
+    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    if let Some(parent) = full.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    fs::write(&full, &json).map_err(err)
 }
 
 /// 将 base64 字节写入 vault 内相对路径(附件,非笔记;不进 live index)。
@@ -542,12 +582,34 @@ fn index_vault(
     state: State<LiveVaultState>,
 ) -> Result<VaultSnapshot, String> {
     let force = force.unwrap_or(false);
+    let t0 = std::time::Instant::now();
     let mut g = state.0.lock().map_err(|e| e.to_string())?;
-    if force || g.as_ref().map(|v| v.root != root).unwrap_or(true) {
-        *g = Some(load_live_from_disk(&root)?);
+    let reloaded = force || g.as_ref().map(|v| v.root != root).unwrap_or(true);
+    if reloaded {
+        *g = Some(load_live_from_disk(&root).map_err(|e| {
+            logging::emit(
+                logging::LogLevel::Error,
+                "ipc.index_vault",
+                "load failed",
+                Some(serde_json::json!({ "err": e })),
+            );
+            e
+        })?);
     }
     let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
-    Ok(snapshot_from_live(live))
+    let snap = snapshot_from_live(live);
+    logging::emit(
+        logging::LogLevel::Info,
+        "ipc.index_vault",
+        "ok",
+        Some(serde_json::json!({
+            "force": force,
+            "reloaded": reloaded,
+            "notes": snap.nodes.len(),
+            "ms": t0.elapsed().as_millis() as u64,
+        })),
+    );
+    Ok(snap)
 }
 
 /// 路径级刷新:对给定相对路径从磁盘读/删 → 打进 live → 返回快照。
@@ -598,21 +660,90 @@ fn search_notes(
         .collect())
 }
 
-/// 前端→终端的诊断日志桥:把 webview 的 console.error / 未捕获错误转发到 stderr。
-/// 打包后无 inspector 时,从命令行启动 app 即可看到运行时报错(参见 lib/diag-log.ts)。
-/// 仅供诊断,不做任何业务;前端 fire-and-forget 调用。
+/// 前端→ LogBus:把 webview 的 console.error / 未捕获错误写入文件 + stderr。
+/// 兼容旧调用方;等价于 `log_write(error, webview, line)`。
 #[tauri::command]
 fn diag_log(line: String) {
-    eprintln!("[webview] {line}");
+    logging::emit(logging::LogLevel::Error, "webview", &line, None);
+}
+
+/// 结构化日志写入(L1 LogBus)。level: trace|debug|info|warn|error|fatal。
+#[tauri::command]
+fn log_write(
+    level: String,
+    target: String,
+    msg: String,
+    fields: Option<serde_json::Value>,
+) {
+    let lv = logging::LogLevel::parse(&level).unwrap_or(logging::LogLevel::Info);
+    let tgt = if target.is_empty() {
+        "ui"
+    } else {
+        target.as_str()
+    };
+    logging::emit(lv, tgt, &msg, fields);
+}
+
+/// 返回应用日志目录绝对路径(macOS: ~/Library/Logs/{bundleId}/ …)。
+#[tauri::command]
+fn log_get_dir() -> Result<String, String> {
+    logging::log_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "log bus not initialized".into())
+}
+
+/// 在系统文件管理器中打开日志目录。
+#[tauri::command]
+fn log_open_dir() -> Result<(), String> {
+    let dir = logging::log_dir().ok_or_else(|| "log bus not initialized".to_string())?;
+    logging::open_dir_in_os(&dir)
+}
+
+/// 热切换日志 profile:`dev` | `verbose` | `prod`(本进程,不写回环境变量)。
+#[tauri::command]
+fn log_set_profile(profile: String) -> Result<String, String> {
+    let p = logging::LogProfile::parse(&profile)
+        .ok_or_else(|| format!("unknown profile: {profile}"))?;
+    logging::set_profile(p);
+    Ok(p.as_str().to_string())
+}
+
+/// 当前 profile + 目录 + session_id(设置页展示)。
+#[tauri::command]
+fn log_get_status() -> Result<serde_json::Value, String> {
+    let dir = logging::log_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let profile = logging::current_profile()
+        .map(|p| p.as_str().to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let session_id = logging::session_id().unwrap_or_default();
+    Ok(serde_json::json!({
+        "dir": dir,
+        "profile": profile,
+        "sessionId": session_id,
+    }))
 }
 
 /// 系统文件夹选择对话框。
 #[tauri::command]
 async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let folder = app.dialog().file().blocking_pick_folder();
-    Ok(folder
+    let path = folder
         .and_then(|p| p.into_path().ok())
-        .map(|p| p.to_string_lossy().to_string()))
+        .map(|p| p.to_string_lossy().to_string());
+    logging::emit(
+        logging::LogLevel::Info,
+        "ipc.pick_vault",
+        if path.is_some() {
+            "selected"
+        } else {
+            "cancelled"
+        },
+        path.as_ref()
+            .map(|p| serde_json::json!({ "path": p })),
+    );
+    Ok(path)
 }
 
 /// 在系统文件管理器中显示笔记文件(macOS Finder / Windows 资源管理器 / Linux 文件管理器)。
@@ -970,6 +1101,15 @@ pub fn run() {
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
         .setup(|app| {
+            // L1 客户端日志:AppLog 目录 + profile(env OPENOBS_LOG_PROFILE / debug→dev / release→prod)。
+            let log_dir = app
+                .path()
+                .app_log_dir()
+                .unwrap_or_else(|_| std::env::temp_dir().join("openobsidian-logs"));
+            let profile = logging::resolve_profile_from_env();
+            logging::init(log_dir, profile);
+            logging::install_panic_hook();
+
             // 原生菜单:id 与 ui/src/lib/commands 注册表对齐(docs/10)。
             let file_new = MenuItemBuilder::with_id("new-note", "New Note")
                 .accelerator("CmdOrCtrl+N")
@@ -1073,6 +1213,8 @@ pub fn run() {
             delete_note,
             rename_note,
             save_attachment,
+            read_graph_layout,
+            save_graph_layout,
             index_vault,
             apply_vault_changes,
             run_qql,
@@ -1080,6 +1222,11 @@ pub fn run() {
             pick_vault,
             reveal_in_finder,
             diag_log,
+            log_write,
+            log_get_dir,
+            log_open_dir,
+            log_set_profile,
+            log_get_status,
             git_status_raw,
             git_log_raw,
             git_commit,
