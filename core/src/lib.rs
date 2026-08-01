@@ -21,7 +21,7 @@ pub mod query;
 pub mod search;
 pub mod vault;
 
-pub use graph::{Edge, EdgeKind, Graph, NodeId, Target};
+pub use graph::{Edge, EdgeKind, Graph, NodeId, OrphanMode, Target};
 pub use index::{
     enrich, frontmatter_str, parse_frontmatter, relationship_links, tags, type_of, Frontmatter,
     Note,
