@@ -469,6 +469,14 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
       }
     }
 
+    // 防御:剔除端点不在当前节点集(byId)的 link,杜绝喂给 d3-force 悬空 link
+    // (其 initialize 会 find 并抛 "node not found")。ghost 桩已在 byId,不受影响。
+    for (let i = links.length - 1; i >= 0; i--) {
+      const l = links[i];
+      const s = typeof l.source === "object" ? (l.source as any).id : l.source;
+      const t = typeof l.target === "object" ? (l.target as any).id : l.target;
+      if (!byId.has(s as number) || !byId.has(t as number)) links.splice(i, 1);
+    }
     return { nodes: arr, links };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
