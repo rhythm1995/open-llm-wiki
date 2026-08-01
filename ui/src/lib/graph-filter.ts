@@ -28,6 +28,8 @@ export interface GraphFilters {
   query: string;
   relations: Set<EdgeKind>;
   hideOrphans: boolean;
+  /** 隐藏悬空/未解析边(to=null 的 ghost 桩)。节点可见性不受影响。 */
+  hideUnresolved: boolean;
   /** 非空时收窄到该节点 N 跳邻域。 */
   focusId: number | null;
   hops: number;
@@ -54,6 +56,7 @@ export const NO_FILTER: GraphFilters = {
   query: "",
   relations: new Set(),
   hideOrphans: false,
+  hideUnresolved: false,
   focusId: null,
   hops: 1,
 };
@@ -154,6 +157,8 @@ export function applyGraphFilters(
   const relOk = (e: EdgeOut) => f.relations.size === 0 || f.relations.has(e.kind);
   const visEdges = edges.filter((e) => {
     if (!relOk(e)) return false;
+    // 隐藏悬空/未解析边(ghost 桩):只裁边,不影响节点可见性。
+    if (f.hideUnresolved && e.to == null) return false;
     if (!visible.has(e.from)) return false;
     if (e.to != null && !visible.has(e.to)) return false;
     return true;

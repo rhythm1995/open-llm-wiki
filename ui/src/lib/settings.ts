@@ -18,6 +18,10 @@ import {
   normalizeEditorLayout,
   type EditorLayoutMode,
 } from "./attachments";
+import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./graph-layout";
+
+/** 图谱力参数存储键(6A2)。存 JSON。 */
+export const GRAPH_FORCES_KEY = "openobs.graph.forces";
 
 export interface AppSettings {
   theme: Theme;
@@ -28,6 +32,8 @@ export interface AppSettings {
   attachmentsDir: string;
   /** source 下编辑布局:纯编辑 / 并排阅读。 */
   editorLayout: EditorLayoutMode;
+  /** 图谱力导向参数(6A2):中心引力 / 斥力 / 弹簧强度 / 弹簧长度。 */
+  graphForces: ForceParams;
 }
 
 export type StorageGet = (key: string) => string | null;
@@ -40,6 +46,7 @@ export function defaultAppSettings(): AppSettings {
     defaultEditMode: "wysiwyg",
     attachmentsDir: DEFAULT_ATTACHMENTS_DIR,
     editorLayout: "edit",
+    graphForces: DEFAULT_FORCES,
   };
 }
 
@@ -85,7 +92,18 @@ export function loadAppSettings(
     }
   }
   const editorLayout = normalizeEditorLayout(layoutParsed);
-  return { theme, locale, defaultEditMode, attachmentsDir, editorLayout };
+  // graphForces(6A2):存 JSON;非对象 / 缺字段 / NaN 一律被 normalizeForces 兜底。
+  let forcesParsed: unknown = null;
+  const forcesRaw = getItem(GRAPH_FORCES_KEY);
+  if (forcesRaw) {
+    try {
+      forcesParsed = JSON.parse(forcesRaw);
+    } catch {
+      forcesParsed = null;
+    }
+  }
+  const graphForces = normalizeForces(forcesParsed as Partial<ForceParams> | null);
+  return { theme, locale, defaultEditMode, attachmentsDir, editorLayout, graphForces };
 }
 
 /** 写入完整或部分设置。 */
@@ -107,12 +125,24 @@ export function saveAppSettings(
   if (patch.editorLayout != null) {
     setItem(EDITOR_LAYOUT_KEY, patch.editorLayout);
   }
+  if (patch.graphForces != null) {
+    setItem(GRAPH_FORCES_KEY, JSON.stringify(normalizeForces(patch.graphForces)));
+  }
 }
 
-/** 合并 patch 到当前 settings(不可变)。 */
+/** mergeAppSettings 的 patch:graphForces 允许部分(单滑块深合并),其余字段可选。 */
+export type AppSettingsPatch = Partial<Omit<AppSettings, "graphForces">> & {
+  graphForces?: Partial<ForceParams>;
+};
+
+/** 合并 patch 到当前 settings(不可变)。graphForces 支持单字段深合并。 */
 export function mergeAppSettings(
   current: AppSettings,
-  patch: Partial<AppSettings>,
+  patch: AppSettingsPatch,
 ): AppSettings {
-  return { ...current, ...patch };
+  const { graphForces: gfPatch, ...rest } = patch;
+  const graphForces = gfPatch
+    ? normalizeForces({ ...current.graphForces, ...gfPatch })
+    : current.graphForces;
+  return { ...current, ...rest, graphForces };
 }

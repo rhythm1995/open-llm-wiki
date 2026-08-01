@@ -27,6 +27,7 @@ const base: GraphFilters = {
   query: "",
   relations: new Set(),
   hideOrphans: false,
+  hideUnresolved: false,
   focusId: null,
   hops: 1,
 };
@@ -60,6 +61,37 @@ describe("applyGraphFilters — relation 过滤", () => {
     expect(r.nodeIds.size).toBe(4);
     expect(r.edges.every((e) => e.kind === "wiki")).toBe(true);
     expect(r.edges).toHaveLength(2);
+  });
+});
+
+describe("applyGraphFilters — 隐藏未解析边", () => {
+  it("hideUnresolved 去掉悬空(ghost)边,保留已解析边", () => {
+    const r = applyGraphFilters(NODES, EDGES, { ...base, hideUnresolved: true });
+    expect(r.edges.every((e) => e.to != null)).toBe(true);
+    // EDGES 里只有一条 1→null ghost,去掉后剩 2 条。
+    expect(r.edges).toHaveLength(2);
+  });
+
+  it("默认(不 hide)保留悬空边作 ghost 桩", () => {
+    const r = applyGraphFilters(NODES, EDGES, base);
+    expect(r.edges.some((e) => e.to == null)).toBe(true);
+    expect(r.edges).toHaveLength(3);
+  });
+
+  it("hideUnresolved 不影响节点可见性", () => {
+    const r = applyGraphFilters(NODES, EDGES, { ...base, hideUnresolved: true });
+    expect([...r.nodeIds].sort()).toEqual([0, 1, 2, 3]);
+  });
+
+  it("hideUnresolved 与 hideOrphans 可叠加", () => {
+    const r = applyGraphFilters(NODES, EDGES, {
+      ...base,
+      hideUnresolved: true,
+      hideOrphans: true,
+    });
+    // 孤儿 C(2) 被藏;ghost 边被藏。
+    expect([...r.nodeIds].sort()).toEqual([0, 1, 3]);
+    expect(r.edges.every((e) => e.to != null)).toBe(true);
   });
 });
 
