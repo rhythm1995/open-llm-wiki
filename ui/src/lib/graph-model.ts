@@ -123,10 +123,8 @@ export function topKByDegree(
     .slice(0, k);
 }
 
-/** WebGL 路径默认截断上限(sigma 可轻松吃到上千)。 */
+/** canvas 渲染默认截断上限(react-force-graph-2d 可轻松吃到上千)。 */
 export const WEBGL_MAX_NODES = 2000;
-/** SVG 回退截断(DOM 成本高)。 */
-export const SVG_MAX_NODES = 400;
 
 /**
  * pin 集合跨 id 重排时用 path 持久化:

@@ -1,15 +1,18 @@
 /**
- * GraphView —— 关系图谱(F-GRAPH 重构)。
+ * GraphView —— 关系图谱(F-GRAPH,canvas-2D / react-force-graph-2d 重构)。
  *
  * 架构:
  *   graph-filter  → 可见集
  *   graph-model   → path-stable / degree / topK / structureSig
- *   graph-layout-client → Worker FR(失败同步回退)
- *   graph-lod     → 低缩放网格聚类
- *   渲染:优先 sigma WebGL(GraphSigmaLayer);无 WebGL 或极小图 SVG 回退
+ *   d3-force      → 布局坐标(react-force-graph-2d 内部持有,替代旧 FR Worker)
+ *   GraphForceLayer → canvas 绘制层(节点状态环 / 标签芯片 / 簇色 / 悬停邻域高亮)
  *
- * 交互(WebGL/SVG 对齐):过滤 / 悬停邻域压暗 / pin / 拖拽 / Shift 框选 /
- * 右键菜单 / 缩放 fit / LOD 簇飞入 / 悬空边 ghost。
+ * 数据流(翻转后):GraphView 构建 {nodes,links}(稳定身份,就地改字段)交给 rfg;
+ * d3-force 在层内排布坐标。结构变化才增删节点,状态/悬停变化就地改字段——
+ * rfg 按 id 复用节点对象,x/y/fx/fy 得以保留。
+ *
+ * 交互:过滤 / 悬停邻域压暗(层内) / pin(钉→fx/fy) / 拖拽→自动钉 /
+ * Shift 框选 / 右键菜单 / 缩放 fit / 焦点飞入 / 悬空边 ghost。
  */
 import {
   lazy,
@@ -27,6 +30,9 @@ import {
   MagnifyingGlassPlus,
   MagnifyingGlassMinus,
   ArrowsOutSimple,
+  ArrowsClockwise,
+  Graph,
+  Path as PathIcon,
   Target,
   X,
   ArrowSquareOut,
@@ -48,18 +54,8 @@ import {
   type EdgeKind,
   type GraphFilters,
 } from "../lib/graph-filter";
-import {
-  BARNES_HUT_THRESHOLD,
-  bbox,
-  fitTransform,
-  visibleNodeIds,
-  type Pt,
-} from "../lib/graph-layout";
-import {
-  countMissingPositions,
-  suggestLayoutIterations,
-} from "../lib/graph-layout-budget";
-import { labelPriority, pickVisibleLabels } from "../lib/graph-label";
+import { type ForceParams, type Pt } from "../lib/graph-layout";
+import { orphanIds, shortestPath, topHubs, type Hub } from "../lib/graph-health";
 import {
   layoutByTimeline,
   layoutByTypeLayer,
@@ -73,52 +69,47 @@ import {
   pinPathsToIds,
   structureSignature,
   topKByDegree,
-  SVG_MAX_NODES,
   WEBGL_MAX_NODES,
+  type GraphNode,
 } from "../lib/graph-model";
 import {
-  applyLod,
-  buildLodRenderKeyMap,
-  projectLodEdges,
-} from "../lib/graph-lod";
+  parseLayoutJson,
+  serializeLayoutJson,
+  serializePositions,
+} from "../lib/graph-layout-store";
+import { ipc } from "../lib/ipc";
 import {
-  createDefaultLayoutClient,
-  type LayoutClient,
-} from "../lib/graph-layout-client";
-import {
-  buildSigmaClusterAttrs,
-  buildSigmaNodeAttrs,
-  buildUnresolvedGhosts,
-  canUseWebGL,
-} from "../lib/graph-webgl";
+  assignClusterColors,
+  nodeClusterKey,
+  topClusters,
+  type ClusterColor,
+  type ClusterMode,
+} from "../lib/graph-cluster";
+import { isDarkTheme } from "../lib/graph-style";
 import { nodeWikilink } from "../lib/wikilink";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
-import type { SigmaEdgeInput } from "./GraphSigmaLayer";
+import type { GraphLinkInput, GraphNodeInput } from "./GraphForceLayer";
 
-// sigma + graphology 体积大:懒加载独立 chunk,小图 SVG 路径不拉 WebGL。
-const GraphSigmaLayer = lazy(() =>
-  import("./GraphSigmaLayer").then((m) => ({ default: m.GraphSigmaLayer })),
+// react-force-graph-2d 体积大:懒加载独立 chunk。
+const GraphForceLayer = lazy(() =>
+  import("./GraphForceLayer").then((m) => ({ default: m.GraphForceLayer })),
 );
 
 interface Props {
   snapshot: VaultSnapshot | null;
   currentId: number | null;
   actions: VaultActions;
+  /** vault 根路径(落盘布局快照用)。 */
+  root: string;
+  /** 图谱力参数(6A2,来自应用设置)。 */
+  forces: ForceParams;
   t: TFunc;
 }
 
-const MIN_SCALE = 0.15;
-const MAX_SCALE = 4;
-const FIT_PAD = 60;
-const CULL_THRESHOLD = 200;
-const CULL_MARGIN = 80;
-/**
- * WebGL 可用时优先走 sigma(拖拽/框选/LOD 已齐)。
- * 仅无 WebGL 时 SVG 回退;测试 jsdom 无 GL 自动 SVG。
- */
-const WEBGL_MIN_NODES = 1;
+/** force 模式 tick 上限(到期停摆省电;autoPauseRedraw=false 仍持续重绘)。 */
+const COOLDOWN_TICKS = 300;
 
 const TYPE_COLOR: Record<string, string> = {
   Source: "var(--color-yellow)",
@@ -136,10 +127,6 @@ function toggleSet<T>(set: Set<T>, v: T): Set<T> {
   if (next.has(v)) next.delete(v);
   else next.add(v);
   return next;
-}
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
 }
 
 function useElementSize<T extends HTMLElement>() {
@@ -160,7 +147,7 @@ function useElementSize<T extends HTMLElement>() {
   return { ref, size };
 }
 
-export function GraphView({ snapshot, currentId, actions, t }: Props) {
+export function GraphView({ snapshot, currentId, actions, root, forces, t }: Props) {
   const allNodes = snapshot?.nodes ?? [];
   const allEdges = snapshot?.edges ?? [];
 
@@ -173,15 +160,32 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
   const tags = useMemo(() => distinctTags(allNodes), [allNodes]);
   const statuses = useMemo(() => distinctStatuses(allNodes), [allNodes]);
 
+  // 6B4:全库孤儿 / 枢纽(基于完整 model,不受过滤器影响)。
+  const orphanNodes = useMemo(
+    () =>
+      orphanIds(model, "both")
+        .map((id) => model.byId.get(id))
+        .filter((n): n is NonNullable<typeof n> => n != null),
+    [model],
+  );
+  const hubs = useMemo(() => topHubs(model, 50), [model]);
+
   const [filters, setFilters] = useState<GraphFilters>(() => ({
     ...NO_FILTER,
     types: new Set(types),
     relations: new Set<EdgeKind>(["wiki", "relation"]),
   }));
   const [showFilters, setShowFilters] = useState(true);
+  // 6B4:图健康面板(Orphans / Hubs),默认关。
+  const [showHealth, setShowHealth] = useState(false);
+  const [healthMode, setHealthMode] = useState<"orphans" | "hubs">("orphans");
+  // 6A5:最短路径。pathFrom 由右键菜单设定;pathResult 为 id 序列 / 不可达 / 未计算。
+  const [pathFrom, setPathFrom] = useState<number | null>(null);
+  const [pathResult, setPathResult] = useState<
+    { ids: number[] } | "unreachable" | null
+  >(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("force");
-  const [tf, setTf] = useState({ tx: 0, ty: 0, scale: 1 });
-  const [hover, setHover] = useState<number | null>(null);
+  const [clusterMode, setClusterMode] = useState<ClusterMode>("none");
   const [preview, setPreview] = useState<{
     x: number;
     y: number;
@@ -191,52 +195,105 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
   const pinPathsRef = useRef<Set<string>>(new Set());
   const [pinned, setPinned] = useState<Set<number>>(() => new Set());
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
-  const boxRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(
-    null,
-  );
-  const [boxUi, setBoxUi] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
     node: NodeOut;
   } | null>(null);
-  const [dragging, setDragging] = useState<number | null>(null);
   const [fitToken, setFitToken] = useState(0);
   const [zoomCmd, setZoomCmd] = useState({ token: 0, factor: 1 });
   const [flyTo, setFlyTo] = useState<{
     x: number;
     y: number;
-    ratio: number;
+    zoom: number;
     token: number;
   } | null>(null);
-  const [cameraRatio, setCameraRatio] = useState(1);
-  const [webglOk] = useState(() => canUseWebGL());
+  // Recalculate(6A2):强制重排令牌;递增 = 重施力 + reheat。
+  const [recalcToken, bumpRecalc] = useReducer((x: number) => x + 1, 0);
+  const [forcesToken, setForcesToken] = useState(0);
+  // 布局稳定回调驱动的落盘节拍(替代旧 layoutTick)。
+  const [positionsTick, bumpPositions] = useReducer((x: number) => x + 1, 0);
+  // 磁盘布局是否已尝试加载(暖启动种子就绪)。
+  const [layoutReady, setLayoutReady] = useState(false);
 
   const { ref: containerRef, size } = useElementSize<HTMLDivElement>();
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const panRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(
-    null,
-  );
-  const dragRef = useRef<{ id: number } | null>(null);
-  const dragMovedRef = useRef(false);
-  const posRef = useRef<Map<number, Pt>>(new Map());
-  const layoutClientRef = useRef<LayoutClient | null>(null);
-  const layoutGenRef = useRef(0);
-  const [layoutTick, bumpLayout] = useReducer((x: number) => x + 1, 0);
-  const [, bumpDrag] = useReducer((x: number) => x + 1, 0);
 
+  // ── 稳定身份图谱数据(refs,就地改字段) ──────────────────────────────
+  const nodesRef = useRef<GraphNodeInput[]>([]);
+  const nodesByIdRef = useRef<Map<number, GraphNodeInput>>(new Map());
+  const linksRef = useRef<GraphLinkInput[]>([]);
+  // 暖启动 / 最新稳定坐标(id→Pt)。暖启动为落盘种子;positionsRef 由层回写供落盘。
+  const warmPositionsRef = useRef<Map<number, Pt>>(new Map());
+  const positionsRef = useRef<Map<number, Pt>>(new Map());
+
+  const nodeByIdFull = useMemo(
+    () => new Map<number, NodeOut>(allNodes.map((n) => [n.id, n])),
+    [allNodes],
+  );
+
+  // ── 6A1 坐标落盘 ────────────────────────────────────────────────────────
+  // 读:root 变化时读一次 `.openobsidian/graph-layout.json`,合流进 warmPositionsRef。
+  // loadedRef 在完成前为 false,阻止 save effect 把空布局写回覆盖。
+  const loadedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    layoutClientRef.current = createDefaultLayoutClient();
+    // 切换 vault:清空上一 vault 的图数据 / 坐标种子,新 vault 从空白起步
+    // (warmPositions 仅在 stored 非空时覆盖,不重置会泄漏上一 vault 的坐标)。
+    nodesRef.current = [];
+    nodesByIdRef.current = new Map();
+    linksRef.current = [];
+    warmPositionsRef.current = new Map();
+    positionsRef.current = new Map();
+    if (!root) {
+      loadedRef.current = false;
+      setLayoutReady(false);
+      return;
+    }
+    loadedRef.current = false;
+    setLayoutReady(false);
+    let cancelled = false;
+    void ipc
+      .readGraphLayout(root)
+      .then((json) => {
+        if (cancelled) return;
+        if (json) {
+          const pathToId = (p: string) => model.byPath.get(p)?.id ?? null;
+          const stored = parseLayoutJson(json, pathToId);
+          if (stored.size > 0) warmPositionsRef.current = stored;
+        }
+        loadedRef.current = true;
+        setLayoutReady(true);
+      })
+      .catch(() => {
+        loadedRef.current = true;
+        setLayoutReady(true);
+      });
     return () => {
-      layoutClientRef.current?.dispose();
-      layoutClientRef.current = null;
+      cancelled = true;
     };
-  }, []);
+    // 只在 root 变化时读一次;model.byPath 取读时刻的(快照内 path 稳定)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [root]);
+
+  // 写:布局稳定后(600ms 静默)落盘。loadedRef 未就绪时跳过,避免空覆盖。
+  useEffect(() => {
+    if (!root || !loadedRef.current) return;
+    if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const idToPath = (id: number) => model.byId.get(id)?.path ?? null;
+      const json = serializeLayoutJson(
+        serializePositions(positionsRef.current, idToPath, {
+          w: size.w,
+          h: size.h,
+        }),
+      );
+      if (json != null) void ipc.saveGraphLayout(root, json).catch(() => {});
+    }, 600);
+    return () => {
+      if (saveTimerRef.current != null) clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionsTick, root]);
 
   // 快照变了 → 用 path 重映射 pin ids。
   useEffect(() => {
@@ -258,13 +315,9 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     return d;
   }, [filtered.edges]);
 
-  const preferWebgl =
-    webglOk && filtered.nodeIds.size >= WEBGL_MIN_NODES;
-  const maxNodes = preferWebgl ? WEBGL_MAX_NODES : SVG_MAX_NODES;
-
   const renderIds = useMemo(
-    () => topKByDegree([...filtered.nodeIds], degree, maxNodes),
-    [filtered.nodeIds, degree, maxNodes],
+    () => topKByDegree([...filtered.nodeIds], degree, WEBGL_MAX_NODES),
+    [filtered.nodeIds, degree],
   );
   const renderSet = useMemo(() => new Set(renderIds), [renderIds]);
 
@@ -281,28 +334,80 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     return m;
   }, [filtered.edges, renderSet]);
 
+  // 层内悬停压暗需要的无向邻接表(Set 形态)。
+  const adjSet = useMemo(() => {
+    const m = new Map<number, ReadonlySet<number>>();
+    for (const [k, arr] of adj) m.set(k, new Set(arr));
+    return m;
+  }, [adj]);
+
   const sig = useMemo(
     () => structureSignature(renderIds, filtered.edges),
     [renderIds, filtered.edges],
   );
 
-  // 上一帧结构签名 / 尺寸,用于增量迭代预算。
-  const prevLayoutRef = useRef<{ sig: string; w: number; h: number }>({
-    sig: "",
-    w: 0,
-    h: 0,
-  });
+  const forcesKey = useMemo(() => JSON.stringify(forces), [forces]);
 
-  // 布局:force → Worker FR;type-layer / timeline → 确定性排布(跳过 FR)。
-  useEffect(() => {
-    if (size.w === 0 || size.h === 0 || renderIds.length === 0) return;
-    const gen = ++layoutGenRef.current;
+  // ── 结构构建(稳定身份 graphData) ──────────────────────────────────────
+  // 增删/刷新节点元数据、种子坐标、冻结布局、边 + 悬空 ghost。
+  // 返回的 graphData 包裹对象只在结构相关依赖变化时换身份 → rfg 视为结构变化,
+  // 层内重施力 + (force 模式)reheat;状态/悬停变化不触发,避免无谓重排。
+  const graphData = useMemo(() => {
+    const byId = nodesByIdRef.current;
+    const arr = nodesRef.current;
+    const warm = warmPositionsRef.current;
+    const want = renderSet;
 
+    // 1) 丢弃被过滤掉的实节点 + 全部 ghost(ghost 每轮重建)。
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const n = arr[i];
+      if (n.isGhost || n.isMissing || !want.has(n.id)) {
+        arr.splice(i, 1);
+        byId.delete(n.id);
+      }
+    }
+
+    // 2) 增删/刷新实节点元数据 + 种子坐标(force 模式不动 fx/fy)。
+    for (const id of renderIds) {
+      const g = model.byId.get(id);
+      const full = nodeByIdFull.get(id);
+      const deg = degree.get(id) ?? 0;
+      const n = byId.get(id);
+      const w = warm.get(id);
+      if (!n) {
+        const node: GraphNodeInput = {
+          id,
+          path: g?.path ?? "",
+          title: g?.title ?? String(id),
+          type: g?.type ?? null,
+          tags: full?.tags ?? [],
+          status: full?.status ?? null,
+          degree: deg,
+          x: w?.x,
+          y: w?.y,
+        };
+        byId.set(id, node);
+        arr.push(node);
+      } else {
+        n.path = g?.path ?? n.path;
+        n.title = g?.title ?? n.title;
+        n.type = g?.type ?? null;
+        n.tags = full?.tags ?? n.tags;
+        n.status = full?.status ?? n.status;
+        n.degree = deg;
+        if (n.x == null && w?.x != null) {
+          n.x = w.x;
+          n.y = w.y;
+        }
+      }
+    }
+
+    // 3) 冻结布局(type-layer / timeline):确定性坐标 + fx/fy。
     if (layoutMode === "type-layer" || layoutMode === "timeline") {
-      const pos = new Map(posRef.current);
-      // 清掉不在渲染集的点
-      for (const id of [...pos.keys()]) {
-        if (!renderSet.has(id)) pos.delete(id);
+      const pos = new Map<number, Pt>();
+      for (const id of renderIds) {
+        const n = byId.get(id)!;
+        pos.set(id, { x: n.x ?? 0, y: n.y ?? 0 });
       }
       if (layoutMode === "type-layer") {
         const typeOf = (id: number) => model.byId.get(id)?.type ?? null;
@@ -313,99 +418,147 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         });
       } else {
         const timeOf = (id: number) => {
-          const n = model.byId.get(id);
-          if (!n) return null;
-          // NodeOut 上 created/modified;GraphNode 镜像 preview 等同字段
-          const full = allNodes.find((x) => x.id === id);
+          const f = nodeByIdFull.get(id);
           return resolveNodeTimeMs({
-            created: full?.created ?? null,
-            modified: full?.modified ?? null,
+            created: f?.created ?? null,
+            modified: f?.modified,
           });
         };
-        layoutByTimeline(renderIds, timeOf, pos, {
-          w: size.w,
-          h: size.h,
-        });
+        layoutByTimeline(renderIds, timeOf, pos, { w: size.w, h: size.h });
       }
-      if (gen !== layoutGenRef.current) return;
-      posRef.current = pos;
-      prevLayoutRef.current = { sig, w: size.w, h: size.h };
-      bumpLayout();
-      return;
+      for (const id of renderIds) {
+        const n = byId.get(id)!;
+        const p = pos.get(id)!;
+        n.x = p.x;
+        n.y = p.y;
+        n.fx = p.x;
+        n.fy = p.y;
+      }
     }
 
-    const client = layoutClientRef.current;
-    if (!client) return;
-    const springs = filtered.edges
-      .filter((e) => e.to != null && renderSet.has(e.from) && renderSet.has(e.to))
-      .map((e) => ({ from: e.from, to: e.to as number }));
-    const prev = prevLayoutRef.current;
-    const structureChanged = prev.sig !== sig;
-    const sizeChanged = prev.w !== size.w || prev.h !== size.h;
-    const newNodeCount = countMissingPositions(renderIds, posRef.current);
-    const iterations = suggestLayoutIterations({
-      n: renderIds.length,
-      newNodeCount,
-      structureChanged,
-      sizeChanged,
-    });
-    void client
-      .run({
-        ids: renderIds,
-        springs,
-        positions: posRef.current,
-        neighbors: adj,
-        w: size.w,
-        h: size.h,
-        iterations,
-        pinned,
-        repulsion:
-          renderIds.length >= BARNES_HUT_THRESHOLD ? "barnes-hut" : "exact",
-      })
-      .then((next) => {
-        if (gen !== layoutGenRef.current) return;
-        posRef.current = next;
-        prevLayoutRef.current = { sig, w: size.w, h: size.h };
-        bumpLayout();
-      });
+    // 4) 边 + 悬空 ghost(ghost 钉在源节点旁,红色虚线环)。
+    const links = linksRef.current;
+    links.length = 0;
+    let gi = 0;
+    for (const e of filtered.edges) {
+      if (e.to != null) {
+        if (want.has(e.from) && want.has(e.to)) {
+          links.push({ source: e.from, target: e.to, kind: e.kind });
+        }
+      } else if (want.has(e.from)) {
+        const src = byId.get(e.from);
+        const gid = -(e.from * 100003 + gi + 1);
+        gi++;
+        const sx = (src?.x ?? 0) + 14;
+        const sy = (src?.y ?? 0) - 14;
+        const ghost: GraphNodeInput = {
+          id: gid,
+          path: "",
+          title: "",
+          type: null,
+          degree: 0,
+          isMissing: true,
+          x: sx,
+          y: sy,
+          fx: sx,
+          fy: sy,
+        };
+        arr.push(ghost);
+        byId.set(gid, ghost);
+        links.push({ source: e.from, target: gid, kind: "unresolved" });
+      }
+    }
+
+    return { nodes: arr, links };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     sig,
+    layoutMode,
+    layoutReady,
     size.w,
     size.h,
+    types,
+    nodeByIdFull,
     renderIds,
     renderSet,
-    adj,
     filtered.edges,
-    pinned,
-    layoutMode,
+    degree,
     model,
-    types,
-    allNodes,
   ]);
 
-  const didFitRef = useRef(false);
-  useEffect(() => {
-    if (didFitRef.current) return;
-    if (renderIds.length === 0 || size.w === 0 || size.h === 0) return;
-    if (posRef.current.size === 0) return;
-    const box = bbox(renderIds, posRef.current);
-    setTf(fitTransform(box, size.w, size.h, FIT_PAD, MIN_SCALE, MAX_SCALE));
-    setFitToken((n) => n + 1);
-    didFitRef.current = true;
-  }, [renderIds, size.w, size.h, layoutTick]);
+  // ── fx/fy(force 模式钉住):就地改字段,不换 graphData 身份 → 不重排。 ──
+  useMemo(() => {
+    if (layoutMode !== "force") return;
+    const byId = nodesByIdRef.current;
+    for (const id of renderIds) {
+      const n = byId.get(id);
+      if (!n) continue;
+      if (pinned.has(id)) {
+        if (n.fx == null) {
+          n.fx = n.x ?? 0;
+          n.fy = n.y ?? 0;
+        }
+      } else {
+        n.fx = undefined;
+        n.fy = undefined;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinned, layoutMode, renderIds]);
 
-  const fit = useCallback(() => {
-    const box = bbox(renderIds, posRef.current);
-    setTf(fitTransform(box, size.w, size.h, FIT_PAD, MIN_SCALE, MAX_SCALE));
-    setFitToken((n) => n + 1);
-  }, [renderIds, size.w, size.h]);
+  // ── 每帧视觉状态标志(就地改字段;autoPauseRedraw=false 保证每帧重绘可见)。 ──
+  useMemo(() => {
+    const byId = nodesByIdRef.current;
+    for (const id of renderIds) {
+      const n = byId.get(id);
+      if (!n) continue;
+      n.isCurrent = id === currentId;
+      n.isSelected = selected.has(id);
+      n.isTextHit = filtered.textHits.has(id);
+      n.isPinned = pinned.has(id);
+      n.isFocus = id === filters.focusId;
+      n.clusterKey = nodeClusterKey({ path: n.path, type: n.type }, clusterMode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentId,
+    selected,
+    pinned,
+    filtered.textHits,
+    filters.focusId,
+    clusterMode,
+    renderIds,
+  ]);
 
-  const neighbors = useMemo(() => {
-    if (hover == null) return null;
-    const ns = new Set<number>([hover]);
-    for (const n of adj.get(hover) ?? []) ns.add(n);
-    return ns;
-  }, [hover, adj]);
+  // 簇→颜色映射(none → undefined,层内按类型上色)。
+  const clusterColors = useMemo(() => {
+    if (clusterMode === "none") return undefined;
+    const keys = renderIds.map((id) => {
+      const n = nodesByIdRef.current.get(id);
+      return nodeClusterKey(
+        { path: n?.path ?? "", type: n?.type ?? null },
+        clusterMode,
+      );
+    });
+    return assignClusterColors(keys);
+  }, [renderIds, clusterMode]);
+
+  const themeIsDark = useMemo(() => isDarkTheme(), [snapshot]);
+
+  // 簇计数(图例用)。none → 空。
+  const clusterCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    if (clusterMode === "none") return m;
+    for (const id of renderIds) {
+      const n = nodesByIdRef.current.get(id);
+      const key = nodeClusterKey(
+        { path: n?.path ?? "", type: n?.type ?? null },
+        clusterMode,
+      );
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [renderIds, clusterMode]);
 
   const updatePinned = useCallback(
     (next: Set<number>) => {
@@ -413,6 +566,73 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
       pinPathsRef.current = pinIdsToPaths(next, model.byId);
     },
     [model.byId],
+  );
+
+  // 力参数 / Recalculate / 切回 force → 重施力 + reheat。
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    setForcesToken((t) => t + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcesKey, recalcToken]);
+  useEffect(() => {
+    if (!mountedRef.current) return;
+    if (layoutMode === "force") setForcesToken((t) => t + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutMode]);
+
+  // 首次有图 + 尺寸就绪(+ 暖启动)后 fit 一次。
+  const didFitRef = useRef(false);
+  useEffect(() => {
+    didFitRef.current = false;
+  }, [root]);
+  useEffect(() => {
+    if (didFitRef.current) return;
+    if (renderIds.length === 0 || size.w === 0 || size.h === 0) return;
+    if (!layoutReady && warmPositionsRef.current.size === 0) return;
+    didFitRef.current = true;
+    const id = setTimeout(() => setFitToken((n) => n + 1), 250);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderIds.length, size.w, size.h, layoutReady]);
+
+  const fit = useCallback(() => setFitToken((n) => n + 1), []);
+  const zoomBy = useCallback(
+    (factor: number) => setZoomCmd((c) => ({ token: c.token + 1, factor })),
+    [],
+  );
+
+  // 焦点飞入当前文档:位置就绪后取节点坐标 centerAt+zoom(每 30 tick 重试一次)。
+  const didFlyRef = useRef(false);
+  useEffect(() => {
+    didFlyRef.current = false;
+  }, [currentId]);
+  useEffect(() => {
+    didFlyRef.current = false;
+  }, [root]);
+  useEffect(() => {
+    if (currentId == null || didFlyRef.current) return;
+    const n = nodesByIdRef.current.get(currentId);
+    if (!n || n.x == null || n.y == null) return;
+    didFlyRef.current = true;
+    setFlyTo((f) => ({
+      x: n.x!,
+      y: n.y!,
+      zoom: 1.4,
+      token: (f?.token ?? 0) + 1,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId, positionsTick]);
+
+  const handlePositionsStable = useCallback(
+    (pos: Map<number, Pt>) => {
+      positionsRef.current = pos;
+      bumpPositions();
+    },
+    [],
   );
 
   const menuItems: MenuItem[] = useMemo(() => {
@@ -461,6 +681,27 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
       },
       { separator: true, label: "" },
       {
+        label: t("graph.menu.pathFrom"),
+        icon: <PathIcon size={13} />,
+        onClick: () => {
+          setPathFrom(n.id);
+          setPathResult(null);
+        },
+      },
+    );
+    if (pathFrom != null && pathFrom !== n.id) {
+      items.push({
+        label: t("graph.menu.pathTo"),
+        icon: <PathIcon size={13} />,
+        onClick: () => {
+          const r = shortestPath(model, pathFrom, n.id);
+          setPathResult(r ? { ids: r } : "unreachable");
+        },
+      });
+    }
+    items.push(
+      { separator: true, label: "" },
+      {
         label: t("graph.menu.hideType", { type: n.type ?? t("graph.typeless") }),
         icon: <EyeSlash size={13} />,
         onClick: () =>
@@ -468,279 +709,7 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
       },
     );
     return items;
-  }, [menu, filters, pinned, t, actions, updatePinned]);
-
-  const toView = useCallback((clientX: number, clientY: number): Pt => {
-    const svg = svgRef.current!;
-    const r = svg.getBoundingClientRect();
-    return { x: clientX - r.left, y: clientY - r.top };
-  }, []);
-
-  const tfRef = useRef(tf);
-  tfRef.current = tf;
-
-  // SVG 滚轮 / 拖拽 / 框选。
-  useEffect(() => {
-    if (preferWebgl) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const v = toView(e.clientX, e.clientY);
-      const factor = Math.exp(-e.deltaY * 0.0015);
-      setTf((cur) => {
-        const scale = clamp(cur.scale * factor, MIN_SCALE, MAX_SCALE);
-        const r = scale / cur.scale;
-        return {
-          tx: v.x - (v.x - cur.tx) * r,
-          ty: v.y - (v.y - cur.ty) * r,
-          scale,
-        };
-      });
-    };
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
-  }, [toView, preferWebgl]);
-
-  useEffect(() => {
-    if (preferWebgl) return;
-    const onMove = (e: MouseEvent) => {
-      const d = dragRef.current;
-      if (d) {
-        const v = toView(e.clientX, e.clientY);
-        const { tx, ty, scale } = tfRef.current;
-        const gx = (v.x - tx) / scale;
-        const gy = (v.y - ty) / scale;
-        const p = posRef.current.get(d.id);
-        if (p && (Math.abs(p.x - gx) > 1 || Math.abs(p.y - gy) > 1))
-          dragMovedRef.current = true;
-        posRef.current.set(d.id, { x: gx, y: gy });
-        bumpDrag();
-        return;
-      }
-      const box = boxRef.current;
-      if (box) {
-        const v = toView(e.clientX, e.clientY);
-        box.x1 = v.x;
-        box.y1 = v.y;
-        setBoxUi({
-          x: Math.min(box.x0, box.x1),
-          y: Math.min(box.y0, box.y1),
-          w: Math.abs(box.x1 - box.x0),
-          h: Math.abs(box.y1 - box.y0),
-        });
-        return;
-      }
-      const p = panRef.current;
-      if (!p) return;
-      setTf((cur) => ({
-        ...cur,
-        tx: p.tx + (e.clientX - p.x),
-        ty: p.ty + (e.clientY - p.y),
-      }));
-    };
-    const onUp = () => {
-      panRef.current = null;
-      if (dragRef.current) {
-        const id = dragRef.current.id;
-        if (dragMovedRef.current) {
-          const next = new Set(pinned);
-          next.add(id);
-          updatePinned(next);
-        }
-        dragRef.current = null;
-        setDragging(null);
-      }
-      if (boxRef.current) {
-        const box = boxRef.current;
-        boxRef.current = null;
-        setBoxUi(null);
-        const { tx, ty, scale } = tfRef.current;
-        const x0 = Math.min(box.x0, box.x1);
-        const y0 = Math.min(box.y0, box.y1);
-        const x1 = Math.max(box.x0, box.x1);
-        const y1 = Math.max(box.y0, box.y1);
-        const hit = new Set<number>();
-        for (const [id, p] of posRef.current) {
-          const sx = p.x * scale + tx;
-          const sy = p.y * scale + ty;
-          if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) hit.add(id);
-        }
-        setSelected(hit);
-      }
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [toView, preferWebgl, pinned, updatePinned]);
-
-  const zoomBy = (factor: number) => {
-    if (preferWebgl) {
-      setZoomCmd((c) => ({ token: c.token + 1, factor }));
-      return;
-    }
-    setTf((cur) => ({
-      tx: size.w / 2 - (size.w / 2 - cur.tx) * factor,
-      ty: size.h / 2 - (size.h / 2 - cur.ty) * factor,
-      scale: clamp(cur.scale * factor, MIN_SCALE, MAX_SCALE),
-    }));
-  };
-
-  // —— WebGL 数据 ——
-  // sigma camera ratio: 越小越放大;近似 1/scale 映射到 LOD。
-  const lodScale = preferWebgl ? 1 / Math.max(cameraRatio, 0.05) : tf.scale;
-  const lod = useMemo(() => {
-    if (!preferWebgl) {
-      return { active: false as const, clusters: [], leafIds: [...renderIds] };
-    }
-    return applyLod(renderIds, posRef.current, lodScale, {
-      minNodes: 400,
-      maxScale: 0.55,
-    });
-    // layout bump 后 pos 变,需要重算。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferWebgl, renderIds, lodScale, layoutTick]);
-
-  const sigmaNodes = useMemo(() => {
-    if (!preferWebgl) return new Map();
-    const meta = new Map(
-      renderIds.map((id) => {
-        const n = model.byId.get(id);
-        return [
-          id,
-          {
-            title: n?.title ?? String(id),
-            type: n?.type ?? null,
-            degree: degree.get(id) ?? 0,
-          },
-        ] as const;
-      }),
-    );
-    const leaves = lod.active ? lod.leafIds : renderIds;
-    // 标签避让:用当前相机近似(ratio 越小越放大 → scale 越大)。
-    const approxScale = lodScale;
-    const labelCands = leaves.map((id) => {
-      const p = posRef.current.get(id) ?? { x: 0, y: 0 };
-      const n = model.byId.get(id);
-      return {
-        id,
-        x: p.x,
-        y: p.y,
-        title: n?.title ?? "",
-        priority: labelPriority({
-          degree: degree.get(id) ?? 0,
-          isCurrent: id === currentId,
-          isHover: id === hover,
-          isSelected: selected.has(id),
-          isTextHit: filtered.textHits.has(id),
-          isPinned: pinned.has(id),
-          isFocus: id === filters.focusId,
-        }),
-      };
-    });
-    const labelAllow = pickVisibleLabels(labelCands, {
-      scale: approxScale,
-      tx: size.w / 2,
-      ty: size.h / 2,
-      maxLabels: approxScale < 0.6 ? 40 : approxScale < 1 ? 80 : 200,
-    });
-    const nodeAttrs = buildSigmaNodeAttrs(leaves, posRef.current, meta, {
-      currentId,
-      hoverId: hover,
-      selected,
-      textHits: filtered.textHits,
-      pinned,
-      focusId: filters.focusId,
-      neighborFocus: neighbors,
-      forceLabelAll: lodScale >= 1.05,
-      labelAllow,
-    });
-    if (lod.active) {
-      for (const [k, v] of buildSigmaClusterAttrs(lod.clusters)) {
-        nodeAttrs.set(k, v);
-      }
-    } else {
-      // 非 LOD:悬空边 ghost 桩。
-      const ghosts = buildUnresolvedGhosts(
-        filtered.edges,
-        posRef.current,
-        new Set(leaves),
-      );
-      for (const [k, v] of ghosts.nodes) nodeAttrs.set(k, v);
-    }
-    return nodeAttrs;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    preferWebgl,
-    renderIds,
-    model,
-    degree,
-    currentId,
-    hover,
-    selected,
-    pinned,
-    neighbors,
-    filtered.textHits,
-    filtered.edges,
-    filters.focusId,
-    lod,
-    lodScale,
-    layoutTick,
-    size.w,
-    size.h,
-  ]);
-
-  const sigmaEdges: SigmaEdgeInput[] = useMemo(() => {
-    if (!preferWebgl) return [];
-    const out: SigmaEdgeInput[] = [];
-    if (lod.active) {
-      const keyMap = buildLodRenderKeyMap(lod);
-      for (const e of projectLodEdges(filtered.edges, keyMap)) {
-        out.push({
-          key: e.key,
-          source: e.source,
-          target: e.target,
-          kind: e.kind,
-          weight: e.weight,
-          hot: false,
-        });
-      }
-      return out;
-    }
-    const leafSet = new Set(renderIds);
-    let i = 0;
-    for (const e of filtered.edges) {
-      if (e.to == null) continue;
-      if (!leafSet.has(e.from) || !leafSet.has(e.to)) continue;
-      const hot = hover != null && (e.from === hover || e.to === hover);
-      out.push({
-        key: `e${i++}`,
-        source: String(e.from),
-        target: String(e.to),
-        kind: e.kind,
-        hot,
-      });
-    }
-    // 悬空边 → ghost。
-    const ghosts = buildUnresolvedGhosts(
-      filtered.edges,
-      posRef.current,
-      leafSet,
-    );
-    for (const ge of ghosts.edges) {
-      out.push({
-        key: ge.key,
-        source: ge.source,
-        target: ge.target,
-        kind: "unresolved",
-      });
-    }
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferWebgl, filtered.edges, lod, renderIds, hover, layoutTick]);
+  }, [menu, filters, pinned, pathFrom, model, t, actions, updatePinned]);
 
   if (!snapshot || allNodes.length === 0) {
     return (
@@ -750,361 +719,125 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
     );
   }
 
-  const viewSet =
-    !preferWebgl && renderIds.length > CULL_THRESHOLD
-      ? visibleNodeIds(renderIds, posRef.current, tf, size, CULL_MARGIN)
-      : null;
-  const culledIds = viewSet
-    ? renderIds.filter((id) => viewSet.has(id))
-    : renderIds;
-  const edgeSet = viewSet ?? renderSet;
-  const visibleEdges = filtered.edges.filter(
-    (e) => edgeSet.has(e.from) && (e.to == null || edgeSet.has(e.to)),
-  );
-  const edgeOpacity = clamp(0.12 + tf.scale * 0.18, 0.12, 0.5);
-  const nodeById = new Map(allNodes.map((n) => [n.id, n]));
-  // SVG 标签避让(与 WebGL 同源)。
-  const svgLabelAllow = (() => {
-    if (preferWebgl) return null as Set<number> | null;
-    const cands = culledIds.map((id) => {
-      const p = posRef.current.get(id) ?? { x: 0, y: 0 };
-      const n = nodeById.get(id);
-      return {
-        id,
-        x: p.x,
-        y: p.y,
-        title: n?.title ?? "",
-        priority: labelPriority({
-          degree: degree.get(id) ?? 0,
-          isCurrent: id === currentId,
-          isHover: id === hover,
-          isSelected: selected.has(id),
-          isTextHit: filtered.textHits.has(id),
-          isPinned: pinned.has(id),
-          isFocus: id === filters.focusId,
-        }),
-      };
-    });
-    return pickVisibleLabels(cands, {
-      scale: tf.scale,
-      tx: tf.tx,
-      ty: tf.ty,
-      maxLabels: tf.scale < 0.6 ? 40 : tf.scale < 1 ? 80 : 200,
-    });
-  })();
+  const nodeById = nodeByIdFull;
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-base">
-      {preferWebgl && size.w > 0 && size.h > 0 ? (
+      {size.w > 0 && size.h > 0 && (
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center text-[12px] text-overlay">
-              WebGL…
+              {t("graph.sim.warm")}
             </div>
           }
         >
-          <GraphSigmaLayer
-            nodes={sigmaNodes}
-            edges={sigmaEdges}
-            structureKey={
-              sig + (lod.active ? `|lod:${lod.clusters.length}` : "")
-            }
+          <GraphForceLayer
+            graphData={graphData}
             width={size.w}
             height={size.h}
+            forces={forces}
+            layoutMode={layoutMode}
+            cooldownTicks={COOLDOWN_TICKS}
+            forcesToken={forcesToken}
+            clusterColors={clusterColors}
+            themeIsDark={themeIsDark}
+            adj={adjSet}
             fitToken={fitToken}
             zoomToken={zoomCmd.token}
             zoomFactor={zoomCmd.factor}
             flyTo={flyTo}
-            onCameraRatio={setCameraRatio}
-            onNodeClick={(nodeId, isCluster, memberIds, center) => {
-              if (isCluster && memberIds && memberIds.length > 0) {
-                // 飞入簇中心放大 → LOD 退出后展开成员。
-                if (center) {
-                  setFlyTo((prev) => ({
-                    x: center.x,
-                    y: center.y,
-                    ratio: Math.max(0.12, cameraRatio * 0.35),
-                    token: (prev?.token ?? 0) + 1,
-                  }));
-                }
-                // 同时聚焦一员邻域,便于立刻导航。
-                setFilters((f) => ({
-                  ...f,
-                  focusId: memberIds[0],
-                  hops: 2,
-                }));
-                return;
-              }
-              const n = model.byId.get(nodeId);
+            onNodeClick={(id) => {
+              const n = model.byId.get(id);
               if (n) actions.selectNote(n.path);
             }}
-            onNodeDoubleClick={(nodeId) =>
-              setFilters((f) => ({ ...f, focusId: nodeId, hops: 1 }))
+            onNodeDoubleClick={(id) =>
+              setFilters((f) => ({ ...f, focusId: id, hops: 1 }))
             }
-            onNodeRightClick={(nodeId, x, y) => {
-              const n = nodeById.get(nodeId);
+            onNodeRightClick={(id, x, y) => {
+              const n = nodeById.get(id);
               if (n) setMenu({ x, y, node: n });
             }}
-            onNodeEnter={(nodeId, x, y) => {
-              const n = nodeById.get(nodeId);
-              setHover(nodeId);
-              if (n) setPreview({ x, y, node: n });
-            }}
-            onNodeLeave={() => {
-              setHover(null);
-              setPreview(null);
+            onNodeHover={(id, x, y) => {
+              if (id != null && x != null && y != null) {
+                const n = nodeById.get(id);
+                if (n) setPreview({ x, y, node: n });
+              } else {
+                setPreview(null);
+              }
             }}
             onBackgroundClick={() => setSelected(new Set())}
-            onNodeDragEnd={(nodeId, x, y, moved) => {
-              posRef.current.set(nodeId, { x, y });
+            onNodeDragEnd={(id, _x, _y, moved) => {
               if (moved) {
                 const next = new Set(pinned);
-                next.add(nodeId);
+                next.add(id);
                 updatePinned(next);
               }
-              bumpLayout();
             }}
             onBoxSelect={(ids) => setSelected(new Set(ids))}
+            onPositionsStable={handlePositionsStable}
           />
         </Suspense>
-      ) : (
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${size.w} ${size.h}`}
-          className={cn("h-full w-full", dragging ? "cursor-grabbing" : "")}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <defs>
-            <radialGradient id="graph-vignette" cx="50%" cy="50%" r="75%">
-              <stop offset="60%" stopColor="var(--color-base)" stopOpacity="0" />
-              <stop
-                offset="100%"
-                stopColor="var(--color-crust)"
-                stopOpacity="0.5"
-              />
-            </radialGradient>
-            <filter id="graph-glow" x="-80%" y="-80%" width="260%" height="260%">
-              <feGaussianBlur stdDeviation="3.2" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <rect
-            x={0}
-            y={0}
-            width={size.w}
-            height={size.h}
-            fill="transparent"
-            className="cursor-grab active:cursor-grabbing"
-            onMouseDown={(e) => {
-              if (e.shiftKey) {
-                const v = toView(e.clientX, e.clientY);
-                boxRef.current = { x0: v.x, y0: v.y, x1: v.x, y1: v.y };
-                setBoxUi({ x: v.x, y: v.y, w: 0, h: 0 });
-                return;
-              }
-              setSelected(new Set());
-              panRef.current = {
-                x: e.clientX,
-                y: e.clientY,
-                tx: tf.tx,
-                ty: tf.ty,
-              };
-            }}
-          />
-          <rect
-            x={0}
-            y={0}
-            width={size.w}
-            height={size.h}
-            fill="url(#graph-vignette)"
-            pointerEvents="none"
-          />
-          <g transform={`translate(${tf.tx},${tf.ty}) scale(${tf.scale})`}>
-            <g opacity={edgeOpacity} pointerEvents="none">
-              {visibleEdges.map((e, i) => {
-                if (e.to == null) return null;
-                const a = posRef.current.get(e.from);
-                const b = posRef.current.get(e.to);
-                if (!a || !b) return null;
-                const isRel = e.kind === "relation";
-                const hot = hover != null && (e.from === hover || e.to === hover);
-                return (
-                  <line
-                    key={i}
-                    x1={a.x}
-                    y1={a.y}
-                    x2={b.x}
-                    y2={b.y}
-                    style={{
-                      stroke: hot
-                        ? "var(--color-blue)"
-                        : isRel
-                          ? "var(--color-mauve)"
-                          : "var(--color-overlay)",
-                    }}
-                    strokeWidth={hot ? 1.6 : isRel ? 1.1 : 0.7}
-                    strokeDasharray={isRel ? "4 3" : undefined}
-                    opacity={hot ? 1 : undefined}
-                  />
-                );
-              })}
-              {visibleEdges
-                .filter((e) => e.to == null && posRef.current.has(e.from))
-                .map((e, i) => {
-                  const a = posRef.current.get(e.from)!;
-                  return (
-                    <line
-                      key={`unr-${i}`}
-                      x1={a.x}
-                      y1={a.y}
-                      x2={a.x + 10}
-                      y2={a.y - 10}
-                      style={{ stroke: "var(--color-red)" }}
-                      strokeWidth={0.7}
-                      strokeDasharray="2 2"
-                    />
-                  );
-                })}
-            </g>
-            <g>
-              {culledIds.map((id) => {
-                const node = nodeById.get(id);
-                const p = posRef.current.get(id);
-                if (!node || !p) return null;
-                const deg = degree.get(id) ?? 0;
-                const r = 3 + Math.sqrt(deg) * 2.2;
-                const isCurrent = id === currentId;
-                const isHover = hover === id;
-                const isSel = selected.has(id);
-                const isTextHit = filtered.textHits.has(id);
-                const isPin = pinned.has(id);
-                const dim = neighbors != null && !neighbors.has(id);
-                const showLabel =
-                  isHover ||
-                  isCurrent ||
-                  isSel ||
-                  isTextHit ||
-                  id === filters.focusId ||
-                  (svgLabelAllow?.has(id) ?? deg >= 4);
-                return (
-                  <g
-                    key={id}
-                    transform={`translate(${p.x},${p.y})`}
-                    className="cursor-pointer"
-                    opacity={dim ? 0.18 : 1}
-                    style={{ transition: "opacity 120ms" }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      dragRef.current = { id };
-                      dragMovedRef.current = false;
-                      setDragging(id);
-                    }}
-                    onClick={() => {
-                      if (dragMovedRef.current) return;
-                      actions.selectNote(node.path);
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setFilters((f) => ({ ...f, focusId: id, hops: 1 }));
-                    }}
-                    onMouseEnter={(e) => {
-                      setHover(id);
-                      setPreview({ x: e.clientX, y: e.clientY, node });
-                    }}
-                    onMouseMove={(e) => {
-                      if (hover === id)
-                        setPreview({ x: e.clientX, y: e.clientY, node });
-                    }}
-                    onMouseLeave={() => {
-                      setHover(null);
-                      setPreview(null);
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setMenu({ x: e.clientX, y: e.clientY, node });
-                    }}
-                  >
-                    {(isCurrent || isHover || isSel || isTextHit) && (
-                      <circle
-                        r={r + 4}
-                        fill={
-                          isTextHit
-                            ? "var(--color-yellow)"
-                            : isSel
-                              ? "var(--color-blue)"
-                              : colorFor(node.type)
-                        }
-                        opacity={0.22}
-                        pointerEvents="none"
-                      />
-                    )}
-                    <circle
-                      r={r}
-                      filter={isCurrent ? "url(#graph-glow)" : undefined}
-                      style={{
-                        fill: colorFor(node.type),
-                        stroke: isCurrent
-                          ? "var(--color-blue)"
-                          : isTextHit
-                            ? "var(--color-yellow)"
-                            : isSel
-                              ? "var(--color-teal)"
-                              : isPin
-                                ? "var(--color-mauve)"
-                                : "var(--color-base)",
-                      }}
-                      fillOpacity={isCurrent ? 1 : 0.9}
-                      strokeWidth={
-                        isCurrent || isTextHit || isSel || isPin ? 2 : 1
-                      }
-                    />
-                    {showLabel && (
-                      <text
-                        x={r + 4}
-                        y={3.5}
-                        fontSize={10.5}
-                        pointerEvents="none"
-                        className="select-none"
-                        style={{
-                          fill: "var(--color-text)",
-                          paintOrder: "stroke",
-                          stroke: "var(--color-base)",
-                          strokeWidth: 3,
-                          strokeLinejoin: "round",
-                        }}
-                      >
-                        {node.title}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </g>
-          </g>
-        </svg>
       )}
 
       <div className="pointer-events-none absolute left-2 top-2 rounded bg-mantle/80 px-2 py-1 text-[11px] text-overlay backdrop-blur-sm">
         {t("graph.stats", {
           nodes: renderIds.length,
-          edges: preferWebgl ? sigmaEdges.length : visibleEdges.length,
+          edges: linksRef.current.length,
         })}
-        {filtered.nodeIds.size > maxNodes && (
+        {filtered.nodeIds.size > WEBGL_MAX_NODES && (
           <span className="text-red">
-            {t("graph.truncated", { n: maxNodes })}
+            {t("graph.truncated", { n: WEBGL_MAX_NODES })}
           </span>
         )}
-        {preferWebgl && (
-          <span className="ml-1 text-subtext">WebGL</span>
-        )}
-        {lod.active && (
-          <span className="ml-1 text-subtext">LOD</span>
-        )}
       </div>
+
+      {pathFrom != null && (
+        <div className="absolute left-2 top-11 max-w-[min(70vw,28rem)] rounded bg-mantle/95 px-2 py-1.5 text-[11px] shadow-lg ring-1 ring-crust backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 text-subtext">
+            <PathIcon size={12} />
+            <span className="truncate">
+              {pathResult == null
+                ? t("graph.pathFromHint", {
+                    name: model.byId.get(pathFrom)?.title ?? String(pathFrom),
+                  })
+                : pathResult === "unreachable"
+                  ? t("graph.pathUnreachable", {
+                      from: model.byId.get(pathFrom)?.title ?? "",
+                    })
+                  : t("graph.pathResult", { hops: pathResult.ids.length - 1 })}
+            </span>
+            <button
+              onClick={() => {
+                setPathFrom(null);
+                setPathResult(null);
+              }}
+              className="ml-auto shrink-0 text-overlay hover:text-red"
+              aria-label={t("common.close")}
+            >
+              <X size={12} />
+            </button>
+          </div>
+          {pathResult && pathResult !== "unreachable" && (
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {pathResult.ids.map((id, i) => {
+                const nd = model.byId.get(id);
+                return (
+                  <span key={id} className="flex items-center gap-1">
+                    {i > 0 && <span className="text-overlay">→</span>}
+                    <button
+                      className="rounded bg-surface px-1 py-0.5 text-subtext hover:bg-surface2"
+                      onClick={() => nd && actions.selectNote(nd.path)}
+                      title={nd?.path}
+                    >
+                      {nd?.title ?? String(id)}
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="absolute bottom-2 left-2 flex flex-col gap-1">
         <button
@@ -1145,6 +878,26 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
           </select>
         </label>
         <button
+          onClick={() => bumpRecalc()}
+          className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text backdrop-blur-sm"
+          title={t("graph.recalculate")}
+        >
+          <ArrowsClockwise size={13} />
+        </button>
+        <button
+          onClick={() => setShowHealth((v) => !v)}
+          className={cn(
+            "flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
+            showHealth
+              ? "bg-mauve text-crust"
+              : "bg-mantle/80 text-overlay hover:text-text",
+          )}
+          title={t("graph.health")}
+        >
+          <Graph size={13} />
+          {t("graph.health")}
+        </button>
+        <button
           onClick={() => setShowFilters((v) => !v)}
           className={cn(
             "flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
@@ -1158,15 +911,13 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
         </button>
       </div>
 
-      {boxUi && boxUi.w + boxUi.h > 0 && (
-        <div
-          className="pointer-events-none absolute border border-blue/80 bg-blue/10"
-          style={{
-            left: boxUi.x,
-            top: boxUi.y,
-            width: boxUi.w,
-            height: boxUi.h,
-          }}
+      {clusterMode !== "none" && clusterColors && (
+        <GraphLegend
+          colors={clusterColors}
+          counts={clusterCounts}
+          mode={clusterMode}
+          themeIsDark={themeIsDark}
+          t={t}
         />
       )}
 
@@ -1209,6 +960,8 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
           filters={filters}
           currentId={currentId}
           onChange={setFilters}
+          clusterMode={clusterMode}
+          onClusterMode={setClusterMode}
           onReset={() =>
             setFilters({
               ...NO_FILTER,
@@ -1217,6 +970,21 @@ export function GraphView({ snapshot, currentId, actions, t }: Props) {
             })
           }
           nodes={allNodes}
+          t={t}
+        />
+      )}
+
+      {showHealth && (
+        <HealthPanel
+          mode={healthMode}
+          onMode={setHealthMode}
+          orphans={orphanNodes}
+          hubs={hubs}
+          onPick={(id) => {
+            setFilters((f) => ({ ...f, focusId: id, hops: 1 }));
+            const n = model.byId.get(id);
+            if (n) actions.selectNote(n.path);
+          }}
           t={t}
         />
       )}
@@ -1237,6 +1005,8 @@ function FilterPanel({
   filters,
   currentId,
   onChange,
+  clusterMode,
+  onClusterMode,
   onReset,
   nodes,
   t,
@@ -1247,6 +1017,8 @@ function FilterPanel({
   filters: GraphFilters;
   currentId: number | null;
   onChange: (f: GraphFilters) => void;
+  clusterMode: ClusterMode;
+  onClusterMode: (m: ClusterMode) => void;
   onReset: () => void;
   nodes: {
     id: number;
@@ -1271,6 +1043,29 @@ function FilterPanel({
           placeholder={t("graph.searchPlaceholder")}
           className="mb-1 w-full rounded bg-surface px-1.5 py-1 text-[11px] text-text outline-none placeholder:text-overlay"
         />
+      </Section>
+
+      <Section title={t("graph.cluster.mode")}>
+        <div className="flex gap-1">
+          {(["folder", "type", "none"] as ClusterMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => onClusterMode(m)}
+              className={cn(
+                "flex-1 rounded px-1 py-0.5",
+                clusterMode === m
+                  ? "bg-blue text-crust"
+                  : "bg-surface text-overlay hover:text-text",
+              )}
+            >
+              {m === "folder"
+                ? t("graph.cluster.folder")
+                : m === "type"
+                  ? t("graph.cluster.type")
+                  : t("graph.cluster.none")}
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Section title={t("graph.typeSection")}>
@@ -1382,6 +1177,17 @@ function FilterPanel({
         <span>{t("graph.hideOrphans")}</span>
       </label>
 
+      <label className="flex cursor-pointer items-center gap-1.5 py-0.5 text-subtext">
+        <input
+          type="checkbox"
+          checked={filters.hideUnresolved}
+          onChange={() =>
+            onChange({ ...filters, hideUnresolved: !filters.hideUnresolved })
+          }
+        />
+        <span>{t("graph.hideUnresolved")}</span>
+      </label>
+
       <div className="mt-2 border-t border-crust pt-2">
         {filters.focusId != null ? (
           <>
@@ -1433,6 +1239,157 @@ function FilterPanel({
       >
         {t("graph.resetFilter")}
       </button>
+    </div>
+  );
+}
+
+function HealthPanel({
+  mode,
+  onMode,
+  orphans,
+  hubs,
+  onPick,
+  t,
+}: {
+  mode: "orphans" | "hubs";
+  onMode: (m: "orphans" | "hubs") => void;
+  orphans: GraphNode[];
+  hubs: Hub[];
+  onPick: (id: number) => void;
+  t: TFunc;
+}) {
+  return (
+    <div className="absolute left-2 top-12 max-h-[calc(100%-4rem)] w-56 overflow-y-auto rounded bg-mantle/95 p-2 text-[11px] shadow-lg ring-1 ring-crust backdrop-blur-sm">
+      <div className="mb-1.5 flex gap-1">
+        {(["orphans", "hubs"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => onMode(m)}
+            className={cn(
+              "flex-1 rounded px-1.5 py-1 text-[11px]",
+              mode === m
+                ? "bg-mauve text-crust"
+                : "bg-surface text-overlay hover:text-text",
+            )}
+          >
+            {m === "orphans"
+              ? `${t("graph.orphans")} (${orphans.length})`
+              : `${t("graph.hubs")} (${hubs.length})`}
+          </button>
+        ))}
+      </div>
+
+      {mode === "orphans" ? (
+        orphans.length === 0 ? (
+          <p className="py-2 text-center text-overlay">{t("graph.noOrphans")}</p>
+        ) : (
+          orphans.map((n) => (
+            <HealthRow
+              key={n.id}
+              title={n.title}
+              path={n.path}
+              type={n.type}
+              onClick={() => onPick(n.id)}
+            />
+          ))
+        )
+      ) : hubs.length === 0 ? (
+        <p className="py-2 text-center text-overlay">{t("graph.noHubs")}</p>
+      ) : (
+        hubs.map((h) => (
+          <HealthRow
+            key={h.id}
+            title={h.title}
+            path={h.path}
+            type={null}
+            badge={`°${h.degree}`}
+            onClick={() => onPick(h.id)}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+function HealthRow({
+  title,
+  path,
+  type,
+  badge,
+  onClick,
+}: {
+  title: string;
+  path: string;
+  type: string | null;
+  badge?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="mb-0.5 flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-subtext hover:bg-surface"
+    >
+      <span
+        className="inline-block h-2 w-2 shrink-0 rounded-full"
+        style={{ background: colorFor(type) }}
+      />
+      <span className="flex-1 truncate" title={path}>
+        {title || path}
+      </span>
+      {badge && <span className="shrink-0 text-overlay">{badge}</span>}
+    </button>
+  );
+}
+
+function GraphLegend({
+  colors,
+  counts,
+  mode,
+  themeIsDark,
+  t,
+}: {
+  colors: Map<string, ClusterColor>;
+  counts: Map<string, number>;
+  mode: ClusterMode;
+  themeIsDark: boolean;
+  t: TFunc;
+}) {
+  const { entries, overflow } = topClusters(counts, 8);
+  if (entries.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute bottom-2 left-12 max-h-[60%] max-w-[14rem] overflow-y-auto rounded bg-mantle/85 px-2 py-1.5 text-[10px] shadow ring-1 ring-crust backdrop-blur-sm">
+      <div className="mb-1 uppercase tracking-wide text-overlay">
+        {t("graph.legend.title")}
+      </div>
+      {entries.map((e) => {
+        const cc = colors.get(e.key);
+        const color = cc ? (themeIsDark ? cc.dark : cc.light) : "transparent";
+        const label =
+          mode === "type"
+            ? e.key === "—"
+              ? t("graph.typeless")
+              : e.key
+              : e.key === "/"
+                ? "/"
+                : e.key;
+        return (
+          <div key={e.key} className="flex items-center gap-1.5 py-0.5">
+            <span
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{ background: color }}
+            />
+            <span className="flex-1 truncate text-subtext" title={e.key}>
+              {label}
+            </span>
+            <span className="shrink-0 text-overlay">{e.count}</span>
+          </div>
+        );
+      })}
+      {overflow > 0 && (
+        <div className="mt-0.5 text-overlay">
+          {t("graph.legend.more", { n: overflow })}
+        </div>
+      )}
     </div>
   );
 }

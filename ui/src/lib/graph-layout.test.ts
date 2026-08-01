@@ -1,198 +1,19 @@
 /**
- * graph-layout 单测 —— 验证力导向布局的核心不变量(无需 GUI)。
+ * graph-layout 单测 —— 验证保留的纯逻辑工具(无需 GUI)。
+ *
+ * FR 力导向 / Barnes-Hut 已退役(布局改由 react-force-graph-2d 的 d3-force 负责,
+ * 其映射逻辑在 graph-d3-forces.test.ts);本文件覆盖 bbox / fitTransform /
+ * visibleNodeIds / normalizeForces。
  */
 import { describe, expect, it } from "vitest";
 import {
   bbox,
+  DEFAULT_FORCES,
   fitTransform,
-  relaxLayout,
-  seedNodes,
+  normalizeForces,
   visibleNodeIds,
   type Pt,
-  type Spring,
 } from "./graph-layout";
-
-describe("seedNodes", () => {
-  it("为未知 id 播种,已知 id 保持不动", () => {
-    const pos = new Map<number, Pt>([[1, { x: 100, y: 100 }]]);
-    const neighbors = new Map<number, number[]>([[2, [1]]]);
-    seedNodes([1, 2], neighbors, pos, { w: 400, h: 400 }, () => 0.5);
-    expect(pos.get(1)).toEqual({ x: 100, y: 100 });
-    expect(pos.has(2)).toBe(true);
-  });
-
-  it("有邻居时贴在邻居附近", () => {
-    const pos = new Map<number, Pt>([[1, { x: 200, y: 200 }]]);
-    const neighbors = new Map<number, number[]>([[2, [1]]]);
-    seedNodes([2], neighbors, pos, { w: 400, h: 400 }, () => 0.5);
-    const p = pos.get(2)!;
-    // rand=0.5 → 抖动 (0.5-0.5)*40 = 0,正好落在邻居上。
-    expect(p.x).toBe(200);
-    expect(p.y).toBe(200);
-  });
-
-  it("无邻居时绕中心螺旋播种,落在画布内", () => {
-    const pos = new Map<number, Pt>();
-    const neighbors = new Map<number, number[]>();
-    const ids = [10, 11, 12, 13];
-    seedNodes(ids, neighbors, pos, { w: 400, h: 400 });
-    for (const id of ids) {
-      const p = pos.get(id)!;
-      expect(p.x).toBeGreaterThanOrEqual(0);
-      expect(p.x).toBeLessThanOrEqual(400);
-      expect(p.y).toBeGreaterThanOrEqual(0);
-      expect(p.y).toBeLessThanOrEqual(400);
-    }
-  });
-});
-
-describe("relaxLayout", () => {
-  it("空集不抛错", () => {
-    expect(() => relaxLayout([], [], new Map(), { w: 400, h: 400 })).not.toThrow();
-  });
-
-  it("单节点不抛错且留在画布内", () => {
-    const pos = new Map<number, Pt>([[0, { x: 5, y: 5 }]]);
-    relaxLayout([0], [], pos, { w: 400, h: 400, pad: 18 });
-    const p = pos.get(0)!;
-    expect(p.x).toBeGreaterThanOrEqual(18);
-    expect(p.y).toBeGreaterThanOrEqual(18);
-  });
-
-  it("两个相连节点会被拉拢(距离收敛小于初值)", () => {
-    const pos = new Map<number, Pt>([
-      [0, { x: 10, y: 200 }],
-      [1, { x: 390, y: 200 }],
-    ]);
-    const springs: Spring[] = [{ from: 0, to: 1 }];
-    const before = Math.hypot(pos.get(0)!.x - pos.get(1)!.x, 0);
-    relaxLayout([0, 1], springs, pos, { w: 400, h: 400, iterations: 200 });
-    const after = Math.hypot(pos.get(0)!.x - pos.get(1)!.x, 0);
-    expect(after).toBeLessThan(before);
-  });
-
-  it("两个无连接节点互相排斥(距离增大)", () => {
-    const pos = new Map<number, Pt>([
-      [0, { x: 190, y: 200 }],
-      [1, { x: 210, y: 200 }],
-    ]);
-    const before = Math.abs(pos.get(0)!.x - pos.get(1)!.x);
-    relaxLayout([0, 1], [], pos, { w: 400, h: 400, iterations: 120 });
-    const after = Math.abs(pos.get(0)!.x - pos.get(1)!.x);
-    expect(after).toBeGreaterThan(before);
-  });
-
-  it("位置以既有为初值(暖启动):两次小迭代 ≈ 一次双倍迭代的方向", () => {
-    // 结构相同,比较终点到质心的距离量级稳定(不发散)。
-    const make = () => {
-      const pos = new Map<number, Pt>();
-      const ids = [0, 1, 2, 3, 4];
-      seedNodes(ids, new Map(), pos, { w: 400, h: 400 }, () => 0.3);
-      return { pos, ids };
-    };
-    const springs: Spring[] = [
-      { from: 0, to: 1 },
-      { from: 1, to: 2 },
-      { from: 2, to: 3 },
-      { from: 3, to: 4 },
-    ];
-    const a = make();
-    relaxLayout(a.ids, springs, a.pos, { w: 400, h: 400, iterations: 120 });
-    const cx =
-      a.ids.reduce((s, id) => s + a.pos.get(id)!.x, 0) / a.ids.length;
-    // 收敛后节点应聚拢在中心附近(均值离中心 < 120)。
-    expect(Math.abs(cx - 200)).toBeLessThan(120);
-  });
-
-  it("所有点夹在 [pad, w-pad] × [pad, h-pad] 内", () => {
-    const pos = new Map<number, Pt>();
-    const ids = Array.from({ length: 20 }, (_, i) => i);
-    seedNodes(ids, new Map(), pos, { w: 500, h: 400 });
-    const springs: Spring[] = [];
-    for (let i = 1; i < ids.length; i++) springs.push({ from: ids[i - 1], to: ids[i] });
-    relaxLayout(ids, springs, pos, { w: 500, h: 400, pad: 25, iterations: 80 });
-    for (const id of ids) {
-      const p = pos.get(id)!;
-      expect(p.x).toBeGreaterThanOrEqual(25);
-      expect(p.x).toBeLessThanOrEqual(475);
-      expect(p.y).toBeGreaterThanOrEqual(25);
-      expect(p.y).toBeLessThanOrEqual(375);
-    }
-  });
-
-  it("Barnes-Hut:大图不抛错且点在边界内", () => {
-    const pos = new Map<number, Pt>();
-    const ids = Array.from({ length: 120 }, (_, i) => i);
-    seedNodes(ids, new Map(), pos, { w: 800, h: 600 }, () => 0.4);
-    const springs: Spring[] = [];
-    for (let i = 1; i < ids.length; i++) {
-      if (i % 3 === 0) springs.push({ from: ids[i - 1], to: ids[i] });
-    }
-    expect(() =>
-      relaxLayout(ids, springs, pos, {
-        w: 800,
-        h: 600,
-        pad: 20,
-        iterations: 25,
-        repulsion: "barnes-hut",
-      }),
-    ).not.toThrow();
-    for (const id of ids) {
-      const p = pos.get(id)!;
-      expect(p.x).toBeGreaterThanOrEqual(20);
-      expect(p.x).toBeLessThanOrEqual(780);
-      expect(Number.isFinite(p.x)).toBe(true);
-      expect(Number.isFinite(p.y)).toBe(true);
-    }
-  });
-
-  it("Barnes-Hut 与 exact 对小图方向一致(排斥拉开)", () => {
-    const make = () =>
-      new Map<number, Pt>([
-        [0, { x: 200, y: 200 }],
-        [1, { x: 205, y: 200 }],
-        [2, { x: 200, y: 205 }],
-      ]);
-    const ids = [0, 1, 2];
-    const exact = make();
-    const bh = make();
-    relaxLayout(ids, [], exact, {
-      w: 400,
-      h: 400,
-      iterations: 40,
-      repulsion: "exact",
-    });
-    relaxLayout(ids, [], bh, {
-      w: 400,
-      h: 400,
-      iterations: 40,
-      repulsion: "barnes-hut",
-      barnesHutTheta: 0.5,
-    });
-    // 两者都应把挤在一起的点拉开(相对初值跨度变大)。
-    const span = (m: Map<number, Pt>) => {
-      const xs = ids.map((i) => m.get(i)!.x);
-      return Math.max(...xs) - Math.min(...xs);
-    };
-    expect(span(exact)).toBeGreaterThan(5);
-    expect(span(bh)).toBeGreaterThan(5);
-  });
-
-  it("pinned 在 barnes-hut 下也不动", () => {
-    const pos = new Map<number, Pt>([
-      [0, { x: 50, y: 50 }],
-      [1, { x: 300, y: 300 }],
-    ]);
-    relaxLayout([0, 1], [{ from: 0, to: 1 }], pos, {
-      w: 400,
-      h: 400,
-      iterations: 50,
-      repulsion: "barnes-hut",
-      pinned: new Set([0]),
-    });
-    expect(pos.get(0)).toEqual({ x: 50, y: 50 });
-  });
-});
 
 describe("bbox", () => {
   it("空集返回 null", () => {
@@ -285,5 +106,32 @@ describe("visibleNodeIds", () => {
     const v = visibleNodeIds([0, 99], pos, { tx: 0, ty: 0, scale: 1 }, vp, 0);
     expect(v.has(0)).toBe(true);
     expect(v.has(99)).toBe(false);
+  });
+});
+
+describe("normalizeForces", () => {
+  it("缺省/空 → 全 1 基线", () => {
+    expect(normalizeForces()).toEqual(DEFAULT_FORCES);
+    expect(normalizeForces({})).toEqual(DEFAULT_FORCES);
+  });
+
+  it("合并部分字段,其余回退 1", () => {
+    expect(normalizeForces({ repel: 3 })).toEqual({
+      center: 1,
+      repel: 3,
+      linkStrength: 1,
+      linkDistance: 1,
+    });
+  });
+
+  it("linkDistance 下限 0.1(避免除零),其余夹 [0,50]", () => {
+    expect(normalizeForces({ linkDistance: 0 }).linkDistance).toBe(0.1);
+    expect(normalizeForces({ center: 999 }).center).toBe(50);
+    expect(normalizeForces({ repel: -5 }).repel).toBe(0);
+  });
+
+  it("NaN/非数 回退 1", () => {
+    expect(normalizeForces({ center: NaN }).center).toBe(1);
+    expect(normalizeForces({ linkStrength: "x" as unknown as number }).linkStrength).toBe(1);
   });
 });

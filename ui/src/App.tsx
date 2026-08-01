@@ -30,6 +30,8 @@ import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
 import { usePersistentState } from "./lib/usePersistentState";
+import { GRAPH_FORCES_KEY } from "./lib/settings";
+import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./lib/graph-layout";
 import { ipc } from "./lib/ipc";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
@@ -165,6 +167,11 @@ export default function App() {
   const [propsOpen, setPropsOpen] = usePersistentState(
     "openobs.propsOpen",
     true,
+  );
+  // 图谱力参数(6A2):持久化;graph-d3-forces 在映射到 d3-force 时夹取,这里存原值即可。
+  const [forces, setForces] = usePersistentState<ForceParams>(
+    GRAPH_FORCES_KEY,
+    DEFAULT_FORCES,
   );
   // Nav 选择模型:中间 List 据它过滤。默认"全部笔记"。
   const [navSelection, setNavSelection] = useState<NavSelection | null>({
@@ -883,6 +890,8 @@ export default function App() {
                 snapshot={state.snapshot}
                 currentId={currentNode?.id ?? null}
                 actions={actions}
+                root={state.root ?? ""}
+                forces={forces}
                 t={t}
               />
             )}
@@ -956,6 +965,7 @@ export default function App() {
           defaultEditMode: editMode,
           attachmentsDir,
           editorLayout,
+          graphForces: normalizeForces(forces),
         }}
         onChange={(patch) => {
           if (patch.theme) setTheme(patch.theme);
@@ -966,6 +976,9 @@ export default function App() {
           }
           if (patch.editorLayout != null) {
             setEditorLayout(patch.editorLayout);
+          }
+          if (patch.graphForces != null) {
+            setForces(normalizeForces(patch.graphForces));
           }
         }}
         t={t}
