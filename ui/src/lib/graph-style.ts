@@ -90,9 +90,12 @@ export function isDarkTheme(): boolean {
   return lum < 0.5;
 }
 
-/** 节点渲染尺寸:按度数开方。 */
+/**
+ * 节点渲染尺寸:按度数开方(亚线性),系数压到 1.9 避免大 hub 独占画布——
+ * 高度数节点仍明显更大,但不会随 degree 爆炸式膨胀。
+ */
 export function nodeSizeFromDegree(deg: number): number {
-  return 3 + Math.sqrt(Math.max(0, deg)) * 2.2;
+  return 3 + Math.sqrt(Math.max(0, deg)) * 1.9;
 }
 
 /** 给 #rgb/#rrggbb 或已是 rgba 的颜色叠透明度(邻域压暗)。 */

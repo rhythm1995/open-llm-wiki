@@ -38,6 +38,7 @@ import { d3ForceParams } from "../lib/graph-d3-forces";
 import {
   planCanvasLabels,
   type CanvasLabelCandidate,
+  type CanvasLabelPlacement,
 } from "../lib/graph-canvas-labels";
 import type { ClusterColor } from "../lib/graph-cluster";
 
@@ -120,6 +121,9 @@ const LABEL_PAD_X = 8;
 const LABEL_GAP_X = 6;
 const LABEL_MIN_W = 24;
 const LABEL_MAX = 60;
+/** forceCollide:节点间最小间隙(图空间)与推开强度。仿真期 k≈1,半径与视觉半径一致。 */
+const COLLIDE_PAD = 3;
+const COLLIDE_STRENGTH = 0.85;
 
 export function GraphForceLayer(props: Props) {
   const {
@@ -146,7 +150,7 @@ export function GraphForceLayer(props: Props) {
   // 渲染期热状态(不触发 React 重渲染)。
   const hoveredIdRef = useRef<number | null>(null);
   const kRef = useRef(1);
-  const labelPlanRef = useRef<Map<number, string>>(new Map());
+  const labelPlanRef = useRef<Map<number, CanvasLabelPlacement>>(new Map());
   const tickCountRef = useRef(0);
   const lastClickRef = useRef<{ id: number; at: number } | null>(null);
 
@@ -181,7 +185,8 @@ export function GraphForceLayer(props: Props) {
   // ── 重新规划标签(每 tick / 缩放 / 悬停后) ──────────────────────
   const recomputeLabels = useCallback(() => {
     const k = kRef.current;
-    const nodes = propsRef.current.graphData.nodes;
+    const p = propsRef.current;
+    const nodes = p.graphData.nodes;
     if (nodes.length === 0) {
       labelPlanRef.current = new Map();
       return;
@@ -201,6 +206,22 @@ export function GraphForceLayer(props: Props) {
       isFocus: n.isFocus,
       radius: nodeSizeFromDegree(n.degree),
     }));
+    // 视口中心(图空间):画面中央的候选优先拿到标签预算。
+    const fg = fgRef.current;
+    const center =
+      fg && p.width > 0 && p.height > 0
+        ? (fg.screen2GraphCoords(p.width / 2, p.height / 2) as {
+            x: number;
+            y: number;
+          })
+        : null;
+    // 避让集:全部渲染节点(标签芯片不得盖其圆)。
+    const avoidNodes = nodes.map((n) => ({
+      id: n.id,
+      x: n.x ?? 0,
+      y: n.y ?? 0,
+      radius: nodeSizeFromDegree(n.degree),
+    }));
     const plan = planCanvasLabels(cands, {
       scale: k,
       measure,
@@ -209,9 +230,11 @@ export function GraphForceLayer(props: Props) {
       padX: LABEL_PAD_X,
       gapX: LABEL_GAP_X,
       minChipWidth: LABEL_MIN_W,
+      viewportCenter: center,
+      nodes: avoidNodes,
     });
-    const m = new Map<number, string>();
-    for (const p of plan) m.set(p.id, p.text);
+    const m = new Map<number, CanvasLabelPlacement>();
+    for (const pl of plan) m.set(pl.id, pl);
     labelPlanRef.current = m;
   }, [measure]);
 
@@ -226,16 +249,39 @@ export function GraphForceLayer(props: Props) {
       nodeCount: p.graphData.nodes.length,
     });
     fg.d3Force("charge", d3.forceManyBody().strength(cfg.chargeStrength));
-    fg.d3Force(
-      "link",
-      d3
-        .forceLink(p.graphData.links as any[])
+    // 配置 rfg 默认 link force 的参数,**不重建、不显式传 links 数组**。
+    // rfg 在 parseGraph 时自行同步 forceLink.links(← graphData.links)与节点(← graphData.nodes);
+    // 若此处 forceLink(links) 重建并绑死数组,会与 rfg 的同步错位 —— rfg 先 simulation.nodes()
+    // 触发 initialize、之后才 linkForce.links(),使 initialize 用错位的 links 引用了已被 diff
+    // 出去的节点 → d3-force 抛 "node not found"。
+    const linkForce = fg.d3Force("link") as any;
+    if (linkForce) {
+      linkForce
         .id((d: any) => d.id)
         .distance(cfg.linkDistance)
-        .strength(cfg.linkStrength),
-    );
+        .strength(cfg.linkStrength);
+    } else {
+      fg.d3Force(
+        "link",
+        d3
+          .forceLink()
+          .id((d: any) => d.id)
+          .distance(cfg.linkDistance)
+          .strength(cfg.linkStrength),
+      );
+    }
     fg.d3Force("x", d3.forceX(p.width / 2).strength(cfg.xStrength));
     fg.d3Force("y", d3.forceY(p.height / 2).strength(cfg.yStrength));
+    // 节点互斥(防重叠):radius 取节点视觉半径 + 间隙。仿真期 k≈1,与 drawNode 的
+    // screenR/k 一致;iterations=2 + strength 0.85 稳定推开,杜绝大图成团堆叠。
+    fg.d3Force(
+      "collide",
+      d3
+        .forceCollide()
+        .radius((d: any) => nodeSizeFromDegree(d.degree ?? 0) + COLLIDE_PAD)
+        .strength(COLLIDE_STRENGTH)
+        .iterations(2),
+    );
     // 用 forceX/Y 做向心引力,关掉默认 forceCenter 避免双重居中。
     fg.d3Force("center", null);
   }, []);
@@ -428,14 +474,13 @@ export function GraphForceLayer(props: Props) {
       ctx.setLineDash([]);
     }
 
-    // 标签芯片(几何与 planCanvasLabels 一致,图空间)。
-    const text = labelPlanRef.current.get(n.id);
-    if (text) {
-      const w =
-        Math.max(LABEL_MIN_W, measure(text) + LABEL_PAD_X * 2) / k;
-      const h = LABEL_CHIP_H / k;
-      const x0 = n.x + (screenR + LABEL_GAP_X) / k;
-      const y0 = n.y - h / 2;
+    // 标签芯片:直接绘制规划好的 placement box(4 锚点择优 + 避让节点圆后的图空间位置)。
+    const placement = labelPlanRef.current.get(n.id);
+    if (placement) {
+      const x0 = placement.x0;
+      const y0 = placement.y0;
+      const w = placement.x1 - placement.x0;
+      const h = placement.y1 - placement.y0;
       ctx.beginPath();
       roundRectPath(ctx, x0, y0, w, h, 4 / k);
       ctx.fillStyle = colorWithAlpha(baseBgResolved(), 0.72);
@@ -446,7 +491,7 @@ export function GraphForceLayer(props: Props) {
       ctx.fillStyle = lit
         ? labelColorResolved()
         : colorWithAlpha(labelColorResolved(), 0.5);
-      ctx.fillText(text, x0 + LABEL_PAD_X / k, y0 + h / 2);
+      ctx.fillText(placement.text, x0 + LABEL_PAD_X / k, y0 + h / 2);
     }
   };
 
