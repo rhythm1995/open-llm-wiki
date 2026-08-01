@@ -16,3 +16,6 @@ openobs-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"
