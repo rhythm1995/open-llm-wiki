@@ -4,7 +4,8 @@
   "private": true,
   "description": "Local-first, file-as-truth knowledge base (Tauri 2 + Rust core + React). Root scripts only; the frontend lives in ui/.",
   "scripts": {
-    "tauri": "ui/node_modules/.bin/tauri"
+    "tauri": "ui/node_modules/.bin/tauri",
+    "build:app": "bash scripts/build-app.sh"
   },
   "license": "MIT"
 }
