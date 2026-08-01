@@ -47,6 +47,20 @@
   - ❌ **无** CI/自动化帧率测量;脚本注释写明「帧率只能在 GUI 里目视」。
   - 开放项仍是 **B-GRAPH-FPS**:本机 `node tools/gen-benchmark-vault.mjs 1000` → Tauri 打开 vault → 观察 1k/5k 交互是否可接受。
 
+## 🟡 图谱 UX + Agent 图面(Phase 6 · 下一主线)
+
+> 规划全文:[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md);ID:[backlog §I](./backlog.md)。阶段名 **6A–6D**。
+
+- **缺口(人侧 6A)**:坐标**磁盘**持久(会话内暖启动已有);力参数不可调;无 hide-unresolved 一键;设置面板信息架构弱于参考产品。
+- **缺口(agent 侧 6B)**:MCP 无 `links`(dead/orphans/hubs…);read/write 无图 briefing / broken_links;UI 无 Orphans/Hubs 模式。v1 已有 **6** tools(含 `vault_info`)。
+- **难在哪**:
+  - 落盘必须与现有暖启动/top-K/结构签名 **同一坐标源**;git 策略默认 ignore(P6-7),防拖拽污染 log。
+  - graph-health 算法宜与 MCP/UI **共用纯函数**,避免三份分叉。
+  - 6C 引入 `EdgeKind::Semantic` 是 **core schema 变更**(非纯 UI)。
+  - inkeep 为 **GPL**:只借鉴工具语义,实现全自写。
+- **不做**:换 D3/Canvas2D 主引擎;默认向量库 RAG;拷 GPL 代码;Obsidian 插件兼容深化;文件夹路径替代 `status`。
+- **前置**:6A 可独立开工;6B 依赖 core graph 数据(已有),不强制等 6A 全部完成。
+
 ## ✅ ~~图谱右键菜单~~(已落地)
 
 - **已实现**(Phase 2 图谱重做):右键节点 → 自实现 `ContextMenu` 组件(轻量,非 Radix)→「聚焦 1 跳 / 复制 `[[wikilink]]` / 隐藏此类型」。hit-testing 复用左键跳转的坐标判定;空场区右键仍走顶部过滤面板。

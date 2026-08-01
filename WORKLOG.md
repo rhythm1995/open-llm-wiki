@@ -15,6 +15,44 @@
 
 ---
 
+### 2026-08-02 Grok — L1 客户端日志 LogBus 落地
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. `app/src-tauri/src/logging.rs`:profile dev/verbose/prod、NDJSON 日文件 + `.error.log`、prune 14 天、panic hook、stderr。
+  2. 命令:`log_write`/`log_get_dir`/`log_open_dir`/`log_set_profile`/`log_get_status`;`diag_log` 转 Error。
+  3. UI:`logger.ts`、`diag-log` 接 LogBus;Settings 诊断区(profile + 打开文件夹);i18n zh/en。
+  4. IPC 打点:index_vault / write_note / pick_vault。
+  5. 测试:logging 6 单测;logger + i18n vitest;typecheck 绿。
+- **用法**:`~/Library/Logs/dev.openobsidian.desktop/`(macOS);`OPENOBS_LOG_PROFILE=verbose`;设置→诊断。
+- **下一步**:L2 端口 + 导出 zip;更多 git 打点。
+
+### 2026-08-02 Grok — 调研:客户端日志/调试方案(doc 12)
+
+- **branch**: `feat/phase1-core`(文档)。
+- **做了**:新建 [docs/12-client-logging.md](docs/12-client-logging.md):现状 diag_log 仅 stderr;推荐 **LogBus 中间件**(Filter+Sink)+ 文件 NDJSON(AppLog 目录)+ 可选 TCP 端口;profile `dev/verbose/prod` 一键瘦身;用户导出 zip 供 agent 排查;分期 L1–L3;backlog **§J** 四 ID;docs/README 索引。
+- **下一步**:实现 B-LOG-BUS(L1) 即可让反馈问题可读客户端日志。
+
+### 2026-08-01 Grok — 审阅修订 docs/11(#1–#5 与次要项)
+
+- **branch**: `feat/phase1-core`(文档)。
+- **做了**:按交叉审阅修订 [11](docs/11-graph-and-agent-roadmap.md)+ [backlog §I](docs/backlog.md)+ [open-questions](docs/open-questions.md) P6-4/7/8 + 04/deferred:
+  1. 阶段名统一 **6A–6D**(消灭裸 A/B/C/D)。
+  2. 6A1 标明内存暖启动已有,本项=落盘+键+合流;**.openobsidian/** 为新约定; **P6-7 默认 gitignore** 布局文件。
+  3. 6C 写明 **EdgeKind::Semantic core 级联** + P6-8;洞察术语去 edge-bridge 混淆,难度 🔴。
+  4. 6A5 不绑 6B links;MCP 写全 **6 tools**;6B3 仅 MCP 契约 + 可选 B-ED-BROKEN-LINKS;6D `status` 唯一真相;6D2 🟢。
+- **下一步**:6A 实现;P6-7 若要团队共享布局再改默认。
+
+### 2026-08-01 Grok — 规划:图 polish → Agent(参考两项目 · 文档同步)
+
+- **branch**: `feat/phase1-core`(文档未要求 commit)。
+- **做了**:
+  1. 新建 **[docs/11-graph-and-agent-roadmap.md](docs/11-graph-and-agent-roadmap.md)**:Phase **6A 图 UX** → **6B 图健康+MCP** → **6D LLM wiki** → **6C 语义边(可选)**;验收/测试/红线;合成 varshithm7x(图手感)与 inkeep(agent/`links` 语义,GPL 零拷贝)。
+  2. 同步 **[backlog §I](docs/backlog.md)**(全部新 ID)、[06-roadmap Phase 6](docs/06-roadmap.md)、[04 F-GRAPH/F-AI](docs/04-features.md)、[deferred 图谱 UX+Agent](docs/deferred.md)、[open-questions P6-*](docs/open-questions.md)、[docs/README](docs/README.md)。
+  3. B-MCP 状态改为 🟡(v1 齐,图工具化在 6B)。
+- **理由 / 影响**:产品确认「先图后 agent」;agent 开工有单一规划源与 backlog ID。
+- **下一步 / 接手注意**:实现从 **6A**(B-GRAPH-POS-PERSIST / FORCES / SETTINGS-UI / HIDE-UNRESOLVED)或竖切 **6B-1 links** 开;勿引入 GPL 依赖;引擎保持 sigma。
+
 ### 2026-07-31 Grok — TDD 收口:QQL 差分 CI + WYSIWYG 插图 + 1k 布局冒烟
 
 - **branch**: `feat/phase1-core`(push)。

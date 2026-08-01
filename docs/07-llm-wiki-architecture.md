@@ -205,4 +205,5 @@ sequenceDiagram
 - 技术栈与仓库布局:[02-architecture](./02-architecture.md)
 - 数据模型(Vault/Note/frontmatter):[03-data-model](./03-data-model.md)
 - 功能矩阵:[04-features](./04-features.md) · TDD 策略:[05-tdd-strategy](./05-tdd-strategy.md)
-- 进度与延后:[06-roadmap](./06-roadmap.md) · [deferred](./deferred.md)
+- 进度与延后:[06-roadmap](./06-roadmap.md) · [deferred](./deferred.md) · [backlog](./backlog.md)
+- **下一阶段(图 → Agent · Health 工具化 · wiki 脚手架)**:[11-graph-and-agent-roadmap](./11-graph-and-agent-roadmap.md)

@@ -27,7 +27,7 @@
 |---|---|---|---|---|
 | B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 T/O 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
-| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | v1:`openobs-mcp` stdio JSON-RPC;list/read/write/search/qql |
+| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | 🟡 | v1 6 tools:`list_notes`/`read_note`/`write_note`/`search_notes`/`run_qql`/`vault_info` ✅;图工具化见 **§I-B** |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 轻量门禁:`blocknote-fidelity` 安全样例 + 风险清单 + wikilink/fm 往返测 |
 | B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ✅ | v1:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 走 TS |
 
@@ -80,6 +80,62 @@
 
 ---
 
+## I. 图谱打磨 → Agent（下一阶段主线 · Phase 6）
+
+> **产品拍板(2026-08-01)**:先优化图,再 AI agent。完整规格见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**。  
+> 概念参考:varshithm7x(图 UX,MIT) + inkeep OpenKnowledge(agent/`links` 语义,**GPL 仅概念零代码**)。  
+> 引擎保留 sigma WebGL + QQL + Rust core;顺序默认 **6A → 6B → 6D → 6C**。
+
+### I-A · 6A 传统图 polish（人侧）
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ⏳ | 内存暖启动**已有**;本项=序列化+path-stable+与暖启动合流;默认 gitignore(P6-7) |
+| B-GRAPH-FORCES | 力参数 + Recalculate | 🟡 | ⏳ | center/repel/link/distance;Reset 默认 |
+| B-GRAPH-SETTINGS-UI | 图设置分组面板 | 🟡 | ⏳ | Filters / Display / Text / Forces |
+| B-GRAPH-HIDE-UNRESOLVED | 隐藏悬空/phantom | 🟢 | ⏳ | ghost 边一键 hide |
+| B-GRAPH-PATH | 最短路径高亮 | 🟡 | ⏳ | 可选 BFS;不绑 6B links(更近 6C 路径可视化) |
+
+### I-B · 6B 图健康 + Agent 面
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-MCP-LINKS | MCP `links` 多 kind | 🔴 | ⏳ | backlinks/forward/dead/orphans/hubs/(suggest);可数组 audit |
+| B-MCP-READ-BRIEF | read 附带图上下文 | 🟡 | ⏳ | in/out 边 + orphan/hub 标志 |
+| B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ⏳ | 仅 MCP 契约;提示不阻断保存 |
+| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式 |
+| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ⏳ | Claude Desktop 等;非 skills 商店 |
+| B-ED-BROKEN-LINKS | App 写路径断链提示 | 🟢 | ⏳ | **可选**;非 6B3 默认;复用检测纯函数 |
+
+### I-C · 6C 语义发现（可选,后置）
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-GRAPH-SEMANTIC | 语义边管道 | 🔴 | ⏳ | **core EdgeKind 扩展级联**+embedding(P6-5);开前 schema 评审 |
+| B-GRAPH-SUGGEST-UI | 建议链接 Accept/Dismiss | 🟡 | ⏳ | 虚线 semantic 边 |
+| B-GRAPH-INSIGHTS | 跨社区枢纽 / 孤岛 | 🔴 | ⏳ | 非图论 edge-bridge;社区/介数量级,v1 可近似 |
+
+### I-D · 6D LLM Wiki 工作流
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-WIKI-STARTER | starter vault 脚手架 | 🟡 | ⏳ | 目录仅约定;`status` frontmatter 为唯一状态真相 |
+| B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ⏳ | 引擎已有;交付模板+文档 |
+| B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ⏳ | ingest/research/consolidate 文档 |
+
+---
+
+## J. 客户端日志与诊断（见 [12-client-logging.md](./12-client-logging.md)）
+
+> 现状:仅 `diag_log`→stderr。目标:文件落盘 + 可选端口 + profile 一键瘦身(prod 只 error/fatal),用户导出供排查。
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-LOG-BUS | LogBus + Filter + File/Stderr + panic hook | 🟡 | ✅ | L1:`logging.rs`;NDJSON;dev/verbose/prod;panic hook |
+| B-LOG-UI | 设置:profile / 打开日志目录 / 导出 zip | 🟡 | 🟡 | profile 切换+打开目录 ✅;导出 zip → L2 |
+| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ⏳ | 仅 127.0.0.1;生产默认 off |
+| B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | 🟡 | index_vault/write_note/pick_vault 已打;git 等可续 |
+
 ## F. 分发与工程
 
 | ID | 项 | 难度 | 状态 | 说明 |
@@ -116,18 +172,21 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~功能主路径 / 大件 v1 / 菜单搜索~~ ✅  
-2. **合 main** + AGENTS.md 叙事(人类)  
-3. 可选:WYSIWYG 插图 / 保真加深 / B-QQL-PARITY-CI  
-4. 真机:B-GRAPH-FPS;`node tools/gen-benchmark-vault.mjs`  
-5. 对外:签名/Updater 凭证  
+1. ~~功能主路径 / 大件 v1 / 菜单搜索 / QQL 差分 / 媒体~~ ✅  
+2. **§I · 6A** — 图 polish(坐标**落盘** atop 暖启动 / 力参数 / 设置面板 / hide unresolved)  
+3. **§I · 6B** — MCP `links` + 读写图反馈 + Orphans/Hubs UI(**agent 主刀**)  
+4. **§I · 6D** — LLM wiki 脚手架 + QQL Health 模板  
+5. **§I · 6C**(可选) — 语义边 / 建议链接(embedding + EdgeKind 评审后)  
+6. 工程并行:合 main · B-GRAPH-FPS 真机 · AGENTS.md 叙事(人类) · 签名/Updater  
+
+完整竖切与验收见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。
 
 ### 三项核实(2026-07-31)
 
 | 说法 | 是否成立 | 结论 |
 |---|---|---|
-| QQL TS↔Rust 差分 CI | **问题存在** | 无共享 golden 查询自动比对;TS `qql.test` 与 Rust `query`/`qql` 测试**各自**覆盖。防漂移=可选新开 B-QQL-PARITY-CI |
-| 04/06「最大缺口=编辑器菜单」 | **文案过时** | 已改:§C/§D/§H 已 ✅ |
+| QQL TS↔Rust 差分 CI | **已落地** | B-QQL-PARITY-CI ✅(`fixtures/qql-parity`) |
+| 04/06「最大缺口=编辑器菜单」 | **文案过时** | §C/§D/§H 已 ✅;下一主线=§I 图→agent |
 | 图谱 1k/5k 帧率 | **半成立** | 渲染/布局代码齐 + 生成器有;缺**测得的帧率数据**与 CI |
 
 ---
@@ -136,7 +195,8 @@
 
 | 文档 | 角色 |
 |---|---|
-| **本文 backlog.md** | 未做清单总表 |
+| **本文 backlog.md** | 未做清单总表(含 §I 图→agent ID) |
+| [**11-graph-and-agent-roadmap.md**](./11-graph-and-agent-roadmap.md) | **下一阶段主规划**(A→B→D→C) |
 | [deferred.md](./deferred.md) | 难点/前置/编辑器菜单诚实评估 |
 | [04-features.md](./04-features.md) | 功能规格与状态 |
 | [06-roadmap.md](./06-roadmap.md) | 阶段叙事 |

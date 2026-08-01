@@ -115,26 +115,42 @@ Tauri 2 外壳 + React 19:
 - ✅ **图谱视口剔除 + WebGL 主路径**:SVG 兜底;Worker FR / Barnes-Hut / LOD 已落地(见 deferred 真机帧率)。
 - ✅ **验证加固**:UI vitest + Playwright e2e;core cargo test;本地 `tauri build` 出未签名 dmg。
 
+### Phase 6 — 图谱打磨 → Agent 结合（当前主线 · 规划中）
+
+> **产品拍板(2026-08-01)**:先优化图,再把 AI agent 结合进去。  
+> **完整规划**:[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
+> **参考(概念 only)**:varshithm7x 图 UX(MIT);inkeep OpenKnowledge agent/`links` 语义(**GPL 禁止拷代码**)。  
+> **保留**:sigma WebGL · Worker FR/BH/LOD · QQL · Rust IO-free · MIT。
+
+| 子阶段 | 主题 | 关键 backlog | 状态 |
+|---|---|---|---|
+| **6A** | 传统图 polish(人) | B-GRAPH-POS-PERSIST / FORCES / SETTINGS-UI / HIDE-UNRESOLVED | ⏳ |
+| **6B** | 图健康 + MCP 工具化(agent) | B-MCP-LINKS / READ-BRIEF / WRITE-FEEDBACK / GRAPH-HEALTH-UI | ⏳ |
+| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ⏳ |
+| **6C** | 语义发现层(可选) | B-GRAPH-SEMANTIC / SUGGEST-UI / INSIGHTS | ⏳ 后置 |
+
+默认顺序:**6A → 6B → 6D → 6C**。真机帧率 B-GRAPH-FPS 可与 6A 并行。
+
 ### 后续能力与诚实取舍
 
-> **未做总表**:[backlog.md](./backlog.md)。难点拆解:[deferred.md](./deferred.md)。
+> **未做总表**:[backlog.md](./backlog.md)。难点拆解:[deferred.md](./deferred.md)。下一阶段细节:[11](./11-graph-and-agent-roadmap.md)。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化 = Phase 6B**。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
-| 编辑器双模 | 🟡 | §C 主路径 ✅;可选 WYSIWYG 插图 / 保真加深。 |
+| 编辑器双模 | 🟡 | §C 主路径 ✅;保真可选加深。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
-| 图谱 | ✅ | WebGL+多布局;真机帧率 B-GRAPH-FPS 仍开放。 |
-| 类型文档 / QQL 扩展 / QQL-TS | ✅ | §A + B-QQL-TS;可选 TS↔Rust 差分 CI。 |
+| 图谱 | 🟡 | WebGL+多布局 ✅;**6A/6B 体验与健康面** ⏳;B-GRAPH-FPS 🧪。 |
+| 类型文档 / QQL 扩展 / QQL-TS | ✅ | 差分 CI 亦 ✅。 |
 | Live 索引 + 三层搜索 | ✅ | |
 | 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑;合 main 待操作。 |
 
-**原则**:不塞空心 stub。下一优先:**合 main / 文档债** → 可选写作体验(WYSIWYG 图) → 真机帧率/签名。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。下一优先:**Phase 6A 图 polish** → **6B agent 图面** → 6D wiki → 可选 6C 语义。工程并行:合 main / 真机帧率 / 签名。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

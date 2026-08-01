@@ -26,8 +26,12 @@
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。
   - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
+- **下一阶段(Phase 6A/6B,见 [11](./11-graph-and-agent-roadmap.md))** ⏳:
+  - 坐标持久化 · 可调力参数 · 设置分组面板 · 隐藏悬空边。
+  - 图健康 UI(Orphans / Hubs);MCP `links` + 读/写图反馈(agent)。
+  - 可选:语义建议边(6C);最短路径高亮。
 
-> UI 蓝本参考 Tolaria 关系渲染与 Obsidian graph 的交互心智,实现独立编写。未做项见 [backlog](./backlog.md)。
+> UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考项目的**产品语义**(varshithm7x 图 UX;inkeep agent 图工具面——GPL 仅概念)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
 ### F-QUERY 实时聚合查询 [P0] ✅ 已落地
 
@@ -83,7 +87,7 @@
 | F-THEMES | 主题 | P2 | ✅ | 深/浅;Settings 面板 ✅。 |
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
-| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 stdio ✅(`openobs-mcp`)。 |
+| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([11](./11-graph-and-agent-roadmap.md))。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
