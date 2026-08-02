@@ -37,20 +37,20 @@ Tauri 2 外壳 + React 19:
 - ✅ mock-tauri 浏览器层(`ui/src/lib/mock.ts`),`pnpm --dir ui dev` 即开即用。
 - 评估:BlockNote 所见即所得编辑器延后到 v2(纯 Markdown round-trip 更稳、体积更小;见 [open-questions](./open-questions.md))。
 
-### Phase 3 — 图谱(差异化 #1)✅(本次完成)
+### Phase 3 — 图谱(差异化 #1)✅(演进至 Cytoscape)
 
-- ✅ F-GRAPH:**纯 SVG 力导向**(无 d3/react-force-graph 依赖,独立编写 Fruchterman–Reingold)。
-- 节点按软类型着色、按连接度变大小;wiki/relation 边区分;悬空链接短桩;当前节点高亮;点击跳转。
-- ✅ **过滤面板**(核心竞争力):按 type / tag / relation 显隐、隐藏孤儿、聚焦当前笔记 N 跳邻域(纯逻辑 `graph-filter.ts`,已测)。
-- ✅ **平移缩放**:滚轮缩放(以光标为中心)、拖拽平移、按钮缩放/重置。
-- ✅ 大图路径:WebGL + Worker + Barnes-Hut + LOD + 标签避让;真机 1k/5k 帧率仍开放(B-GRAPH-FPS,`tools/gen-benchmark-vault.mjs`)。
+- ✅ F-GRAPH 主路径落地并**多次换栈**(历史:SVG/自研 FR → sigma WebGL → **Cytoscape.js + cose**,2026-08)。
+- 节点按软类型/簇着色、按连接度变大小;wiki/relation 边区分;悬空链接 ghost;当前节点高亮;点击跳转。
+- ✅ **过滤面板**:type / tag / relation / status / 孤儿 / unresolved / N 跳邻域(`graph-filter.ts`)。
+- ✅ **平移缩放** / 框选 / pin / 右键 / 力参数 / 坐标落盘。
+- ✅ 大图 **top-K** 截断;真机 1k/5k 帧率验收仍开放(B-GRAPH-FPS,`tools/gen-benchmark-vault.mjs`)。
 
 ### Phase 4 — 实时聚合(差异化 #2)✅(本次完成)
 
-- ✅ F-QUERY:**QQL 文本查询面板**(`WHERE … SORT … SHOW … RENDER …`),core `qql::parse + query::eval` 求值,结果按 List/Table/Count/Groups/Sum 形态渲染、点击跳转。
+- ✅ F-QUERY 引擎:core `qql::parse + query::eval` 求值。🔴 **用户面(文本查询面板 / List·Table·Count·Groups·Sum 渲染 / 点击跳转)已删 2026-08-02**,待 6B 用 NL 重建(见 [04](./04-features.md) F-QUERY)。
 - ✅ 统一字段模型 + 比较运算符(`==/!=/>/>=/</<=`)+ `.len()` 度数访问器 + 聚合渲染(`count/list/group_by(field)/sum(field)`)+ `AS` 列别名。
 - ✅ qql 文本解析层(Phase 1 只建了求值器,本轮按"DQL 风格语法"补全文本层)。
-- ✅ 内联 ```qql + saved query 面板(见后续 Phase)。
+- 🔴 ~~内联 ```qql + saved query 面板~~ 已删 2026-08-02(QQL 用户面)。
 
 ### Phase 5 — v1 收口(基本完成)
 
@@ -60,7 +60,7 @@ Tauri 2 外壳 + React 19:
 - ✅ F-TABS(多标签编辑器:纯 `tabReduce` 状态机 open/close/activate/closeOthers/closeAll/reorder,已测)。
 - ✅ F-WIKILINK 完整三件套:解析 + 反向链接 + **Cmd/Ctrl 点击 `[[link]]` 跳转** + **`[[` 自动补全**(纯逻辑 `wikilink.ts`,已测)。
 - ✅ F-FILETREE:折叠树 + 新建 + 重命名 + 删除。
-- ✅ 打包与分发 **CI 骨架**:`tauri.conf.json` bundle 配置完整;本地 `tauri build` 已出 `.app`/`.dmg`(运行时 diag_log 0 webview 报错);`.github/workflows/ci.yml`(测试)+ `release.yml`(tag/手动 → macOS/Linux/Windows 矩阵起草 Release)。默认未签名,配 secret 即签名/公证/Updater(详见 [deferred](./deferred.md)「打包与分发」)。
+- ✅ 打包与分发 **CI 骨架**:`tauri.conf.json` bundle 配置完整;本地 `tauri build` 已出 `.app`/`.dmg`(运行时 diag_log 0 webview 报错);`.github/workflows/ci.yml`(测试)+ `release.yml`(tag/手动 → macOS/Linux/Windows 矩阵起草 Release)。默认未签名,配 secret 即签名/公证/Updater(详见 [backlog](./backlog.md) §F / [plan](./plan.md))。
 - **v1 尚未发布;MVP 可运行(可出安装包,签名/公证待用户凭证)。**
 
 ### Phase 5+ — v2 增量(本次会话,v1 范围之外)✅
@@ -111,8 +111,8 @@ Tauri 2 外壳 + React 19:
 清掉原列在打磨项里的三件中小件,均循 TDD(纯逻辑先行 + 单测):
 
 - ✅ **标签循环快捷键**:`tabReduce` 加 `cycle` 动作(环回到首/尾)+ 6 单测;`store.cycleTab(dir)` 切换并读盘;App 全局 keydown 挂 Ctrl+Tab / Ctrl+Shift+Tab / ⌘/Ctrl+Shift+[ ] / ⌘/Ctrl+PageUp/Down。浏览器 dev 抢占 Ctrl+Tab(已知),桌面 webview 可用。
-- ✅ **内联 ```qql 查询块渲染**:正文 ```qql 块在编辑器内实时求值;阅读视图同路径。**mock/dev**:`run_qql` 走 QQL-TS 全量求值器;桌面走 Rust core。
-- ✅ **图谱视口剔除 + WebGL 主路径**:SVG 兜底;Worker FR / Barnes-Hut / LOD 已落地(见 deferred 真机帧率)。
+- 🔴 ~~**内联 ```qql 查询块渲染**~~ 已删 2026-08-02(`qql-widget`/`qql-block`/`saved-query` 全清;引擎 `run_qql` + Rust core 保留)。
+- ✅ **图谱渲染栈现为 Cytoscape**(见 Phase 3 / F-GRAPH);sigma/Worker/LOD 路径已退役。
 - ✅ **验证加固**:UI vitest + Playwright e2e;core cargo test;本地 `tauri build` 出未签名 dmg。
 
 ### Phase 6 — 图谱打磨 → Agent 结合（当前主线 · 规划中）
@@ -120,7 +120,7 @@ Tauri 2 外壳 + React 19:
 > **产品拍板(2026-08-01)**:先优化图,再把 AI agent 结合进去。  
 > **完整规划**:[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
 > **参考(概念 only)**:varshithm7x 图 UX(MIT);inkeep OpenKnowledge agent/`links` 语义(**GPL 禁止拷代码**)。  
-> **保留**:sigma WebGL · Worker FR/BH/LOD · QQL · Rust IO-free · MIT。
+> **保留**:Cytoscape 图主路径 · graph-* 纯逻辑 · QQL 作 IR/MCP · Rust IO-free · MIT。
 
 | 子阶段 | 主题 | 关键 backlog | 状态 |
 |---|---|---|---|
@@ -133,7 +133,7 @@ Tauri 2 外壳 + React 19:
 
 ### 后续能力与诚实取舍
 
-> **未做总表**:[backlog.md](./backlog.md)。难点拆解:[deferred.md](./deferred.md)。下一阶段细节:[11](./11-graph-and-agent-roadmap.md)。
+> **未做总表**:[backlog.md](./backlog.md)。**计划**:[plan.md](./plan.md)。**已做索引**:[FEATURE-INDEX.md](./FEATURE-INDEX.md)。下一阶段细节:[11](./11-graph-and-agent-roadmap.md)。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
@@ -143,9 +143,9 @@ Tauri 2 外壳 + React 19:
 | F-CANVAS | ✅ | Excalidraw MIT。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
-| 编辑器双模 | 🟡 | §C 主路径 ✅;保真可选加深。 |
+| 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
-| 图谱 | 🟡 | WebGL+多布局 ✅;**6A/6B 体验与健康面** ⏳;B-GRAPH-FPS 🧪。 |
+| 图谱 | 🟡 | Cytoscape+多布局 ✅;**6A/6B 体验与健康面** 部分;B-GRAPH-FPS 🧪。 |
 | 类型文档 / QQL 扩展 / QQL-TS | ✅ | 差分 CI 亦 ✅。 |
 | Live 索引 + 三层搜索 | ✅ | |
 | 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑;合 main 待操作。 |

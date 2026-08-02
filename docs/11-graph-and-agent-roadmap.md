@@ -12,7 +12,7 @@
 > **我们的最优解**（合成两条参考线 + 自有内核）:
 >
 > ```text
-> 保留: sigma WebGL + Worker FR/BH/LOD + graph-filter + 多布局 + QQL + MIT + Rust IO-free core
+> 保留: Cytoscape.js 渲染 + cose/preset 布局 + graph-filter/health/modes + QQL(IR/MCP) + MIT + Rust IO-free core
 > 6A: 图可调 / 可记住 / 可审计入口（人）
 > 6B: 图健康 + MCP 图工具化（agent）
 > 6D: LLM wiki 脚手架 + QQL Health 看板
@@ -40,10 +40,11 @@
 
 > **NL→QQL(6B 重点,2026-08-02 定)**:QQL 的**用户面已删**(见 [04](./04-features.md) F-QUERY),引擎 + `run_qql` 保留作 agent 编译目标。6B 交付**自然语言查询表面**:NL → agent 生成**可审查** QQL → `run_qql`;用户可编辑、可存为查询。QQL 长期定位 = IR,不直接面向用户。**外部 agent 现在就能经 MCP `run_qql` 跑 NL→QQL 验证**(零 UI 成本),建议 6B 开工前先用它确认生成质量。
 
-**架构红线不变**:
+**架构红线（2026-08 修订）**:
 
 - `core` 纯函数、无 IO；图算法 / QQL 可测。
-- 渲染主路径继续 **sigma WebGL**（不回退 Canvas2D 作主引擎）。
+- 渲染主路径为 **Cytoscape.js**（懒加载 `CytoscapeLayer`）+ **cose** 力导向 / preset 多布局——**不再**以 sigma WebGL 或自研 FR Worker 为主路径（历史路径已退役）。
+- 数据与交互逻辑继续在 `graph-filter` / `graph-model` / `graph-health` / `graph-modes` 等纯函数层，渲染器可替换。
 - GPL 项目只借鉴 **工具面与工作流语义**；实现自写。
 - 不做：xlsx 全量、live collab、Obsidian 插件兼容深化、默认向量库 RAG。
 
@@ -291,7 +292,8 @@ log.md            # append-only
 | [06-roadmap.md](./06-roadmap.md) | Phase 6 叙事 |
 | [04-features.md](./04-features.md) | F-GRAPH / F-AI |
 | [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层；6D 对齐 status 真相 |
-| [deferred.md](./deferred.md) | 难点与不做项 |
+| [plan.md](./plan.md) | 未完成计划 |
+| [FEATURE-INDEX.md](./FEATURE-INDEX.md) | 已落地功能索引 |
 | [open-questions.md](./open-questions.md) | P6-4 路径 · **P6-7 git** · P6-5 embedding · **P6-8 schema 评审** |
 
 ---
@@ -299,7 +301,8 @@ log.md            # append-only
 ## 9. 明确不做（本路线内）
 
 - 引入 GPL 代码或 `@inkeep/*` 依赖  
-- 替换图谱引擎为 D3 / react-force-graph 主路径  
+- **回退**到 sigma/graphology WebGL 或自研 FR Worker 主路径（除非 Cytoscape 证明不可接受后再开专项评审）  
+- 以 **react-force-graph-2d** / 自研 FR Worker 作生产主路径（过渡层已删）  
 - 默认云端向量库 / Spaces / Supabase  
 - Obsidian 插件 API 兼容深化  
 - 实时多人 CRDT 协作  
@@ -315,3 +318,4 @@ log.md            # append-only
 |---|---|
 | 2026-08-01 | 初版：合成 varshithm7x 图 UX + inkeep agent 面；先图后 agent |
 | 2026-08-01 | **审阅修订**:统一 6A–6D 命名；A1=落盘 atop 暖启动；P6-7 gitignore 默认；6C EdgeKind 级联与术语；6A5 不绑 links；MCP 6 tools；6B3 仅 MCP；6D status 唯一真相；6D2 🟢 |
+| 2026-08-02 | **图栈翻案**:主路径 **Cytoscape + cose**；废止「保留 sigma WebGL」旧口径 |

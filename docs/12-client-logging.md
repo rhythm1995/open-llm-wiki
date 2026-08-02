@@ -218,7 +218,7 @@ installConsoleForwarder()
 |---|---|---|
 | 打开 vault / 索引 | `ipc.index_vault` | info + 耗时 fields |
 | 写笔记 / 冲突 | `ipc.write_note` | info / error |
-| 图布局 / WebGL 回退 | `ui.graph` | debug |
+| 图布局 / Cytoscape 交互 | `ui.graph` | debug |
 | QQL 失败 | `qql` | warn/error |
 | git 子进程 | `git` | info 命令名；error 带 exit |
 | MCP（若同机） | `mcp` | 独立文件或同 bus |
@@ -305,9 +305,9 @@ Agent 排查时：**优先 `*.error.log` + 对应 session 前后 2 分钟的 inf
 ### Phase L2 — 开发体验
 
 - [ ] PortSink + `OPENOBS_LOG_PORT`  
-- [ ] `log_export_zip`  
-- [ ] 设置页 profile 三档 + 「下次启动前保持 verbose」  
-- [ ] 关键 IPC 路径 info 打点（index / write / open vault）  
+- [x] `log_export_bundle`（合并近期 `.log` → 单 txt；设置页「导出诊断日志」）  
+- [x] 设置页 profile 三档（进程内热切换）  
+- [x] 关键 IPC 路径 info 打点（index / write / open vault）  
 
 ### Phase L3 — 打磨
 

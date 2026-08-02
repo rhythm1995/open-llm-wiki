@@ -9,7 +9,7 @@
 |---|---|---|---|
 | Q1 | 项目正式名 | ✅【已定】OpenObsidian | 正式名定为 OpenObsidian。 |
 | Q2 | YAML 解析库 | ✅【默认已落地】`serde_yaml 0.9.34` | 已确认编译/运行通过。维护模式但稳定;想换活跃分支 `serde_yml` 可一行替换(仅 `parse_frontmatter` 一处)。 |
-| Q3 | 编辑器 | ✅【已升级】CodeMirror + BlockNote 双模 | 源码 + WYSIWYG 读写同一 `.md`;round-trip 保真见 deferred。 |
+| Q3 | 编辑器 | ✅【已升级】CodeMirror + BlockNote 双模 | 源码 + WYSIWYG 读写同一 `.md`;保真见 FEATURE-INDEX / plan §Editor。 |
 | Q4 | UI 组件库 | ✅【MVP 默认】Tailwind 4 + Radix + Phosphor + shadcn(cva/clsx/tw-merge) | MVP 不引入 Mantine(避免与 Tailwind 的 reset/provider 冲突);Mantine 的 Combobox 等可在 v2 按需引入。 |
 | Q5 | Tauri 版本 | 【默认】Tauri 2.x | 最新稳定,对齐 Tolaria。 |
 | Q6 | 包管理器 | 【默认】pnpm | 对齐 Tolaria。 |
@@ -18,7 +18,7 @@
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
-| P1 | 图谱默认布局 | ✅【已定】力导向 + WebGL/Worker/BH/LOD 为默认 | **另做** type 分层 + 时间轴(B-GRAPH-LAYER/TIME),可切换;不再「v2 再议跳过」。 |
+| P1 | 图谱默认布局 | ✅【已定】力导向(**cose**,Cytoscape)为默认 | type 分层 + 时间轴可切换(B-GRAPH-LAYER/TIME)。 |
 | P2 | QQL 语法 | ✅【已定】DQL 风格基线 | 基线已落地;继续扩展常用子集(B-QQL-EXPAND),不追求 Dataview 逐字全兼容。 |
 | P3 | 是否支持 cairn 协议原生 | 【默认】是 | 识别 Source/Summary/Entity/Concept + 关系键。 |
 | P4 | 类型文档 | ✅【已定要做】仅 UI 提示 | **做**(B-TYPE-DOC):关联说明笔记/字段提示;**永不** schema 校验或阻止保存(防 Tolaria 式绑人)。原「v1 不做」作废。 |
@@ -42,7 +42,7 @@
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
 | P6-1 | 下一阶段顺序 | ✅【已定】先图 polish(6A)→ agent 图面(6B)→ wiki(6D)→ 可选语义(6C) | 2026-08-01 产品确认。文档阶段名统一 **6A–6D**(非裸 A/B/C/D)。 |
-| P6-2 | 图谱引擎 | ✅【已定】继续 sigma WebGL 主路径 | 不换成 D3/Canvas2D;`react-force-graph` 不作主引擎。 |
+| P6-2 | 图谱引擎 | ✅【已定 · 2026-08 翻案】**Cytoscape.js** 主路径 + cose/preset | 废止 sigma;过渡 `GraphForceLayer`/rfg/d3-force 已删(2026-08-02)。 |
 | P6-3 | 参考项目代码 | ✅【已定】仅概念;GPL(inkeep)零拷贝;MIT(varshithm7x)亦不整文件移植 | clean-room + MIT 红线。 |
 | P6-4 | 布局坐标落盘**位置** | 【默认】vault 内 **`.openobsidian/graph-layout.json`** | **新约定**:本库此前无统一 per-vault 配置目录;6A1 建立之。localStorage 仅无 vault/mock 回退。内存跨帧暖启动**已有**,本项仅加磁盘层。 |
 | P6-7 | 布局文件是否进 git / 自动提交 | 【默认】**gitignore 布局文件**;写盘**不**走结构自动 commit | 与「结构自动 + 正文手动」策略对齐:频繁拖拽/reheat 若 auto-commit 会污染 log。用户可手动 un-ignore 以共享布局。若要「团队共享默认布局」可再改为 tracked + 仅 pin/导出时提交——开 6A1 前可改默认。 |

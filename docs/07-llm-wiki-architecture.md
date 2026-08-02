@@ -47,13 +47,13 @@ flowchart TD
   IPC{{"🔌 Tauri IPC 边界<br/>invoke() ↔ #[command]<br/>(浏览器 dev 走 mock 分支)"}}
 
   subgraph TS["🟦 前端纯逻辑 · TypeScript(vitest · 可脱离 Tauri 测)"]
-    LIB["store · tabs · graph-model · graph-layout · graph-filter · graph-lod<br/>qql-block · wikilink · frontmatter · nav-filter · vault-watch<br/>render · git-parse · saved-query · i18n · theme"]
+    LIB["store · tabs · graph-model · graph-layout · graph-filter · graph-health<br/>wikilink · frontmatter · nav-filter · vault-watch<br/>render · git-parse · i18n · theme"]
   end
 
   subgraph REACT["🎨 React 19 + Tailwind v4(组件)"]
     direction LR
     ED["Editor(CodeMirror 6 + FindBar)<br/>WysiwygView(BlockNote) · CanvasView(Excalidraw)"]
-    GR["GraphView(WebGL sigma + Worker 布局 / SVG 回退)<br/>QueryPanel · qql-widget(内联 ```qql)"]
+    GR["GraphView + CytoscapeLayer<br/>(cose / preset 多布局)"]
     NAV["Nav · NoteListView · ArchiveView<br/>Inspector · GitPanel · CommandPalette"]
   end
 
@@ -110,7 +110,7 @@ LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Op
 | **Raw** | 不可变原始源 | 笔记的 `type: Source`;不可变语义由 **git 版本真相**保证(re-ingest 产新 Summary,旧版可还原) | `type: Source` · `git_restore_note` · ArchiveView |
 | **Wiki** | LLM 生成的派生知识 | `Summary` / `Entity` / `Concept` 软类型 + 关系边(`derived_into` / `mentioned_in` / `contradicts`) | `type: Summary\|Entity\|Concept` · Inspector 关系编辑 · GraphView |
 | **Schema** | 类型与关系的契约 | `core::index` 解析 `type:`/frontmatter;`Type` 文档定义软类型;`AGENTS.md` 作 schema 提示(兼容 cairn) | `type_of()` · `relationship_links()` · Type 文档 · AGENTS.md |
-| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(关系可视化)+ **QQL**(聚合导航)+ **⌘F/⌘P/⌘K**+ Nav 智能视图(VIEWS/TYPES/TAGS/FOLDERS) | GraphView · QueryPanel/qql-widget · FindBar · CommandPalette · `index_vault` |
+| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(Cytoscape)+ **QQL IR**(MCP `run_qql`,用户面 UI 已撤)+ **⌘F/⌘P/⌘K**+ Nav 智能视图 | GraphView/CytoscapeLayer · FindBar · CommandPalette · `index_vault` |
 | **Health** | 度量与反馈环 | **用 QQL 实时算**,而非手写 wiki-health 快照 —— 见下文「Health 即查询」 | `run_qql` + saved `type: Query` 笔记 |
 
 ### Health 即查询(核心洞察)
@@ -167,7 +167,7 @@ sequenceDiagram
   IPC->>App: 转发
   App->>Core: VaultIndex.query(q) / .search(terms)
   Core-->>App: ResultSet / SearchHit[]
-  App-->>UI: 渲染结果(QueryPanel / qql-widget / ⌘F FindBar)
+  App-->>UI: 渲染结果(GraphView / ⌘F FindBar / MCP 侧 agent 消费 ResultSet)
 ```
 
 ---
@@ -179,10 +179,11 @@ sequenceDiagram
 | 维度 | 02 初版设计 | 实际落地 | 原因 / 记录 |
 |---|---|---|---|
 | 编辑器 | BlockNote(主)+ CodeMirror(raw) | **CodeMirror 源码 + BlockNote WYSIWYG** 双模,同一 `.md` | WYSIWYG 落地;源码仍为 round-trip 逃生舱 |
-| 图谱 | react-force-graph-2d(WebGL) | **sigma WebGL + Worker FR + LOD**(小图 SVG 回退) | 见 deferred;path-stable model |
+| 图谱 | react-force-graph-2d → sigma WebGL | **Cytoscape.js + cose/preset**(懒加载层) | 2026-08 再迁;path-stable `graph-model`;见 deferred |
 | UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 + 少量 Radix** | 降依赖体积 |
 | Canvas | — | **Excalidraw(MIT)** 懒加载 | 已替换 tldraw;默认纯 MIT 分发 |
 | 索引 | 每次全量 WalkDir | **LiveVault 路径级 delta** + force 自愈 | open 一次全量;写/watcher 增量 |
+| QQL 用户面 | 内联块 + QueryPanel | **已撤**;仅 core + MCP `run_qql`(IR) | 见 04 F-QUERY |
 
 > 原则没变:依赖只选成熟 + MIT/Apache(或 MPL 弱 copyleft);画布不再引入 source-available 生产限制。
 
@@ -191,7 +192,7 @@ sequenceDiagram
 ## 6. 设计原则(为什么这样切)
 
 1. **纯逻辑 IO-free 内核** —— `core` 不碰 FS/git/网络/时间;单测全在纯函数上。所有副作用挤到 `app` 层。
-2. **前端对称的纯逻辑层** —— `ui/src/lib/` 放 tabs/graph-layout/qql-block/wikilink/vault-watch…;IO 薄壳在 `ipc.ts`。
+2. **前端对称的纯逻辑层** —— `ui/src/lib/` 放 tabs/graph-*/wikilink/vault-watch…;IO 薄壳在 `ipc.ts`。
 3. **文件即真相 + git 唯一版本源** —— 删除/还原全走 git;结构操作自动提交、正文手动提交。
 4. **软类型,不靠文件夹** —— `type:` + wikilink + 关系键;文件夹不承载语义。
 5. **画布 MIT** —— Excalidraw 懒加载隔离;旧 tldraw 文件只读兼容。
@@ -205,5 +206,5 @@ sequenceDiagram
 - 技术栈与仓库布局:[02-architecture](./02-architecture.md)
 - 数据模型(Vault/Note/frontmatter):[03-data-model](./03-data-model.md)
 - 功能矩阵:[04-features](./04-features.md) · TDD 策略:[05-tdd-strategy](./05-tdd-strategy.md)
-- 进度与延后:[06-roadmap](./06-roadmap.md) · [deferred](./deferred.md) · [backlog](./backlog.md)
+- 进度:[06-roadmap](./06-roadmap.md) · [plan](./plan.md) · [backlog](./backlog.md) · [FEATURE-INDEX](./FEATURE-INDEX.md)
 - **下一阶段(图 → Agent · Health 工具化 · wiki 脚手架)**:[11-graph-and-agent-roadmap](./11-graph-and-agent-roadmap.md)

@@ -11,27 +11,24 @@
 
 ## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
 
-### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局)
+### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局 · Cytoscape)
 
-**一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的力导向图。
+**一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的关系图。
 
 - **数据来源**:`core::graph` 产出的统一关系图(正文 wikilink + frontmatter 关系,见 [03-data-model](./03-data-model.md))。
-- **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接画虚边 / WebGL ghost 桩。
-- **渲染**:**sigma.js WebGL**(graphology)+ **Worker** FR(`graph-layout.ts`);n≥280 自动 **Barnes-Hut** O(n log n)。无 WebGL → SVG。top-K(~2000 WebGL / ~400 SVG);低缩放 **LOD** 网格簇 + 簇间边 + 点簇飞入展开。**标签避让**(`graph-label.ts`);**增量迭代预算**(`graph-layout-budget.ts`)。拖拽/框选/pin/邻域压暗双路径。纯逻辑可单测。
-- **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停预览、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
-- **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 文本 query 高亮 / 深度 hops。
-- **实时**:LiveVault 路径级 delta + watcher;`structureSignature` gate 布局;位置 Map 跨帧持久 + 暖启动。
+- **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接为 ghost/unresolved 桩。
+- **渲染**:**Cytoscape.js**(懒加载 `CytoscapeLayer`)。力导向模式用内置 **cose** 布局;type 层 / 时间轴为 **preset** 坐标(`graph-modes`)。样式/簇色/环态在 `graph-style` / `graph-cluster`(纯逻辑可测)。大图 **top-K 按度数截断**(约 2000)。**已退役**:sigma/graphology WebGL、Worker FR、Barnes-Hut、LOD 网格簇、SVG 主路径。
+- **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停邻域高亮、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
+- **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 隐藏 unresolved / 文本 query / 深度 hops。
+- **实时**:LiveVault 路径级 delta + watcher;`structureSignature` 结构 gate;坐标可落盘(`.openobsidian/graph-layout.json`,默认 gitignore)。
 - **布局**:
-  - ✅ 力导向(默认,FR + Barnes-Hut)。
+  - ✅ 力导向(默认,cose + 力参数滑条)。
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。
   - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
-- **下一阶段(Phase 6A/6B,见 [11](./11-graph-and-agent-roadmap.md))** ⏳:
-  - 坐标持久化 · 可调力参数 · 设置分组面板 · 隐藏悬空边。
-  - 图健康 UI(Orphans / Hubs);MCP `links` + 读/写图反馈(agent)。
-  - 可选:语义建议边(6C);最短路径高亮。
+- **健康面(部分,见 [11](./11-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
 
-> UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考项目的**产品语义**(varshithm7x 图 UX;inkeep agent 图工具面——GPL 仅概念)。实现独立编写。总表 [backlog §I](./backlog.md)。
+> UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
 ### F-QUERY 聚合查询引擎 [P0] 🔄 引擎保留 / 用户面已删(2026-08-02)
 
@@ -67,7 +64,7 @@
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|
-| F-EDITOR | 编辑器 | P0 | 🟡 | 双模+格式条/右键/qql/保真门禁 ✅;source 附件+并排阅读 ✅([08](./08-media-and-split-preview.md));可选:WYSIWYG 插图、保真加深。 |
+| F-EDITOR | 编辑器 | P0 | ✅ | 双模+格式条/右键/查找替换/大纲/附件/并排 ✅;WYSIWYG 格式条+断链提示 ✅;保真双层门禁(app+真 BN 引擎)+ 23 例往返扫描 ✅。后置:Live Preview、raw HTML(表+行内)保真、GFM 字节身份([plan §Editor](./plan.md))。 |
 | F-VAULT | vault 管理 | P0 | ✅ | 打开/切换;LiveVault 增量索引。 |
 | F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | 解析、补全、点击跳转;反向链接实时。 |
 | F-FILETREE | 文件浏览 | P0 | ✅ | Nav+列表+拖拽+右键。 |
@@ -90,14 +87,14 @@
 
 ## 范围说明
 
-**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(含多布局+WebGL) / **QQL**(Rust+TS) / 类型文档 / git / 画布 / 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
+**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(Cytoscape + 多布局) / **QQL IR**(Rust + MCP,用户面 UI 已撤) / 类型文档 / git / 画布 / 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
 
 **原 v1 边界 §A** ✅ · **§C 编辑器 / §D 菜单 / §H 命令搜索** ✅ · **大件 v1** ✅(插件深化 ⛔)。
 
 **当前仍开放 / 值得做**(非「功能空白」):
 
 1. **合 main / AGENTS.md 叙事**(流程与人类文档)  
-2. **写作体验可选**:WYSIWYG 插图、BlockNote 保真加深  
+2. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)
 3. **真机**:图谱 1k/5k 帧率(B-GRAPH-FPS);签名/Updater 凭证门  
 4. **可选硬化**:QQL TS↔Rust 同批差分 CI(目前两边各自有单测,无共享 fixture CI)  
 

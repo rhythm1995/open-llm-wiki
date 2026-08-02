@@ -20,7 +20,7 @@ OpenObsidian 的论点:**把 Tolaria 的"有主张的文件优先"骨架,与 Obs
 | 维度 | Obsidian | Tolaria | **OpenObsidian** |
 |---|---|---|---|
 | 文件格式 | 纯 md + frontmatter | 纯 md + frontmatter | 纯 md + frontmatter(三者互通) |
-| 图谱可视化 | 有,偏弱 | 无 | **一等公民**,sigma WebGL + Worker/Barnes-Hut + LOD(无 GL 则 SVG) |
+| 图谱可视化 | 有,偏弱 | 无 | **一等公民**,Cytoscape.js + cose 力导向 + 多布局(type 层/时间轴);过滤/健康/落盘 |
 | 实时聚合 | 靠 Dataview 插件 | 无(只能筛不能算) | **一等公民**,内置查询引擎(Rust,快) |
 | 类型系统 | 几乎无 | 强约定、有主张 | **软约定**:可选、可忽略、永不绑人 |
 | 同步 | 专有 Sync(付费) | Git 一等公民 | **Git 一等公民** |

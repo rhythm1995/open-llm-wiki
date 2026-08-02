@@ -1,11 +1,12 @@
 # 未完成清单(Backlog)
 
 > **单一事实来源**:「还没做 / 还要做」看本文。  
-> 难点拆解与前置细节仍在 [deferred.md](./deferred.md);路线图阶段叙事在 [06-roadmap.md](./06-roadmap.md)。  
+> 实施切片见 [plan.md](./plan.md);已做功能索引见 [FEATURE-INDEX.md](./FEATURE-INDEX.md);路线图叙事见 [06-roadmap.md](./06-roadmap.md)。  
 > 状态:⏳ 未做 · 🟡 部分 · ✅ 已做 · 🧪 真机验收 · 🔑 凭证门  
 > 难度:🟢 易 · 🟡 中 · 🔴 硬
 
-**边界变更(2026-07-30)**:原「v1 刻意不做」三项改为正式交付目标并已落地(§A ✅)。软类型原则不变:`type` 永不强制校验、永不阻止保存。
+**边界变更(2026-07-30)**:原「v1 刻意不做」三项改为正式交付目标并已落地(§A ✅)。软类型原则不变:`type` 永不强制校验、永不阻止保存。  
+**优先级(2026-08-02)**:图 / Agent(§I)降优;主线 **§C 编辑器** + 非图杂项。切片见 [plan.md](./plan.md)。
 
 ---
 
@@ -17,7 +18,7 @@
 | B-GRAPH-LAYER | 图谱按 type 分层 | ✅ | `graph-modes.layoutByTypeLayer` |
 | B-GRAPH-TIME | 图谱时间轴 | ✅ | `layoutByTimeline`(created/modified) |
 | B-GRAPH-LAYOUT-UI | 布局切换 UI | ✅ | GraphView 右上角 select |
-| B-QQL-EXPAND | QQL 常用子集扩展 | ✅ | `CONTAINS`/`STARTSWITH`/`ENDSWITH`/`IN`;mock-qql 同步 |
+| B-QQL-EXPAND | QQL 常用子集扩展 | ✅ | `CONTAINS`/`STARTSWITH`/`ENDSWITH`/`IN` 在 Rust core;~~mock-qql 同步~~ 🗑️ 已删(2026-08-02 随 QQL 用户面) |
 
 ---
 
@@ -28,8 +29,8 @@
 | B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 T/O 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
 | B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | 🟡 | v1 6 tools:`list_notes`/`read_note`/`write_note`/`search_notes`/`run_qql`/`vault_info` ✅;图工具化见 **§I-B** |
-| B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 轻量门禁:`blocknote-fidelity` 安全样例 + 风险清单 + wikilink/fm 往返测 |
-| B-QQL-TS | **QQL 求值器移植到 TS** | 🔴 | ✅ | v1:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 走 TS |
+| B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 安全样例表 + app 层 wikilink/fm;与 DEEP 共用 `safeFixtureHolds` |
+| B-QQL-TS | ~~**QQL 求值器移植到 TS**~~ | 🔴 | 🗑️ 已删 | 2026-08-02 随 QQL 用户面删除:`ui/src/lib/qql/*` + `mock-qql` 全清。引擎仅留 Rust core + MCP `run_qql`(见 [04](./04-features.md) F-QUERY) |
 
 ---
 
@@ -40,10 +41,22 @@
 | B-ED-FMT-BAR | Source 格式工具条 | 🟡 | ✅ | |
 | B-ED-CTX-MENU | Source 正文右键 | 🟢 | ✅ | |
 | B-ED-FIND-PARITY | ⌘F 双模对齐 | 🟡 | ✅ | 切 source + CM 高亮 |
-| B-ED-QQL-WYSIWYG | WYSIWYG 内联 qql | 🟡 | ✅ | `collectWysiwygQqlJobs` + `run_qql` 结果面板 |
+| B-ED-QQL-WYSIWYG | ~~WYSIWYG 内联 qql~~ | 🟡 | 🗑️ 已删 | 2026-08-02 随 QQL 用户面删除 |
 | B-ED-MODE-UX | 双模切换心智 | 🟢 | ✅ | 保真提示 + ⌘K/菜单/设置默认模式 |
 | B-ED-MEDIA | 图片粘贴/拖入/预览 | 🟡 | ✅ | source+**wysiwyg** 粘贴/拖入→`attachments/`;阅读改写 img |
+| B-ED-MEDIA-ORG | 附件组织 v1.5 | 🟡 | ✅ | layout(folder-note 默认)/可读 stamp/`attachment_exists`+`list_attachments`/md 引用索引+orphan 纯函数;Settings 可改布局 |
+| B-ED-MEDIA-INDEX | MediaIndex 一等索引 | 🟡 | ✅ | core `media` + live 增量 + IPC + Inspector 附件 tab + ⌘K 确认清理孤儿→media-trash;删笔记不自动 GC |
 | B-ED-READING | 并排预览 | 🟢 | ✅ | v1:source 左编辑\|右 ReadingPane;`editorLayout` 持久化;非 Live Preview |
+| B-ED-OUTLINE | 大纲(headings) | 🟢 | ✅ | Inspector headings 列表 → `onJumpToLine` → `Editor.scrollToLine` |
+| B-ED-FIND-REPLACE | 查找替换 | 🟢 | ✅ | FindBar 展开替换行;replace / replace all;纯逻辑 `replaceAllInDocument` |
+| B-ED-IMAGE-BUTTON | 插入图片按钮 | 🟢 | ✅ | source 格式条 + WYSIWYG 条;`input type=file` → 既有 attachments 管线 |
+| B-ED-WYSIWYG-IMG | WYSIWYG 图片路径一致性 | 🟡 | ✅ | `uploadFile`→attachments 相对路径;`resolveFileUrl` 显示;与粘贴/拖入/按钮同管线 |
+| B-ED-MEDIA-GC | 附件孤儿清理 UI | 🟡 | ✅ | ⌘K 确认清理 + media-trash;与 MediaIndex 同批收口 |
+| B-ED-MEDIA-WIKI | `![[img]]` wiki 嵌入图 | 🟡 | ✅ | 阅读 render+短名 resolve;插入默认仍 `![](…)`;`![[Note]]` 降级 wikilink |
+| B-ED-MEDIA-MOVE | 迁笔记受限搬图 | 🟡 | ✅ | rename_note:refcount==1 + 同目录/stem 桶 + 改正文;core plan+rewrite |
+| B-ED-WYSIWYG-FMT | WYSIWYG 格式条对齐 source | 🟢 | ✅ | 粗/斜/H1–3/列表/引用/wikilink + 图片 |
+| B-BN-FIDELITY-DEEP | 真引擎 md↔blocks 往返门禁 | 🔴 | ✅ | `blocknote-engine-roundtrip`+双层 `safeFixtureHolds`;列表 `-/*` + hr 三写法规范化;⛔ 嵌套任务/HTML(表+行内)/全 GFM 字节身份(风险清单);`blocknote-fidelity-sweep.test` 23 例诊断 |
+| B-ED-BROKEN-LINKS | 当前笔记断链提示 | 🟢 | ✅ | Inspector 黄条;纯逻辑 `broken-links.ts` |
 
 ---
 
@@ -74,9 +87,9 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | 代码齐+生成器;单元冒烟 1k Barnes-Hut 限时;fps 数字仍靠本机 GUI |
-| B-QQL-MOCK-GAP | mock 与 core 语义 | 🟡 | ✅ | mock `run_qql`→QQL-TS;各侧单测齐 |
-| B-QQL-PARITY-CI | TS↔Rust 同批查询差分 | 🟡 | ✅ | `fixtures/qql-parity/cases.json` + core test + `qql/parity.test.ts` |
+| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | Cytoscape 主路径;生成器有;fps 数字仍靠本机 GUI(旧 Barnes-Hut 冒烟已随栈退役) |
+| B-QQL-MOCK-GAP | ~~mock 与 core 语义~~ | 🟡 | 🗑️ 已删 | mock `run_qql`→QQL-TS 随 QQL 用户面删除(2026-08-02) |
+| B-QQL-PARITY-CI | ~~TS↔Rust 同批查询差分~~ | 🟡 | 🗑️ 已删 | `qql/parity.test.ts` 随 QQL 用户面删除(2026-08-02);Rust core 单测仍在 |
 
 ---
 
@@ -84,7 +97,7 @@
 
 > **产品拍板(2026-08-01)**:先优化图,再 AI agent。完整规格见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**。  
 > 概念参考:varshithm7x(图 UX,MIT) + inkeep OpenKnowledge(agent/`links` 语义,**GPL 仅概念零代码**)。  
-> 引擎保留 sigma WebGL + QQL + Rust core;顺序默认 **6A → 6B → 6D → 6C**。
+> 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;顺序默认 **6A → 6B → 6D → 6C**。
 
 ### I-A · 6A 传统图 polish（人侧）
 
@@ -105,7 +118,7 @@
 | B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ⏳ | 仅 MCP 契约;提示不阻断保存 |
 | B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式 |
 | B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ⏳ | Claude Desktop 等;非 skills 商店 |
-| B-ED-BROKEN-LINKS | App 写路径断链提示 | 🟢 | ⏳ | **可选**;非 6B3 默认;复用检测纯函数 |
+| B-ED-BROKEN-LINKS | ~~见 §C~~ | 🟢 | →§C | 与编辑器断链提示合并 |
 
 ### I-C · 6C 语义发现（可选,后置）
 
@@ -132,8 +145,8 @@
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
 | B-LOG-BUS | LogBus + Filter + File/Stderr + panic hook | 🟡 | ✅ | L1:`logging.rs`;NDJSON;dev/verbose/prod;panic hook |
-| B-LOG-UI | 设置:profile / 打开日志目录 / 导出 zip | 🟡 | 🟡 | profile 切换+打开目录 ✅;导出 zip → L2 |
-| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ⏳ | 仅 127.0.0.1;生产默认 off |
+| B-LOG-UI | 设置:profile / 打开日志目录 / 导出 | 🟡 | ✅ | profile+打开目录+`log_export_bundle` 单文件 txt(非 zip) |
+| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ⏳ | 仍可选;非本批 |
 | B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | 🟡 | index_vault/write_note/pick_vault 已打;git 等可续 |
 
 ## F. 分发与工程
@@ -151,7 +164,7 @@
 
 ## G. 已完成(勿重复开坑)
 
-- F-GRAPH 主路径 + 多布局(力导向/分层/时间轴)+ WebGL/Worker/BH/LOD/标签避让  
+- F-GRAPH 主路径(Cytoscape + cose/preset)+ 多布局(力导向/分层/时间轴)+ 过滤/健康/落盘  
 - F-QUERY + CONTAINS/STARTSWITH/ENDSWITH/IN + histogram + 内联 qql(source)+ saved query  
 - Live 索引 + watcher + 刷新索引自愈  
 - Excalidraw 画布;⌘F/⌘P;Nav TAGS;拖拽移动;git pull/push;类型文档提示  
@@ -197,7 +210,8 @@
 |---|---|
 | **本文 backlog.md** | 未做清单总表(含 §I 图→agent ID) |
 | [**11-graph-and-agent-roadmap.md**](./11-graph-and-agent-roadmap.md) | **下一阶段主规划**(A→B→D→C) |
-| [deferred.md](./deferred.md) | 难点/前置/编辑器菜单诚实评估 |
+| [plan.md](./plan.md) | 未完成实施计划 |
+| [FEATURE-INDEX.md](./FEATURE-INDEX.md) | 已落地功能 → 代码 |
 | [04-features.md](./04-features.md) | 功能规格与状态 |
 | [06-roadmap.md](./06-roadmap.md) | 阶段叙事 |
 | [open-questions.md](./open-questions.md) | 待拍板决策 |

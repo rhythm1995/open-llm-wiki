@@ -1,36 +1,39 @@
 # OpenObsidian — 设计文档
 
-本目录是 OpenObsidian 的**完整设计**,先于代码存在(01–06)。读完这六份,任何人应当能独立按图施工。[07](./07-llm-wiki-architecture.md) 是**实现后的架构总览**,反映代码落地真相(含 mermaid 图),与前瞻设计互补。
+## AI / 施工快速入口
 
-| 文档 | 回答什么 |
+| 你想… | 打开 |
 |---|---|
-| [01-vision.md](./01-vision.md) | 它是什么、为什么、跟 Obsidian/Tolaria 的差异、设计原则 |
-| [02-architecture.md](./02-architecture.md) | 技术栈、分层、IPC、数据流 |
-| [03-data-model.md](./03-data-model.md) | vault / note / frontmatter / wikilink / 类型 / 关系 的形式定义 |
-| [04-features.md](./04-features.md) | 全功能目录与逐项规格(图谱、实时聚合、软类型、编辑器…) |
-| [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试金字塔、红绿循环、覆盖率门槛 |
-| [06-roadmap.md](./06-roadmap.md) | 分阶段交付;"全部功能"如何被切成可完成的里程碑 |
-| [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | LLM Wiki 五层 × 软件架构双视角总览(实现真相 + mermaid 图;**反映落地,非前瞻设计**) |
-| [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件媒体 v1 + 并排阅读预览(产品决策与验收;**已落地** B-ED-MEDIA / B-ED-READING) |
-| [09-big-features-v1.md](./09-big-features-v1.md) | 大件 v1 切片:SHEET / PLUGIN / MCP / QQL-TS(**已落地 v1**) |
-| [10-menus-and-search.md](./10-menus-and-search.md) | 菜单 / 命令面板 / 三层搜索(**已落地**) |
-| [**11-graph-and-agent-roadmap.md**](./11-graph-and-agent-roadmap.md) | **下一阶段主规划**:图 polish → Agent/`links` → wiki → 可选语义图 |
-| [**12-client-logging.md**](./12-client-logging.md) | 客户端日志:文件/端口/profile 中间件;反馈排查 |
-| [**backlog.md**](./backlog.md) | **未完成清单总表**(§I 图→agent;§J 日志;真机/签名见 §F) |
-| [deferred.md](./deferred.md) | 难点 / 前置;含编辑器与菜单诚实评估 |
-| [open-questions.md](./open-questions.md) | 待拍板决策 |
+| **已实现功能 → 代码** | [**FEATURE-INDEX.md**](./FEATURE-INDEX.md) |
+| **还没做 / 切片顺序** | [**plan.md**](./plan.md) + [backlog.md](./backlog.md) |
+| **待拍板** | [open-questions.md](./open-questions.md) |
+| **架构分层** | [02-architecture.md](./02-architecture.md) · [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) |
+
+## 文档地图
+
+| 文档 | 回答什么 | 状态 |
+|---|---|---|
+| [FEATURE-INDEX.md](./FEATURE-INDEX.md) | **已落地功能索引**(功能名 → 代码) | 维护中 |
+| [plan.md](./plan.md) | **未完成实施计划** | 维护中 |
+| [backlog.md](./backlog.md) | ID 状态总表 | 维护中 |
+| [01-vision.md](./01-vision.md) | 定位、原则、与 O/T 差异 | 稳定 |
+| [02-architecture.md](./02-architecture.md) | 栈、分层、IPC | 随实现更新 |
+| [03-data-model.md](./03-data-model.md) | vault/note/关系形式定义 | 稳定 |
+| [04-features.md](./04-features.md) | 功能目录规格 | 以 backlog 为准校状态 |
+| [05-tdd-strategy.md](./05-tdd-strategy.md) | 测试策略 | 稳定 |
+| [06-roadmap.md](./06-roadmap.md) | 阶段叙事 | 历史+前瞻 |
+| [07-llm-wiki-architecture.md](./07-llm-wiki-architecture.md) | 实现真相 + mermaid | 随实现更新 |
+| [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件/媒体规格 | 随媒体迭代更新 |
+| [09-big-features-v1.md](./09-big-features-v1.md) | SHEET/PLUGIN/MCP 切片 | 已落地参考 |
+| [10-menus-and-search.md](./10-menus-and-search.md) | 菜单/命令/搜索 | 已落地参考 |
+| [11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) | 图 polish → Agent | 主规划 |
+| [12-client-logging.md](./12-client-logging.md) | 客户端日志 | 已落地参考 |
+| [open-questions.md](./open-questions.md) | 待拍板 | 维护中 |
 
 ## 一句话定位
 
-**一个本地优先、文件即真相、MIT 许可的知识管理 app**——以 Tolaria 的公开设计思想为蓝本(clean-room 重写,零代码复制),补齐 Obsidian 最被需要的两件事:**图谱可视化** 与 **实时聚合查询**,同时把"类型"从牢笼降级为可选的约定。
+**本地优先、文件即真相、MIT 的知识管理 app**;clean-room 重写(不复制 Tolaria 源码);补齐图谱与聚合查询;类型为可选约定。
 
-## 如何阅读
+## 法律摘要
 
-- 想了解**为什么造**:从 [01-vision](./01-vision.md) 开始。
-- 想动手**写代码**:先 [02-architecture](./02-architecture.md) + [05-tdd-strategy](./05-tdd-strategy.md),再看 [06-roadmap](./06-roadmap.md) 当前阶段。
-- 想知道**功能规格**:[04-features](./04-features.md)。
-- 想知道**还没做完什么**:[backlog](./backlog.md)(下一主线 §I 图→agent;[11 规划](./11-graph-and-agent-roadmap.md))。
-
-## 法律状态(摘要)
-
-MIT 许可;设计**参考 Tolaria 的代码/UI 实现 + 公开文档**,与 Obsidian 公开功能对照,重写为自己的表达;**未逐字复制任何第三方源码**。详见仓库根 [README](../README.md) 的「许可与溯源」。
+MIT;设计参考公开思想与功能对照;**零逐字复制**第三方源码。见根 [README](../README.md)。

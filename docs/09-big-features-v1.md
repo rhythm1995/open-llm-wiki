@@ -24,7 +24,7 @@ ui/src/lib/sheet.ts  ← schema + 公式求值;SheetView 网格
 
 ## 验收
 
-1. QQL-TS:单测覆盖 WHERE/AND/OR/NOT/CONTAINS/IN/SORT/LIMIT/SHOW/RENDER;mock 内联 qql 有结果。  
+1. ~~QQL-TS:单测覆盖 WHERE/AND/OR/NOT/CONTAINS/IN/SORT/LIMIT/SHOW/RENDER;mock 内联 qql 有结果。~~ **已删(2026-08-02)**,见上 B-QQL-TS 行。  
 2. MCP:`cargo run -p openobs-mcp -- /path/to/vault` + tools/list 非空;read/write 真文件。  
 3. PLUGIN:启用示例插件可注册 ⌘K 命令;崩溃不拖垮主线程(iframe)。  
 4. SHEET:新建 `.sheet`、编辑格、`=A1+1` 显示结果、保存 JSON。  

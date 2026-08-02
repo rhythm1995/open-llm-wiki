@@ -15,6 +15,150 @@
 
 ---
 
+### 2026-08-02 Claude — 编辑器保真自动扫描 + 2 项分级(B 编辑器微体验)
+- **branch**: `feat/phase1-core`(未 commit;本批为代码 + 测试)
+- **做了**:
+  - 新增 `blocknote-fidelity-sweep.test.ts`:23 例 md 语料丢进真 BN 引擎往返,打印诊断报告(替代无法做的真机 GUI e2e)。结果 **BREAK=0 / RISKY=3 / ok=20**。
+  - **hr 收口**:发现 `---`→`***` 是**比较器**盲区(非 BN 改坏)。`normalizeMdForCompare` 归一 hr 三写法为 `***`;hr 加进 `SAFE_FIDELITY_FIXTURES`(升级为真断言门禁)。
+  - **inline-HTML 定性**:`<strong>`→`**bold**` 是 BN 的 raw-HTML 限制面(语义存活、拼写不保,与 html-block 同源)→ 记进 `DISABLED_OR_RISKY_PATTERNS`,sweep 标 risky。非改坏,不修。
+- **理由 / 影响**:用户循环「切 source↔WYSIWYG 抽笔记看 diff / 某类 md 被改坏→加 SAFE_FIDE」自动化落地;保真边界从「嵌套任务/HTML 表」精确化到「HTML 表+行内」。
+- **验证**:`pnpm --dir ui test`(539 passed)+ `typecheck` 干净。
+- **下一步 / 接手注意**:sweep 永久作诊断回归(报告即交付,不断言);真机仍需人工抽看 wikilink/图片/表格那几类。
+
+### 2026-08-02 Grok — 保真门禁完全收敛 + 文档同步
+
+- **收敛**:
+  - 引擎门禁收紧:无 token 不得靠空 `tokensOk` 误绿;列表 `-/*` 与 task checkbox 规范化后 **normEqual**。
+  - `safeFixtureHolds` = app 层 + `engineSafeFixtureHolds`(双层一入口)。
+  - B-BN-FIDELITY-DEEP → ✅;风险清单仅保留明确 ⛔。
+- **文档**:plan / backlog / FEATURE-INDEX / 04 / 06 / 02 对齐;F-EDITOR 标 ✅。
+- **验证**:typecheck;fidelity + engine-roundtrip 13 tests。
+- **下一步**(编辑器主线已齐):用户定非图项或真机 e2e;图仍低优。
+
+### 2026-08-02 Grok — 真 BlockNote 引擎 Markdown 往返门禁
+
+- **做了**:`blocknote-engine-roundtrip.ts` —— `BlockNoteEditor.create({ schema: wysiwygSchema })` + `tryParseMarkdownToBlocks` → hydrate/dehydrate → `blocksToMarkdownLossy`;规范化比较 + token 门禁;安全样例全过单测。
+- **含义**:与 app 层假块不同,钉住 **WysiwygView 真实读写路径**;BN Lossy 允许风格规范化,关键 token/链接不丢。
+- **验证**:vitest `blocknote-engine-roundtrip` 6 项;typecheck。
+- **仍开放**:嵌套任务列表 / HTML 表 / 全 GFM 字节全同。
+
+### 2026-08-02 Grok — 图降优;编辑器主线切片
+
+- **优先级**:图/Agent 降;主线编辑器(plan.md 已改)。
+- **做了**:
+  1. **B-ED-WYSIWYG-FMT**:WYSIWYG 格式条对齐 source(粗/斜/H/列表/引用/wikilink/图)。
+  2. **B-ED-BROKEN-LINKS**:`broken-links.ts` + Inspector 黄条未解析 `[[…]]`。
+  3. **B-BN-FIDELITY-DEEP 切片**:安全样例扩任务列表/代码/强调/图/二级列表(真 BN 引擎 RT 仍开放)。
+- **验证**:ui typecheck + 529 tests。
+- **下一步编辑器**:真 BlockNote round-trip 门禁 / 嵌套任务 / HTML 表;或用户点的其它写作体验。
+
+### 2026-08-02 Grok — 文档收口 + wiki 嵌入图 + 迁笔记搬图
+
+- **branch**: `feat/phase1-core`(未 push)。
+- **文档**:
+  - 新增 [FEATURE-INDEX.md](docs/FEATURE-INDEX.md)(已做→代码)、[plan.md](docs/plan.md)(未做计划)。
+  - **删除**废弃 [deferred.md](docs/deferred.md);README/backlog/06/07/11/02 指针改 plan/FEATURE-INDEX。
+  - **注意**:`AGENTS.md` 仍链 deferred(约定 agent 不改 AGENTS,需人类改一行)。
+  - 08 媒体规格同步 wiki 嵌入 + 搬图规则。
+- **B-ED-MEDIA-WIKI**:render 先 `![[img]]` 再 wikilink;短名 resolve;`media_index.files`;ReadingPane 接入;单测。
+- **B-ED-MEDIA-MOVE**:core `plan_media_moves_on_note_rename` / rewrite / `rename_file_key`;`rename_note` 落盘(refcount==1,同目录或 stem 桶)。
+- **验证**:core media 8;app 21;ui 525 + typecheck。
+
+### 2026-08-02 Grok — MediaIndex 二期收口(core + live + IPC + UI)
+
+- **branch**: `feat/phase1-core`(未 push)。
+- **做了**:
+  1. **core::media**:`MediaIndex`(files / by_note / by_media);extract md+html+wiki 图;`orphans`/`missing`/`refcount`;单测 5。
+  2. **LiveVault.media**:open walk 图片;note delta 增量引用;`save_attachment` upsert file。
+  3. **IPC**:`media_index` / `media_of_note` / `media_used_by` / `trash_attachments`(→ `.openobsidian/media-trash/`)。
+  4. **UI**:Inspector「附件」tab;⌘K「清理未引用附件…」确认后 trash;**delete_note 不自动 GC**。
+  5. mock 对齐;docs/08 + backlog B-ED-MEDIA-INDEX / GC ✅。
+- **理由**:用户要求媒体索引模块二期一次收口;有索引后 GC 才可谈且默认安全。
+- **验证**:`cargo test -p openobs-core media`;`cargo test -p openobs-app --lib`;待 ui typecheck/test。
+- **下一步**:真机插图后看 Inspector 附件;可选相册 UI。
+
+### 2026-08-02 Grok — 附件管理 v1.5(组织 / 查盘 / 引用索引)
+
+- **branch**: `feat/phase1-core`(未 push)。
+- **用户反馈**:插图可用,但附件文件管理太粗、索引与其它流程不便。
+- **问题盘点(含未明说)**:
+  1. 扁平 `attachments/` + 难读 stamp → 难对照笔记;
+  2. 桌面 `attachmentExists` 恒 false → 唯一路径形同虚设;
+  3. 无「谁引用了这张图 / 孤儿附件」基础能力;
+  4. 二进制本就不进 live note index(正确),但缺独立清单 API,易被当成「没索引」;
+  5. 无布局策略(按笔记/按日/同目录)。
+- **做了**:
+  - 默认布局 **folder-note**:`attachments/{noteStem}/{YYYYMMDD-HHmmss}-{file}`;
+  - Settings:`attachmentLayout`(folder-note / folder-date / folder / note-folder);
+  - IPC:`attachment_exists` + `list_attachments`;前端 `attachmentExistsAsync` + 异步 allocate;
+  - 纯逻辑:`extractMarkdownImagePaths` / `buildMediaRefIndex` / `findOrphanAttachments`;
+  - Editor / Wysiwyg 传 `notePath` + layout;docs/08 + backlog `B-ED-MEDIA-ORG` ✅。
+- **明确未做**:相册 UI、删笔记自动 GC、note-folder 迁笔记跟图、wiki 嵌入语法。
+- **验证**:vitest attachments/wysiwyg-media/settings;openobs-app 编译。
+- **下一步**:可选 B-ED-MEDIA-GC(孤儿清单 UI);重打包安装后真机插图看新路径。
+
+### 2026-08-02 Grok — 修空图:asset 协议 + data URL 解析
+
+- **现象**:插图空图/无法删除占位;日志侧曾有 save_attachment 参数问题。
+- **根因**:`convertFileSrc` 需 `assetProtocol.enable`+scope,此前未开 → webview 加载不了相对附件 URL。
+- **修**:tauri.conf assetProtocol;`protocol-asset` feature;`read_attachment_data_url` + `resolveMediaUrlAsync`;BN 直接插 image 块。
+- **安装**:已 rebuild + ditto 到 /Applications。
+
+### 2026-08-02 Grok — 修插图 save_attachment 参数名(闪退/loading)
+
+- **branch**: `feat/phase1-core`。
+- **日志**:`invalid args bytesBase64 … missing required key bytesBase64` —— 前端传了 `bytes_base64`,Tauri 2 要 camelCase。
+- **修**:`ipc.saveAttachment` → `bytesBase64`;mock 兼容双键;重打包安装。
+- **说明**:无 macOS crash report;「闪退」更像 unhandledrejection + 图块一直 loading。
+
+### 2026-08-02 Grok — B-ED-WYSIWYG-IMG:BlockNote 插图走 attachments
+
+- **branch**: `feat/phase1-core`。
+- **做了**:WysiwygView 配置 `uploadFile`/`resolveFileUrl`(slash/FilePanel 与粘贴同管线);`wysiwyg-media` 增 `blockNoteUploadSrc`/`shouldResolveVaultMediaUrl` + 单测;禁默认无上传器时的 base64/空操作路径。
+- **验证**:vitest wysiwyg-media;typecheck。
+- **下一步**:可选 B-LOG-PORT;backlog §I 状态对齐。
+
+### 2026-08-02 Grok — 写作体验 + 日志导出
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. **查找替换**(B-ED-FIND-REPLACE):`find-in-doc` replaceAll/Next + 单测;Editor `replaceNext`/`replaceAll`;FindBar 展开替换行。
+  2. **插图按钮**(B-ED-IMAGE-BUTTON):source 格式条 + WYSIWYG 条 → `input[type=file]` → 既有 attachments 管线。
+  3. **日志导出**(B-LOG-UI):`log_export_bundle` 合并近期 log 为 txt;设置→诊断「导出诊断日志」。
+- **验证**:待跑 typecheck / vitest find-in-doc / cargo logging。
+- **下一步**:可选 B-LOG-PORT;或 backlog §I 状态对齐。
+
+### 2026-08-02 Grok — 清 Cytoscape 迁移孤儿代码与依赖
+
+- **branch**: `feat/phase1-core`。
+- **做了**:
+  1. 删除 `GraphForceLayer.tsx`、`graph-d3-forces(+test)`、`graph-canvas-labels(+test)`。
+  2. 卸依赖:`react-force-graph-2d`、`d3-force`、`@types/d3-force`(`pnpm install` 已更新 lock)。
+  3. GraphView 懒加载改名 `CytoscapeLayerLazy`;`WEBGL_MAX_NODES` → `GRAPH_MAX_NODES`。
+  4. 文档/THIRD_PARTY 过渡债勾销。
+- **验证**:typecheck;graph-* 相关 66 vitest 绿。
+- **下一步**:6B 或真机 B-GRAPH-FPS。
+
+### 2026-08-02 Grok — 图栈文档同步:sigma → Cytoscape
+
+- **branch**: `feat/phase1-core`(文档+注释)。
+- **做了**:按中心度改 docs **02→04→01→06→11→open-questions→backlog→deferred→07→12**;统一口径 **Cytoscape.js + cose/preset**;P6-2 翻案;顺带清 QQL 用户面/QueryPanel 残留表述;对齐 GraphView 等注释与 THIRD_PARTY_NOTICES。
+- **下一步**:清孤儿层(已在下一条完成)。
+
+### 2026-08-02 Claude — 编辑器功能审计 + 文档腐烂清理
+
+- **branch**: `feat/phase1-core`(未 push)。
+- **做了**:
+  1. **编辑器审计**:盘点 source(CodeMirror)/ WYSIWYG(BlockNote)双模。主路径齐(双模 / 格式条 / 右键 / wikilink 闭环 / 图片粘贴·拖入 / 大纲 / 并排预览 / 查找)。开放 4 项:
+     - **查找替换**(`B-ED-FIND-REPLACE` 🟢):现仅查找;CM `searchKeymap` 原生支持 replace,接进 FindBar 即可。
+     - **插入图片按钮**(`B-ED-IMAGE-BUTTON` 🟢):现仅粘贴/拖入;加 Tauri `dialog` 文件选择 → 复用 `insertImageFiles`。
+     - **WYSIWYG 图片路径一致性**(`B-ED-WYSIWYG-IMG` 🟡 待验证):BlockNote slash 菜单插图疑似内联 base64、不走 vault `attachments/`(粘贴/拖入已拦截至管线)。
+     - **保真加深**(`B-BN-FIDELITY-DEEP` 🔴):门禁覆盖 6 安全结构,嵌套任务列表 / HTML 表格 / 自定义块 round-trip 仍开放。
+  2. **文档腐烂清理**(QQL 删除漏网,本次扫全):backlog §A `B-QQL-EXPAND`、§B `B-QQL-TS`、§C `B-ED-QQL-WYSIWYG`、§F `B-QQL-MOCK-GAP`/`B-QQL-PARITY-CI` 标 🗑️ 已删;docs/06 Phase 4/5 三处用户面、deferred「内联 qql 渲染」整段 + 编辑器「现状/缺口」段、docs/09 验收 #1、04 F-EDITOR 行去 qql;Editor.tsx / WysiwygView.tsx 的 `root` 注释改为附件用途。**引擎侧(`run_qql` MCP/Tauri、core `qql::parse`、docs/06:52 文本层)✅ 保留未动**。
+  3. 新增 backlog §C 行:`B-ED-OUTLINE`(✅)、`B-ED-FIND-REPLACE`、`B-ED-IMAGE-BUTTON`、`B-ED-WYSIWYG-IMG`、`B-BN-FIDELITY-DEEP`(均 ⏳)。
+- **理由 / 影响**:把「下一步该补什么编辑器功能」从模糊的「可选加深」落到**可执行清单**;同时还清 QQL 删除的文档债。
+- **下一步 / 接手注意**:本次只更文档(用户指定「先更新文档」);代码修复(查找替换 + 插图按钮)待用户点头再动。`B-ED-WYSIWYG-IMG` 是**待验证**项——动手前先确认 BlockNote slash 插图的实际落盘行为。
+
 ### 2026-08-02 Claude — 删除 QQL 用户面,引擎保留待 agent
 
 - **branch**: `main`(未 push)。
