@@ -6,6 +6,7 @@ import {
   toggleBold,
   toggleBulletList,
   toggleItalic,
+  toggleTaskList,
   wrapSelection,
 } from "./md-format";
 
@@ -45,6 +46,24 @@ describe("list / quote", () => {
   });
   it("引用", () => {
     expect(toggleBlockQuote("x", { from: 0, to: 0 }).text).toBe("> x");
+  });
+});
+
+describe("toggleTaskList", () => {
+  it("普通行 → 任务项", () => {
+    expect(toggleTaskList("todo", { from: 0, to: 0 }).text).toBe("- [ ] todo");
+  });
+  it("已有 bullet → 任务项", () => {
+    expect(toggleTaskList("- todo", { from: 2, to: 2 }).text).toBe("- [ ] todo");
+  });
+  it("未勾选任务 → 去掉 checkbox", () => {
+    expect(toggleTaskList("- [ ] todo", { from: 6, to: 6 }).text).toBe("todo");
+  });
+  it("已勾选任务 → 去掉 checkbox(不丢正文)", () => {
+    expect(toggleTaskList("- [x] done", { from: 6, to: 6 }).text).toBe("done");
+  });
+  it("不产生双 checkbox", () => {
+    expect(toggleTaskList("- [x] done", { from: 6, to: 6 }).text).not.toContain("] [");
   });
 });
 
