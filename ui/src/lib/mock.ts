@@ -10,7 +10,6 @@
  * - index_vault:用 JS **mini-indexer** 复刻 core 的 frontmatter/标题/wikilink
  *   解析,产出 nodes + edges,让图谱与反链在浏览器里可演示。
  * - search_notes:极简 AND 检索(标题×2 加权,见 mock-search.ts),近似 core 供预览。
- * - run_qql:浏览器用 mock-qql **子集**(type/status/tag/LIMIT/COUNT/GROUP/histogram);
  *   复杂查询降级空 List。完整语义真机走 Rust core。
  *
  * ⚠️ mini-indexer 是 core 的**简化近似**,只为预览;语义以 Rust core 为准。
@@ -22,7 +21,6 @@ import type {
   VaultSnapshot,
 } from "./ipc";
 import { mockSearch } from "./mock-search";
-import { runQqlTs, type QqlNote } from "./qql";
 
 const MOCK_ROOT = "/mock-vault";
 
@@ -352,32 +350,6 @@ function buildSnapshot(): VaultSnapshot {
   return { root: MOCK_ROOT, nodes, edges };
 }
 
-/** 从 live vault + 边表构建 QqlNote(含 body/fm/度数)。 */
-function buildQqlNotes(): QqlNote[] {
-  const snap = buildSnapshot();
-  const parsed = parsePaths((p) => !hasDotSegment(p));
-  const outDeg = new Map<number, number>();
-  const inDeg = new Map<number, number>();
-  for (const e of snap.edges) {
-    outDeg.set(e.from, (outDeg.get(e.from) ?? 0) + 1);
-    if (e.to != null) inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
-  }
-  return parsed.map((p, i) => ({
-    id: i,
-    path: p.path,
-    title: p.title,
-    body: p.body,
-    frontmatter: p.meta,
-    tags: p.tags,
-    type: p.typeStr,
-    backlinkCount: inDeg.get(i) ?? 0,
-    linkCount: outDeg.get(i) ?? 0,
-  }));
-}
-
-function evalMockQql(qql: string) {
-  return runQqlTs(qql, buildQqlNotes());
-}
 
 // ───────────────────────── 命令分发 ─────────────────────────
 
@@ -471,11 +443,6 @@ export async function handle<T>(
     case "apply_vault_changes":
       // mock 无外部 fs;路径 delta 忽略,返回当前快照(与 live 投影同形)。
       return buildSnapshot() as unknown as T;
-
-    case "run_qql": {
-      // B-QQL-TS:浏览器走全量 TS 求值器(对齐 core AST);桌面仍走 Rust。
-      return evalMockQql(String(args.qql ?? "")) as unknown as T;
-    }
 
     case "search_notes": {
       // 浏览器 mock:极简 AND 检索(标题×2 加权),近似 core 仅供预览。

@@ -27,7 +27,7 @@
  *
  * 许可:BlockNote MPL-2.0(见 THIRD_PARTY_NOTICES)。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { mergeFrontmatter, splitFrontmatter } from "../lib/frontmatter";
@@ -37,12 +37,6 @@ import { wysiwygSchema } from "./WysiwygWikilink";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
 import { ipc } from "../lib/ipc";
-import {
-  collectWysiwygQqlJobs,
-  resultSetToStatus,
-  type WysiwygQqlStatus,
-} from "../lib/wysiwyg-qql";
-import { sanitize } from "../lib/render";
 import {
   blobToDataUrl,
   collectImageFiles,
@@ -54,7 +48,6 @@ import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 
 const SAVE_DEBOUNCE_MS = 400;
-const QQL_DEBOUNCE_MS = 450;
 
 interface Props {
   /** 当前 `.md` 完整内容(含 frontmatter);真相源,与 Editor 共用。 */
@@ -175,52 +168,6 @@ export function WysiwygView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   []);
 
-  // 内联 ```qql:与 source 同走 ipc.run_qql;结果列在编辑器下方。
-  const [qqlStatuses, setQqlStatuses] = useState<
-    { preview: string; query: string; status: WysiwygQqlStatus }[]
-  >([]);
-  useEffect(() => {
-    if (!hasNote || !root) {
-      setQqlStatuses([]);
-      return;
-    }
-    const jobs = collectWysiwygQqlJobs(content);
-    if (jobs.length === 0) {
-      setQqlStatuses([]);
-      return;
-    }
-    setQqlStatuses(
-      jobs.map((j) => ({
-        preview: j.preview,
-        query: j.query,
-        status: { kind: "loading" as const },
-      })),
-    );
-    const handle = window.setTimeout(() => {
-      void Promise.all(
-        jobs.map(async (j) => {
-          try {
-            const res = await ipc.runQql(root, j.query);
-            return {
-              preview: j.preview,
-              query: j.query,
-              status: resultSetToStatus(res),
-            };
-          } catch (err) {
-            return {
-              preview: j.preview,
-              query: j.query,
-              status: {
-                kind: "error" as const,
-                message: err instanceof Error ? err.message : String(err),
-              },
-            };
-          }
-        }),
-      ).then(setQqlStatuses);
-    }, QQL_DEBOUNCE_MS);
-    return () => clearTimeout(handle);
-  }, [content, root, hasNote]);
 
   if (!hasNote) {
     return (
@@ -292,40 +239,6 @@ export function WysiwygView({
           />
         </BlockNoteView>
       </div>
-      {qqlStatuses.length > 0 && (
-        <div
-          data-testid="wysiwyg-qql-results"
-          className="max-h-[40%] shrink-0 overflow-y-auto border-t border-crust bg-mantle px-3 py-2"
-        >
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-overlay">
-            {t("editor.wysiwyg.qqlResults")}
-          </div>
-          {qqlStatuses.map((row, i) => (
-            <div
-              key={i}
-              className="mb-2 rounded border border-crust bg-base px-2 py-1.5 text-[12px]"
-            >
-              <div className="mb-1 truncate font-mono text-[11px] text-subtext">
-                {row.preview || "(empty)"}
-              </div>
-              {row.status.kind === "loading" && (
-                <p className="text-overlay">{t("list.loading")}</p>
-              )}
-              {row.status.kind === "error" && (
-                <p className="text-red">⚠ {row.status.message}</p>
-              )}
-              {row.status.kind === "ok" && (
-                <div
-                  className="qql-result prose-sm text-text"
-                  dangerouslySetInnerHTML={{
-                    __html: sanitize(row.status.html),
-                  }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

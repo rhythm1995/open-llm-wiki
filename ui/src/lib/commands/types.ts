@@ -35,7 +35,6 @@ export type CommandId =
   | "refresh-index"
   | "view-editor"
   | "view-graph"
-  | "view-query"
   | "view-git"
   | string; // plugin:* 等
 
@@ -54,7 +53,7 @@ export interface AppCommand {
   run: () => void;
 }
 
-export type MainViewId = "editor" | "graph" | "query" | "git";
+export type MainViewId = "editor" | "graph" | "git";
 
 export interface CommandDeps {
   t: TFunc;

@@ -121,9 +121,10 @@ const LABEL_PAD_X = 8;
 const LABEL_GAP_X = 6;
 const LABEL_MIN_W = 24;
 const LABEL_MAX = 60;
-/** forceCollide:节点间最小间隙(图空间)与推开强度。仿真期 k≈1,半径与视觉半径一致。 */
-const COLLIDE_PAD = 3;
-const COLLIDE_STRENGTH = 0.85;
+/** forceCollide:节点间最小间隙(图空间)与推开强度。strength 1.0 = 硬约束,
+ *  优先于 link 拉拢,彻底杜绝核心高互连区节点圆心重叠成团。 */
+const COLLIDE_PAD = 5;
+const COLLIDE_STRENGTH = 1.0;
 
 export function GraphForceLayer(props: Props) {
   const {
@@ -272,15 +273,16 @@ export function GraphForceLayer(props: Props) {
     }
     fg.d3Force("x", d3.forceX(p.width / 2).strength(cfg.xStrength));
     fg.d3Force("y", d3.forceY(p.height / 2).strength(cfg.yStrength));
-    // 节点互斥(防重叠):radius 取节点视觉半径 + 间隙。仿真期 k≈1,与 drawNode 的
-    // screenR/k 一致;iterations=2 + strength 0.85 稳定推开,杜绝大图成团堆叠。
+    // 节点互斥(防重叠):radius = 视觉半径 + 间隙,均为图空间固定值,与 drawNode 的
+    // r(nodeSizeFromDegree,不除 k)严格一致——故任何缩放下渲染圆都不会重叠。
+    // strength 1.0 硬约束 + iterations 3,优先于 link 拉拢,杜绝核心高互连区成团。
     fg.d3Force(
       "collide",
       d3
         .forceCollide()
         .radius((d: any) => nodeSizeFromDegree(d.degree ?? 0) + COLLIDE_PAD)
         .strength(COLLIDE_STRENGTH)
-        .iterations(2),
+        .iterations(3),
     );
     // 用 forceX/Y 做向心引力,关掉默认 forceCenter 避免双重居中。
     fg.d3Force("center", null);
@@ -438,8 +440,10 @@ export function GraphForceLayer(props: Props) {
     const hovered = hoveredIdRef.current;
     const lit =
       hovered == null || n.id === hovered || !!p.adj?.get(hovered)?.has(n.id);
-    const screenR = nodeSizeFromDegree(n.degree);
-    const r = screenR / k;
+    // 图空间固定半径(不除 k):节点随缩放等比缩放(地图语义),与 collide 半径一致,
+    // 故任意缩放下渲染圆都不重叠。旧的 r=screenR/k 使屏幕半径恒定,缩到全图时
+    // 圆撑满屏幕糊成一团——那才是"中心成团"的根因,而非 collide 力不够。
+    const r = nodeSizeFromDegree(n.degree);
 
     // 填色。
     let color: string;
@@ -466,7 +470,7 @@ export function GraphForceLayer(props: Props) {
     );
     if (ring.ringWidth > 0) {
       ctx.beginPath();
-      ctx.arc(n.x, n.y, r + (ring.ringWidth + 1.5) / k, 0, Math.PI * 2);
+      ctx.arc(n.x, n.y, r + ring.ringWidth + 1.5, 0, Math.PI * 2);
       ctx.strokeStyle = colorWithAlpha(ring.ringColor, ring.ringAlpha);
       ctx.lineWidth = ring.ringWidth / k;
       if (ring.dashed) ctx.setLineDash([3 / k, 3 / k]);
@@ -517,8 +521,8 @@ export function GraphForceLayer(props: Props) {
     const { sid, tid } = linkEndpoints(l);
     const hovered = hoveredIdRef.current;
     const hot = !!l.hot || (hovered != null && (hovered === sid || hovered === tid));
-    if (l.kind === "unresolved") return 0.6;
-    const base = l.kind === "relation" ? 1.1 : 0.7;
+    if (l.kind === "unresolved") return 0.85;
+    const base = l.kind === "relation" ? 1.35 : 1.0;
     const w = Math.min(2.5, base * (1 + Math.log2((l.weight ?? 1) + 1)));
     return hot ? w + 0.6 : w;
   };
@@ -593,7 +597,7 @@ export function GraphForceLayer(props: Props) {
           const extra = n.isMissing ? 6 : 2;
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(n.x, n.y, (nodeSizeFromDegree(n.degree) + extra) / k, 0, Math.PI * 2);
+          ctx.arc(n.x, n.y, nodeSizeFromDegree(n.degree) + extra / k, 0, Math.PI * 2);
           ctx.fill();
         }}
         nodeLabel={nodeLabel}

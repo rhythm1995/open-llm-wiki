@@ -77,6 +77,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      cytoscape:
+        specifier: ^3.30.4
+        version: 3.34.0
       d3-force:
         specifier: ^3.0.0
         version: 3.0.0

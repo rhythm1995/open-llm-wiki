@@ -3,7 +3,7 @@
  *
  * 据 Nav 的 `navSelection` 在 `snapshot.nodes` 上客户端过滤并按 modified 倒序展示。
  * 每行:标题 + 正文预览(2 行)+ 更新/创建日期 + 状态 chip(复用 status-chip 色桶)。
- * 点击 → 选中笔记(编辑器加载,列表保持)。kind:"query" 时读盘抠 qql 跑 ipc.runQql。
+ * 点击 → 选中笔记(编辑器加载,列表保持)。
  * kind:"archive" 时交给 {@link ArchiveView}(删除/还原已并入 git,无 `.trash/`)。
  *
  * 表头顶是一个**即时过滤框**(Tolaria 式):按 title+preview 子串收窄「当前 Nav 选择
@@ -24,7 +24,6 @@ import { ipc } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import type { NavSelection } from "../lib/nav-filter";
 import { filterByNav, selectionLabel } from "../lib/nav-filter";
-import { extractQueryFromNote } from "../lib/saved-query";
 import { statusChipClass } from "../lib/status-chip";
 import { formatDateStr, formatMs } from "../lib/date-format";
 import { asWikilink } from "../lib/frontmatter";
@@ -63,9 +62,6 @@ export function NoteListView({
   actions,
   t,
 }: Props) {
-  // kind:"query" 的结果(异步读盘+跑 QQL);null = 未查询/加载中。
-  const [queryNodes, setQueryNodes] = useState<NodeOut[] | null>(null);
-  const [queryError, setQueryError] = useState<string | null>(null);
   // 表头即时过滤(title + preview 子串,大小写不敏感)。
   const [filter, setFilter] = useState("");
   // 行右键菜单:坐标 + 目标节点 + 复制反馈。
@@ -73,42 +69,11 @@ export function NoteListView({
   const [menuNode, setMenuNode] = useState<NodeOut | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!navSelection || navSelection.kind !== "query") {
-      setQueryNodes(null);
-      setQueryError(null);
-      return;
-    }
-    if (!root || !snapshot) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const content = await ipc.readNote(root, navSelection.id);
-        const qql = extractQueryFromNote(content);
-        if (!qql) {
-          if (!cancelled) setQueryNodes([]);
-          return;
-        }
-        const rs = await ipc.runQql(root, qql);
-        if (cancelled) return;
-        const ids = "List" in rs ? rs.List : [];
-        const byId = new Map(snapshot.nodes.map((n) => [n.id, n]));
-        setQueryNodes(ids.map((id) => byId.get(id)).filter((n): n is NodeOut => !!n));
-      } catch (e) {
-        if (!cancelled) setQueryError(String(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [navSelection, root, snapshot]);
-
   const nodes = useMemo(() => {
     const all = snapshot?.nodes ?? [];
     if (!navSelection) return all;
-    if (navSelection.kind === "query") return queryNodes ?? [];
     return filterByNav(all, navSelection);
-  }, [snapshot, navSelection, queryNodes]);
+  }, [snapshot, navSelection]);
 
   // 按 modified 倒序(最近改的在上);缺失 mtime 视为 0 排末尾。
   const sorted = useMemo(
@@ -129,18 +94,15 @@ export function NoteListView({
   const now = Date.now();
 
   // 过滤框 placeholder 的 scope 描述(当前 Nav 选择;复用 selectionLabel)。
-  const scopeLabel = useMemo(() => {
-    const nodes = snapshot?.nodes ?? [];
-    return navSelection ? selectionLabel(navSelection, nodes, t) : t("nav.allNotes");
-  }, [navSelection, snapshot, t]);
+  const scopeLabel = useMemo(
+    () => (navSelection ? selectionLabel(navSelection, t) : t("nav.allNotes")),
+    [navSelection, t],
+  );
 
   const emptyKey = (() => {
     const k = navSelection?.kind ?? "all";
     return `list.empty.${k}`;
   })();
-
-  const isQueryLoading =
-    navSelection?.kind === "query" && queryNodes === null && !queryError;
 
   // archive:委派给 ArchiveView(删除/还原并入 git,组件内自取数)。
   // 放在所有 hook 之后,保证 hook 调用数与选择类型无关。
@@ -179,11 +141,7 @@ export function NoteListView({
         </span>
       </div>
 
-      {queryError && <p className="px-3 py-2 text-[12px] text-red">{queryError}</p>}
-
-      {isQueryLoading ? (
-        <p className="px-3 py-2 text-[12px] text-overlay">{t("list.loading")}</p>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="px-3 py-3 text-[12px] text-overlay">
           {filter.trim() ? t("palette.empty") : t(emptyKey)}
         </p>

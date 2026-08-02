@@ -169,8 +169,6 @@ export const ipc = {
    */
   applyVaultChanges: (root: string, paths: string[]) =>
     call<VaultSnapshot>("apply_vault_changes", { root, paths }),
-  runQql: (root: string, qql: string) =>
-    call<ResultSet>("run_qql", { root, qql }),
   searchNotes: (root: string, query: string) =>
     call<SearchHit[]>("search_notes", { root, query }),
   pickVault: () => call<string | null>("pick_vault", {}),

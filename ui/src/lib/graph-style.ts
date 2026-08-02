@@ -91,11 +91,12 @@ export function isDarkTheme(): boolean {
 }
 
 /**
- * 节点渲染尺寸:按度数开方(亚线性),系数压到 1.9 避免大 hub 独占画布——
- * 高度数节点仍明显更大,但不会随 degree 爆炸式膨胀。
+ * 节点渲染尺寸(图空间固定,与 collide radius 同源):按度数开方(亚线性)。
+ * 基础半径 5 保证缩到全图时叶子节点仍可见;系数 2.1 让 hub 明显更大但不爆炸。
+ * collide radius = 本值 + pad,故任意缩放渲染圆都不重叠。
  */
 export function nodeSizeFromDegree(deg: number): number {
-  return 3 + Math.sqrt(Math.max(0, deg)) * 1.9;
+  return 5 + Math.sqrt(Math.max(0, deg)) * 2.1;
 }
 
 /** 给 #rgb/#rrggbb 或已是 rgba 的颜色叠透明度(邻域压暗)。 */

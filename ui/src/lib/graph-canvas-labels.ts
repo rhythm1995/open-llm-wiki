@@ -166,7 +166,8 @@ export function planCanvasLabels(
     const radius = c.radius ?? 5;
     const wG = chipW / k;
     const hG = chipH / k;
-    const rG = radius / k;
+    // 节点半径已是图空间(与 drawNode 的图空间固定半径一致),不再 /k。
+    const rG = radius;
     const gapG = gapX / k;
     const anchors: { name: CanvasLabelAnchor; ax: number; ay: number }[] = [
       { name: "right", ax: c.x + rG + gapG, ay: c.y - hG / 2 },
@@ -206,7 +207,8 @@ export function planCanvasLabels(
           if (n.id === c.id) continue;
           if (Math.abs(n.x - cx) > spanX || Math.abs(n.y - cy) > spanY)
             continue;
-          const nr = (n.radius ?? 5) / k + avoidPad;
+          // 节点半径图空间(同上),不再 /k。
+          const nr = (n.radius ?? 5) + avoidPad;
           if (rectIntersectsCircle(box.x0, box.y0, box.x1, box.y1, n.x, n.y, nr)) {
             bad = true;
             break;

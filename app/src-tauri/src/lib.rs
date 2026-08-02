@@ -1145,7 +1145,6 @@ pub fn run() {
                 MenuItemBuilder::with_id("toggle-split", "Toggle Split Preview").build(app)?;
             let view_ed = MenuItemBuilder::with_id("view-editor", "Editor").build(app)?;
             let view_gr = MenuItemBuilder::with_id("view-graph", "Graph").build(app)?;
-            let view_q = MenuItemBuilder::with_id("view-query", "Query").build(app)?;
             let view_git = MenuItemBuilder::with_id("view-git", "Git").build(app)?;
             let view_theme =
                 MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
@@ -1186,7 +1185,6 @@ pub fn run() {
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&view_ed)
                 .item(&view_gr)
-                .item(&view_q)
                 .item(&view_git)
                 .separator()
                 .item(&view_theme)

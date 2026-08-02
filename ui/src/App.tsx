@@ -9,6 +9,7 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Nav } from "./components/Nav";
 import { NoteListView } from "./components/NoteListView";
 import type { NavSelection } from "./lib/nav-filter";
@@ -20,7 +21,6 @@ import { FindBar } from "./components/FindBar";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
 import { GraphView } from "./components/GraphView";
-import { QueryPanel } from "./components/QueryPanel";
 import { GitPanel } from "./components/GitPanel";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { CenterToolbar } from "./components/CenterToolbar";
@@ -79,12 +79,9 @@ const SheetView = lazy(() =>
 
 export default function App() {
   const { state, currentNode, backlinks, navInfo, actions } = useVault();
-  // 上次的主视图持久化;旧值 "search" 归一为 editor(搜索视图已移除)。
-  const [viewRaw, setView] = usePersistentState<string>("openobs.view", "editor");
-  const view: MainView =
-    viewRaw === "graph" || viewRaw === "query" || viewRaw === "git"
-      ? viewRaw
-      : "editor";
+  // 默认落地编辑页:不再记忆上次主视图(用户要求每次进入都是编辑器,而非图谱)。
+  // 旧值 "openobs.view" 仍可能残留在 localStorage,直接忽略即可。
+  const [view, setView] = useState<MainView>("editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("commands");
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -236,12 +233,11 @@ export default function App() {
   const showProps = propsOpen && view === "editor" && !isSpecialFile;
 
   // 顶栏居中标签:editor 视图取当前 Nav 选择(全部笔记/收件箱/某类型/…);
-  // 其余视图取视图名(图谱/查询/搜索/Git)。App 端算好,CenterToolbar 只渲染。
+  // 其余视图取视图名(图谱/搜索/Git)。App 端算好,CenterToolbar 只渲染。
   const contextLabel = useMemo(() => {
     if (view !== "editor") return t(`view.${view}`);
-    const nodes = state.snapshot?.nodes ?? [];
-    return navSelection ? selectionLabel(navSelection, nodes, t) : t("nav.allNotes");
-  }, [view, navSelection, state.snapshot, t]);
+    return navSelection ? selectionLabel(navSelection, t) : t("nav.allNotes");
+  }, [view, navSelection, t]);
 
   // Inspector 用:关系字段 chip 补全候选(全部标题)+ type 下拉选项(vault 内去重 type)。
   const noteTitles = useMemo(
@@ -337,7 +333,7 @@ export default function App() {
   }, [state.root, actions, handleNewSheet]);
 
   /**
-   * 选中某 Nav 项(智能视图含 Archive / type / folder / query):设 navSelection **并
+   * 选中某 Nav 项(智能视图含 Archive / type / folder):设 navSelection **并
    * 切回 editor 视图**——List 只在 editor 视图渲染,任何 Nav 选择都意味着"我要看笔记"。
    * Archive 也走此路径({kind:"archive"}):NoteListView 据此委派给 ArchiveView,渲染
    * 已删笔记列表(从 git 历史还原)+ 最近提交时间线。删除/还原已并入 git,无 `.trash/`。
@@ -554,6 +550,22 @@ export default function App() {
       unlisten?.();
     };
   }, [dispatchCommand]);
+
+  // 双击顶部拖拽区(data-tauri-drag-region)→ 切换窗口最大化。
+  // Overlay 标题栏下,macOS 原生「双击标题栏 zoom」不作用于自定义拖拽区,在此补回。
+  useEffect(() => {
+    if (ipc.isMock()) return; // 浏览器 dev 无窗口概念。
+    const onDblClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.(
+        "[data-tauri-drag-region]",
+      );
+      if (!el) return; // 点到按钮/输入框等非拖拽区不触发。
+      e.preventDefault();
+      void getCurrentWindow().toggleMaximize();
+    };
+    window.addEventListener("dblclick", onDblClick);
+    return () => window.removeEventListener("dblclick", onDblClick);
+  }, []);
 
   // ⌘F 文内查找(不含 Shift → 库搜是 ⌘⇧F)。
   useEffect(() => {
@@ -892,14 +904,6 @@ export default function App() {
                 actions={actions}
                 root={state.root ?? ""}
                 forces={forces}
-                t={t}
-              />
-            )}
-            {view === "query" && (
-              <QueryPanel
-                root={state.root}
-                snapshot={state.snapshot}
-                actions={actions}
                 t={t}
               />
             )}

@@ -33,26 +33,20 @@
 
 > UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考项目的**产品语义**(varshithm7x 图 UX;inkeep agent 图工具面——GPL 仅概念)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
-### F-QUERY 实时聚合查询 [P0] ✅ 已落地
+### F-QUERY 聚合查询引擎 [P0] 🔄 引擎保留 / 用户面已删(2026-08-02)
 
-**一句话**:内置查询引擎,用一段声明式查询从全 vault 的 frontmatter/body 取数,实时渲染成列表/表/计数。Dataview 的一等公民版,在 Rust 核心跑。
+**一句话**:内置声明式查询引擎,从全 vault 的 frontmatter/body 取数。**用户面已删,引擎保留待 agent。**
 
-- **查询语言(QQL)**——已实现子集(DQL 风格,关键字 `WHERE` / `SORT` / `SHOW` / `LIMIT` / `GROUP BY` / `RENDER`):
-  ```
-  WHERE type = "Concept" AND status != "Done"
-  SORT mentioned_in.len() ASC
-  SHOW title, status, mentioned_in.len() AS depth
-  LIMIT 50
-  ```
-  文本 → AST(`qql::parse`)→ 求值(`query::eval`),全在纯内核。
-- **两个表面** ✅:
-  1. **内联查询块**——笔记内 ```qql ... ```,编辑器 widget + 阅读视图(共用 `resultToHtml`)。
-  2. **saved query**——`type: Query` 笔记自举(纯逻辑 `saved-query.ts`)。
-- **输出**(`ResultSet`):`List` / `Table` / `Count` / `Groups` / `Sum` / **`Histogram`**。
-- **实时**:查询在 live 不可变快照上执行;写/watcher 路径级更新索引。
-- **浏览器 mock**:`run_qql` 走 **QQL-TS 全量求值**(`ui/src/lib/qql/*`,B-QQL-TS);桌面仍走 Rust `openobs-core`。**尚无** TS↔Rust 同批查询自动差分 CI(可选硬化,见 backlog)。
-- **扩展** ✅(B-QQL-EXPAND):`CONTAINS` / `STARTSWITH` / `ENDSWITH` / `IN (...)` 等常用子集。**不**追求 Dataview 全语法逐字兼容。
-- **与 cairn**:Health KPI 可落成 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
+> **2026-08-02 决策**:不让用户学一门新 DSL——QQL 的认知负担是「语法 + 字段名 + 字面值 + render 动词」四层叠加,门槛过高。故**删除全部用户面**,**保留引擎**作为 agent 的编译目标,等 [6B](./11-graph-and-agent-roadmap.md) 接 agent 时用**自然语言**重建表面。
+
+- **保留(引擎 B)**——勿删:
+  - Rust core:`qql::parse`(文本→AST)+ `query::eval`(求值),全在纯内核。
+  - MCP 工具 `run_qql`(agent 可直接调,见 `mcp/`)——**外部 agent 现在就能 NL→QQL 验证**。
+  - app Tauri 命令 `run_qql`(未来 in-app NL 表面可直连;目前 UI 不再调用)。
+- **查询语言(QQL)**——DQL 风格子集,关键字 `WHERE` / `SORT` / `SHOW` / `LIMIT` / `GROUP BY` / `RENDER`;谓词 `=/!=/AND/OR/NOT/CONTAINS/STARTSWITH/ENDSWITH/IN`;输出 `List` / `Table` / `Count` / `Groups` / `Sum` / `Histogram`。**不**追求 Dataview 全语法逐字兼容。
+- **已删(用户面 A)**:内联 ```qql 块 widget + `resultToHtml`、saved query(`saved-query.ts` + `type: Query`)、`QueryPanel`、Query 视图、`MainView:"query"`、nav-selection `kind:"query"`、CenterToolbar 查询按钮、palette/registry 查询命令、**TS 全量重写** `ui/src/lib/qql/*` 与 `mock-qql`、相关 i18n 键。
+- **下一步(6B)**:NL → agent 生成**可审查** QQL → `run_qql`;用户可编辑/存为查询。QQL 长期定位 = **IR(中间表示)**,不再直接面向用户。
+- **与 cairn**:Health KPI 未来由 agent 经 `run_qql` 生成维护,而非用户手写 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
 ---
 

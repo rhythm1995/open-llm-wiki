@@ -30,19 +30,19 @@ describe("colorWithAlpha", () => {
 });
 
 describe("nodeSizeFromDegree", () => {
-  it("度数 0 → 3,单调递增", () => {
-    expect(nodeSizeFromDegree(0)).toBe(3);
+  it("度数 0 → 5,单调递增", () => {
+    expect(nodeSizeFromDegree(0)).toBe(5);
     expect(nodeSizeFromDegree(0)).toBeLessThan(nodeSizeFromDegree(16));
     expect(nodeSizeFromDegree(16)).toBeLessThan(nodeSizeFromDegree(64));
   });
   it("负度数当 0 处理,绝不返回负数", () => {
-    expect(nodeSizeFromDegree(-5)).toBe(3);
+    expect(nodeSizeFromDegree(-5)).toBe(5);
   });
   it("亚线性增长(平方根):度数增幅 > 尺寸增幅", () => {
     const s4 = nodeSizeFromDegree(4);
     const s16 = nodeSizeFromDegree(16);
     // 度数 ×4(=16/4),尺寸增幅 ×2(平方根)→ 增幅比 < 度数比。
-    const incRatio = (s16 - 3) / (s4 - 3);
+    const incRatio = (s16 - 5) / (s4 - 5);
     expect(incRatio).toBeLessThan(16 / 4);
   });
 });

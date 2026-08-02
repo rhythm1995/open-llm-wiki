@@ -15,7 +15,18 @@
 
 ---
 
-### 2026-08-02 Grok — L1 客户端日志 LogBus 落地
+### 2026-08-02 Claude — 删除 QQL 用户面,引擎保留待 agent
+
+- **branch**: `main`(未 push)。
+- **做了**:
+  1. **决策**:QQL 的**用户面 A** 整体删除——笔记内联 ```qql 块 widget、`type: Query` saved query、`QueryPanel`、Query 视图、`MainView:"query"`、CenterToolbar 查询按钮、palette/registry 查询命令、TS 全量重写 `ui/src/lib/qql/*` + `mock-qql` + `qql-block` + `wysiwyg-qql`、相关 i18n 键。
+  2. **引擎 B 保留**(勿删):Rust core `qql::parse`/`query::eval`、MCP `run_qql`、app Tauri `run_qql` 命令。
+  3. 文档同步:[04](docs/04-features.md) F-QUERY、[09](docs/09-big-features-v1.md) B-QQL-TS、[11](docs/11-graph-and-agent-roadmap.md) §6B(NL→QQL 写入)。
+- **理由 / 影响**:不让用户学新 DSL(认知负担=语法+字段名+字面值+render 动词四层叠加)。QQL 退成 IR,用户表面留到 6B 接 agent 用**自然语言**重建:NL → agent 生成可审查 QQL → `run_qql`。
+- **下一步 / 接手注意**:
+  - 引擎 + MCP `run_qql` **勿删**;app Tauri `run_qql` 命令保留(未来 in-app NL 直连)。
+  - 6B 开工前可先用外部 agent 经 MCP `run_qql` 验证 NL→QQL 生成质量。
+  - nav-selection 的 `kind:"query"` 变体、`nav-filter`/`NoteListView` 的 query 分支已清,改 Nav 选择模型时注意不要再加回。
 
 - **branch**: `feat/phase1-core`。
 - **做了**:

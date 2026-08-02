@@ -86,15 +86,16 @@ import {
   type ClusterMode,
 } from "../lib/graph-cluster";
 import { isDarkTheme } from "../lib/graph-style";
+import { neighborhoodOf } from "../lib/graph-neighborhood";
 import { nodeWikilink } from "../lib/wikilink";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
-import type { GraphLinkInput, GraphNodeInput } from "./GraphForceLayer";
+import type { GraphLinkInput, GraphNodeInput } from "./CytoscapeLayer";
 
-// react-force-graph-2d 体积大:懒加载独立 chunk。
+// cytoscape 体积大:懒加载独立 chunk。
 const GraphForceLayer = lazy(() =>
-  import("./GraphForceLayer").then((m) => ({ default: m.GraphForceLayer })),
+  import("./CytoscapeLayer").then((m) => ({ default: m.CytoscapeLayer })),
 );
 
 interface Props {
@@ -186,6 +187,11 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
   >(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("force");
   const [clusterMode, setClusterMode] = useState<ClusterMode>("none");
+  // 范围:默认只画当前笔记的 N 跳邻域(图小而干净,参见 inkeep 2-hop / openwiki 不画全局);
+  // 切到 all 恢复全 vault。无 currentId 时邻域退化为全量。
+  const [scopeMode, setScopeMode] = useState<"neighborhood" | "all">(
+    "neighborhood",
+  );
   const [preview, setPreview] = useState<{
     x: number;
     y: number;
@@ -315,9 +321,34 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
     return d;
   }, [filtered.edges]);
 
+  // 全图无向邻接(邻域 BFS 用,不受 renderSet 限制——adj 依赖 renderSet 会成环)。
+  const fullAdj = useMemo(() => {
+    const m = new Map<number, Set<number>>();
+    for (const e of filtered.edges) {
+      if (e.to == null) continue;
+      if (!m.has(e.from)) m.set(e.from, new Set());
+      if (!m.has(e.to)) m.set(e.to, new Set());
+      m.get(e.from)!.add(e.to);
+      m.get(e.to)!.add(e.from);
+    }
+    return m;
+  }, [filtered.edges]);
+
+  // 邻域:当前笔记 N 跳邻居(纯函数 BFS,见 graph-neighborhood)。邻域模式关或无 currentId → null(=全量)。
+  const NEIGHBOR_HOPS = 2;
+  const neighborhoodIds = useMemo(() => {
+    if (scopeMode !== "neighborhood" || currentId == null) return null;
+    return neighborhoodOf(fullAdj, currentId, NEIGHBOR_HOPS);
+  }, [fullAdj, currentId, scopeMode]);
+
   const renderIds = useMemo(
-    () => topKByDegree([...filtered.nodeIds], degree, WEBGL_MAX_NODES),
-    [filtered.nodeIds, degree],
+    () =>
+      topKByDegree(
+        neighborhoodIds ? [...neighborhoodIds] : [...filtered.nodeIds],
+        degree,
+        WEBGL_MAX_NODES,
+      ),
+    [filtered.nodeIds, degree, neighborhoodIds],
   );
   const renderSet = useMemo(() => new Set(renderIds), [renderIds]);
 
@@ -883,6 +914,22 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
             <option value="force">{t("graph.layout.force")}</option>
             <option value="type-layer">{t("graph.layout.typeLayer")}</option>
             <option value="timeline">{t("graph.layout.timeline")}</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1 rounded bg-mantle/90 px-1.5 py-1 text-[11px] text-overlay backdrop-blur-sm">
+          <span className="sr-only">{t("graph.scope")}</span>
+          <select
+            value={scopeMode}
+            onChange={(e) =>
+              setScopeMode(e.target.value as "neighborhood" | "all")
+            }
+            className="max-w-[7.5rem] cursor-pointer bg-transparent text-subtext outline-none"
+            title={t("graph.scope")}
+          >
+            <option value="neighborhood">
+              {t("graph.scope.neighborhood")}
+            </option>
+            <option value="all">{t("graph.scope.all")}</option>
           </select>
         </label>
         <button

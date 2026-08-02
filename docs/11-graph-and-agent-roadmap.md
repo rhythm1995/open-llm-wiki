@@ -38,6 +38,8 @@
 
 **MCP v1 工具清单（6 个，勿漏）**:`list_notes` · `read_note` · `write_note` · `search_notes` · `run_qql` · **`vault_info`**。
 
+> **NL→QQL(6B 重点,2026-08-02 定)**:QQL 的**用户面已删**(见 [04](./04-features.md) F-QUERY),引擎 + `run_qql` 保留作 agent 编译目标。6B 交付**自然语言查询表面**:NL → agent 生成**可审查** QQL → `run_qql`;用户可编辑、可存为查询。QQL 长期定位 = IR,不直接面向用户。**外部 agent 现在就能经 MCP `run_qql` 跑 NL→QQL 验证**(零 UI 成本),建议 6B 开工前先用它确认生成质量。
+
 **架构红线不变**:
 
 - `core` 纯函数、无 IO；图算法 / QQL 可测。
@@ -52,7 +54,7 @@
 | 阶段 | 主题 | 主要产出 | 难度 | 依赖 |
 |---|---|---|---|---|
 | **6A** | 图 UX 完整度 | 坐标**落盘**、力参数 UI、设置分组、hide unresolved | 🟡 | 现有 GraphView + 内存暖启动 |
-| **6B** | 图健康 + MCP | `links` 工具、读 briefing、写 broken_links、Orphans/Hubs UI | 🔴 | 与 6A 可选并行；core graph |
+| **6B** | 图健康 + MCP + **NL 查询** | `links` 工具、读 briefing、写 broken_links、Orphans/Hubs UI、**NL→QQL 用户表面** | 🔴 | 与 6A 可选并行；core graph |
 | **6D** | Wiki 脚手架 | starter vault、provisional→canonical 约定、QQL Health **模板** | 🟢–🟡 | 6B 的 links/health 更顺；可先写文档 |
 | **6C** | 语义边 v1 | **`EdgeKind::Semantic` core 变更**、阈值/top-k、建议链接、洞察 | 🔴 | embedding 拍板 + **core schema 评审** |
 

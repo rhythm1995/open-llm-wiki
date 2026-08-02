@@ -2,8 +2,7 @@
  * nav-filter —— 左栏 Nav 的选择模型与中间 List 的过滤逻辑(纯函数)。
  *
  * Nav 与 NoteListView 的契约:`NavSelection` 描述"当前选中的是哪一组笔记",
- * List 据 `filterByNav` 在 `snapshot.nodes` 上做客户端过滤。folder 走路径前缀
- * 匹配;query 不在此过滤(需读盘抠 qql 再跑 ipc.runQql,由 List 专门处理)。
+ * List 据 `filterByNav` 在 `snapshot.nodes` 上做客户端过滤。folder 走路径前缀匹配。
  *
  * 无 IO、无 React,可 node 单测(见 nav-filter.test.ts)。
  */
@@ -23,8 +22,7 @@ export type NavSelection =
   | { kind: "archive" }
   | { kind: "type"; id: string }
   | { kind: "tag"; id: string }
-  | { kind: "folder"; id: string }
-  | { kind: "query"; id: string };
+  | { kind: "folder"; id: string };
 
 /** Inbox 定义:未分类(无 type)的笔记——待整理进类型体系。 */
 export function isInbox(n: NodeOut): boolean {
@@ -32,8 +30,7 @@ export function isInbox(n: NodeOut): boolean {
 }
 
 /**
- * 据 navSelection 过滤节点列表。folder 用路径前缀匹配(含恰好等于该路径的文件);
- * query 返回空——List 对 query 单独走 ipc.runQql(需读盘),不走内存过滤。
+ * 据 navSelection 过滤节点列表。folder 用路径前缀匹配(含恰好等于该路径的文件)。
  */
 export function filterByNav(nodes: NodeOut[], sel: NavSelection): NodeOut[] {
   switch (sel.kind) {
@@ -52,8 +49,6 @@ export function filterByNav(nodes: NodeOut[], sel: NavSelection): NodeOut[] {
       const prefix = sel.id.endsWith("/") ? sel.id : `${sel.id}/`;
       return nodes.filter((n) => n.path === sel.id || n.path.startsWith(prefix));
     }
-    case "query":
-      return [];
   }
 }
 
@@ -67,13 +62,9 @@ export function sameSelection(a: NavSelection | null, b: NavSelection): boolean 
 
 /**
  * 当前选中的人类可读标签(顶栏中间与列表头共用)。type 的 `""` →「未分类」;
- * query 取该查询笔记的 title;folder 取末段目录名。
+ * folder 取末段目录名。
  */
-export function selectionLabel(
-  sel: NavSelection,
-  nodes: NodeOut[],
-  t: TFunc,
-): string {
+export function selectionLabel(sel: NavSelection, t: TFunc): string {
   switch (sel.kind) {
     case "all":
       return t("nav.allNotes");
@@ -87,9 +78,5 @@ export function selectionLabel(
       return `#${sel.id}`;
     case "folder":
       return sel.id.split("/").pop() || sel.id;
-    case "query": {
-      const q = nodes.find((n) => n.path === sel.id);
-      return q?.title || sel.id;
-    }
   }
 }

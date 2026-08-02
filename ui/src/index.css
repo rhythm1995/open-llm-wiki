@@ -38,6 +38,15 @@
   --radius-panel: 4px;
 }
 
+/* ── 焦点描边 ── 工具栏图标按钮(视图切换 / 面板切换 / 模式开关 / ⌘K 触发)
+   不显示 WebKit 默认粗蓝框:其状态已由 hover / aria-pressed / 激活底色表达。
+   否则按 ⌘K 等键盘操作时浏览器切到「键盘焦点」模式 + Radix 焦点管理,
+   会让多个工具栏按钮同时冒出默认蓝框,观感像 bug。文本输入/编辑器不受影响。 */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+}
+
 /* ── 深色变体(中性深灰 + 蓝)── 仅在 <html data-theme="dark"> 时生效,
    覆盖同名 CSS 变量;Tailwind 工具类(bg-base/text-… 等)引用这些变量,自动跟随。 */
 [data-theme="dark"] {

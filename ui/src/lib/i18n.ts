@@ -9,7 +9,7 @@
  * 时:在此加键 + zh/en 两语值,组件里把硬编码换成 `t("…")`。
  *
  * 范围说明:本字典先覆盖**顶层 chrome**(工具栏 / 状态栏 / 命令面板 / Inspector /
- * 空状态);深层面板(GitPanel / QueryPanel / SearchPanel / Sidebar /
+ * 空状态);深层面板(GitPanel / SearchPanel / Sidebar /
  * NewNoteDialog)的字符串仍为中文,沿用同一 `t()` 模式逐步迁移(见路线图)。
  */
 
@@ -28,7 +28,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     // 视图名
     "view.editor": "编辑器",
     "view.graph": "图谱",
-    "view.query": "查询",
     "view.search": "搜索",
     "view.git": "Git",
     // 工具栏
@@ -162,7 +161,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "editor.layout.split": "并排阅读预览",
     "editor.layout.edit": "仅编辑",
     "editor.mode.fidelityHint": "切换到所见即所得时,复杂 Markdown(嵌套列表/表格等)可能有损;重要内容可先源码备份。",
-    "editor.wysiwyg.qqlResults": "内联 QQL 结果",
     "editor.fmt.bold": "加粗",
     "editor.fmt.italic": "斜体",
     "editor.fmt.code": "行内代码",
@@ -200,7 +198,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "nav.section.tags": "标签",
     "nav.section.folders": "文件夹",
     "nav.untyped": "未分类",
-    "nav.views.empty": "无已保存查询。",
     "nav.tags.empty": "无标签。",
     "nav.dropToRoot": "拖到此处 → 根目录",
     // 中间列表(NoteListView)
@@ -212,7 +209,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "list.empty.type": "此类型下没有笔记。",
     "list.empty.tag": "此标签下没有笔记。",
     "list.empty.folder": "此文件夹下没有笔记。",
-    "list.empty.query": "查询无结果。",
     "list.empty.archive": "归档为空。",
     // 新建笔记对话框
     "newNote.title": "新建笔记",
@@ -226,22 +222,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "search.placeholder": "输入关键词(空格分隔,AND)",
     "search.go": "搜索",
     "search.empty": "无结果。",
-    // QQL 查询面板
-    "query.title": "QQL 查询",
-    "query.run": "运行",
-    "query.running": "运行中…",
-    "query.count": "计数",
-    "query.sum": "求和",
-    "query.group": "分组",
-    "query.histogram": "直方图",
-    "query.noteCol": "笔记",
-    "query.empty": "无匹配行。(mock 浏览器模式下 QQL 返回空 —— 请用 Tauri 构建以获得完整求值。)",
-    "query.save": "保存",
-    "query.savePrompt": "保存为查询,名称:",
-    "query.savedSection": "已保存查询",
-    "query.rerun": "载入并运行",
-    "query.delete": "删除",
-    "query.deleteConfirm": "删除已保存查询「{name}」?\n(笔记删除,git 自动提交,可从归档还原。)",
     // Git 面板
     "git.empty": "未打开 vault。",
     "git.refresh": "刷新",
@@ -294,6 +274,9 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.layout.force": "力导向",
     "graph.layout.typeLayer": "按类型分层",
     "graph.layout.timeline": "时间轴",
+    "graph.scope": "范围",
+    "graph.scope.neighborhood": "邻域",
+    "graph.scope.all": "全图",
     "graph.searchSection": "文本",
     "graph.searchPlaceholder": "标题/路径/预览…",
     "graph.typeSection": "类型",
@@ -359,7 +342,6 @@ export const dict: Record<Locale, Record<string, string>> = {
   en: {
     "view.editor": "Editor",
     "view.graph": "Graph",
-    "view.query": "Query",
     "view.search": "Search",
     "view.git": "Git",
     "toolbar.save": "Save now",
@@ -486,7 +468,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "editor.layout.split": "Split reading preview",
     "editor.layout.edit": "Edit only",
     "editor.mode.fidelityHint": "Switching to wysiwyg may alter complex Markdown (nested lists/tables). Prefer source for critical notes.",
-    "editor.wysiwyg.qqlResults": "Inline QQL results",
     "editor.fmt.bold": "Bold",
     "editor.fmt.italic": "Italic",
     "editor.fmt.code": "Inline code",
@@ -520,7 +501,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "nav.section.tags": "Tags",
     "nav.section.folders": "Folders",
     "nav.untyped": "Untyped",
-    "nav.views.empty": "No saved queries.",
     "nav.tags.empty": "No tags.",
     "nav.dropToRoot": "Drop here → vault root",
     "list.modified": "Updated {date}",
@@ -531,7 +511,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "list.empty.type": "No notes of this type.",
     "list.empty.tag": "No notes with this tag.",
     "list.empty.folder": "No notes in this folder.",
-    "list.empty.query": "Query returned no notes.",
     "list.empty.archive": "Archive is empty.",
     "newNote.title": "New note",
     "newNote.untitled": "Untitled",
@@ -543,21 +522,6 @@ export const dict: Record<Locale, Record<string, string>> = {
     "search.placeholder": "keywords (space-separated, AND)",
     "search.go": "Search",
     "search.empty": "No results.",
-    "query.title": "QQL query",
-    "query.run": "Run",
-    "query.running": "Running…",
-    "query.count": "Count",
-    "query.sum": "Sum",
-    "query.group": "Group",
-    "query.histogram": "Histogram",
-    "query.noteCol": "Note",
-    "query.empty": "No matching rows. (QQL returns nothing in mock browser mode — use the Tauri build for full evaluation.)",
-    "query.save": "Save",
-    "query.savePrompt": "Save query as:",
-    "query.savedSection": "Saved queries",
-    "query.rerun": "Load & run",
-    "query.delete": "Delete",
-    "query.deleteConfirm": "Delete saved query \"{name}\"?\n(Note is deleted and auto-committed to git — restorable from archive.)",
     "git.empty": "No vault open.",
     "git.refresh": "Refresh",
     "git.mockHint": "mock mode: git is unavailable. Open a git repository in the desktop app to use it.",
@@ -607,6 +571,9 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.layout.force": "Force",
     "graph.layout.typeLayer": "By type",
     "graph.layout.timeline": "Timeline",
+    "graph.scope": "Scope",
+    "graph.scope.neighborhood": "Neighborhood",
+    "graph.scope.all": "All",
     "graph.searchSection": "Text",
     "graph.searchPlaceholder": "title / path / preview…",
     "graph.typeSection": "Type",

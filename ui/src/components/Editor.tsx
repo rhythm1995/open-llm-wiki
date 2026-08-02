@@ -57,8 +57,6 @@ import {
 } from "@codemirror/search";
 import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
 import { ipc } from "../lib/ipc";
-import { findQqlBlocks } from "../lib/qql-block";
-import { qqlInlineExtension, qqlResultsField, setQqlResult } from "./qql-widget";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
 import {
@@ -401,7 +399,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         EditorView.lineWrapping,
         linkDecorations,
         markdownLineDecorations,
-        ...qqlInlineExtension,
         autocompletion({
           override: [makeWikilinkCompletions(titlesRef)],
           activateOnTyping: true,
@@ -484,40 +481,6 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       });
     }
   }, [value]);
-
-  // 内联 ```qql 块求值:doc 变化后(防抖)对每个未缓存的 query 调 run_qql,
-  // 结果经 setQqlResult 写入 StateField → widget 装饰自动刷新。mock 下返回空(见 deferred)。
-  useEffect(() => {
-    const v = view.current;
-    if (!v || !root) return;
-    const queries = Array.from(
-      new Set(findQqlBlocks(value).map((b) => b.query).filter((q) => q.length > 0)),
-    );
-    if (queries.length === 0) return;
-    const cached = v.state.field(qqlResultsField);
-    const pending = queries.filter((q) => !cached.has(q));
-    if (pending.length === 0) return;
-    const handle = window.setTimeout(() => {
-      for (const q of pending) {
-        ipc.runQql(root, q)
-          .then((res) => {
-            view.current?.dispatch({
-              effects: setQqlResult.of({ query: q, result: res }),
-            });
-          })
-          .catch((err) => {
-            view.current?.dispatch({
-              effects: setQqlResult.of({
-                query: q,
-                result: { error: err?.message ?? String(err) },
-              }),
-            });
-          });
-      }
-    }, 400);
-    return () => window.clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, root]);
 
   const menuItems: MenuItem[] = [
     {

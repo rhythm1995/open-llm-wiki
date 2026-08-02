@@ -11,7 +11,6 @@ import {
   FolderOpen,
   GitBranch,
   Graph,
-  ListMagnifyingGlass,
   MagnifyingGlass,
   Moon,
   PencilSimple,
@@ -257,14 +256,6 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       icon: Graph as CommandIcon,
       inMenu: true,
       run: () => deps.onNavigate("graph"),
-    },
-    {
-      id: "view-query",
-      label: `${t("palette.action.viewPrefix")}${t("view.query")}`,
-      category: "view",
-      icon: ListMagnifyingGlass as CommandIcon,
-      inMenu: true,
-      run: () => deps.onNavigate("query"),
     },
     {
       id: "view-git",
