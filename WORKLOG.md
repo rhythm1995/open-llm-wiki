@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-08-02 Claude — 非图杂项收口(git 日志打点 + source 任务按钮)+ §I 图谱推迟
+- **branch**: `feat/phase1-core`
+- **做了**:
+  - **B-LOG-IPC-SPANS ✅**:`run_git` 集中结构化打点——一处覆盖 status/log/commit/pull/push/init/restore/自动提交;成功 debug(命令名,prod 自动过滤避免刷屏),失败 error(cmd+code+截断 stderr)。比逐个装饰 8 个 git 命令 DRY。
+  - **B-ED-TASK-BTN ✅**:source 格式条任务列表按钮(`ListChecks`)→ `md-format.ts` 新 `toggleTaskList`(已是任务项剥 checkbox,否则加 `- [ ] `,避免双 checkbox)+ 5 个单测 + i18n(zh/en)。
+  - **§I 图谱 polish(6A)整期推迟**(产品决策):图打磨 ROI 低/图不好做,转远期。backlog §I / plan §Graph / 11 顶部均加 2026-08-02 推迟横幅。
+- **理由 / 影响**:非图杂项清完;编辑器主线 + 保真 + 日志 + 任务按钮全部收敛。下一刀=合 main + 真机验收(图谱帧率)。
+- **验证**:Rust `cargo check` 干净;UI typecheck + 544 tests green(+5 task)。
+- **下一步 / 接手注意**:图谱工作**勿主动开**;真机 B-GRAPH-FPS 仍需本机;签名/Updater 是凭证门。
+
 ### 2026-08-02 Claude — 编辑器保真自动扫描 + 2 项分级(B 编辑器微体验)
 - **branch**: `feat/phase1-core`(未 commit;本批为代码 + 测试)
 - **做了**:
