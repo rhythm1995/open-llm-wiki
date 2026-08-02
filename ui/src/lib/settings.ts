@@ -11,11 +11,15 @@ import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY } from "./i18n";
 import type { Theme } from "./theme";
 import { THEME_STORAGE_KEY, resolveTheme } from "./theme";
 import {
+  ATTACHMENT_LAYOUT_KEY,
   ATTACHMENTS_DIR_KEY,
+  DEFAULT_ATTACHMENT_LAYOUT,
   DEFAULT_ATTACHMENTS_DIR,
   EDITOR_LAYOUT_KEY,
+  normalizeAttachmentLayout,
   normalizeAttachmentsDir,
   normalizeEditorLayout,
+  type AttachmentLayout,
   type EditorLayoutMode,
 } from "./attachments";
 import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./graph-layout";
@@ -30,6 +34,11 @@ export interface AppSettings {
   defaultEditMode: EditMode;
   /** vault 内附件子目录(相对根,默认 attachments)。 */
   attachmentsDir: string;
+  /**
+   * 附件落盘布局:folder / folder-date / folder-note(默认) / note-folder。
+   * 见 attachments.ts AttachmentLayout。
+   */
+  attachmentLayout: AttachmentLayout;
   /** source 下编辑布局:纯编辑 / 并排阅读。 */
   editorLayout: EditorLayoutMode;
   /** 图谱力导向参数(6A2):中心引力 / 斥力 / 弹簧强度 / 弹簧长度。 */
@@ -45,6 +54,7 @@ export function defaultAppSettings(): AppSettings {
     locale: DEFAULT_LOCALE,
     defaultEditMode: "wysiwyg",
     attachmentsDir: DEFAULT_ATTACHMENTS_DIR,
+    attachmentLayout: DEFAULT_ATTACHMENT_LAYOUT,
     editorLayout: "edit",
     graphForces: DEFAULT_FORCES,
   };
@@ -80,6 +90,9 @@ export function loadAppSettings(
               })(),
         );
   const attachmentsDir = normalizeAttachmentsDir(getItem(ATTACHMENTS_DIR_KEY));
+  const attachmentLayout = normalizeAttachmentLayout(
+    getItem(ATTACHMENT_LAYOUT_KEY),
+  );
   // editorLayout 可能以 JSON 字符串存(usePersistentState)或以裸字符串存。
   const layoutRaw = getItem(EDITOR_LAYOUT_KEY);
   let layoutParsed: string | null = layoutRaw;
@@ -103,7 +116,15 @@ export function loadAppSettings(
     }
   }
   const graphForces = normalizeForces(forcesParsed as Partial<ForceParams> | null);
-  return { theme, locale, defaultEditMode, attachmentsDir, editorLayout, graphForces };
+  return {
+    theme,
+    locale,
+    defaultEditMode,
+    attachmentsDir,
+    attachmentLayout,
+    editorLayout,
+    graphForces,
+  };
 }
 
 /** 写入完整或部分设置。 */
@@ -120,6 +141,12 @@ export function saveAppSettings(
     setItem(
       ATTACHMENTS_DIR_KEY,
       normalizeAttachmentsDir(patch.attachmentsDir),
+    );
+  }
+  if (patch.attachmentLayout != null) {
+    setItem(
+      ATTACHMENT_LAYOUT_KEY,
+      normalizeAttachmentLayout(patch.attachmentLayout),
     );
   }
   if (patch.editorLayout != null) {

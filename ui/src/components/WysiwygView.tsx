@@ -25,11 +25,23 @@
  * content 仅挂载时载入一次;onChange 防抖后比较「序列化出的 body 与 store 当前 body」,
  * 相同则不回写(初始载入、纯 fm 改动都不触发回写)。
  *
+ * 图片(B-ED-WYSIWYG-IMG):`uploadFile` 落盘 `attachments/` 并返回相对路径;
+ * `resolveFileUrl` 显示时转 webview URL。粘贴/拖入/工具条与 slash 同一真相源。
+ *
  * 许可:BlockNote MPL-2.0(见 THIRD_PARTY_NOTICES)。
  */
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
+import {
+  Image as ImageIcon,
+  LinkSimple,
+  ListBullets,
+  Quotes,
+  TextB,
+  TextH,
+  TextItalic,
+} from "@phosphor-icons/react";
 import { mergeFrontmatter, splitFrontmatter } from "../lib/frontmatter";
 import { dehydrateWikilinks, hydrateWikilinks } from "../lib/blocknote-wikilink";
 import { filterByTitles, parseLinkInner } from "../lib/wikilink";
@@ -40,9 +52,16 @@ import { ipc } from "../lib/ipc";
 import {
   blobToDataUrl,
   collectImageFiles,
+  DEFAULT_ATTACHMENT_LAYOUT,
   DEFAULT_ATTACHMENTS_DIR,
+  type AttachmentLayout,
 } from "../lib/attachments";
-import { planImagesInsert } from "../lib/wysiwyg-media";
+import {
+  blockNoteUploadSrc,
+  planImageInsertAsync,
+  planImagesInsertAsync,
+  shouldResolveVaultMediaUrl,
+} from "../lib/wysiwyg-media";
 
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
@@ -64,10 +83,14 @@ interface Props {
   theme: Theme;
   /** 本地化(仅空态文案用到)。 */
   t: TFunc;
-  /** vault 根;用于 run_qql(与 source qql-widget 同路径)。 */
+  /** vault 根;用于图片粘贴/拖入落盘 attachments/(与 source 同路径)。 */
   root?: string | null;
   /** 附件目录(默认 attachments)。 */
   attachmentsDir?: string;
+  /** 附件布局策略(默认 folder-note)。 */
+  attachmentLayout?: AttachmentLayout;
+  /** 当前笔记相对路径;folder-note / note-folder 分桶用。 */
+  notePath?: string | null;
 }
 
 export function WysiwygView({
@@ -80,13 +103,13 @@ export function WysiwygView({
   t,
   root = null,
   attachmentsDir = DEFAULT_ATTACHMENTS_DIR,
+  attachmentLayout = DEFAULT_ATTACHMENT_LAYOUT,
+  notePath = null,
 }: Props) {
   // 仅挂载时取一次 body;切笔记靠 App 的 key={currentPath} 重建触发,不在此响应 content 变化。
   const initialBody = useMemo(() => splitFrontmatter(content).body, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const editor = useCreateBlockNote({ schema: wysiwygSchema });
-
-  // 最新 content ref:回写时取其 fm 段(保留侧栏 Properties 对 fm 的改动)。
+  // 最新 content / vault 上下文 ref:uploadFile 闭包读 ref,避免无 vault 时写 base64。
   const contentRef = useRef(content);
   contentRef.current = content;
   const onChangeRef = useRef(onChange);
@@ -99,27 +122,88 @@ export function WysiwygView({
   rootRef.current = root;
   const dirRef = useRef(attachmentsDir);
   dirRef.current = attachmentsDir;
+  const layoutRef = useRef(attachmentLayout);
+  layoutRef.current = attachmentLayout;
+  const notePathRef = useRef(notePath);
+  notePathRef.current = notePath;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  /** 粘贴/拖入图片 → 附件落盘 + 插入 md 图片块。 */
+  /**
+   * BlockNote 官方插图入口(slash / FilePanel / 部分粘贴):
+   * 无 uploadFile 时 BN 会 warn 且不落盘,或依赖默认 base64。
+   * 统一走 attachments 布局 + 相对路径 src(与源码模式一致)。
+   */
+  const editor = useCreateBlockNote({
+    schema: wysiwygSchema,
+    uploadFile: async (file: File) => {
+      const vaultRoot = rootRef.current;
+      if (!vaultRoot) {
+        throw new Error("open a vault before inserting images");
+      }
+      try {
+        const plan = await planImageInsertAsync(file.name || "image.png", file.type, {
+          attachmentsDir: dirRef.current,
+          layout: layoutRef.current,
+          notePath: notePathRef.current,
+          exists: (p) => ipc.attachmentExistsAsync(vaultRoot, p),
+        });
+        const dataUrl = await blobToDataUrl(file);
+        await ipc.saveAttachment(vaultRoot, plan.relPath, dataUrl);
+        return blockNoteUploadSrc(plan.relPath);
+      } catch (e) {
+        // 让 BlockNote 结束 loading,并记入客户端日志。
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("uploadFile failed:", msg);
+        throw e;
+      }
+    },
+    resolveFileUrl: async (url: string) => {
+      if (!shouldResolveVaultMediaUrl(url)) return url;
+      const vaultRoot = rootRef.current;
+      if (!vaultRoot) return url;
+      // data URL 回读:比 asset:// 更稳,避免空图;磁盘仍是相对路径文件。
+      return ipc.resolveMediaUrlAsync(vaultRoot, url);
+    },
+  });
+
+  /** 粘贴/拖入/选图 → 附件落盘 + 插入原生 image 块(非 md 再解析,避免坏块)。 */
   const insertImageFiles = useCallback(
     async (files: File[]) => {
       const vaultRoot = rootRef.current;
       if (!vaultRoot || files.length === 0) return;
-      const plans = planImagesInsert(
+      const plans = await planImagesInsertAsync(
         files.map((f) => ({ name: f.name, type: f.type })),
-        dirRef.current,
-        (p) => ipc.attachmentExists(p),
+        {
+          attachmentsDir: dirRef.current,
+          layout: layoutRef.current,
+          notePath: notePathRef.current,
+          exists: (p) => ipc.attachmentExistsAsync(vaultRoot, p),
+        },
       );
       for (let i = 0; i < files.length; i++) {
         try {
-          const plan = plans[i];
-          const dataUrl = await blobToDataUrl(files[i]);
+          const plan = plans[i]!;
+          const dataUrl = await blobToDataUrl(files[i]!);
           await ipc.saveAttachment(vaultRoot, plan.relPath, dataUrl);
-          const blocks = editor.tryParseMarkdownToBlocks(plan.snippet);
           const cursor = editor.getTextCursorPosition();
-          editor.insertBlocks(blocks, cursor.block, "after");
-        } catch {
-          // 单张失败不阻断
+          // 直接插 image 块:url 为 vault 相对路径(落盘 md 干净)。
+          editor.insertBlocks(
+            [
+              {
+                type: "image",
+                props: {
+                  url: blockNoteUploadSrc(plan.relPath),
+                  name: plan.alt,
+                  caption: "",
+                  showPreview: true,
+                },
+              },
+            ],
+            cursor.block,
+            "after",
+          );
+        } catch (e) {
+          console.error("insertImageFiles failed:", e);
         }
       }
       handleChange();
@@ -203,6 +287,163 @@ export function WysiwygView({
         void insertImageFiles(images);
       }}
     >
+      <div
+        data-testid="wysiwyg-fmt-bar"
+        className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-crust bg-mantle px-1.5 py-0.5"
+      >
+        {(() => {
+          const btn =
+            "rounded p-1 text-overlay hover:bg-surface hover:text-text";
+          const setBlockType = (
+            type: string,
+            props?: Record<string, unknown>,
+          ) => {
+            try {
+              const { block } = editor.getTextCursorPosition();
+              editor.updateBlock(block, {
+                type: type as "paragraph",
+                props: props as never,
+              });
+              handleChange();
+            } catch {
+              /* 无选区时忽略 */
+            }
+          };
+          return (
+            <>
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.bold")}
+                data-testid="wysiwyg-fmt-bold"
+                onClick={() => {
+                  editor.toggleStyles({ bold: true });
+                  handleChange();
+                }}
+              >
+                <TextB size={14} weight="bold" />
+              </button>
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.italic")}
+                data-testid="wysiwyg-fmt-italic"
+                onClick={() => {
+                  editor.toggleStyles({ italic: true });
+                  handleChange();
+                }}
+              >
+                <TextItalic size={14} />
+              </button>
+              <span className="mx-0.5 h-3 w-px bg-crust" />
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.h1")}
+                data-testid="wysiwyg-fmt-h1"
+                onClick={() => setBlockType("heading", { level: 1 })}
+              >
+                <TextH size={14} />
+                <span className="ml-0.5 text-[10px]">1</span>
+              </button>
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.h2")}
+                onClick={() => setBlockType("heading", { level: 2 })}
+              >
+                <TextH size={14} />
+                <span className="ml-0.5 text-[10px]">2</span>
+              </button>
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.h3")}
+                onClick={() => setBlockType("heading", { level: 3 })}
+              >
+                <TextH size={14} />
+                <span className="ml-0.5 text-[10px]">3</span>
+              </button>
+              <span className="mx-0.5 h-3 w-px bg-crust" />
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.bullet")}
+                data-testid="wysiwyg-fmt-bullet"
+                onClick={() => setBlockType("bulletListItem")}
+              >
+                <ListBullets size={14} />
+              </button>
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.quote")}
+                data-testid="wysiwyg-fmt-quote"
+                onClick={() => {
+                  try {
+                    const { block } = editor.getTextCursorPosition();
+                    const t0 = (block as { type?: string }).type;
+                    setBlockType(t0 === "quote" ? "paragraph" : "quote");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                <Quotes size={14} />
+              </button>
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.wikilink")}
+                data-testid="wysiwyg-fmt-wikilink"
+                onClick={() => {
+                  try {
+                    editor.insertInlineContent([
+                      {
+                        type: "wikilink",
+                        props: { inner: "Note" },
+                      } as never,
+                    ]);
+                    handleChange();
+                  } catch {
+                    editor.insertInlineContent([
+                      { type: "text", text: "[[Note]]", styles: {} },
+                    ]);
+                    handleChange();
+                  }
+                }}
+              >
+                <LinkSimple size={14} />
+              </button>
+              <span className="mx-0.5 h-3 w-px bg-crust" />
+              <button
+                type="button"
+                className={btn}
+                title={t("editor.fmt.image")}
+                data-testid="wysiwyg-insert-image"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImageIcon size={14} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                data-testid="wysiwyg-image-input"
+                onChange={(e) => {
+                  const list = e.target.files;
+                  if (list && list.length > 0) {
+                    void insertImageFiles(Array.from(list));
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </>
+          );
+        })()}
+      </div>
       <div
         className="min-h-0 flex-1 overflow-auto"
         onClick={(e) => {

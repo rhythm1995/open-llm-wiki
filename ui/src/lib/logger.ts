@@ -87,3 +87,13 @@ export async function setLogProfile(profile: LogProfile): Promise<string | null>
     return null;
   }
 }
+
+/** 导出近期日志为单文件,返回绝对路径;非 Tauri → null。 */
+export async function exportLogBundle(): Promise<string | null> {
+  if (!isTauri) return null;
+  try {
+    return await invoke<string>("log_export_bundle");
+  } catch {
+    return null;
+  }
+}

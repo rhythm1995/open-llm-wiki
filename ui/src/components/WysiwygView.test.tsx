@@ -18,6 +18,11 @@ const mockEditor = {
   insertInlineContent: vi.fn(),
   document: [] as unknown[],
   blocksToMarkdownLossy: vi.fn(() => ""),
+  toggleStyles: vi.fn(),
+  updateBlock: vi.fn(),
+  getTextCursorPosition: vi.fn(() => ({
+    block: { id: "b1", type: "paragraph" },
+  })),
 };
 vi.mock("@blocknote/react", () => ({
   useCreateBlockNote: () => mockEditor,
@@ -47,6 +52,24 @@ const OLD = "---\ntype: X\n---\n旧正文";
 const PLAIN = "正文";
 
 describe("WysiwygView", () => {
+  it("格式条含粗体与插图(对齐 source)", () => {
+    render(
+      <WysiwygView
+        content={PLAIN}
+        onChange={noop}
+        onFollow={noop}
+        noteTitles={[]}
+        hasNote={true}
+        theme="dark"
+        t={t}
+      />,
+    );
+    expect(screen.getByTestId("wysiwyg-fmt-bold")).toBeInTheDocument();
+    expect(screen.getByTestId("wysiwyg-insert-image")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("wysiwyg-fmt-bold"));
+    expect(mockEditor.toggleStyles).toHaveBeenCalled();
+  });
+
   it("hasNote=false 时显示空态", () => {
     render(
       <WysiwygView

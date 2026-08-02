@@ -54,10 +54,14 @@ import {
 } from "./lib/edit-mode";
 import { modeFidelityHintKey } from "./lib/edit-mode-ux";
 import {
+  ATTACHMENT_LAYOUT_KEY,
   ATTACHMENTS_DIR_KEY,
+  DEFAULT_ATTACHMENT_LAYOUT,
   DEFAULT_ATTACHMENTS_DIR,
   EDITOR_LAYOUT_KEY,
+  normalizeAttachmentLayout,
   normalizeAttachmentsDir,
+  type AttachmentLayout,
   type EditorLayoutMode,
 } from "./lib/attachments";
 import type { PaletteMode } from "./components/CommandPalette";
@@ -97,7 +101,7 @@ export default function App() {
   const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modeHint, setModeHint] = useState<string | null>(null);
-  // 附件目录 / 并排布局(B-ED-MEDIA / B-ED-READING)。
+  // 附件目录 / 布局 / 并排(B-ED-MEDIA / B-ED-READING)。
   const [attachmentsDir, setAttachmentsDir] = useState(() => {
     try {
       return normalizeAttachmentsDir(localStorage.getItem(ATTACHMENTS_DIR_KEY));
@@ -105,6 +109,17 @@ export default function App() {
       return DEFAULT_ATTACHMENTS_DIR;
     }
   });
+  const [attachmentLayout, setAttachmentLayout] = useState<AttachmentLayout>(
+    () => {
+      try {
+        return normalizeAttachmentLayout(
+          localStorage.getItem(ATTACHMENT_LAYOUT_KEY),
+        );
+      } catch {
+        return DEFAULT_ATTACHMENT_LAYOUT;
+      }
+    },
+  );
   const [editorLayout, setEditorLayout] = usePersistentState<EditorLayoutMode>(
     EDITOR_LAYOUT_KEY,
     "edit",
@@ -114,6 +129,15 @@ export default function App() {
     setAttachmentsDir(n);
     try {
       localStorage.setItem(ATTACHMENTS_DIR_KEY, n);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const persistAttachmentLayout = useCallback((layout: AttachmentLayout) => {
+    const n = normalizeAttachmentLayout(layout);
+    setAttachmentLayout(n);
+    try {
+      localStorage.setItem(ATTACHMENT_LAYOUT_KEY, n);
     } catch {
       /* ignore */
     }
@@ -165,7 +189,7 @@ export default function App() {
     "openobs.propsOpen",
     true,
   );
-  // 图谱力参数(6A2):持久化;graph-d3-forces 在映射到 d3-force 时夹取,这里存原值即可。
+  // 图谱力参数(6A2):持久化;CytoscapeLayer 映射到 cose 时夹取,这里存原值即可。
   const [forces, setForces] = usePersistentState<ForceParams>(
     GRAPH_FORCES_KEY,
     DEFAULT_FORCES,
@@ -484,6 +508,30 @@ export default function App() {
         const root = state.root;
         const p = state.currentPath;
         if (root && p && !ipc.isMock()) void ipc.revealInFinder(root, p);
+      },
+      cleanOrphanMedia: () => {
+        const root = state.root;
+        if (!root) return;
+        void (async () => {
+          try {
+            const snap = await ipc.mediaIndex(root, false);
+            if (snap.orphans.length === 0) {
+              window.alert(t("media.orphans.empty"));
+              return;
+            }
+            const ok = window.confirm(
+              t("media.orphans.confirm", { n: snap.orphans.length }),
+            );
+            if (!ok) return;
+            const n = await ipc.trashAttachments(
+              root,
+              snap.orphans.map((o) => o.path),
+            );
+            window.alert(t("media.orphans.done", { n }));
+          } catch (e) {
+            window.alert(String(e));
+          }
+        })();
       },
       onNewSheet: openNewSheet,
       pluginCommands: pluginCommands.map((c) => ({
@@ -804,6 +852,8 @@ export default function App() {
                           onFollow={handleFollow}
                           t={t}
                           attachmentsDir={attachmentsDir}
+                          attachmentLayout={attachmentLayout}
+                          notePath={state.currentPath}
                         />
                       </div>
                       {editorLayout === "split" && (
@@ -829,6 +879,8 @@ export default function App() {
                       theme={theme}
                       root={state.root}
                       attachmentsDir={attachmentsDir}
+                      attachmentLayout={attachmentLayout}
+                      notePath={state.currentPath}
                       t={t}
                     />
                   )}
@@ -923,6 +975,7 @@ export default function App() {
               noteTitles={noteTitles}
               typeOptions={typeOptions}
               vaultNodes={state.snapshot?.nodes ?? []}
+              root={state.root}
               t={t}
             />
           </div>
@@ -968,6 +1021,7 @@ export default function App() {
           locale,
           defaultEditMode: editMode,
           attachmentsDir,
+          attachmentLayout,
           editorLayout,
           graphForces: normalizeForces(forces),
         }}
@@ -977,6 +1031,9 @@ export default function App() {
           if (patch.defaultEditMode) persistEditMode(patch.defaultEditMode);
           if (patch.attachmentsDir != null) {
             persistAttachmentsDir(patch.attachmentsDir);
+          }
+          if (patch.attachmentLayout != null) {
+            persistAttachmentLayout(patch.attachmentLayout);
           }
           if (patch.editorLayout != null) {
             setEditorLayout(patch.editorLayout);

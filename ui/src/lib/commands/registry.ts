@@ -21,6 +21,7 @@ import {
   Table,
   TextT,
   Gear,
+  Image as ImageIcon,
   Translate,
   X,
 } from "@phosphor-icons/react";
@@ -214,6 +215,18 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
     inMenu: true,
     run: () => deps.refreshIndex(),
   });
+
+  if (deps.cleanOrphanMedia) {
+    cmds.push({
+      id: "clean-orphan-media",
+      label: t("palette.action.cleanOrphans"),
+      category: "view",
+      icon: ImageIcon as CommandIcon,
+      keywords: ["orphan", "attachment", "media", "附件", "孤儿", "清理"],
+      inMenu: false,
+      run: () => deps.cleanOrphanMedia!(),
+    });
+  }
 
   if (deps.toggleTheme) {
     cmds.push({

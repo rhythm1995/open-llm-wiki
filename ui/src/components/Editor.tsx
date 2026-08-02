@@ -23,6 +23,7 @@ import {
   useState,
 } from "react";
 import {
+  Image as ImageIcon,
   Quotes,
   TextB,
   TextH,
@@ -54,6 +55,8 @@ import {
   SearchQuery,
   findNext,
   findPrevious,
+  replaceNext,
+  replaceAll,
 } from "@codemirror/search";
 import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
 import { ipc } from "../lib/ipc";
@@ -70,12 +73,15 @@ import {
   type FormatResult,
 } from "../lib/md-format";
 import {
+  allocateAttachmentPath,
   blobToDataUrl,
   collectImageFiles,
+  DEFAULT_ATTACHMENT_LAYOUT,
   DEFAULT_ATTACHMENTS_DIR,
   markdownImageSnippet,
-  uniqueAttachmentPath,
+  type AttachmentLayout,
 } from "../lib/attachments";
+import { findInDocument } from "../lib/find-in-doc";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -85,7 +91,7 @@ interface Props {
   onFollow: (target: string) => void;
   /** vault 内全部笔记标题,用于 `[[` 自动补全。 */
   noteTitles: string[];
-  /** vault 根目录;内联 ```qql 块据此走 run_qql 求值(mock 下返回空,真机走 Rust core)。 */
+  /** vault 根目录;图片粘贴/拖入据此落盘到 attachments/(mock 下跳过,真机走 Rust core)。 */
   root: string | null;
   /** 是否有内容可编辑;无当前笔记时显示空态。 */
   hasNote: boolean;
@@ -95,6 +101,10 @@ interface Props {
   t: TFunc;
   /** 附件相对目录(默认 attachments)。 */
   attachmentsDir?: string;
+  /** 附件布局策略(默认 folder-note)。 */
+  attachmentLayout?: AttachmentLayout;
+  /** 当前笔记相对路径;folder-note / note-folder 分桶用。 */
+  notePath?: string | null;
 }
 
 const LINK_RE = /\[\[([^\]]+)\]\]/g;
@@ -226,6 +236,12 @@ export interface EditorHandle {
   find: (query: string, backward?: boolean) => boolean;
   /** 清除查找高亮(关 FindBar 时调用)。 */
   clearFind: () => void;
+  /** 替换当前/下一处匹配;@returns 是否发生替换。 */
+  replaceNext: (query: string, replacement: string) => boolean;
+  /** 替换全部匹配;@returns 替换前匹配数(0 表示无操作)。 */
+  replaceAll: (query: string, replacement: string) => number;
+  /** 打开系统/浏览器选图并插入(B-ED-IMAGE-BUTTON)。 */
+  pickAndInsertImages: () => void;
 }
 
 export const Editor = forwardRef<EditorHandle, Props>(function Editor(
@@ -239,17 +255,24 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     theme,
     t,
     attachmentsDir = DEFAULT_ATTACHMENTS_DIR,
+    attachmentLayout = DEFAULT_ATTACHMENT_LAYOUT,
+    notePath = null,
   },
   ref,
 ) {
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const rootRef = useRef(root);
   rootRef.current = root;
   const dirRef = useRef(attachmentsDir);
   dirRef.current = attachmentsDir;
+  const layoutRef = useRef(attachmentLayout);
+  layoutRef.current = attachmentLayout;
+  const notePathRef = useRef(notePath);
+  notePathRef.current = notePath;
 
   /** 应用 md-format 结果到 CM。 */
   const applyFormat = useCallback((fn: (text: string, sel: { from: number; to: number }) => FormatResult) => {
@@ -322,6 +345,47 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           effects: setSearchQuery.of(new SearchQuery({ search: "" })),
         });
       },
+      replaceNext: (query: string, replacement: string) => {
+        const v = view.current;
+        if (!v || !query) return false;
+        const sq = new SearchQuery({
+          search: query,
+          replace: replacement,
+          caseSensitive: false,
+          literal: true,
+          wholeWord: false,
+        });
+        v.dispatch({ effects: setSearchQuery.of(sq) });
+        let ok = replaceNext(v);
+        if (!ok) {
+          v.dispatch({
+            selection: { anchor: 0 },
+            effects: setSearchQuery.of(sq),
+          });
+          ok = replaceNext(v);
+        }
+        return ok;
+      },
+      replaceAll: (query: string, replacement: string) => {
+        const v = view.current;
+        if (!v || !query) return 0;
+        const before = findInDocument(v.state.doc.toString(), query).matches
+          .length;
+        if (before === 0) return 0;
+        const sq = new SearchQuery({
+          search: query,
+          replace: replacement,
+          caseSensitive: false,
+          literal: true,
+          wholeWord: false,
+        });
+        v.dispatch({ effects: setSearchQuery.of(sq) });
+        replaceAll(v);
+        return before;
+      },
+      pickAndInsertImages: () => {
+        fileInputRef.current?.click();
+      },
     }),
     [],
   );
@@ -340,13 +404,23 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
     if (!ed || !vaultRoot || files.length === 0) return;
     let from = ed.state.selection.main.from;
     let to = ed.state.selection.main.to;
+    const taken = new Set<string>();
     for (const file of files) {
       try {
-        const rel = uniqueAttachmentPath(
+        const rel = await allocateAttachmentPath(
           dirRef.current,
           file.name || "image.png",
-          (p) => ipc.attachmentExists(p),
+          async (p) => {
+            if (taken.has(p)) return true;
+            return ipc.attachmentExistsAsync(vaultRoot, p);
+          },
+          Date.now(),
+          {
+            layout: layoutRef.current,
+            notePath: notePathRef.current,
+          },
         );
+        taken.add(rel);
         const dataUrl = await blobToDataUrl(file);
         await ipc.saveAttachment(vaultRoot, rel, dataUrl);
         const snippet = markdownImageSnippet(rel, file.name || "image");
@@ -678,6 +752,31 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           >
             <LinkSimple size={14} />
           </button>
+          <span className="mx-0.5 h-3 w-px bg-crust" />
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.image")}
+            data-testid="editor-insert-image"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <ImageIcon size={14} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            data-testid="editor-image-input"
+            onChange={(e) => {
+              const list = e.target.files;
+              if (list && list.length > 0) {
+                void insertImageFiles(Array.from(list));
+              }
+              e.target.value = "";
+            }}
+          />
         </div>
       )}
       <div className="relative min-h-0 flex-1">

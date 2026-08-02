@@ -8,8 +8,12 @@ import type { Locale } from "../lib/i18n";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
 import type { AppSettings } from "../lib/settings";
-import type { EditorLayoutMode } from "../lib/attachments";
+import type {
+  AttachmentLayout,
+  EditorLayoutMode,
+} from "../lib/attachments";
 import {
+  exportLogBundle,
   getLogStatus,
   openLogDir,
   setLogProfile,
@@ -28,10 +32,14 @@ interface Props {
 
 export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
   const [logStatus, setLogStatus] = useState<LogStatus | null>(null);
+  const [exportPath, setExportPath] = useState<string | null>(null);
+  const [exportErr, setExportErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     void getLogStatus().then(setLogStatus);
+    setExportPath(null);
+    setExportErr(null);
   }, [open]);
 
   if (!open) return null;
@@ -119,6 +127,38 @@ export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
         </label>
         <p className="mb-3 text-[11px] text-overlay">
           {t("settings.attachmentsDirHint")}
+        </p>
+
+        <label className="mb-3 block text-[12px] text-subtext">
+          <span className="mb-1 block text-overlay">
+            {t("settings.attachmentLayout")}
+          </span>
+          <select
+            className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+            value={settings.attachmentLayout}
+            data-testid="settings-attachment-layout"
+            onChange={(e) =>
+              onChange({
+                attachmentLayout: e.target.value as AttachmentLayout,
+              })
+            }
+          >
+            <option value="folder-note">
+              {t("settings.attachmentLayout.folderNote")}
+            </option>
+            <option value="folder-date">
+              {t("settings.attachmentLayout.folderDate")}
+            </option>
+            <option value="folder">
+              {t("settings.attachmentLayout.folder")}
+            </option>
+            <option value="note-folder">
+              {t("settings.attachmentLayout.noteFolder")}
+            </option>
+          </select>
+        </label>
+        <p className="mb-3 text-[11px] text-overlay">
+          {t("settings.attachmentLayoutHint")}
         </p>
 
         <label className="mb-2 block text-[12px] text-subtext">
@@ -243,14 +283,41 @@ export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
                   <option value="prod">{t("settings.logProfile.prod")}</option>
                 </select>
               </label>
-              <button
-                type="button"
-                className="w-full rounded border border-crust bg-base px-2 py-1.5 text-[12px] text-text hover:bg-surface"
-                data-testid="settings-open-log-dir"
-                onClick={() => void openLogDir()}
-              >
-                {t("settings.openLogDir")}
-              </button>
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  className="w-full rounded border border-crust bg-base px-2 py-1.5 text-[12px] text-text hover:bg-surface"
+                  data-testid="settings-open-log-dir"
+                  onClick={() => void openLogDir()}
+                >
+                  {t("settings.openLogDir")}
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded border border-crust bg-base px-2 py-1.5 text-[12px] text-text hover:bg-surface"
+                  data-testid="settings-export-logs"
+                  onClick={() => {
+                    setExportErr(null);
+                    void exportLogBundle().then((p) => {
+                      if (p) setExportPath(p);
+                      else setExportErr(t("settings.exportLogsFailed"));
+                    });
+                  }}
+                >
+                  {t("settings.exportLogs")}
+                </button>
+              </div>
+              {exportPath && (
+                <p
+                  className="mt-1 break-all font-mono text-[10px] text-subtext"
+                  data-testid="settings-export-path"
+                >
+                  {exportPath}
+                </p>
+              )}
+              {exportErr && (
+                <p className="mt-1 text-[11px] text-overlay">{exportErr}</p>
+              )}
             </>
           ) : (
             <p className="text-[11px] text-overlay">

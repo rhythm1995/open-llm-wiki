@@ -9,6 +9,7 @@ import { EDIT_MODE_KEY } from "./edit-mode";
 import { LOCALE_STORAGE_KEY } from "./i18n";
 import { THEME_STORAGE_KEY } from "./theme";
 import {
+  ATTACHMENT_LAYOUT_KEY,
   ATTACHMENTS_DIR_KEY,
   EDITOR_LAYOUT_KEY,
 } from "./attachments";
@@ -26,6 +27,7 @@ describe("loadAppSettings / saveAppSettings", () => {
       [LOCALE_STORAGE_KEY]: "en",
       [EDIT_MODE_KEY]: "source",
       [ATTACHMENTS_DIR_KEY]: "assets/img",
+      [ATTACHMENT_LAYOUT_KEY]: "folder-date",
       [EDITOR_LAYOUT_KEY]: "split",
     };
     expect(loadAppSettings((k) => map[k] ?? null)).toEqual({
@@ -33,6 +35,7 @@ describe("loadAppSettings / saveAppSettings", () => {
       locale: "en",
       defaultEditMode: "source",
       attachmentsDir: "assets/img",
+      attachmentLayout: "folder-date",
       editorLayout: "split",
       graphForces: DEFAULT_FORCES, // 无 graph 键 → 默认
     });
@@ -74,6 +77,7 @@ describe("loadAppSettings / saveAppSettings", () => {
         locale: "en",
         defaultEditMode: "source",
         attachmentsDir: "media",
+        attachmentLayout: "note-folder",
         editorLayout: "split",
       },
       (k, v) => {
@@ -84,6 +88,7 @@ describe("loadAppSettings / saveAppSettings", () => {
     expect(map[LOCALE_STORAGE_KEY]).toBe("en");
     expect(map[EDIT_MODE_KEY]).toBe("source");
     expect(map[ATTACHMENTS_DIR_KEY]).toBe("media");
+    expect(map[ATTACHMENT_LAYOUT_KEY]).toBe("note-folder");
     expect(map[EDITOR_LAYOUT_KEY]).toBe("split");
   });
 

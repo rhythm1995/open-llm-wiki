@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { renderMarkdown, stripFrontmatter, wikilinkToHtml } from "./render";
+import {
+  renderMarkdown,
+  resolveWikiImageTarget,
+  stripFrontmatter,
+  wikiImageEmbedToHtml,
+  wikilinkToHtml,
+} from "./render";
 
 describe("render logic", () => {
   describe("stripFrontmatter", () => {
@@ -41,6 +47,34 @@ describe("render logic", () => {
     it("不动普通文本与普通链接", () => {
       const out = wikilinkToHtml("plain text [normal](http://x)");
       expect(out).toBe("plain text [normal](http://x)");
+    });
+  });
+
+  describe("wikiImageEmbed / resolve", () => {
+    it("![[img]] 转 img,且不破坏后续 wikilink", () => {
+      const mid = wikiImageEmbedToHtml("pic ![[a/b.png|cap]] and [[Note]]");
+      expect(mid).toContain('class="wiki-embed-img"');
+      expect(mid).toContain('src="a/b.png"');
+      expect(mid).toContain('alt="cap"');
+      expect(mid).toContain("[[Note]]");
+      const html = renderMarkdown("![[a/b.png]]\n\n[[Note]]");
+      expect(html).toContain("wiki-embed-img");
+      expect(html).toContain('data-target="Note"');
+      // 不应出现 ! 后的错误 <a
+      expect(html).not.toMatch(/!<a class="wikilink"/);
+    });
+    it("短名唯一时 resolve", () => {
+      expect(
+        resolveWikiImageTarget("shot.png", [
+          "attachments/Daily/shot.png",
+          "other/y.png",
+        ]),
+      ).toBe("attachments/Daily/shot.png");
+    });
+    it("![[Note]] 无图扩展名 → 降级 wikilink", () => {
+      const html = renderMarkdown("![[Daily]]");
+      expect(html).toContain('data-target="Daily"');
+      expect(html).not.toContain("wiki-embed-img");
     });
   });
 

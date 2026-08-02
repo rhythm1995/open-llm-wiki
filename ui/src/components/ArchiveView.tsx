@@ -7,7 +7,7 @@
  *   2. 最近提交(只读时间线,复用 GitPanel 的 git_log_raw + git-parse)。
  *
  * 非 git 仓库(`git_is_repo=false`)渲染空态 + 「初始化 git」按钮(mock 下同样命中)。
- * 组件内 mount effect 自取数(同 QueryPanel 读盘模式),不占全局 state。
+ * 组件内 mount effect 自取数,不占全局 state。
  */
 import { useCallback, useEffect, useState } from "react";
 import {

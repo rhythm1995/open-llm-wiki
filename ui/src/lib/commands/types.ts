@@ -81,6 +81,8 @@ export interface CommandDeps {
   openSettings?: () => void;
   toggleSplitLayout?: () => void;
   editorLayout?: "edit" | "split";
+  /** 清理未引用附件(媒体索引 orphans → trash,需确认)。 */
+  cleanOrphanMedia?: () => void;
   pluginCommands?: { id: string; label: string; run: () => void }[];
 }
 

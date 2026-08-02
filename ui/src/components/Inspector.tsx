@@ -12,11 +12,12 @@
  *     · 其余        → 标量 / 逗号列表文本 input
  *   编辑经 frontmatter.ts 的纯函数生成新正文,交给 autosave;语义仍以 core 为准。
  */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowsClockwise,
   ArrowsLeftRight,
   BookOpen,
+  Image as ImageIcon,
   List,
   Tag,
   Trash,
@@ -25,11 +26,15 @@ import {
   Clipboard,
   X,
   FileText,
+  Warning,
 } from "@phosphor-icons/react";
 import * as Tabs from "@radix-ui/react-tabs";
 import type { Backlink, VaultActions } from "../lib/store";
-import type { NodeOut } from "../lib/ipc";
+import type { MediaMetaOut, NodeOut } from "../lib/ipc";
+import { ipc } from "../lib/ipc";
 import type { TFunc } from "../lib/i18n";
+import { findBrokenWikilinks } from "../lib/broken-links";
+import { splitFrontmatter } from "../lib/frontmatter";
 import {
   parseFrontmatterEntries,
   removeFrontmatterKey,
@@ -59,6 +64,8 @@ interface Props {
   typeOptions: string[];
   /** 全库节点(解析类型文档)。 */
   vaultNodes?: NodeOut[];
+  /** vault 根;媒体索引查询用。 */
+  root?: string | null;
   t: TFunc;
 }
 
@@ -71,10 +78,27 @@ export function Inspector({
   noteTitles,
   typeOptions,
   vaultNodes = [],
+  root = null,
   t,
 }: Props) {
   const [tab, setTab] = useState("backlinks");
   const [copied, setCopied] = useState(false);
+  const [mediaItems, setMediaItems] = useState<MediaMetaOut[]>([]);
+
+  // 本笔记媒体:content 变 → 重查(桌面 live 索引;mock 扫正文)。
+  useEffect(() => {
+    if (!node || !root) {
+      setMediaItems([]);
+      return;
+    }
+    let cancelled = false;
+    void ipc.mediaOfNote(root, node.path).then((list) => {
+      if (!cancelled) setMediaItems(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [node?.path, content, root]);
 
   // hooks 须在 early return 前。
   const typeDoc = useMemo(() => {
@@ -91,6 +115,15 @@ export function Inspector({
     );
   }, [node?.type, vaultNodes]);
 
+  const bodyOnly = useMemo(
+    () => splitFrontmatter(content).body,
+    [content],
+  );
+  const brokenLinks = useMemo(
+    () => findBrokenWikilinks(bodyOnly, vaultNodes),
+    [bodyOnly, vaultNodes],
+  );
+
   if (!node) {
     return (
       <div className="flex h-full items-center justify-center bg-mantle px-3 text-center text-[12px] text-overlay">
@@ -103,7 +136,7 @@ export function Inspector({
   const entries = parseFrontmatterEntries(content);
   const statusRaw = entries.find(([k]) => k === "status")?.[1];
   const statusStr = typeof statusRaw === "string" ? statusRaw : "";
-  const outline = parseOutline(stripFrontmatter(content));
+  const outline = parseOutline(bodyOnly);
 
   return (
     <div className="flex h-full flex-col bg-mantle">
@@ -181,6 +214,31 @@ export function Inspector({
             )}
           </div>
         )}
+        {/* 本笔记未解析 wikilink(B-ED-BROKEN-LINKS) */}
+        {brokenLinks.length > 0 && (
+          <div
+            className="mt-1.5 rounded border border-yellow/40 bg-yellow/10 px-2 py-1.5 text-[11px]"
+            data-testid="inspector-broken-links"
+          >
+            <div className="mb-0.5 flex items-center gap-1 text-yellow">
+              <Warning size={11} />
+              <span>
+                {t("inspector.brokenLinks.title", { n: brokenLinks.length })}
+              </span>
+            </div>
+            <ul className="max-h-20 space-y-0.5 overflow-y-auto">
+              {brokenLinks.map((b) => (
+                <li
+                  key={b.inner}
+                  className="truncate font-mono text-[10px] text-subtext"
+                  title={b.inner}
+                >
+                  [[{b.inner}]]
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <Tabs.Root value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
@@ -220,6 +278,18 @@ export function Inspector({
           >
             <List size={13} />
             {t("inspector.tab.outline")} {outline.length}
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="media"
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5",
+              tab === "media"
+                ? "border-b-2 border-blue text-text"
+                : "text-overlay hover:text-subtext",
+            )}
+          >
+            <ImageIcon size={13} />
+            {t("inspector.tab.media")} {mediaItems.length}
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -286,15 +356,70 @@ export function Inspector({
             </ul>
           )}
         </Tabs.Content>
+
+        <Tabs.Content value="media" className="min-h-0 flex-1 overflow-y-auto p-2">
+          {!root ? (
+            <p className="px-1 py-2 text-[12px] text-overlay">
+              {t("inspector.media.noVault")}
+            </p>
+          ) : mediaItems.length === 0 ? (
+            <p className="px-1 py-2 text-[12px] text-overlay">
+              {t("inspector.media.empty")}
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {mediaItems.map((m) => {
+                // 桌面 missing 占位 bytes=0;mock 亦常为 0(无 fs size)——仅作弱提示。
+                const broken = m.bytes === 0;
+                return (
+                  <li
+                    key={m.path}
+                    className="rounded border border-crust/80 bg-surface/30 px-2 py-1.5"
+                  >
+                    <div className="flex items-start gap-1.5">
+                      {broken ? (
+                        <Warning
+                          size={14}
+                          className="mt-0.5 shrink-0 text-yellow"
+                        />
+                      ) : (
+                        <ImageIcon
+                          size={14}
+                          className="mt-0.5 shrink-0 text-teal"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="truncate font-mono text-[11px] text-text"
+                          title={m.path}
+                        >
+                          {m.path}
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-overlay">
+                          {broken
+                            ? t("inspector.media.missing")
+                            : t("inspector.media.meta", {
+                                bytes: formatBytes(m.bytes),
+                                n: m.refcount,
+                              })}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Tabs.Content>
       </Tabs.Root>
     </div>
   );
 }
 
-/** 去掉 frontmatter 围栏;YAML 注释(`# …`)否则会被大纲误判为标题。 */
-function stripFrontmatter(text: string): string {
-  const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(text);
-  return m ? text.slice(m[0].length) : text;
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function PropsEditor({
