@@ -2,8 +2,8 @@
 
 ## 技术栈
 
-> 下表为**实际落地**的依赖(以 `ui/package.json` + `core/Cargo.toml` 为准)。02 初版曾计划
-> Mantine / BlockNote / react-force-graph-2d,落地时为减依赖体积与 round-trip 风险做了务实调整
+> 下表为**实际落地**的依赖(以 `ui/package.json` + `core/Cargo.toml` 为准)。02 初版与中期曾先后计划
+> Mantine / BlockNote / react-force-graph-2d / sigma WebGL,落地时为依赖体积、交互完整度与维护成本做了务实调整
 > (见文末「为何与初版设计不同」);未落地的演进目标标 ⏳。
 
 | 层 | 实际选型 | 为什么 |
@@ -13,8 +13,8 @@
 | 前端 | **React 19.1 + TypeScript 5.9 + Vite 7** | 生态成熟、类型安全。 |
 | 样式 | **Tailwind CSS 4**(`@tailwindcss/vite`)+ 语义令牌 | 原子化样式;主题靠 `@theme` 的 CSS 变量切换,组件只引用令牌。 |
 | UI 组件 | **少量 Radix**(dialog / dropdown-menu / tabs / tooltip)+ **shadcn 模式**(cva/clsx/tailwind-merge)+ **Phosphor icons** | 无障碍的交互组件用 Radix;展示型组件自实现,降依赖体积。 |
-| 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。**打磨缺口**(格式条/右键/双模查找·qql/保真)见 [backlog §C](./backlog.md)。ReadingView(marked + DOMPurify)。 |
-| 图谱渲染 | **sigma.js WebGL** + graphology + Worker FR + Barnes-Hut + LOD;无 WebGL → SVG | 功能齐;真机万级帧率见 [deferred](./deferred.md)。 |
+| 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。ReadingView(marked + DOMPurify)。保真:app wikilink + 真 BN 引擎往返门禁([FEATURE-INDEX](./FEATURE-INDEX.md))。 |
+| 图谱渲染 | **Cytoscape.js**(懒加载 `CytoscapeLayer`)+ 力导向 **cose** + 预设坐标(type 层/时间轴) | 交互/样式一体、可测纯逻辑在 `graph-*` lib;大图 top-K 截断;真机帧率见 [backlog](./backlog.md) B-GRAPH-FPS / [plan](./plan.md)。 |
 | 阅读渲染 | **marked 18 + DOMPurify 3** | Markdown → HTML + sanitize;F-READING 安全加固。 |
 | Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
 | 包管理 | **pnpm**(workspace monorepo) | 快、磁盘高效。 |
@@ -35,8 +35,8 @@ OpenObsidian/
 │   └── icons/
 ├── ui/                   ← React 前端(Vite)
 │   └── src/
-│       ├── components/   ← Editor/ReadingView/GraphView/Nav/NoteListView/Inspector/QueryPanel...
-│       ├── lib/          ← 纯逻辑(store/tabs/graph-model/graph-layout/graph-lod/qql-block/vault-watch/…)
+│       ├── components/   ← Editor/ReadingView/GraphView/CytoscapeLayer/Nav/NoteListView/Inspector...
+│       ├── lib/          ← 纯逻辑(store/tabs/graph-model/graph-filter/graph-layout/graph-health/vault-watch/…)
 │       └── *.test.ts     ← Vitest 纯逻辑测试(node 环境)
 ├── tools/                ← 生成式脚本(gen-benchmark-vault.mjs)
 ├── .github/workflows/    ← ci.yml(测试)+ release.yml(打包矩阵)
@@ -120,6 +120,7 @@ read_note(root, path) -> String
 
 // 写(结构操作后端自动 git 提交,见 F-GIT;并路径级更新 LiveVault)
 write_note / create_note / delete_note / rename_note(root, ...)
+media_index / media_of_note / media_used_by / trash_attachments(媒体索引,与 VaultIndex 平行)
 
 // 索引 + 查询(LiveVault + core::VaultIndex)
 index_vault(root, force?) -> VaultSnapshot    // force 或缺 live → WalkDir;否则投影 live
@@ -144,8 +145,8 @@ watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径�
 ## 性能策略
 
 - **索引**:打开 vault 一次 WalkDir;之后路径级 delta + `build_from_map`(core 纯函数,有单测)。`run_qql`/`search` 不扫盘。
-- **图谱**:`graph-model`(path-stable)+ Worker FR(**Barnes-Hut** n≥280)+ **sigma WebGL** + LOD 簇边/飞入;无 WebGL → SVG。拖/框选/pin/悬空边双路径对齐。
-- **查询**:Rust 原生(`query::eval` 在 live 不可变快照上)。UI 无独立搜索视图:⌘F 文档内、⌘P 快速打开、⌘K 命令。
+- **图谱**:`graph-model`(path-stable)+ **Cytoscape** 渲染;`cose` 力导向(滑条→布局参数);type 层/时间轴为 preset 坐标;`graph-filter` / health / cluster / style 纯逻辑可测。大图 **top-K 按度数截断**(~2000)。
+- **查询**:Rust 原生(`query::eval` 在 live 不可变快照上);MCP `run_qql` 为 agent/IR 入口。UI 搜索:⌘F 文档内、⌘P 快速打开、⌘K 命令(**无**独立 Query 面板)。
 - **编辑器**:CodeMirror 源码 + BlockNote WYSIWYG 双模;自动保存防抖。
 - **画布**:Excalidraw(MIT),懒加载。
 
@@ -158,8 +159,9 @@ watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径�
 
 - **编辑器:CodeMirror + BlockNote 双模**:源码 round-trip 最稳;WYSIWYG 用 BlockNote(MPL-2.0)。`.md` 仍是真相源。
 - **UI 栈:Tailwind 4 + 少量 Radix**:展示型组件自实现,降依赖体积。
-- **图谱:SVG 起步 → WebGL 大图**:中小 vault 可测可控;万级目标 sigma + Worker + LOD。
+- **图谱演进:SVG → 自研 FR/sigma WebGL → Cytoscape + cose**(2026-08):sigma/graphology/Worker Barnes-Hut/LOD 与 react-force-graph-2d 过渡层已退役;主路径 **Cytoscape.js**(懒加载)+ `ui/src/lib/graph-*` 纯逻辑。
 - **画布:Excalidraw 而非 tldraw**:默认 MIT 分发、可托管,无 source-available 生产限制。
+- **QQL 用户面收缩**:内联 ```qql / QueryPanel / TS 求值器 UI 已撤;QQL 保留为 **core IR + MCP `run_qql`**(见 [04](./04-features.md))。
 
 ### 为何 git 是唯一版本真相(实际架构决策,初版未写)
 

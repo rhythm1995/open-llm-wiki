@@ -32,6 +32,14 @@ pub enum Target {
     Unresolved(String),
 }
 
+/// 孤儿判定的方向(与 ui `graph-health` OrphanMode 同义)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrphanMode {
+    Incoming,
+    Outgoing,
+    Both,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Edge {
     pub from: NodeId,
@@ -120,6 +128,61 @@ impl Graph {
         self.edges
             .iter()
             .filter(|e| matches!(e.to, Target::Unresolved(_)))
+    }
+
+    /// 节点的已解析出度(悬空目标不计;与 ui graph-health 同义)。
+    pub fn out_degree(&self, id: NodeId) -> usize {
+        self.outgoing
+            .get(id)
+            .map(|idxs| {
+                idxs.iter()
+                    .filter(|&&i| matches!(self.edges[i].to, Target::Resolved(_)))
+                    .count()
+            })
+            .unwrap_or(0)
+    }
+
+    /// 节点的已解析入度(incoming 只含 Resolved,直接计数)。
+    pub fn in_degree(&self, id: NodeId) -> usize {
+        self.incoming.get(id).map(|v| v.len()).unwrap_or(0)
+    }
+
+    /// 总度数(已解析:出度 + 入度)。
+    pub fn degree(&self, id: NodeId) -> usize {
+        self.out_degree(id) + self.in_degree(id)
+    }
+
+    /// 孤儿节点 id:`mode` 决定哪个方向无连边视作孤儿。
+    ///   - Both:总度数 0(完全无已解析边)
+    ///   - Outgoing:出度 0
+    ///   - Incoming:入度 0
+    pub fn orphans_by(&self, mode: OrphanMode) -> Vec<NodeId> {
+        (0..self.nodes.len())
+            .filter(|&id| match mode {
+                OrphanMode::Both => self.degree(id) == 0,
+                OrphanMode::Outgoing => self.out_degree(id) == 0,
+                OrphanMode::Incoming => self.in_degree(id) == 0,
+            })
+            .collect()
+    }
+
+    /// 枢纽:按总度数降序(同度按 id 升序)取前 `limit`,返回 (id, degree)。0 度节点排除。
+    pub fn hubs(&self, limit: usize) -> Vec<(NodeId, usize)> {
+        let mut v: Vec<(NodeId, usize)> = (0..self.nodes.len())
+            .map(|id| (id, self.degree(id)))
+            .filter(|(_, d)| *d > 0)
+            .collect();
+        v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        v.truncate(limit);
+        v
+    }
+
+    /// 节点发出的悬空目标(目标未解析的出边)。供 MCP dead / broken_links 用。
+    pub fn dead_links_from(&self, id: NodeId) -> Vec<&Edge> {
+        self.outgoing(id)
+            .into_iter()
+            .filter(|e| matches!(e.to, Target::Unresolved(_)))
+            .collect()
     }
 }
 
@@ -431,6 +494,61 @@ mod tests {
         ];
         let g = Graph::build(notes);
         assert!(matches!(g.edges[0].to, Target::Resolved(1)));
+    }
+
+    /// 图健康度夹具:Alpha 出 2(均解析);Beta 出 1 但悬空(Ghost);Gamma 仅被指;Delta 孤立。
+    fn health_fixture() -> Graph {
+        Graph::build(vec![
+            note("# Alpha\n[[Beta]]\n[[Gamma]]", "a.md"),
+            note("# Beta\n[[Ghost]]", "b.md"),
+            note("# Gamma", "c.md"),
+            note("# Delta", "d.md"),
+        ])
+    }
+
+    #[test]
+    fn degree_excludes_unresolved_out_edges() {
+        let g = health_fixture();
+        // a: 出 2 入 0; b: 出 0(Ghost 不计)入 1; c: 入 1; d: 0。
+        assert_eq!(g.out_degree(0), 2);
+        assert_eq!(g.in_degree(0), 0);
+        assert_eq!(g.degree(0), 2);
+        assert_eq!(g.out_degree(1), 0); // Ghost 悬空,不计出度
+        assert_eq!(g.in_degree(1), 1);
+        assert_eq!(g.degree(1), 1);
+        assert_eq!(g.degree(2), 1);
+        assert_eq!(g.degree(3), 0);
+    }
+
+    #[test]
+    fn orphans_by_mode() {
+        let g = health_fixture();
+        // Both:只有 Delta(3)完全孤立。
+        assert_eq!(g.orphans_by(OrphanMode::Both), vec![3]);
+        // Outgoing:a 出度 2,其余出度 0。
+        assert_eq!(g.orphans_by(OrphanMode::Outgoing), vec![1, 2, 3]);
+        // Incoming:a、d 无入边。
+        assert_eq!(g.orphans_by(OrphanMode::Incoming), vec![0, 3]);
+    }
+
+    #[test]
+    fn hubs_sorted_desc_then_id_truncated() {
+        let g = health_fixture();
+        // 度数 2,1,1,0 → 排除 0;同度按 id 升序。
+        assert_eq!(g.hubs(10), vec![(0, 2), (1, 1), (2, 1)]);
+        assert_eq!(g.hubs(1), vec![(0, 2)]);
+        assert!(g.hubs(0).is_empty());
+    }
+
+    #[test]
+    fn dead_links_from_returns_only_unresolved() {
+        let g = health_fixture();
+        // Beta(1) 的 [[Ghost]] 是悬空出边。
+        let beta_dead = g.dead_links_from(1);
+        assert_eq!(beta_dead.len(), 1);
+        assert!(matches!(beta_dead[0].to, Target::Unresolved(_)));
+        // Alpha(0) 的出边都解析了 → 无悬空。
+        assert!(g.dead_links_from(0).is_empty());
     }
 }
 

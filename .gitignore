@@ -36,3 +36,6 @@ Thumbs.db
 # Benchmark vault(图谱大图性能压测用,生成物,勿提交)
 benchmark-vault/
 /big
+
+# graph-demo:含 kb vault 私有笔记数据(extract.mjs 生成),勿提交
+graph-demo/

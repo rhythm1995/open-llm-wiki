@@ -82,12 +82,6 @@ describe("filterByNav — tag", () => {
   });
 });
 
-describe("filterByNav — query", () => {
-  it("返回空(由 NoteListView 单独跑 ipc.runQql)", () => {
-    expect(filterByNav(NODES, { kind: "query", id: "queries/x.md" })).toEqual([]);
-  });
-});
-
 describe("filterByNav — archive", () => {
   it("返回空(归档数据来自 git 历史;NoteListView 委派给 ArchiveView)", () => {
     expect(filterByNav(NODES, { kind: "archive" })).toEqual([]);
@@ -103,7 +97,6 @@ describe("sameSelection", () => {
     [{ kind: "type", id: "Concept" }, { kind: "type", id: "Concept" }, true],
     [{ kind: "type", id: "Concept" }, { kind: "type", id: "Source" }, false],
     [{ kind: "folder", id: "a" }, { kind: "folder", id: "b" }, false],
-    [{ kind: "query", id: "q" }, { kind: "query", id: "q" }, true],
   ];
   for (const [a, b, want] of cases) {
     it(`${JSON.stringify(a)} vs ${JSON.stringify(b)} → ${want}`, () => {

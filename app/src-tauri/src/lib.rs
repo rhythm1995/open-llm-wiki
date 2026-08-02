@@ -5,6 +5,8 @@
 //!
 //! 设计原则:命令函数只做 IO 与 core 之间的胶水,不写业务逻辑。
 
+mod logging;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,7 +22,7 @@ use openobs_core::{
 };
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
 
@@ -142,12 +144,14 @@ fn preview_of(body: &str) -> String {
 // run_qql / search_notes 只读 live.index。
 // index_vault(force=true) 或 root 切换时再全量 walk 自愈。
 
-/// 内存中的 vault 索引(与磁盘 .md 集对应;canvas 不进 index)。
+/// 内存中的 vault 索引(与磁盘 .md 集对应;canvas 不进 note index)。
+/// `media` 与笔记索引平行:文件表 + 正文引用正排/倒排(core::MediaIndex)。
 struct LiveVault {
     root: String,
     /// 相对 path → 正文(.md only)。
     entries: BTreeMap<String, String>,
     index: VaultIndex,
+    media: openobs_core::MediaIndex,
 }
 
 struct LiveVaultState(Mutex<Option<LiveVault>>);
@@ -167,14 +171,36 @@ fn normalize_rel(path: &str) -> String {
         .to_string()
 }
 
-/// 全量 walk 读入全部 .md → LiveVault(IO 仅此路径在 open/force 时发生)。
+/// 磁盘图片 → MediaMeta(仅图片扩展名;点目录已由 walk filter 排除)。
+fn media_meta_from_path(root: &Path, abs: &Path) -> Option<openobs_core::MediaMeta> {
+    let rel = normalize_rel(&abs.strip_prefix(root).unwrap_or(abs).to_string_lossy());
+    if rel.is_empty() || !openobs_core::is_image_path(&rel) {
+        return None;
+    }
+    let meta = fs::metadata(abs).ok()?;
+    let mtime_ms = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    Some(openobs_core::MediaMeta {
+        path: rel.clone(),
+        kind: openobs_core::kind_from_path(&rel),
+        bytes: meta.len(),
+        mtime_ms,
+    })
+}
+
+/// 全量 walk 读入全部 .md + 图片 → LiveVault(IO 仅此路径在 open/force 时发生)。
 fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
     let root_path = Path::new(root);
     if !root_path.is_dir() {
         return Err(format!("不是目录:{root}"));
     }
     let mut entries: BTreeMap<String, String> = BTreeMap::new();
-    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian 等)。
+    let mut media_files: Vec<openobs_core::MediaMeta> = Vec::new();
+    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian、.openobsidian 等)。
     for entry in WalkDir::new(root_path)
         .min_depth(1)
         .into_iter()
@@ -185,22 +211,31 @@ fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
         if p.is_dir() {
             continue;
         }
-        if p.extension().and_then(|x| x.to_str()) != Some("md") {
-            continue;
-        }
         let rel = normalize_rel(
             &p.strip_prefix(root_path)
                 .unwrap_or(p)
                 .to_string_lossy(),
         );
-        let content = fs::read_to_string(p).map_err(err)?;
-        entries.insert(rel, content);
+        if p.extension().and_then(|x| x.to_str()) == Some("md") {
+            let content = fs::read_to_string(p).map_err(err)?;
+            entries.insert(rel, content);
+        } else if let Some(m) = media_meta_from_path(root_path, p) {
+            media_files.push(m);
+        }
     }
     let index = VaultIndex::build_from_map(&entries);
+    let media = openobs_core::MediaIndex::build(
+        media_files,
+        entries
+            .iter()
+            .map(|(p, c)| (p.clone(), c.clone()))
+            .collect::<Vec<_>>(),
+    );
     Ok(LiveVault {
         root: root.to_string(),
         entries,
         index,
+        media,
     })
 }
 
@@ -217,13 +252,37 @@ fn ensure_live(state: &LiveVaultState, root: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 对 live 应用路径级 delta 并重建 index(纯 map 更新 + build_from_map)。
+/// 对 live 应用路径级 delta 并重建 note index + 媒体引用。
 fn live_apply(
     live: &mut LiveVault,
     deltas: impl IntoIterator<Item = (String, Option<String>)>,
 ) {
+    let deltas: Vec<(String, Option<String>)> = deltas.into_iter().collect();
+    // 媒体引用:按笔记 delta 增量更新(不必全量 rebuild media files)。
+    for (path, content) in &deltas {
+        if is_md_rel(path) {
+            live.media
+                .apply_note_delta(path, content.as_deref());
+        }
+    }
     apply_entry_deltas(&mut live.entries, deltas);
     live.index = VaultIndex::build_from_map(&live.entries);
+}
+
+/// 登记/刷新单张磁盘图片进 media files 表。
+fn live_media_upsert_file(live: &mut LiveVault, root: &str, rel: &str) {
+    let rel = normalize_rel(rel);
+    if !openobs_core::is_image_path(&rel) {
+        return;
+    }
+    let Ok(full) = resolve_under(root, &rel) else {
+        return;
+    };
+    if let Some(m) = media_meta_from_path(Path::new(root), &full) {
+        live.media.upsert_file(m);
+    } else {
+        live.media.remove_file(&rel);
+    }
 }
 
 /// 把磁盘上若干相对路径读入/删除后打进 live(不存在 → remove)。
@@ -380,16 +439,59 @@ fn write_note(
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
-    fs::write(&full, &content).map_err(err)?;
+    let nbytes = content.len();
+    fs::write(&full, &content).map_err(|e| {
+        logging::emit(
+            logging::LogLevel::Error,
+            "ipc.write_note",
+            "write failed",
+            Some(serde_json::json!({ "path": &path, "err": e.to_string() })),
+        );
+        err(e)
+    })?;
     // 路径级 delta:更新 live entries,不 WalkDir。
     live_note_upsert(&state, &root, &path, Some(content));
+    logging::emit(
+        logging::LogLevel::Debug,
+        "ipc.write_note",
+        "ok",
+        Some(serde_json::json!({ "path": path, "bytes": nbytes })),
+    );
     Ok(())
 }
 
-/// 将 base64 字节写入 vault 内相对路径(附件,非笔记;不进 live index)。
+/// 读取图谱布局快照(B-GRAPH-POS-PERSIST)。
+/// 文件缺失 → `Ok(None)`(首次启动 / 未落盘)。其余 IO 错误透传。
+/// 路径固定为 `<root>/.openobsidian/graph-layout.json`(默认 gitignore,见 P6-7)。
+#[tauri::command]
+fn read_graph_layout(root: String) -> Result<Option<String>, String> {
+    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    match fs::read_to_string(&full) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// 写入图谱布局快照(自动创建 `.openobsidian/` 目录)。
+#[tauri::command]
+fn save_graph_layout(root: String, json: String) -> Result<(), String> {
+    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    if let Some(parent) = full.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    fs::write(&full, &json).map_err(err)
+}
+
+/// 将 base64 字节写入 vault 内相对路径(附件,非笔记;进 media files 表,不进 note index)。
 /// `bytes_base64` 可为纯 base64,或 `data:*;base64,...` data URL。
 #[tauri::command]
-fn save_attachment(root: String, path: String, bytes_base64: String) -> Result<(), String> {
+fn save_attachment(
+    root: String,
+    path: String,
+    bytes_base64: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
     let full = resolve_under(&root, &path)?;
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
@@ -397,7 +499,250 @@ fn save_attachment(root: String, path: String, bytes_base64: String) -> Result<(
     let raw = strip_data_url_base64(&bytes_base64);
     let bytes = decode_base64(raw)?;
     fs::write(&full, bytes).map_err(err)?;
+    // 媒体索引:登记文件(引用仍等笔记保存后由 write_note 增量)。
+    if let Ok(mut g) = state.0.lock() {
+        if let Some(live) = g.as_mut() {
+            if live.root == root {
+                live_media_upsert_file(live, &root, &path);
+            }
+        }
+    }
     Ok(())
+}
+
+/// 附件相对路径是否已在磁盘上(unique 路径分配;不进 live index)。
+#[tauri::command]
+fn attachment_exists(root: String, path: String) -> Result<bool, String> {
+    let full = resolve_under(&root, &path)?;
+    Ok(full.is_file())
+}
+
+fn is_image_rel(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| {
+            matches!(
+                e.to_ascii_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp"
+            )
+        })
+        .unwrap_or(false)
+}
+
+/// 列出 vault 内图片附件相对路径。
+/// `dir` 缺省为 `attachments`;只扫该子树下的图片扩展名,不进笔记 live index。
+#[tauri::command]
+fn list_attachments(root: String, dir: Option<String>) -> Result<Vec<String>, String> {
+    let sub = dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("attachments");
+    // 与前端 normalizeAttachmentsDir 对齐:禁止 `..` 逃逸(resolve_under 也兜底)。
+    let sub_norm = normalize_rel(sub);
+    if sub_norm.is_empty() || sub_norm.split('/').any(|s| s == "..") {
+        return Err("invalid attachments dir".into());
+    }
+    let base = resolve_under(&root, &sub_norm)?;
+    if !base.is_dir() {
+        return Ok(Vec::new());
+    }
+    let root_path = Path::new(&root);
+    let mut out = Vec::new();
+    for entry in WalkDir::new(&base)
+        .into_iter()
+        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
+    {
+        let e = entry.map_err(err)?;
+        let p = e.path();
+        if !p.is_file() {
+            continue;
+        }
+        let rel = normalize_rel(
+            &p.strip_prefix(root_path)
+                .unwrap_or(p)
+                .to_string_lossy(),
+        );
+        if is_image_rel(&rel) {
+            out.push(rel);
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+/// 媒体索引对外 DTO(serde;camelCase 由前端读 path/bytes/…)。
+#[derive(serde::Serialize)]
+struct MediaMetaOut {
+    path: String,
+    kind: String,
+    bytes: u64,
+    mtime_ms: u64,
+    /// 引用该文件的笔记数。
+    refcount: usize,
+}
+
+#[derive(serde::Serialize)]
+struct MediaStatsOut {
+    files: usize,
+    notes_with_media: usize,
+    refs: usize,
+    orphans: usize,
+    missing: usize,
+}
+
+#[derive(serde::Serialize)]
+struct MediaSnapshot {
+    stats: MediaStatsOut,
+    /// 全库已登记媒体路径(短名 resolve / 清单)。
+    files: Vec<String>,
+    /// 孤儿附件(refcount==0)。
+    orphans: Vec<MediaMetaOut>,
+    /// 正文引用但磁盘无文件。
+    missing: Vec<String>,
+}
+
+fn media_meta_out(ix: &openobs_core::MediaIndex, m: &openobs_core::MediaMeta) -> MediaMetaOut {
+    let kind = match m.kind {
+        openobs_core::MediaKind::Image => "image",
+        openobs_core::MediaKind::Other => "other",
+    };
+    MediaMetaOut {
+        path: m.path.clone(),
+        kind: kind.into(),
+        bytes: m.bytes,
+        mtime_ms: m.mtime_ms,
+        refcount: ix.refcount(&m.path),
+    }
+}
+
+fn ensure_live_media<'a>(
+    state: &'a LiveVaultState,
+    root: &str,
+) -> Result<std::sync::MutexGuard<'a, Option<LiveVault>>, String> {
+    ensure_live(state, root)?;
+    state.0.lock().map_err(|e| e.to_string())
+}
+
+/// 全库媒体快照:stats + orphans + missing(只读 live;force 时先重载)。
+#[tauri::command]
+fn media_index(
+    root: String,
+    force: Option<bool>,
+    state: State<LiveVaultState>,
+) -> Result<MediaSnapshot, String> {
+    let force = force.unwrap_or(false);
+    let mut g = state.0.lock().map_err(|e| e.to_string())?;
+    if force || g.as_ref().map(|v| v.root != root).unwrap_or(true) {
+        *g = Some(load_live_from_disk(&root)?);
+    }
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
+    let st = live.media.stats();
+    Ok(MediaSnapshot {
+        stats: MediaStatsOut {
+            files: st.files,
+            notes_with_media: st.notes_with_media,
+            refs: st.refs,
+            orphans: st.orphans,
+            missing: st.missing,
+        },
+        files: live.media.files().keys().cloned().collect(),
+        orphans: live
+            .media
+            .orphans()
+            .into_iter()
+            .map(|m| media_meta_out(&live.media, m))
+            .collect(),
+        missing: live.media.missing(),
+    })
+}
+
+/// 当前笔记引用的媒体(含 missing 占位:bytes=0)。
+#[tauri::command]
+fn media_of_note(
+    root: String,
+    path: String,
+    state: State<LiveVaultState>,
+) -> Result<Vec<MediaMetaOut>, String> {
+    let g = ensure_live_media(&state, &root)?;
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
+    if live.root != root {
+        return Err("live root mismatch".into());
+    }
+    Ok(live
+        .media
+        .media_of(&path)
+        .iter()
+        .map(|m| media_meta_out(&live.media, m))
+        .collect())
+}
+
+/// 引用某附件的笔记路径列表。
+#[tauri::command]
+fn media_used_by(
+    root: String,
+    path: String,
+    state: State<LiveVaultState>,
+) -> Result<Vec<String>, String> {
+    let g = ensure_live_media(&state, &root)?;
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
+    Ok(live.media.used_by(&path))
+}
+
+/// 将附件移入 `.openobsidian/media-trash/`(可还原目录树),并更新 media files 表。
+/// **不**在 delete_note 时自动调用——需 UI 确认后调用。
+#[tauri::command]
+fn trash_attachments(
+    root: String,
+    paths: Vec<String>,
+    state: State<LiveVaultState>,
+) -> Result<usize, String> {
+    let mut moved = 0usize;
+    for raw in &paths {
+        let rel = normalize_rel(raw);
+        if rel.is_empty() || rel.split('/').any(|s| s == ".." || s.starts_with('.')) {
+            continue;
+        }
+        let src = resolve_under(&root, &rel)?;
+        if !src.is_file() {
+            // 仍从索引移除
+            if let Ok(mut g) = state.0.lock() {
+                if let Some(live) = g.as_mut() {
+                    if live.root == root {
+                        live.media.remove_file(&rel);
+                    }
+                }
+            }
+            continue;
+        }
+        let trash_rel = format!(".openobsidian/media-trash/{rel}");
+        let dst = resolve_under(&root, &trash_rel)?;
+        if let Some(parent) = dst.parent() {
+            fs::create_dir_all(parent).map_err(err)?;
+        }
+        // 碰撞:加时间戳后缀
+        let dst = if dst.exists() {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let alt = format!("{trash_rel}.{stamp}");
+            resolve_under(&root, &alt)?
+        } else {
+            dst
+        };
+        fs::rename(&src, &dst).map_err(err)?;
+        if let Ok(mut g) = state.0.lock() {
+            if let Some(live) = g.as_mut() {
+                if live.root == root {
+                    live.media.remove_file(&rel);
+                }
+            }
+        }
+        moved += 1;
+    }
+    Ok(moved)
 }
 
 /// 去掉 `data:…;base64,` 前缀(若有)。
@@ -407,6 +752,64 @@ fn strip_data_url_base64(s: &str) -> &str {
     } else {
         s.trim()
     }
+}
+
+/// 标准 base64 编码(无额外 crate)。
+fn encode_base64(bytes: &[u8]) -> String {
+    const T: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
+    let mut i = 0;
+    while i + 3 <= bytes.len() {
+        let n = (u32::from(bytes[i]) << 16)
+            | (u32::from(bytes[i + 1]) << 8)
+            | u32::from(bytes[i + 2]);
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push(T[((n >> 6) & 63) as usize] as char);
+        out.push(T[(n & 63) as usize] as char);
+        i += 3;
+    }
+    let rem = bytes.len() - i;
+    if rem == 1 {
+        let n = u32::from(bytes[i]) << 16;
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push('=');
+        out.push('=');
+    } else if rem == 2 {
+        let n = (u32::from(bytes[i]) << 16) | (u32::from(bytes[i + 1]) << 8);
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push(T[((n >> 6) & 63) as usize] as char);
+        out.push('=');
+    }
+    out
+}
+
+fn mime_from_rel_path(path: &str) -> &'static str {
+    let lower = path.to_ascii_lowercase();
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if lower.ends_with(".gif") {
+        "image/gif"
+    } else if lower.ends_with(".webp") {
+        "image/webp"
+    } else if lower.ends_with(".svg") {
+        "image/svg+xml"
+    } else if lower.ends_with(".bmp") {
+        "image/bmp"
+    } else {
+        "image/png"
+    }
+}
+
+/// 读附件为 data URL,供 webview 可靠预览(不依赖 asset 协议路径权限)。
+#[tauri::command]
+fn read_attachment_data_url(root: String, path: String) -> Result<String, String> {
+    let full = resolve_under(&root, &path)?;
+    let bytes = fs::read(&full).map_err(err)?;
+    let mime = mime_from_rel_path(&path);
+    Ok(format!("data:{mime};base64,{}", encode_base64(&bytes)))
 }
 
 /// 标准 base64 解码(无额外 crate;允许缺省 padding)。
@@ -491,31 +894,75 @@ fn rename_note(
     to: String,
     state: State<LiveVaultState>,
 ) -> Result<(), String> {
+    // 需要 live.media 做 refcount/搬图;缺失则先加载。
+    let _ = ensure_live(&state, &root);
     let src = resolve_under(&root, &from)?;
     let dst = resolve_under(&root, &to)?;
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
     fs::rename(&src, &dst).map_err(err)?;
-    // 内存:移出 from,读 to 写入(或 map 内移动)。
+
+    let from_n = normalize_rel(&from);
+    let to_n = normalize_rel(&to);
+    // 改名后正文 + 受限附件搬家(refcount==1 + 同目录/stem 桶)。
+    let mut commit_paths: Vec<String> = vec![from_n.clone(), to_n.clone()];
+
     if let Ok(mut g) = state.0.lock() {
         if let Some(live) = g.as_mut() {
             if live.root == root {
-                let from_n = normalize_rel(&from);
-                let to_n = normalize_rel(&to);
                 let mut deltas = Vec::new();
                 if is_md_rel(&from_n) {
-                    let moved = live.entries.remove(&from_n);
-                    deltas.push((from_n, None));
+                    let mut content = live
+                        .entries
+                        .remove(&from_n)
+                        .or_else(|| fs::read_to_string(&dst).ok());
+                    deltas.push((from_n.clone(), None));
+
                     if is_md_rel(&to_n) {
-                        let content = moved.or_else(|| fs::read_to_string(&dst).ok());
-                        if let Some(c) = content {
-                            deltas.push((to_n, Some(c)));
+                        if let Some(body) = content.take() {
+                            // 计划搬家:仅本笔记引用且 refcount==1。
+                            let media_list: Vec<String> = live
+                                .media
+                                .media_of(&from_n)
+                                .into_iter()
+                                .map(|m| m.path)
+                                .collect();
+                            // media_of 已因 entries 移除? by_note 仍 keyed by from_n until apply
+                            let moves = openobs_core::plan_media_moves_on_note_rename(
+                                &from_n,
+                                &to_n,
+                                media_list,
+                                |p| live.media.refcount(p),
+                            );
+                            let mut new_body = body;
+                            if !moves.is_empty() {
+                                new_body =
+                                    openobs_core::rewrite_media_paths_in_body(&new_body, &moves);
+                                for m in &moves {
+                                    let msrc = resolve_under(&root, &m.from)?;
+                                    let mdst = resolve_under(&root, &m.to)?;
+                                    if msrc.is_file() {
+                                        if let Some(parent) = mdst.parent() {
+                                            fs::create_dir_all(parent).map_err(err)?;
+                                        }
+                                        // 目标已存在则跳过搬文件(避免覆盖),仍改写正文
+                                        if !mdst.exists() {
+                                            fs::rename(&msrc, &mdst).map_err(err)?;
+                                            live.media.rename_file_key(&m.from, &m.to);
+                                            commit_paths.push(m.from.clone());
+                                            commit_paths.push(m.to.clone());
+                                        }
+                                    }
+                                }
+                                fs::write(&dst, &new_body).map_err(err)?;
+                            }
+                            deltas.push((to_n.clone(), Some(new_body)));
                         }
                     }
                 } else if is_md_rel(&to_n) {
                     if let Ok(c) = fs::read_to_string(&dst) {
-                        deltas.push((to_n, Some(c)));
+                        deltas.push((to_n.clone(), Some(c)));
                     }
                 }
                 if !deltas.is_empty() {
@@ -524,10 +971,12 @@ fn rename_note(
             }
         }
     }
+
+    let refs: Vec<&str> = commit_paths.iter().map(|s| s.as_str()).collect();
     git_commit_paths(
         &root,
         &format!("Rename {} → {}", title_of(&from), title_of(&to)),
-        &[&from, &to],
+        &refs,
     );
     Ok(())
 }
@@ -542,12 +991,34 @@ fn index_vault(
     state: State<LiveVaultState>,
 ) -> Result<VaultSnapshot, String> {
     let force = force.unwrap_or(false);
+    let t0 = std::time::Instant::now();
     let mut g = state.0.lock().map_err(|e| e.to_string())?;
-    if force || g.as_ref().map(|v| v.root != root).unwrap_or(true) {
-        *g = Some(load_live_from_disk(&root)?);
+    let reloaded = force || g.as_ref().map(|v| v.root != root).unwrap_or(true);
+    if reloaded {
+        *g = Some(load_live_from_disk(&root).map_err(|e| {
+            logging::emit(
+                logging::LogLevel::Error,
+                "ipc.index_vault",
+                "load failed",
+                Some(serde_json::json!({ "err": e })),
+            );
+            e
+        })?);
     }
     let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
-    Ok(snapshot_from_live(live))
+    let snap = snapshot_from_live(live);
+    logging::emit(
+        logging::LogLevel::Info,
+        "ipc.index_vault",
+        "ok",
+        Some(serde_json::json!({
+            "force": force,
+            "reloaded": reloaded,
+            "notes": snap.nodes.len(),
+            "ms": t0.elapsed().as_millis() as u64,
+        })),
+    );
+    Ok(snap)
 }
 
 /// 路径级刷新:对给定相对路径从磁盘读/删 → 打进 live → 返回快照。
@@ -598,21 +1069,103 @@ fn search_notes(
         .collect())
 }
 
-/// 前端→终端的诊断日志桥:把 webview 的 console.error / 未捕获错误转发到 stderr。
-/// 打包后无 inspector 时,从命令行启动 app 即可看到运行时报错(参见 lib/diag-log.ts)。
-/// 仅供诊断,不做任何业务;前端 fire-and-forget 调用。
+/// 前端→ LogBus:把 webview 的 console.error / 未捕获错误写入文件 + stderr。
+/// 兼容旧调用方;等价于 `log_write(error, webview, line)`。
 #[tauri::command]
 fn diag_log(line: String) {
-    eprintln!("[webview] {line}");
+    logging::emit(logging::LogLevel::Error, "webview", &line, None);
+}
+
+/// 结构化日志写入(L1 LogBus)。level: trace|debug|info|warn|error|fatal。
+#[tauri::command]
+fn log_write(
+    level: String,
+    target: String,
+    msg: String,
+    fields: Option<serde_json::Value>,
+) {
+    let lv = logging::LogLevel::parse(&level).unwrap_or(logging::LogLevel::Info);
+    let tgt = if target.is_empty() {
+        "ui"
+    } else {
+        target.as_str()
+    };
+    logging::emit(lv, tgt, &msg, fields);
+}
+
+/// 返回应用日志目录绝对路径(macOS: ~/Library/Logs/{bundleId}/ …)。
+#[tauri::command]
+fn log_get_dir() -> Result<String, String> {
+    logging::log_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "log bus not initialized".into())
+}
+
+/// 在系统文件管理器中打开日志目录。
+#[tauri::command]
+fn log_open_dir() -> Result<(), String> {
+    let dir = logging::log_dir().ok_or_else(|| "log bus not initialized".to_string())?;
+    logging::open_dir_in_os(&dir)
+}
+
+/// 热切换日志 profile:`dev` | `verbose` | `prod`(本进程,不写回环境变量)。
+#[tauri::command]
+fn log_set_profile(profile: String) -> Result<String, String> {
+    let p = logging::LogProfile::parse(&profile)
+        .ok_or_else(|| format!("unknown profile: {profile}"))?;
+    logging::set_profile(p);
+    Ok(p.as_str().to_string())
+}
+
+/// 当前 profile + 目录 + session_id(设置页展示)。
+#[tauri::command]
+fn log_get_status() -> Result<serde_json::Value, String> {
+    let dir = logging::log_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let profile = logging::current_profile()
+        .map(|p| p.as_str().to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let session_id = logging::session_id().unwrap_or_default();
+    Ok(serde_json::json!({
+        "dir": dir,
+        "profile": profile,
+        "sessionId": session_id,
+    }))
+}
+
+/// 打包近期日志为单个 `.txt`,返回绝对路径(落在日志目录内)。
+#[tauri::command]
+fn log_export_bundle() -> Result<String, String> {
+    let path = logging::export_bundle(7)?;
+    logging::emit(
+        logging::LogLevel::Info,
+        "app",
+        "log export written",
+        Some(serde_json::json!({ "path": path.to_string_lossy() })),
+    );
+    Ok(path.to_string_lossy().to_string())
 }
 
 /// 系统文件夹选择对话框。
 #[tauri::command]
 async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let folder = app.dialog().file().blocking_pick_folder();
-    Ok(folder
+    let path = folder
         .and_then(|p| p.into_path().ok())
-        .map(|p| p.to_string_lossy().to_string()))
+        .map(|p| p.to_string_lossy().to_string());
+    logging::emit(
+        logging::LogLevel::Info,
+        "ipc.pick_vault",
+        if path.is_some() {
+            "selected"
+        } else {
+            "cancelled"
+        },
+        path.as_ref()
+            .map(|p| serde_json::json!({ "path": p })),
+    );
+    Ok(path)
 }
 
 /// 在系统文件管理器中显示笔记文件(macOS Finder / Windows 资源管理器 / Linux 文件管理器)。
@@ -970,6 +1523,15 @@ pub fn run() {
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
         .setup(|app| {
+            // L1 客户端日志:AppLog 目录 + profile(env OPENOBS_LOG_PROFILE / debug→dev / release→prod)。
+            let log_dir = app
+                .path()
+                .app_log_dir()
+                .unwrap_or_else(|_| std::env::temp_dir().join("openobsidian-logs"));
+            let profile = logging::resolve_profile_from_env();
+            logging::init(log_dir, profile);
+            logging::install_panic_hook();
+
             // 原生菜单:id 与 ui/src/lib/commands 注册表对齐(docs/10)。
             let file_new = MenuItemBuilder::with_id("new-note", "New Note")
                 .accelerator("CmdOrCtrl+N")
@@ -1005,7 +1567,6 @@ pub fn run() {
                 MenuItemBuilder::with_id("toggle-split", "Toggle Split Preview").build(app)?;
             let view_ed = MenuItemBuilder::with_id("view-editor", "Editor").build(app)?;
             let view_gr = MenuItemBuilder::with_id("view-graph", "Graph").build(app)?;
-            let view_q = MenuItemBuilder::with_id("view-query", "Query").build(app)?;
             let view_git = MenuItemBuilder::with_id("view-git", "Git").build(app)?;
             let view_theme =
                 MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
@@ -1046,7 +1607,6 @@ pub fn run() {
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&view_ed)
                 .item(&view_gr)
-                .item(&view_q)
                 .item(&view_git)
                 .separator()
                 .item(&view_theme)
@@ -1073,6 +1633,15 @@ pub fn run() {
             delete_note,
             rename_note,
             save_attachment,
+            attachment_exists,
+            list_attachments,
+            media_index,
+            media_of_note,
+            media_used_by,
+            trash_attachments,
+            read_attachment_data_url,
+            read_graph_layout,
+            save_graph_layout,
             index_vault,
             apply_vault_changes,
             run_qql,
@@ -1080,6 +1649,12 @@ pub fn run() {
             pick_vault,
             reveal_in_finder,
             diag_log,
+            log_write,
+            log_get_dir,
+            log_open_dir,
+            log_set_profile,
+            log_get_status,
+            log_export_bundle,
             git_status_raw,
             git_log_raw,
             git_commit,
@@ -1180,6 +1755,7 @@ mod tests {
             root: "/tmp/v".into(),
             entries: BTreeMap::new(),
             index: VaultIndex::build(vec![]),
+            media: openobs_core::MediaIndex::new(),
         };
         live_apply(
             &mut live,

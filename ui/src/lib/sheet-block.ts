@@ -38,7 +38,7 @@ export interface SheetBlockSpec {
   inlineCells: Record<string, string>;
 }
 
-/** 找所有 ```sheet 围栏(与 qql 围栏规则一致)。 */
+/** 找所有 ```sheet 围栏(围栏代码块扫描,同形函数沿用此套路)。 */
 export function findSheetBlocks(src: string): SheetBlock[] {
   const lines = src.split(/\r?\n/);
   const blocks: SheetBlock[] = [];

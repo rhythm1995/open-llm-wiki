@@ -4,6 +4,8 @@ import {
   findInDocument,
   nextFindIndex,
   offsetToLine,
+  replaceAllInDocument,
+  replaceNextInDocument,
 } from "./find-in-doc";
 
 describe("findInDocument", () => {
@@ -36,6 +38,33 @@ describe("nextFindIndex / clamp", () => {
   });
   it("空匹配 clamp 为 0", () => {
     expect(clampFindIndex(5, 0)).toBe(0);
+  });
+});
+
+describe("replaceAllInDocument", () => {
+  it("替换全部(大小写不敏感)", () => {
+    const r = replaceAllInDocument("Foo foo FOO", "foo", "x");
+    expect(r.count).toBe(3);
+    expect(r.text).toBe("x x x");
+  });
+  it("空 query 不改", () => {
+    expect(replaceAllInDocument("ab", "", "z")).toEqual({
+      text: "ab",
+      count: 0,
+    });
+  });
+  it("字面量特殊字符", () => {
+    const r = replaceAllInDocument("a+b a+b", "a+b", "z");
+    expect(r.count).toBe(2);
+    expect(r.text).toBe("z z");
+  });
+});
+
+describe("replaceNextInDocument", () => {
+  it("从偏移起换第一处", () => {
+    const r = replaceNextInDocument("aa aa aa", "aa", "X", 3);
+    expect(r.count).toBe(1);
+    expect(r.text).toBe("aa X aa");
   });
 });
 

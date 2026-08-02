@@ -1,20 +1,14 @@
 /**
  * render —— 阅读视图(F-READING)的 markdown 渲染。
  *
- * 用 marked 把正文渲染成 HTML;渲染前先把 `[[wikilink]]` 预处理成带
- * `data-target` 的 `<a class="wikilink">`(marked 透传内联 raw HTML),并去掉
- * frontmatter 围栏。点击事件由 ReadingView 做委托代理(.closest(".wikilink")
- * → onFollow(data-target))。
+ * 管线:去 frontmatter → `![[img]]` wiki 嵌入图 → `[[wikilink]]` → marked。
+ * 必须先处理 `![[…]]`,否则会被 wikilink 规则误伤成 `!<a…>`。
  *
- * 安全:`renderMarkdown` 产出的是**未清洗**的 marked HTML(供测试与可能的聚合渲染
- * 复用);真正注入 DOM 前必须经 `sanitize()` 走 DOMPurify——剥离 `<script>`、
- * 内联事件处理器(onerror/onclick…)等,同时把点击委托依赖的 `data-target` 与
- * `class` 显式加入白名单。即使用户 vault 里混入了他人的 md,也不会执行任意脚本。
- * `sanitize` 需要 `window`(浏览器或 jsdom 测试环境);`renderMarkdown` 自身保持
- * 无 DOM,故可在 node 环境单测。
+ * 安全:`renderMarkdown` 产出**未清洗** HTML;注入 DOM 前必须 `sanitize()`。
  */
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import { isVaultRelativeImageSrc } from "./attachments";
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -31,34 +25,108 @@ function splitLink(inner: string): { target: string; display: string } {
   return { target, display };
 }
 
+function escAttr(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isImageTarget(target: string): boolean {
+  return /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(target.trim());
+}
+
+/**
+ * 短名 / 相对路径 → vault 媒体路径。
+ * `mediaFiles` 为库内已有附件路径列表(来自 media_index.files)。
+ */
+export function resolveWikiImageTarget(
+  target: string,
+  mediaFiles: string[] = [],
+): string {
+  let t = target.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
+  if (!t) return t;
+  const normFiles = mediaFiles.map((p) =>
+    p.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, ""),
+  );
+  if (normFiles.includes(t)) return t;
+  const base = t.split("/").pop() ?? t;
+  const hits = normFiles.filter((p) => (p.split("/").pop() ?? p) === base);
+  if (hits.length === 1) return hits[0]!;
+  return t;
+}
+
+export type RenderMarkdownOpts = {
+  /** 用于解析 `![[shot.png]]` 短名;缺省不解析(保留字面路径)。 */
+  mediaFiles?: string[];
+};
+
+/**
+ * `![[path.png]]` / `![[path|alt]]` → `<img class="wiki-embed-img" src="…" data-vault-src="…">`。
+ * 非图片扩展名的 `![[Note]]` 降级为 `[[Note]]`(后续走 wikilink,不做全文嵌入)。
+ */
+export function wikiImageEmbedToHtml(
+  md: string,
+  mediaFiles: string[] = [],
+): string {
+  return md.replace(/!\[\[([^\]]+)\]\]/g, (_whole, inner: string) => {
+    const { target, display } = splitLink(inner);
+    if (!target) return _whole;
+    if (!isImageTarget(target)) {
+      // 嵌笔记:降级为普通 wikilink 语法
+      return `[[${inner}]]`;
+    }
+    const resolved = resolveWikiImageTarget(target, mediaFiles);
+    const alt = display || resolved.split("/").pop() || "image";
+    if (!isVaultRelativeImageSrc(resolved) && /:\/\//.test(resolved)) {
+      return _whole;
+    }
+    return `<img class="wiki-embed-img" src="${escAttr(resolved)}" alt="${escAttr(alt)}" data-vault-src="${escAttr(resolved)}" />`;
+  });
+}
+
 /** 把正文里的 `[[…]]` 转成 `<a class="wikilink" data-target="T">显示</a>`。 */
 export function wikilinkToHtml(md: string): string {
   return md.replace(/\[\[([^\]]+)\]\]/g, (_whole, inner: string) => {
     const { target, display } = splitLink(inner);
-    const esc = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    return `<a class="wikilink" data-target="${esc(target)}">${esc(display)}</a>`;
+    return `<a class="wikilink" data-target="${escAttr(target)}">${escAttr(display)}</a>`;
   });
 }
 
-/** 渲染整篇笔记:去 frontmatter → wikilink 预处理 → marked → HTML 字符串。
- *  注意:返回的是**未清洗**的 HTML;注入 DOM 前请用 `sanitize()`。 */
-export function renderMarkdown(md: string): string {
+/** 渲染整篇笔记:FM → wiki 图嵌入 → wikilink → marked。 */
+export function renderMarkdown(
+  md: string,
+  opts: RenderMarkdownOpts = {},
+): string {
   const body = stripFrontmatter(md);
-  return marked.parse(wikilinkToHtml(body), { async: false }) as string;
+  const withEmbeds = wikiImageEmbedToHtml(body, opts.mediaFiles ?? []);
+  return marked.parse(wikilinkToHtml(withEmbeds), { async: false }) as string;
 }
 
 /**
  * DOMPurify 清洗 —— 注入 DOM 前的最后一道闸。
- *
- * 默认配置已剥离 `<script>`、内联 `on*` 事件处理器、`javascript:` 链接等;这里额外
- * 把 wikilink 点击委托所依赖的 `data-target` 与 `class` 显式纳入白名单,使
- * `<a class="wikilink" data-target="…">` 在清洗后结构不变、点击仍能跟随。
- * 需要 `window`(浏览器 / jsdom)。
  */
 export function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
-    ADD_ATTR: ["data-target", "class", "viewBox", "xmlns", "fill", "stroke", "stroke-width", "points", "text-anchor", "font-size", "x", "y", "width", "height", "d"],
+    ADD_ATTR: [
+      "data-target",
+      "data-vault-src",
+      "class",
+      "viewBox",
+      "xmlns",
+      "fill",
+      "stroke",
+      "stroke-width",
+      "points",
+      "text-anchor",
+      "font-size",
+      "x",
+      "y",
+      "width",
+      "height",
+      "d",
+    ],
     ADD_TAGS: ["svg", "rect", "polyline", "text", "g", "path", "circle", "line"],
   }) as string;
 }

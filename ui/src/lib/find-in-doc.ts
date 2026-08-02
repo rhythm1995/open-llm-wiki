@@ -75,3 +75,51 @@ export function offsetToLine(documentText: string, offset: number): number {
   }
   return line;
 }
+
+export interface ReplaceAllResult {
+  text: string;
+  /** 实际替换次数。 */
+  count: number;
+}
+
+/**
+ * 全文字面量替换(与 findInDocument 同语义:默认不区分大小写)。
+ * 自后向前替换,偏移不漂移。
+ */
+export function replaceAllInDocument(
+  documentText: string,
+  query: string,
+  replacement: string,
+  caseSensitive = false,
+): ReplaceAllResult {
+  const { matches } = findInDocument(documentText, query, caseSensitive);
+  if (matches.length === 0) return { text: documentText, count: 0 };
+  let text = documentText;
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const m = matches[i]!;
+    text = text.slice(0, m.from) + replacement + text.slice(m.to);
+  }
+  return { text, count: matches.length };
+}
+
+/**
+ * 替换从 `fromOffset` 起的第一处匹配(含该偏移上的匹配)。
+ * 无匹配 → count 0,text 不变。
+ */
+export function replaceNextInDocument(
+  documentText: string,
+  query: string,
+  replacement: string,
+  fromOffset = 0,
+  caseSensitive = false,
+): ReplaceAllResult & { match: FindMatch | null } {
+  const { matches } = findInDocument(documentText, query, caseSensitive);
+  const m =
+    matches.find((x) => x.from >= fromOffset) ??
+    matches[0] ??
+    null;
+  if (!m) return { text: documentText, count: 0, match: null };
+  const text =
+    documentText.slice(0, m.from) + replacement + documentText.slice(m.to);
+  return { text, count: 1, match: m };
+}

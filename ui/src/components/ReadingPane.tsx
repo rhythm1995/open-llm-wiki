@@ -44,7 +44,17 @@ export function ReadingPane({ content, root, onFollow, t, hasNote }: Props) {
           }
         },
       );
-      let raw = sanitize(renderMarkdown(withSheets));
+      // wiki 短名 `![[shot.png]]` 依赖媒体文件列表。
+      let mediaFiles: string[] = [];
+      if (root) {
+        try {
+          const snap = await ipc.mediaIndex(root, false);
+          mediaFiles = snap.files ?? [];
+        } catch {
+          mediaFiles = [];
+        }
+      }
+      let raw = sanitize(renderMarkdown(withSheets, { mediaFiles }));
       if (root) {
         raw = rewriteHtmlImageSrcs(raw, (rel) =>
           ipc.resolveMediaUrl(root, rel),

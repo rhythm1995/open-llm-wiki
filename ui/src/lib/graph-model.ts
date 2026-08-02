@@ -8,7 +8,7 @@
  *   - structureSignature(布局 gate:结构未变则不重跑 FR)
  *   - topKByDegree(大图截断枢纽优先)
  *
- * 无 IO、无 React;GraphView / Worker / sigma 都吃这里。
+ * 无 IO、无 React;GraphView / CytoscapeLayer 都吃这里。
  */
 import type { EdgeOut, NodeOut } from "./ipc";
 
@@ -123,10 +123,8 @@ export function topKByDegree(
     .slice(0, k);
 }
 
-/** WebGL 路径默认截断上限(sigma 可轻松吃到上千)。 */
-export const WEBGL_MAX_NODES = 2000;
-/** SVG 回退截断(DOM 成本高)。 */
-export const SVG_MAX_NODES = 400;
+/** 图渲染默认截断上限(Cytoscape top-K 枢纽优先)。 */
+export const GRAPH_MAX_NODES = 2000;
 
 /**
  * pin 集合跨 id 重排时用 path 持久化:

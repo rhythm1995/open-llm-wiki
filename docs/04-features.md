@@ -11,44 +11,39 @@
 
 ## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
 
-### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局)
+### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局 · Cytoscape)
 
-**一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的力导向图。
+**一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的关系图。
 
 - **数据来源**:`core::graph` 产出的统一关系图(正文 wikilink + frontmatter 关系,见 [03-data-model](./03-data-model.md))。
-- **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接画虚边 / WebGL ghost 桩。
-- **渲染**:**sigma.js WebGL**(graphology)+ **Worker** FR(`graph-layout.ts`);n≥280 自动 **Barnes-Hut** O(n log n)。无 WebGL → SVG。top-K(~2000 WebGL / ~400 SVG);低缩放 **LOD** 网格簇 + 簇间边 + 点簇飞入展开。**标签避让**(`graph-label.ts`);**增量迭代预算**(`graph-layout-budget.ts`)。拖拽/框选/pin/邻域压暗双路径。纯逻辑可单测。
-- **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停预览、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
-- **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 文本 query 高亮 / 深度 hops。
-- **实时**:LiveVault 路径级 delta + watcher;`structureSignature` gate 布局;位置 Map 跨帧持久 + 暖启动。
+- **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接为 ghost/unresolved 桩。
+- **渲染**:**Cytoscape.js**(懒加载 `CytoscapeLayer`)。力导向模式用内置 **cose** 布局;type 层 / 时间轴为 **preset** 坐标(`graph-modes`)。样式/簇色/环态在 `graph-style` / `graph-cluster`(纯逻辑可测)。大图 **top-K 按度数截断**(约 2000)。**已退役**:sigma/graphology WebGL、Worker FR、Barnes-Hut、LOD 网格簇、SVG 主路径。
+- **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停邻域高亮、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
+- **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 隐藏 unresolved / 文本 query / 深度 hops。
+- **实时**:LiveVault 路径级 delta + watcher;`structureSignature` 结构 gate;坐标可落盘(`.openobsidian/graph-layout.json`,默认 gitignore)。
 - **布局**:
-  - ✅ 力导向(默认,FR + Barnes-Hut)。
+  - ✅ 力导向(默认,cose + 力参数滑条)。
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。
   - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
+- **健康面(部分,见 [11](./11-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
 
-> UI 蓝本参考 Tolaria 关系渲染与 Obsidian graph 的交互心智,实现独立编写。未做项见 [backlog](./backlog.md)。
+> UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
-### F-QUERY 实时聚合查询 [P0] ✅ 已落地
+### F-QUERY 聚合查询引擎 [P0] 🔄 引擎保留 / 用户面已删(2026-08-02)
 
-**一句话**:内置查询引擎,用一段声明式查询从全 vault 的 frontmatter/body 取数,实时渲染成列表/表/计数。Dataview 的一等公民版,在 Rust 核心跑。
+**一句话**:内置声明式查询引擎,从全 vault 的 frontmatter/body 取数。**用户面已删,引擎保留待 agent。**
 
-- **查询语言(QQL)**——已实现子集(DQL 风格,关键字 `WHERE` / `SORT` / `SHOW` / `LIMIT` / `GROUP BY` / `RENDER`):
-  ```
-  WHERE type = "Concept" AND status != "Done"
-  SORT mentioned_in.len() ASC
-  SHOW title, status, mentioned_in.len() AS depth
-  LIMIT 50
-  ```
-  文本 → AST(`qql::parse`)→ 求值(`query::eval`),全在纯内核。
-- **两个表面** ✅:
-  1. **内联查询块**——笔记内 ```qql ... ```,编辑器 widget + 阅读视图(共用 `resultToHtml`)。
-  2. **saved query**——`type: Query` 笔记自举(纯逻辑 `saved-query.ts`)。
-- **输出**(`ResultSet`):`List` / `Table` / `Count` / `Groups` / `Sum` / **`Histogram`**。
-- **实时**:查询在 live 不可变快照上执行;写/watcher 路径级更新索引。
-- **浏览器 mock**:`run_qql` 走 **QQL-TS 全量求值**(`ui/src/lib/qql/*`,B-QQL-TS);桌面仍走 Rust `openobs-core`。**尚无** TS↔Rust 同批查询自动差分 CI(可选硬化,见 backlog)。
-- **扩展** ✅(B-QQL-EXPAND):`CONTAINS` / `STARTSWITH` / `ENDSWITH` / `IN (...)` 等常用子集。**不**追求 Dataview 全语法逐字兼容。
-- **与 cairn**:Health KPI 可落成 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
+> **2026-08-02 决策**:不让用户学一门新 DSL——QQL 的认知负担是「语法 + 字段名 + 字面值 + render 动词」四层叠加,门槛过高。故**删除全部用户面**,**保留引擎**作为 agent 的编译目标,等 [6B](./11-graph-and-agent-roadmap.md) 接 agent 时用**自然语言**重建表面。
+
+- **保留(引擎 B)**——勿删:
+  - Rust core:`qql::parse`(文本→AST)+ `query::eval`(求值),全在纯内核。
+  - MCP 工具 `run_qql`(agent 可直接调,见 `mcp/`)——**外部 agent 现在就能 NL→QQL 验证**。
+  - app Tauri 命令 `run_qql`(未来 in-app NL 表面可直连;目前 UI 不再调用)。
+- **查询语言(QQL)**——DQL 风格子集,关键字 `WHERE` / `SORT` / `SHOW` / `LIMIT` / `GROUP BY` / `RENDER`;谓词 `=/!=/AND/OR/NOT/CONTAINS/STARTSWITH/ENDSWITH/IN`;输出 `List` / `Table` / `Count` / `Groups` / `Sum` / `Histogram`。**不**追求 Dataview 全语法逐字兼容。
+- **已删(用户面 A)**:内联 ```qql 块 widget + `resultToHtml`、saved query(`saved-query.ts` + `type: Query`)、`QueryPanel`、Query 视图、`MainView:"query"`、nav-selection `kind:"query"`、CenterToolbar 查询按钮、palette/registry 查询命令、**TS 全量重写** `ui/src/lib/qql/*` 与 `mock-qql`、相关 i18n 键。
+- **下一步(6B)**:NL → agent 生成**可审查** QQL → `run_qql`;用户可编辑/存为查询。QQL 长期定位 = **IR(中间表示)**,不再直接面向用户。
+- **与 cairn**:Health KPI 未来由 agent 经 `run_qql` 生成维护,而非用户手写 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
 ---
 
@@ -69,7 +64,7 @@
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|
-| F-EDITOR | 编辑器 | P0 | 🟡 | 双模+格式条/右键/qql/保真门禁 ✅;source 附件+并排阅读 ✅([08](./08-media-and-split-preview.md));可选:WYSIWYG 插图、保真加深。 |
+| F-EDITOR | 编辑器 | P0 | ✅ | 双模+格式条/右键/查找替换/大纲/附件/并排 ✅;WYSIWYG 格式条+断链提示 ✅;保真双层门禁(app+真 BN 引擎)+ 23 例往返扫描 ✅。后置:Live Preview、raw HTML(表+行内)保真、GFM 字节身份([plan §Editor](./plan.md))。 |
 | F-VAULT | vault 管理 | P0 | ✅ | 打开/切换;LiveVault 增量索引。 |
 | F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | 解析、补全、点击跳转;反向链接实时。 |
 | F-FILETREE | 文件浏览 | P0 | ✅ | Nav+列表+拖拽+右键。 |
@@ -83,7 +78,7 @@
 | F-THEMES | 主题 | P2 | ✅ | 深/浅;Settings 面板 ✅。 |
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
-| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 stdio ✅(`openobs-mcp`)。 |
+| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([11](./11-graph-and-agent-roadmap.md))。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
@@ -92,14 +87,14 @@
 
 ## 范围说明
 
-**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(含多布局+WebGL) / **QQL**(Rust+TS) / 类型文档 / git / 画布 / 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
+**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(Cytoscape + 多布局) / **QQL IR**(Rust + MCP,用户面 UI 已撤) / 类型文档 / git / 画布 / 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
 
 **原 v1 边界 §A** ✅ · **§C 编辑器 / §D 菜单 / §H 命令搜索** ✅ · **大件 v1** ✅(插件深化 ⛔)。
 
 **当前仍开放 / 值得做**(非「功能空白」):
 
 1. **合 main / AGENTS.md 叙事**(流程与人类文档)  
-2. **写作体验可选**:WYSIWYG 插图、BlockNote 保真加深  
+2. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)
 3. **真机**:图谱 1k/5k 帧率(B-GRAPH-FPS);签名/Updater 凭证门  
 4. **可选硬化**:QQL TS↔Rust 同批差分 CI(目前两边各自有单测,无共享 fixture CI)  
 

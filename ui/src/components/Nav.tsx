@@ -31,7 +31,6 @@ import {
 } from "@phosphor-icons/react";
 import type { VaultEntry, VaultSnapshot } from "../lib/ipc";
 import { isInbox, sameSelection, type NavSelection } from "../lib/nav-filter";
-import { isQueryNode } from "../lib/saved-query";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -146,7 +145,6 @@ export function Nav({
   }, [ctxMenu, onNewNoteInFolder, onNavSelect, t]);
 
   const inboxCount = useMemo(() => nodes.filter(isInbox).length, [nodes]);
-  const queries = useMemo(() => nodes.filter(isQueryNode), [nodes]);
   // type 去重 + 计数;typed 升序,未分类("")排末尾。
   const types = useMemo(() => {
     const m = new Map<string, number>();
@@ -351,25 +349,6 @@ export function Nav({
           </div>
 
           <div className="my-2 border-t border-crust" />
-
-          {/* ▼ VIEWS:已保存 QQL 查询。用户可自建;不写死 Contested/Orphan/Stale。 */}
-          {sectionHeader("views", <Funnel size={12} />, t("nav.section.views"), queries.length)}
-          {openSections.has("views") && (
-            <div className="mb-1 mt-0.5 flex flex-col gap-0.5">
-              {queries.length === 0 ? (
-                <p className="px-2 py-1 text-[12px] text-overlay">{t("nav.views.empty")}</p>
-              ) : (
-                queries.map((q) =>
-                  itemRow(
-                    { kind: "query", id: q.path },
-                    <Funnel size={13} />,
-                    q.title || q.path,
-                    isEditorView && sameSelection(navSelection, { kind: "query", id: q.path }),
-                  ),
-                )
-              )}
-            </div>
-          )}
 
           {/* ▼ TYPES:type 去重 + 计数。 */}
           {sectionHeader("types", <Tag size={12} />, t("nav.section.types"), types.length)}

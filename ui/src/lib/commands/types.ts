@@ -35,7 +35,6 @@ export type CommandId =
   | "refresh-index"
   | "view-editor"
   | "view-graph"
-  | "view-query"
   | "view-git"
   | string; // plugin:* 等
 
@@ -54,7 +53,7 @@ export interface AppCommand {
   run: () => void;
 }
 
-export type MainViewId = "editor" | "graph" | "query" | "git";
+export type MainViewId = "editor" | "graph" | "git";
 
 export interface CommandDeps {
   t: TFunc;
@@ -82,6 +81,8 @@ export interface CommandDeps {
   openSettings?: () => void;
   toggleSplitLayout?: () => void;
   editorLayout?: "edit" | "split";
+  /** 清理未引用附件(媒体索引 orphans → trash,需确认)。 */
+  cleanOrphanMedia?: () => void;
   pluginCommands?: { id: string; label: string; run: () => void }[];
 }
 

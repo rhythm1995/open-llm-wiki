@@ -247,7 +247,6 @@ describe("menu id contract", () => {
     "toggle-split",
     "view-editor",
     "view-graph",
-    "view-query",
     "view-git",
     "toggle-theme",
     "refresh-index",

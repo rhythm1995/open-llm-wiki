@@ -83,6 +83,31 @@ export interface SearchHit {
   score: number;
 }
 
+/** 媒体索引条目(对齐 core MediaMeta + refcount)。 */
+export interface MediaMetaOut {
+  path: string;
+  kind: string;
+  bytes: number;
+  mtime_ms: number;
+  refcount: number;
+}
+
+export interface MediaStatsOut {
+  files: number;
+  notes_with_media: number;
+  refs: number;
+  orphans: number;
+  missing: number;
+}
+
+export interface MediaSnapshot {
+  stats: MediaStatsOut;
+  /** 全库媒体路径(短名 resolve)。 */
+  files: string[];
+  orphans: MediaMetaOut[];
+  missing: string[];
+}
+
 /**
  * git 历史中「已删除」的 `.md`:工作区已不存在、但版本库历史里仍有。
  * 后端从 `git log --diff-filter=D` 投影;title 由 path 推(去 `.md`)。
@@ -120,14 +145,67 @@ export const ipc = {
    * 不进笔记索引;阅读侧用 `resolveMediaUrl` 取可加载 URL。
    */
   saveAttachment: (root: string, path: string, bytesBase64: string) =>
+    // Tauri 2 将 Rust `bytes_base64` 暴露为 JS camelCase `bytesBase64`。
     call<void>("save_attachment", {
       root,
       path,
-      bytes_base64: bytesBase64,
+      bytesBase64,
     }),
   /**
-   * 把 vault 相对路径解析为 webview 可加载的图片 URL。
-   * Tauri:`convertFileSrc(绝对路径)`;mock:data URL(粘贴时写入内存)。
+   * 磁盘/mock 上相对路径是否已有文件(unique 路径分配用)。
+   * 桌面走 `attachment_exists`;mock 查内存 Map。
+   */
+  attachmentExistsAsync: async (
+    root: string | null,
+    relPath: string,
+  ): Promise<boolean> => {
+    const rel = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!isTauri) {
+      return mock.attachmentExists(rel);
+    }
+    if (!root) return false;
+    try {
+      return await call<boolean>("attachment_exists", { root, path: rel });
+    } catch {
+      return false;
+    }
+  },
+  /**
+   * 列出 vault 内图片附件相对路径(默认扫 `attachments/` 子树)。
+   * 供媒体清单 / 孤儿检测;不进笔记 live index。
+   */
+  listAttachments: (root: string, dir?: string | null) =>
+    call<string[]>("list_attachments", {
+      root,
+      dir: dir ?? null,
+    }),
+  /** 媒体索引快照:stats + orphans + missing。 */
+  mediaIndex: (root: string, force = false) =>
+    call<MediaSnapshot>("media_index", { root, force }),
+  /** 某笔记引用的媒体(含断链占位 bytes=0)。 */
+  mediaOfNote: (root: string, path: string) =>
+    call<MediaMetaOut[]>("media_of_note", { root, path }),
+  /** 引用该附件的笔记路径。 */
+  mediaUsedBy: (root: string, path: string) =>
+    call<string[]>("media_used_by", { root, path }),
+  /**
+   * 将附件移入 `.openobsidian/media-trash/` 并更新索引。
+   * 需用户确认后调用;delete_note 不自动 GC。
+   */
+  trashAttachments: (root: string, paths: string[]) =>
+    call<number>("trash_attachments", { root, paths }),
+  /**
+   * 读取落盘的图谱布局快照(B-GRAPH-POS-PERSIST)。无文件 → null。
+   * 文件位于 `<root>/.openobsidian/graph-layout.json`。
+   */
+  readGraphLayout: (root: string) =>
+    call<string | null>("read_graph_layout", { root }),
+  /** 写入图谱布局快照(创建 `.openobsidian/` 目录)。 */
+  saveGraphLayout: (root: string, json: string) =>
+    call<void>("save_graph_layout", { root, json }),
+  /**
+   * 把 vault 相对路径解析为 webview 可加载的图片 URL(同步)。
+   * Tauri:优先 `convertFileSrc`(需 assetProtocol);mock:data URL。
    */
   resolveMediaUrl: (root: string, relPath: string): string => {
     const rel = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -139,7 +217,30 @@ export const ipc = {
       : `${root}/${rel}`;
     return convertFileSrc(abs);
   },
-  /** mock 下某附件是否已有缓存 URL(用于 unique 路径;桌面不查盘)。 */
+  /**
+   * 异步解析:读盘为 data URL,BlockNote / 预览可依赖(不靠 asset 协议是否生效)。
+   */
+  resolveMediaUrlAsync: async (
+    root: string,
+    relPath: string,
+  ): Promise<string> => {
+    const rel = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!isTauri) {
+      return mock.resolveAttachmentUrl(rel);
+    }
+    try {
+      return await call<string>("read_attachment_data_url", {
+        root,
+        path: rel,
+      });
+    } catch {
+      return ipc.resolveMediaUrl(root, rel);
+    }
+  },
+  /**
+   * 同步占用检查:仅 mock 内存有效;桌面恒 false。
+   * 新代码请用 `attachmentExistsAsync(root, path)`。
+   */
   attachmentExists: (relPath: string): boolean => {
     if (isTauri) return false;
     return mock.attachmentExists(relPath);
@@ -160,8 +261,6 @@ export const ipc = {
    */
   applyVaultChanges: (root: string, paths: string[]) =>
     call<VaultSnapshot>("apply_vault_changes", { root, paths }),
-  runQql: (root: string, qql: string) =>
-    call<ResultSet>("run_qql", { root, qql }),
   searchNotes: (root: string, query: string) =>
     call<SearchHit[]>("search_notes", { root, query }),
   pickVault: () => call<string | null>("pick_vault", {}),

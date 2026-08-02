@@ -17,8 +17,6 @@
 import {
   PencilSimple,
   Graph,
-  ListMagnifyingGlass,
-  Command,
   GitBranch,
   SidebarSimple,
   TextAlignLeft,
@@ -66,8 +64,7 @@ interface Props {
 const VIEWS: { id: MainView; key: string; icon: typeof PencilSimple }[] = [
   { id: "editor", key: "view.editor", icon: PencilSimple },
   { id: "graph", key: "view.graph", icon: Graph },
-  { id: "query", key: "view.query", icon: ListMagnifyingGlass },
-  // 搜索视图已移除:文档内查找用 ⌘F;快速打开笔记用 ⌘P(Tolaria 心智)。
+  // 搜索/查询视图已移除:文档内查找用 ⌘F;快速打开笔记用 ⌘P;查询留待 agent(见 docs/04 F-QUERY)。
   { id: "git", key: "view.git", icon: GitBranch },
 ];
 
@@ -232,11 +229,10 @@ export function CenterToolbar({
             })}
             <button
               onClick={onOpenPalette}
-              className="ml-0.5 flex items-center gap-1 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface hover:text-text"
+              className="ml-0.5 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface hover:text-text"
               title={t("toolbar.palette")}
             >
-              <Command size={14} />
-              <span className="hidden text-overlay sm:inline">⌘K</span>
+              ⌘K
             </button>
 
             {/* 居中标签:绝对居中于编辑列,穿透拖拽。 */}

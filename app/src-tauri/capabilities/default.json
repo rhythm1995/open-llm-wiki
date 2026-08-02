@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "OpenObsidian 默认权限:核心 + 文件夹选择对话框。",
   "windows": ["main"],
-  "permissions": ["core:default", "core:event:default", "dialog:default"]
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "dialog:default",
+    "core:window:allow-toggle-maximize"
+  ]
 }
