@@ -1,7 +1,7 @@
 /**
  * graph-style —— 节点/边的颜色、尺寸与视觉状态(纯函数,渲染器中立)。
  *
- * canvas-2D 与(过渡期的)sigma/WebGL 共用同一套取色/尺寸逻辑。CSS 变量从 document 读,
+ * Cytoscape 与任何 canvas 层共用同一套取色/尺寸逻辑。CSS 变量从 document 读,
  * 失败回落 fallback(便于压暗/描边等后处理落到具体颜色值)。
  * 节点视觉状态(active/missing/selected/external)决定是否画描边环及环样式,
  * 让 canvas 渲染器复刻 inkeep 式的高亮/悬空/选中语义。

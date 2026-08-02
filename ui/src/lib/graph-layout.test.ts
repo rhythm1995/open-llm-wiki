@@ -1,8 +1,7 @@
 /**
  * graph-layout 单测 —— 验证保留的纯逻辑工具(无需 GUI)。
  *
- * FR 力导向 / Barnes-Hut 已退役(布局改由 react-force-graph-2d 的 d3-force 负责,
- * 其映射逻辑在 graph-d3-forces.test.ts);本文件覆盖 bbox / fitTransform /
+ * 力导向由 Cytoscape cose 负责;本文件覆盖 bbox / fitTransform /
  * visibleNodeIds / normalizeForces。
  */
 import { describe, expect, it } from "vitest";

@@ -1,17 +1,16 @@
 /**
- * GraphView —— 关系图谱(F-GRAPH,canvas-2D / react-force-graph-2d 重构)。
+ * GraphView —— 关系图谱(F-GRAPH,Cytoscape 主路径)。
  *
  * 架构:
  *   graph-filter  → 可见集
  *   graph-model   → path-stable / degree / topK / structureSig
- *   d3-force      → 布局坐标(react-force-graph-2d 内部持有,替代旧 FR Worker)
- *   GraphForceLayer → canvas 绘制层(节点状态环 / 标签芯片 / 簇色 / 悬停邻域高亮)
+ *   graph-modes   → type-layer / timeline preset 坐标
+ *   CytoscapeLayer → 渲染 + cose 力导向(懒加载 chunk)
  *
- * 数据流(翻转后):GraphView 构建 {nodes,links}(稳定身份,就地改字段)交给 rfg;
- * d3-force 在层内排布坐标。结构变化才增删节点,状态/悬停变化就地改字段——
- * rfg 按 id 复用节点对象,x/y/fx/fy 得以保留。
+ * 数据流:GraphView 构建 {nodes,links}(稳定身份,就地改状态字段)交给 Cytoscape;
+ * force 模式由 cose 排布;preset 模式用父组件写入的 x/y。结构变化才重建元素。
  *
- * 交互:过滤 / 悬停邻域压暗(层内) / pin(钉→fx/fy) / 拖拽→自动钉 /
+ * 交互:过滤 / 悬停邻域高亮 / pin / 拖拽→自动钉 /
  * Shift 框选 / 右键菜单 / 缩放 fit / 焦点飞入 / 悬空边 ghost。
  */
 import {
@@ -69,7 +68,7 @@ import {
   pinPathsToIds,
   structureSignature,
   topKByDegree,
-  WEBGL_MAX_NODES,
+  GRAPH_MAX_NODES,
   type GraphNode,
 } from "../lib/graph-model";
 import {
@@ -94,7 +93,7 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import type { GraphLinkInput, GraphNodeInput } from "./CytoscapeLayer";
 
 // cytoscape 体积大:懒加载独立 chunk。
-const GraphForceLayer = lazy(() =>
+const CytoscapeLayerLazy = lazy(() =>
   import("./CytoscapeLayer").then((m) => ({ default: m.CytoscapeLayer })),
 );
 
@@ -346,7 +345,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
       topKByDegree(
         neighborhoodIds ? [...neighborhoodIds] : [...filtered.nodeIds],
         degree,
-        WEBGL_MAX_NODES,
+        GRAPH_MAX_NODES,
       ),
     [filtered.nodeIds, degree, neighborhoodIds],
   );
@@ -500,7 +499,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
       }
     }
 
-    // 防御:剔除端点不在当前节点集(byId)的 link,杜绝喂给 d3-force 悬空 link
+    // 防御:剔除端点不在当前节点集(byId)的 link,杜绝喂给 Cytoscape 悬空边
     // (其 initialize 会 find 并抛 "node not found")。ghost 桩已在 byId,不受影响。
     for (let i = links.length - 1; i >= 0; i--) {
       const l = links[i];
@@ -770,7 +769,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
             </div>
           }
         >
-          <GraphForceLayer
+          <CytoscapeLayerLazy
             graphData={graphData}
             width={size.w}
             height={size.h}
@@ -823,9 +822,9 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
           nodes: renderIds.length,
           edges: linksRef.current.length,
         })}
-        {filtered.nodeIds.size > WEBGL_MAX_NODES && (
+        {filtered.nodeIds.size > GRAPH_MAX_NODES && (
           <span className="text-red">
-            {t("graph.truncated", { n: WEBGL_MAX_NODES })}
+            {t("graph.truncated", { n: GRAPH_MAX_NODES })}
           </span>
         )}
       </div>

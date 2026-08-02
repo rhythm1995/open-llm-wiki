@@ -1,16 +1,15 @@
 /**
- * CytoscapeLayer —— Cytoscape.js 渲染层,等价替换 GraphForceLayer。
+ * CytoscapeLayer —— Cytoscape.js 渲染层(F-GRAPH 主路径)。
  *
- * 数据管线(graph-model/filter/health/modes/layout-store/style)全部渲染器中立,
- * 这里只实现与 GraphForceLayer 相同的 Props 契约,把力导向/标签/交互搬到 Cytoscape:
+ * 数据管线(graph-model/filter/health/modes/layout-store/style)渲染器中立;
+ * 本层负责:
  *  - force 模式 → cose 布局(warm 坐标存在则 randomize:false 微调,否则全新散布)
  *  - type-layer/timeline → preset(GraphView 已把 n.x/n.y 设好)
- *  - 节点配色/尺寸复用 graph-style 纯助手(typeColorResolved/nodeRingStyle/...)+ 簇色
- *  - 交互 tap/dbltap/cxttap/mouseover/dragfree/boxend 全接 Props 回调
- *  - cose 完成后 layoutstop + 拖拽后节流回写 onPositionsStable 供父组件落盘
+ *  - 节点配色/尺寸复用 graph-style + 簇色
+ *  - 交互 tap/dbltap/cxttap/mouseover/dragfree/boxend
+ *  - cose 完成后 layoutstop + 拖拽后节流回写 onPositionsStable
  *
- * React 19 模式:命令式 useRef<Core> + useEffect 挂载/销毁,propsRef 存最新 props,
- * 事件回调从 propsRef 读,避免每次 prop 变化重建整张图。
+ * React 19:useRef<Core> + useEffect 挂载/销毁;propsRef 存最新 props。
  */
 import { useEffect, useRef } from "react";
 import cytoscape, {
