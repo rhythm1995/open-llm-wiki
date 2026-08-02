@@ -1207,21 +1207,47 @@ fn reveal_in_finder(root: String, path: String) -> Result<(), String> {
 // 或目录非 git 仓库时,git 退出非零,stderr 作为 Err 回传给前端提示。
 
 /// 在 vault 根下运行 `git <args...>`,成功返回 stdout,失败返回 stderr。
+///
+/// 集中结构化打点(B-LOG-IPC-SPANS):所有 git 子进程都经此,一处覆盖
+/// status/log/commit/pull/push/init/restore/自动提交。成功记 debug(命令名;
+/// prod=error+ 自动过滤,避免 create/delete 的自动提交刷屏),失败记 error
+/// (命令 + 退出码 + 截断 stderr),供用户导出日志后排查。
 fn run_git(root: &str, args: &[&str]) -> Result<String, String> {
+    let cmd = args.first().copied().unwrap_or("git");
     let out = std::process::Command::new("git")
         .current_dir(root)
         .args(args)
         .output()
-        .map_err(|e| format!("无法运行 git(可能未安装):{e}"))?;
+        .map_err(|e| {
+            let msg = format!("无法运行 git(可能未安装):{e}");
+            logging::emit(
+                logging::LogLevel::Error,
+                "git",
+                "spawn failed",
+                Some(serde_json::json!({ "cmd": cmd, "err": e.to_string() })),
+            );
+            msg
+        })?;
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr);
         let trimmed = stderr.trim();
+        logging::emit(
+            logging::LogLevel::Error,
+            "git",
+            "command failed",
+            Some(serde_json::json!({
+                "cmd": cmd,
+                "code": out.status.code(),
+                "stderr": trimmed.chars().take(500).collect::<String>(),
+            })),
+        );
         return Err(if trimmed.is_empty() {
             format!("git 退出码 {}", out.status.code().unwrap_or(-1))
         } else {
             trimmed.to_string()
         });
     }
+    logging::emit(logging::LogLevel::Debug, "git", cmd, None);
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 

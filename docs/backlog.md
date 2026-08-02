@@ -57,6 +57,7 @@
 | B-ED-WYSIWYG-FMT | WYSIWYG 格式条对齐 source | 🟢 | ✅ | 粗/斜/H1–3/列表/引用/wikilink + 图片 |
 | B-BN-FIDELITY-DEEP | 真引擎 md↔blocks 往返门禁 | 🔴 | ✅ | `blocknote-engine-roundtrip`+双层 `safeFixtureHolds`;列表 `-/*` + hr 三写法规范化;⛔ 嵌套任务/HTML(表+行内)/全 GFM 字节身份(风险清单);`blocknote-fidelity-sweep.test` 23 例诊断 |
 | B-ED-BROKEN-LINKS | 当前笔记断链提示 | 🟢 | ✅ | Inspector 黄条;纯逻辑 `broken-links.ts` |
+| B-ED-TASK-BTN | source 任务列表按钮 | 🟢 | ✅ | 格式条 `ListChecks` → `toggleTaskList`(纯逻辑 `md-format`);已是任务项剥 checkbox,否则加 `- [ ] ` |
 
 ---
 
@@ -93,13 +94,13 @@
 
 ---
 
-## I. 图谱打磨 → Agent（下一阶段主线 · Phase 6）
+## I. 图谱打磨 → Agent（远期 · 本期不做）
 
-> **产品拍板(2026-08-01)**:先优化图,再 AI agent。完整规格见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**。  
-> 概念参考:varshithm7x(图 UX,MIT) + inkeep OpenKnowledge(agent/`links` 语义,**GPL 仅概念零代码**)。  
-> 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;顺序默认 **6A → 6B → 6D → 6C**。
+> **产品拍板(2026-08-02)**:**§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留待远期。完整规格见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**。  
+> **历史(2026-08-01)**:曾规划先图再 agent;**已被 2026-08-02 决策覆盖**。  
+> 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,顺序默认 **6A → 6B → 6D → 6C**。
 
-### I-A · 6A 传统图 polish（人侧）
+### I-A · 6A 传统图 polish（人侧 · 本期推迟）
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
@@ -147,7 +148,7 @@
 | B-LOG-BUS | LogBus + Filter + File/Stderr + panic hook | 🟡 | ✅ | L1:`logging.rs`;NDJSON;dev/verbose/prod;panic hook |
 | B-LOG-UI | 设置:profile / 打开日志目录 / 导出 | 🟡 | ✅ | profile+打开目录+`log_export_bundle` 单文件 txt(非 zip) |
 | B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ⏳ | 仍可选;非本批 |
-| B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | 🟡 | index_vault/write_note/pick_vault 已打;git 等可续 |
+| B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | ✅ | index/write/pick_vault + **git 集中**(`run_git` 一处覆盖 status/log/commit/pull/push/init/restore/自动提交;成功 debug、失败 error 含 cmd+code+stderr) |
 
 ## F. 分发与工程
 
@@ -186,11 +187,10 @@
 ## 建议实现顺序(产品向)
 
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / QQL 差分 / 媒体~~ ✅  
-2. **§I · 6A** — 图 polish(坐标**落盘** atop 暖启动 / 力参数 / 设置面板 / hide unresolved)  
-3. **§I · 6B** — MCP `links` + 读写图反馈 + Orphans/Hubs UI(**agent 主刀**)  
-4. **§I · 6D** — LLM wiki 脚手架 + QQL Health 模板  
-5. **§I · 6C**(可选) — 语义边 / 建议链接(embedding + EdgeKind 评审后)  
-6. 工程并行:合 main · B-GRAPH-FPS 真机 · AGENTS.md 叙事(人类) · 签名/Updater  
+2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
+3. ~~§I · 6B / 6D / 6C~~ — 同上,随 §I 整组转远期  
+4. **本期收尾**:合 main · B-GRAPH-FPS 真机 · AGENTS.md 叙事(人类) · 签名/Updater(凭证门)  
+5. **远期重启 §I**:6A → 6B → 6D → 6C(顺序待产品再定)  
 
 完整竖切与验收见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。
 

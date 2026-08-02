@@ -31,6 +31,7 @@ import {
   TextT,
   LinkSimple,
   ListBullets,
+  ListChecks,
 } from "@phosphor-icons/react";
 import {
   EditorView,
@@ -70,6 +71,7 @@ import {
   toggleBulletList,
   toggleInlineCode,
   toggleItalic,
+  toggleTaskList,
   type FormatResult,
 } from "../lib/md-format";
 import {
@@ -584,6 +586,11 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
       onClick: () => applyFormat(toggleBulletList),
     },
     {
+      label: t("editor.fmt.task"),
+      icon: <ListChecks size={13} />,
+      onClick: () => applyFormat(toggleTaskList),
+    },
+    {
       label: t("editor.fmt.quote"),
       icon: <Quotes size={13} />,
       onClick: () => applyFormat(toggleBlockQuote),
@@ -735,6 +742,14 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
             onClick={() => applyFormat(toggleBulletList)}
           >
             <ListBullets size={14} />
+          </button>
+          <button
+            type="button"
+            className={fmtBtn}
+            title={t("editor.fmt.task")}
+            onClick={() => applyFormat(toggleTaskList)}
+          >
+            <ListChecks size={14} />
           </button>
           <button
             type="button"

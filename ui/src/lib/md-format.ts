@@ -88,6 +88,30 @@ export function toggleBlockQuote(text: string, sel: TextRange): FormatResult {
   return toggleLinePrefix(text, sel, "> ");
 }
 
+/**
+ * 当前行 toggle 任务列表。已是任务项("- [ ] " 或 "- [x] ",列表标记可为 - 星 +)→
+ * 剥掉 checkbox + 列表标记,留正文;否则加 "- [ ] "(先剥已有列表/引用/heading 前缀)。
+ * 注意不能复用 toggleLinePrefix:已勾选行会被重复加 checkbox。
+ */
+export function toggleTaskList(text: string, sel: TextRange): FormatResult {
+  const { from } = normalize(sel, text.length);
+  const lineStart = text.lastIndexOf("\n", from - 1) + 1;
+  let lineEnd = text.indexOf("\n", from);
+  if (lineEnd < 0) lineEnd = text.length;
+  const line = text.slice(lineStart, lineEnd);
+  let newLine: string;
+  const taskMatch = line.match(/^[-*+]\s+\[([ xX])\]\s+/);
+  if (taskMatch) {
+    newLine = line.slice(taskMatch[0].length);
+  } else {
+    const stripped = line.replace(/^(?:[-*+]\s+|>\s+|#{1,6}\s+)/, "");
+    newLine = `- [ ] ${stripped}`;
+  }
+  const next = text.slice(0, lineStart) + newLine + text.slice(lineEnd);
+  const caret = lineStart + newLine.length;
+  return { text: next, selection: { from: caret, to: caret } };
+}
+
 function toggleLinePrefix(
   text: string,
   sel: TextRange,

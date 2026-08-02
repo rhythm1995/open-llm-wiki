@@ -8,10 +8,10 @@
 ## 产品优先级(2026-08-02)
 
 1. **编辑器 / 写作** — **主路径 + 保真门禁已收敛** ✅(见 §Editor)  
-2. **非图杂项**(日志端口、分发、AGENTS 叙述、wiki 脚手架文档…)  
-3. **图 / Agent / 6C** — **低优暂缓**  
+2. **非图杂项** — IPC 日志打点(B-LOG-IPC-SPANS ✅)+ source 任务按钮(B-ED-TASK-BTN ✅)已收口;剩分发 / AGENTS 叙述 / wiki 脚手架文档  
+3. **图 / Agent / §I** — **本期不做,推迟到很后**(图打磨 ROI 低 / 图不好做;2026-08-02 决策)  
 
-下一刀由产品在 2 里点名,或可选编辑器微体验(§Editor 可选)。
+下一刀:合 main + 真机验收;或产品在 2 里点名。
 
 ---
 
@@ -35,7 +35,7 @@
 
 - 真机 e2e:切 source↔WYSIWYG 后 diff 抽样  
 - 某类用户 md 被改坏 → 加进 `SAFE_FIDELITY_FIXTURES`  
-- source 任务列表按钮等微体验
+- ~~source 任务列表按钮~~ ✅(B-ED-TASK-BTN,`toggleTaskList`)
 
 ---
 
@@ -45,7 +45,9 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 
 ---
 
-## §Graph / Agent — 低优先级(暂缓)
+## §Graph / Agent — 本期不做,推迟到很后
+
+> **2026-08-02 决策**:§I 图谱 polish(6A)整期推迟——图打磨 ROI 低、实现成本高(「图不好做」)。引擎保留,远期重启。
 
 见 [11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) 与 backlog §I。  
 **不主动开 6A 帧率 / 6B MCP links / 6C 语义**,除非产品再改优先级。
