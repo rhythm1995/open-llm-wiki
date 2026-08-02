@@ -16,10 +16,13 @@
  */
 import type {
   EdgeOut,
+  MediaMetaOut,
+  MediaSnapshot,
   NodeOut,
   VaultEntry,
   VaultSnapshot,
 } from "./ipc";
+import { extractMarkdownImagePaths } from "./attachments";
 import { mockSearch } from "./mock-search";
 
 const MOCK_ROOT = "/mock-vault";
@@ -33,6 +36,65 @@ const attachments = new Map<string, string>();
 /** 是否已有该相对路径附件(uniqueAttachmentPath 用)。 */
 export function attachmentExists(relPath: string): boolean {
   return attachments.has(relPath.replace(/\\/g, "/"));
+}
+
+/** mock 媒体索引:attachments Map + 笔记正文 `![]()` 引用。 */
+function mockMediaSnapshot(): MediaSnapshot {
+  const byMedia = new Map<string, Set<string>>();
+  for (const [notePath, content] of vault.entries()) {
+    if (hasDotSegment(notePath) || !notePath.endsWith(".md")) continue;
+    for (const m of extractMarkdownImagePaths(content)) {
+      let set = byMedia.get(m);
+      if (!set) {
+        set = new Set();
+        byMedia.set(m, set);
+      }
+      set.add(notePath);
+    }
+  }
+  const files = [...attachments.keys()].sort();
+  const orphans: MediaMetaOut[] = [];
+  for (const p of files) {
+    const refcount = byMedia.get(p)?.size ?? 0;
+    if (refcount === 0) {
+      orphans.push({
+        path: p,
+        kind: "image",
+        bytes: 0,
+        mtime_ms: 0,
+        refcount: 0,
+      });
+    }
+  }
+  const missing = [...byMedia.keys()].filter((p) => !attachments.has(p)).sort();
+  let refs = 0;
+  for (const s of byMedia.values()) refs += s.size;
+  return {
+    stats: {
+      files: files.length,
+      notes_with_media: new Set(
+        [...byMedia.values()].flatMap((s) => [...s]),
+      ).size,
+      refs,
+      orphans: orphans.length,
+      missing: missing.length,
+    },
+    files,
+    orphans,
+    missing,
+  };
+}
+
+function mockMediaOfNote(notePath: string): MediaMetaOut[] {
+  const content = vault.get(notePath) ?? "";
+  const refs = extractMarkdownImagePaths(content);
+  return refs.map((p) => ({
+    path: p,
+    kind: "image",
+    bytes: 0,
+    mtime_ms: 0,
+    refcount: 1,
+  }));
 }
 
 /** 解析 mock 附件 URL;未缓存返回空串(阅读侧表现为破图)。 */
@@ -389,10 +451,23 @@ export async function handle<T>(
       vault.set(String(args.path), String(args.content));
       return undefined as unknown as T;
 
+    case "read_attachment_data_url": {
+      const path = String(args.path).replace(/\\/g, "/");
+      const url = attachments.get(path);
+      if (!url) throw new Error(`attachment not found: ${path}`);
+      return url as unknown as T;
+    }
+
     case "save_attachment": {
       // 内存存 data URL,阅读/并排预览用 resolveAttachmentUrl。
       const path = String(args.path).replace(/\\/g, "/");
-      let b64 = String(args.bytes_base64 ?? "");
+      // Tauri 2 camelCase `bytesBase64`;兼容旧 snake_case。
+      const rawArg = String(
+        (args as { bytesBase64?: unknown }).bytesBase64 ??
+          args.bytes_base64 ??
+          "",
+      );
+      let b64 = rawArg;
       let mime = "image/png";
       if (b64.startsWith("data:")) {
         const m = /^data:([^;]+);base64,(.+)$/i.exec(b64);
@@ -405,7 +480,7 @@ export async function handle<T>(
         }
       }
       // 按扩展名猜 mime(若 data URL 未带)。
-      if (!String(args.bytes_base64 ?? "").startsWith("data:")) {
+      if (!rawArg.startsWith("data:")) {
         const lower = path.toLowerCase();
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) mime = "image/jpeg";
         else if (lower.endsWith(".gif")) mime = "image/gif";
@@ -414,6 +489,51 @@ export async function handle<T>(
       }
       attachments.set(path, `data:${mime};base64,${b64}`);
       return undefined as unknown as T;
+    }
+
+    case "attachment_exists": {
+      const path = String(args.path).replace(/\\/g, "/");
+      return attachments.has(path) as unknown as T;
+    }
+
+    case "list_attachments": {
+      const dirRaw = args.dir == null || args.dir === ""
+        ? "attachments"
+        : String(args.dir).replace(/\\/g, "/").replace(/^\/+/, "");
+      const prefix = dirRaw.endsWith("/") ? dirRaw : `${dirRaw}/`;
+      const imgRe = /\.(png|jpe?g|gif|webp|svg|bmp)$/i;
+      const out = [...attachments.keys()]
+        .filter((p) => (p === dirRaw || p.startsWith(prefix)) && imgRe.test(p))
+        .sort();
+      return out as unknown as T;
+    }
+
+    case "media_index":
+      return mockMediaSnapshot() as unknown as T;
+
+    case "media_of_note":
+      return mockMediaOfNote(String(args.path)) as unknown as T;
+
+    case "media_used_by": {
+      const target = String(args.path).replace(/\\/g, "/");
+      const notes: string[] = [];
+      for (const [notePath, content] of vault.entries()) {
+        if (!notePath.endsWith(".md")) continue;
+        if (extractMarkdownImagePaths(content).includes(target)) {
+          notes.push(notePath);
+        }
+      }
+      return notes.sort() as unknown as T;
+    }
+
+    case "trash_attachments": {
+      const paths = (args.paths as string[] | undefined) ?? [];
+      let n = 0;
+      for (const raw of paths) {
+        const p = String(raw).replace(/\\/g, "/");
+        if (attachments.delete(p)) n++;
+      }
+      return n as unknown as T;
     }
 
     case "delete_note":

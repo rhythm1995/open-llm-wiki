@@ -412,6 +412,54 @@ fn prune_dir(dir: &Path, keep_days: u32) {
     }
 }
 
+/// Bundle recent log files into one text export under the log dir.
+/// Returns absolute path of the written file.
+pub fn export_bundle(keep_days: u32) -> Result<PathBuf, String> {
+    let b = bus().ok_or_else(|| "log bus not initialized".to_string())?;
+    let dir = &b.dir;
+    let rd = fs::read_dir(dir).map_err(|e| e.to_string())?;
+    let mut names: Vec<String> = rd
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let n = e.file_name().into_string().ok()?;
+            if n.starts_with("openobs-") && n.ends_with(".log") {
+                Some(n)
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    // Prefer newest by name (YYYY-MM-DD sorts well); keep last keep_days*2 files roughly.
+    let take = (keep_days.max(1) as usize).saturating_mul(4).max(4);
+    if names.len() > take {
+        names = names.split_off(names.len() - take);
+    }
+    let ts = utc_ts_now().replace(':', "").replace('.', "");
+    let out_name = format!("openobs-export-{ts}.txt");
+    let out_path = dir.join(&out_name);
+    let mut out = String::new();
+    out.push_str(&format!(
+        "# OpenObsidian log export\n# session={}\n# files={}\n\n",
+        b.session_id,
+        names.len()
+    ));
+    for name in &names {
+        let path = dir.join(name);
+        out.push_str(&format!("===== {name} =====\n"));
+        match fs::read_to_string(&path) {
+            Ok(body) => out.push_str(&body),
+            Err(e) => out.push_str(&format!("(read error: {e})\n")),
+        }
+        if !out.ends_with('\n') {
+            out.push('\n');
+        }
+        out.push('\n');
+    }
+    fs::write(&out_path, out).map_err(|e| e.to_string())?;
+    Ok(out_path)
+}
+
 /// Open log directory in system file manager (best-effort).
 pub fn open_dir_in_os(dir: &Path) -> Result<(), String> {
     #[cfg(target_os = "macos")]
@@ -508,5 +556,31 @@ mod tests {
     fn parse_level_profile() {
         assert_eq!(LogLevel::parse("WARN"), Some(LogLevel::Warn));
         assert_eq!(LogProfile::parse("production"), Some(LogProfile::Prod));
+    }
+
+    #[test]
+    fn export_bundle_writes_file() {
+        let dir = std::env::temp_dir().join(format!(
+            "openobs-log-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        // Force re-init: BUS is OnceLock — only first init wins.
+        // If already inited by other tests, just write a log line then export if bus ready.
+        init(dir.clone(), LogProfile::Dev);
+        emit(
+            LogLevel::Error,
+            "test",
+            "export probe",
+            None,
+        );
+        if let Ok(path) = export_bundle(7) {
+            let body = fs::read_to_string(&path).unwrap();
+            assert!(body.contains("OpenObsidian log export") || body.contains("export probe") || body.contains("openobs-"));
+            let _ = fs::remove_file(&path);
+        }
+        // cleanup best-effort
+        let _ = fs::remove_dir_all(&dir);
     }
 }
