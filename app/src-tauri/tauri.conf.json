@@ -40,7 +40,7 @@
     "publisher": "OpenObsidian",
     "copyright": "© OpenObsidian contributors, MIT (see THIRD_PARTY_NOTICES)",
     "shortDescription": "Local-first, file-as-truth knowledge base",
-    "longDescription": "OpenObsidian — a local-first, MIT-licensed knowledge management app. Adds the two things Obsidian most needs: graph visualization and live aggregate queries (QQL). Canvas uses Excalidraw (MIT).",
+    "longDescription": "OpenObsidian — a local-first, MIT-licensed knowledge base where your plain markdown files are the single source of truth. Edit in a dual-mode editor (CodeMirror source + BlockNote WYSIWYG), navigate a Cytoscape graph of wikilinks and frontmatter relations, sketch on an Excalidraw canvas (MIT), and manage tabular data in a Sheet view — all on your own machine, no account or cloud sync required.",
     "resources": {
       "../../LICENSE": ".",
       "../../THIRD_PARTY_NOTICES.md": ".",

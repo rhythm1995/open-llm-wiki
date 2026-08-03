@@ -385,6 +385,9 @@ export default function App() {
   }, []);
 
   const openPalette = useCallback((mode: PaletteMode) => {
+    // 打开命令面板前清掉当前焦点(如列表过滤框),避免它的 caret 残留"高亮";
+    // 命令面板打开后由其 input autoFocus 接管焦点。
+    (document.activeElement as HTMLElement | null)?.blur();
     setPaletteMode(mode);
     setPaletteOpen(true);
   }, []);
@@ -402,11 +405,13 @@ export default function App() {
       if (k === "k" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
+        (document.activeElement as HTMLElement | null)?.blur();
         setPaletteMode("commands");
         setPaletteOpen((v) => !v);
       } else if (k === "p" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
+        (document.activeElement as HTMLElement | null)?.blur();
         setPaletteMode("files");
         setPaletteOpen((v) => !v);
       } else if (k === "o" && !e.shiftKey) {
@@ -599,20 +604,55 @@ export default function App() {
     };
   }, [dispatchCommand]);
 
-  // 双击顶部拖拽区(data-tauri-drag-region)→ 切换窗口最大化。
-  // Overlay 标题栏下,macOS 原生「双击标题栏 zoom」不作用于自定义拖拽区,在此补回。
+  // 顶部拖拽区(data-drag-region):单击拖动窗口,双击切换最大化/还原。
+  // 用 mousedown 延迟启动拖拽,给双击留判定窗口 —— 双击的第一次按下不会立即
+  // startDragging,从而避开 macOS 原生 performDrag 的 grab-to-restore:它会先把
+  // maximized 标志清掉、却不动窗口大小,导致 toggleMaximize 误判为「未最大化」再
+  // 最大化一次,表现为「最大化后双击不还原」(见 tauri#11945)。延迟内若来了第二次
+  // 按下即判为双击:取消拖拽、改走 toggleMaximize(此时状态未被搞乱,可正确双向)。
   useEffect(() => {
     if (ipc.isMock()) return; // 浏览器 dev 无窗口概念。
-    const onDblClick = (e: MouseEvent) => {
-      const el = (e.target as HTMLElement | null)?.closest?.(
-        "[data-tauri-drag-region]",
-      );
-      if (!el) return; // 点到按钮/输入框等非拖拽区不触发。
-      e.preventDefault();
-      void getCurrentWindow().toggleMaximize();
+    const win = getCurrentWindow();
+    let dragTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastDown = 0;
+    const DRAG_DELAY = 200; // 拖拽启动延迟 ≈ 双击判定窗口(需 ≤ 双击间隔)。
+    const onDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // 落在交互元素(按钮/输入框等)上不接管,交给它们自己的点击。
+      if (
+        target.closest(
+          'button, input, select, textarea, a[href], [role="button"], [contenteditable="true"]',
+        )
+      )
+        return;
+      if (!target.closest("[data-drag-region]")) return;
+      const now =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (now - lastDown < DRAG_DELAY) {
+        // 双击:取消待拖拽,切换最大化(状态未被 grab 搞乱,可正确双向)。
+        if (dragTimer) {
+          clearTimeout(dragTimer);
+          dragTimer = null;
+        }
+        e.preventDefault();
+        void win.toggleMaximize();
+        lastDown = 0;
+        return;
+      }
+      lastDown = now;
+      if (dragTimer) clearTimeout(dragTimer);
+      dragTimer = setTimeout(() => {
+        dragTimer = null;
+        void win.startDragging();
+      }, DRAG_DELAY);
     };
-    window.addEventListener("dblclick", onDblClick);
-    return () => window.removeEventListener("dblclick", onDblClick);
+    window.addEventListener("mousedown", onDown, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown, true);
+      if (dragTimer) clearTimeout(dragTimer);
+    };
   }, []);
 
   // ⌘F 文内查找(不含 Shift → 库搜是 ⌘⇧F)。
