@@ -70,7 +70,7 @@ const VIEWS: { id: MainView; key: string; icon: typeof PencilSimple }[] = [
 
 /** macOS 交通灯拖拽区:挂在最左侧可见列表头的起点。 */
 function TrafficLights() {
-  return <div data-tauri-drag-region className="h-full w-[72px] shrink-0" />;
+  return <div data-drag-region className="h-full w-[72px] shrink-0" />;
 }
 
 export function CenterToolbar({
@@ -132,7 +132,7 @@ export function CenterToolbar({
       {navOpen && (
         <div className="flex w-56 shrink-0 items-center border-r border-crust">
           {navLeading && <TrafficLights />}
-          <div data-tauri-drag-region className="h-full flex-1" />
+          <div data-drag-region className="h-full flex-1" />
           {/* 后退/前进置于第一栏(导航列)右端(任务1:从编辑列右端迁来)。
               nav 列关闭时本表头不渲染 → 按钮暂随之隐藏(用 ⌘K 命令面板可达)。 */}
           <div className="flex items-center gap-0.5 pr-1">
@@ -167,7 +167,10 @@ export function CenterToolbar({
       {/* 列表列表头:vault 名(左)+ 新建笔记/画布/打开 vault(右)。从 Nav 头部迁来。
           showList 已含 hasVault,故此处 vaultName 必非 null。 */}
       {showList && (
-        <div className="flex w-80 shrink-0 items-center gap-1 border-r border-crust px-2">
+        <div
+          data-drag-region
+          className="flex w-80 shrink-0 items-center gap-1 border-r border-crust px-2"
+        >
           {listLeading && <TrafficLights />}
           <FolderOpen size={14} weight="fill" className="shrink-0 text-blue" />
           <span
@@ -201,7 +204,7 @@ export function CenterToolbar({
       )}
 
       {/* 编辑列表头(常驻):视图图标 + ⌘K(左)/ 标签(中)/ 面板切换 + 后退前进(右)。 */}
-      <div className="relative flex min-w-0 flex-1 items-center gap-0.5 px-2">
+      <div data-drag-region className="relative flex min-w-0 flex-1 items-center gap-0.5 px-2">
         {editorLeading && <TrafficLights />}
         {hasVault ? (
           <>
@@ -280,7 +283,7 @@ export function CenterToolbar({
 
       {/* 属性列表头:Inspector 自带 tab 表头,此处仅占位拖拽区,保持分隔线贯穿与高度对齐。 */}
       {showProps && (
-        <div data-tauri-drag-region className="w-[280px] shrink-0 border-l border-crust" />
+        <div data-drag-region className="w-[280px] shrink-0 border-l border-crust" />
       )}
     </div>
   );
