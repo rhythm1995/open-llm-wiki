@@ -5,7 +5,7 @@
  * - files(⌘P):仅文件快开
  * - search(⌘⇧F):ipc.searchNotes 正文检索
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   FileText,
@@ -108,6 +108,17 @@ export function CommandPalette({
     return rankFiles(files, q, recentPaths, mode === "files" ? 50 : 20);
   }, [mode, files, q, recentPaths]);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  // 打开/切模式时把焦点**强制**锁到输入框。命令面板是模态:背景的列表过滤框
+  // (caret)、编辑器(.cm-focused)、工具栏按钮(button focus ring)必须彻底失焦。
+  // Radix 默认 autoFocus 在 Portal 复用/竞态下不可靠,用 ref + rAF 兜底,确保
+  // 焦点唯一地落在输入框 —— 焦点一旦在此,背景任何 :focus 视觉必然消失。
+  useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [open, mode]);
+
   // 库内全文
   useEffect(() => {
     if (!open || mode !== "search") {
@@ -204,14 +215,21 @@ export function CommandPalette({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+        <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50" />
         <Dialog.Content
-          className="fixed left-1/2 top-[20%] w-[560px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-surface2 bg-mantle shadow-2xl outline-none"
+          className="fixed left-1/2 top-[20%] z-[100] w-[560px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-surface2 bg-mantle shadow-2xl outline-none"
           data-testid="command-palette"
           data-palette-mode={mode}
+          onOpenAutoFocus={(e) => {
+            // 接管 Radix 默认聚焦:显式锁到输入框,避免焦点落在 Content 容器
+            // 或被背景元素夺回。
+            e.preventDefault();
+            inputRef.current?.focus();
+          }}
         >
           <Dialog.Title className="sr-only">{title}</Dialog.Title>
           <input
+            ref={inputRef}
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}

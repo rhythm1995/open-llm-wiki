@@ -385,6 +385,9 @@ export default function App() {
   }, []);
 
   const openPalette = useCallback((mode: PaletteMode) => {
+    // 打开命令面板前清掉当前焦点(如列表过滤框),避免它的 caret 残留"高亮";
+    // 命令面板打开后由其 input autoFocus 接管焦点。
+    (document.activeElement as HTMLElement | null)?.blur();
     setPaletteMode(mode);
     setPaletteOpen(true);
   }, []);
@@ -402,11 +405,13 @@ export default function App() {
       if (k === "k" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
+        (document.activeElement as HTMLElement | null)?.blur();
         setPaletteMode("commands");
         setPaletteOpen((v) => !v);
       } else if (k === "p" && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
+        (document.activeElement as HTMLElement | null)?.blur();
         setPaletteMode("files");
         setPaletteOpen((v) => !v);
       } else if (k === "o" && !e.shiftKey) {
