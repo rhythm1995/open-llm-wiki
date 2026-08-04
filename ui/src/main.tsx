@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { installConsoleForwarder } from "./lib/diag-log";
 // Inter(OFSL-1.1,无许可负担):@font-face 注入,供 --font-sans 真正生效。
 import "@fontsource-variable/inter";
@@ -11,6 +12,8 @@ installConsoleForwarder();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

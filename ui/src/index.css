@@ -47,6 +47,24 @@ button:focus-visible,
   outline: none;
 }
 
+/* ── 指针光标:可交互元素统一手形,避免被误当成静态文字而「点不动」。 ──
+   浏览器默认给 <button> 用 default 箭头,观感像禁用;这里显式拉成手形。
+   :not(:disabled) 保证真正禁用的仍显示 not-allowed(见下)。 */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+[role="switch"]:not(:disabled),
+[role="tab"]:not(:disabled),
+summary,
+[onclick]:not([disabled]),
+[data-wikilink],
+a[href] {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* ── 深色变体(中性深灰 + 蓝)── 仅在 <html data-theme="dark"> 时生效,
    覆盖同名 CSS 变量;Tailwind 工具类(bg-base/text-… 等)引用这些变量,自动跟随。 */
 [data-theme="dark"] {
