@@ -19,6 +19,14 @@ export interface AiContextOptions {
   neighbors: AiContextNote[];
 }
 
+/** Composer `@`-context 选择器的候选项(只含标题/路径,不预取正文)。 */
+export interface ContextCandidate {
+  path: string;
+  title: string;
+  /** 是否为当前笔记(当前笔记恒附,不可取消勾选)。 */
+  isCurrent: boolean;
+}
+
 /**
  * 组装上下文 markdown:先当前笔记(标题/路径/正文),再各邻居(二级标题 + 路径 + 正文)。
  * 无邻居时不输出分隔线与"相关笔记"小节。两端正文做 trim,避免多余空行。
@@ -33,7 +41,8 @@ export function buildAiContext({ current, neighbors }: AiContextOptions): string
   out.push("");
   if (neighbors.length > 0) {
     out.push("---", "");
-    out.push(`# 相关笔记(当前笔记链接到的,共 ${neighbors.length} 篇)`, "");
+    // 来源可能是外向链接邻居(复制)或用户勾选的打开标签(@-context),措辞保持中性。
+    out.push(`# 相关笔记(共 ${neighbors.length} 篇)`, "");
     for (const n of neighbors) {
       out.push(`## ${n.title}`);
       out.push(`路径:${n.path}`, "");

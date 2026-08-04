@@ -27,10 +27,12 @@ import {
   Rectangle,
   FolderPlus,
   FolderOpen,
+  Robot,
 } from "@phosphor-icons/react";
 import type { MainView } from "./CommandPalette";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
+import { HoverPop } from "./HoverPop";
 
 interface Props {
   view: MainView;
@@ -48,12 +50,18 @@ interface Props {
   navOpen: boolean;
   listOpen: boolean;
   propsOpen: boolean;
+  /** 右栏当前是否停在 Agent tab(决定 Agent toggle 高亮)。 */
+  agentOpen: boolean;
   onToggleNav: () => void;
   onToggleList: () => void;
   onToggleProps: () => void;
-  /** 列表列 / 属性列是否随当前视图渲染(随 view + canvas 变)。 */
+  onToggleAgent: () => void;
+  /** 列表列是否随当前视图渲染(随 view + canvas 变)。 */
   showList: boolean;
-  showProps: boolean;
+  /** 两列宽度(B-COL-RESIZE):表头宽度须与下方内容列一致,分隔线贯穿。
+      右栏已提为全高(App.tsx),其宽度由 App 自管,不在此对齐表头。 */
+  navWidth: number;
+  listWidth: number;
   /** 第二栏(列表表头)内容:vault 名 + 新建/打开。无 vault 时 vaultName=null。 */
   vaultName: string | null;
   onNewNote: () => void;
@@ -61,11 +69,17 @@ interface Props {
   onOpenVault: () => void;
 }
 
-const VIEWS: { id: MainView; key: string; icon: typeof PencilSimple }[] = [
-  { id: "editor", key: "view.editor", icon: PencilSimple },
-  { id: "graph", key: "view.graph", icon: Graph },
+const VIEWS: {
+  id: MainView;
+  key: string;
+  /** hover 解释泡文案键(比 key 更完整的功能说明)。 */
+  tip: string;
+  icon: typeof PencilSimple;
+}[] = [
+  { id: "editor", key: "view.editor", tip: "view.editorTip", icon: PencilSimple },
+  { id: "graph", key: "view.graph", tip: "view.graphTip", icon: Graph },
   // 搜索/查询视图已移除:文档内查找用 ⌘F;快速打开笔记用 ⌘P;查询留待 agent(见 docs/04 F-QUERY)。
-  { id: "git", key: "view.git", icon: GitBranch },
+  { id: "git", key: "view.git", tip: "view.gitTip", icon: GitBranch },
 ];
 
 /** macOS 交通灯拖拽区:挂在最左侧可见列表头的起点。 */
@@ -86,11 +100,14 @@ export function CenterToolbar({
   navOpen,
   listOpen,
   propsOpen,
+  agentOpen,
   onToggleNav,
   onToggleList,
   onToggleProps,
+  onToggleAgent,
   showList,
-  showProps,
+  navWidth,
+  listWidth,
   vaultName,
   onNewNote,
   onNewCanvas,
@@ -102,6 +119,7 @@ export function CenterToolbar({
   const listLeading = !navOpen && showList;
   const editorLeading = !navOpen && !showList;
 
+  // 面板显隐切换簇:图标本身已自解释(高亮=开),不加 hover 解释泡(用户反馈:多余)。
   const toggles = [
     {
       key: "toolbar.toggle.nav",
@@ -124,42 +142,54 @@ export function CenterToolbar({
       onToggle: onToggleProps,
       testid: "toggle-props",
     },
+    {
+      key: "toolbar.toggle.agent",
+      icon: Robot,
+      on: agentOpen,
+      onToggle: onToggleAgent,
+      testid: "toggle-agent",
+    },
   ];
 
   return (
     <div data-testid="center-toolbar" className="flex h-9 shrink-0 items-stretch bg-mantle">
       {/* 导航列表头:vault 名/新建/打开已迁出,仅留交通灯拖拽区(若它最左)。 */}
       {navOpen && (
-        <div className="flex w-56 shrink-0 items-center border-r border-crust">
+        <div
+          className="flex shrink-0 items-center border-r border-crust"
+          style={{ width: navWidth }}
+        >
           {navLeading && <TrafficLights />}
           <div data-drag-region className="h-full flex-1" />
           {/* 后退/前进置于第一栏(导航列)右端(任务1:从编辑列右端迁来)。
               nav 列关闭时本表头不渲染 → 按钮暂随之隐藏(用 ⌘K 命令面板可达)。 */}
           <div className="flex items-center gap-0.5 pr-1">
-            <button
-              onClick={onBack}
-              disabled={!canBack}
-              title={t("toolbar.back")}
-              aria-label={t("toolbar.back")}
-              className={cn(
-                "flex h-6 w-6 items-center justify-center rounded text-overlay hover:bg-surface hover:text-text",
-                "disabled:pointer-events-none disabled:opacity-30",
-              )}
-            >
-              <ArrowLeft size={15} />
-            </button>
-            <button
-              onClick={onForward}
-              disabled={!canForward}
-              title={t("toolbar.forward")}
-              aria-label={t("toolbar.forward")}
-              className={cn(
-                "flex h-6 w-6 items-center justify-center rounded text-overlay hover:bg-surface hover:text-text",
-                "disabled:pointer-events-none disabled:opacity-30",
-              )}
-            >
-              <ArrowRight size={15} />
-            </button>
+            <HoverPop side="down" text={t("toolbar.backTip")}>
+              <button
+                onClick={onBack}
+                disabled={!canBack}
+                aria-label={t("toolbar.back")}
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded text-overlay hover:bg-surface hover:text-text",
+                  "disabled:pointer-events-none disabled:opacity-30",
+                )}
+              >
+                <ArrowLeft size={15} />
+              </button>
+            </HoverPop>
+            <HoverPop side="down" text={t("toolbar.forwardTip")}>
+              <button
+                onClick={onForward}
+                disabled={!canForward}
+                aria-label={t("toolbar.forward")}
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded text-overlay hover:bg-surface hover:text-text",
+                  "disabled:pointer-events-none disabled:opacity-30",
+                )}
+              >
+                <ArrowRight size={15} />
+              </button>
+            </HoverPop>
           </div>
         </div>
       )}
@@ -169,7 +199,8 @@ export function CenterToolbar({
       {showList && (
         <div
           data-drag-region
-          className="flex w-80 shrink-0 items-center gap-1 border-r border-crust px-2"
+          className="flex shrink-0 items-center gap-1 border-r border-crust px-2"
+          style={{ width: listWidth }}
         >
           {listLeading && <TrafficLights />}
           <FolderOpen size={14} weight="fill" className="shrink-0 text-blue" />
@@ -179,27 +210,30 @@ export function CenterToolbar({
           >
             {vaultName}
           </span>
-          <button
-            onClick={onNewNote}
-            title={t("sidebar.newNote")}
-            className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
-          >
-            <Plus size={15} weight="bold" />
-          </button>
-          <button
-            onClick={onNewCanvas}
-            title={t("sidebar.newCanvas")}
-            className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
-          >
-            <Rectangle size={15} weight="bold" />
-          </button>
-          <button
-            onClick={onOpenVault}
-            title={t("sidebar.openVault")}
-            className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
-          >
-            <FolderPlus size={15} />
-          </button>
+          <HoverPop side="down" align="right" text={t("sidebar.newNoteTip")}>
+            <button
+              onClick={onNewNote}
+              className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
+            >
+              <Plus size={15} weight="bold" />
+            </button>
+          </HoverPop>
+          <HoverPop side="down" align="right" text={t("sidebar.newCanvasTip")}>
+            <button
+              onClick={onNewCanvas}
+              className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
+            >
+              <Rectangle size={15} weight="bold" />
+            </button>
+          </HoverPop>
+          <HoverPop side="down" align="right" text={t("sidebar.openVaultTip")}>
+            <button
+              onClick={onOpenVault}
+              className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
+            >
+              <FolderPlus size={15} />
+            </button>
+          </HoverPop>
         </div>
       )}
 
@@ -213,30 +247,31 @@ export function CenterToolbar({
               const Icon = v.icon;
               const active = view === v.id;
               return (
-                <button
-                  key={v.id}
-                  onClick={() => onNavigate(v.id)}
-                  title={t(v.key)}
-                  aria-label={t(v.key)}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded",
-                    active
-                      ? "bg-surface text-blue"
-                      : "text-overlay hover:bg-surface hover:text-text",
-                  )}
-                >
-                  <Icon size={14} weight={active ? "fill" : "regular"} />
-                </button>
+                <HoverPop key={v.id} side="down" text={t(v.tip as Parameters<TFunc>[0])}>
+                  <button
+                    onClick={() => onNavigate(v.id)}
+                    aria-label={t(v.key)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded",
+                      active
+                        ? "bg-surface text-blue"
+                        : "text-overlay hover:bg-surface hover:text-text",
+                    )}
+                  >
+                    <Icon size={14} weight={active ? "fill" : "regular"} />
+                  </button>
+                </HoverPop>
               );
             })}
-            <button
-              onClick={onOpenPalette}
-              className="ml-0.5 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface hover:text-text"
-              title={t("toolbar.palette")}
-            >
-              ⌘K
-            </button>
+            <HoverPop side="down" text={t("toolbar.paletteTip")}>
+              <button
+                onClick={onOpenPalette}
+                className="ml-0.5 rounded px-2 py-1 text-[12px] text-subtext hover:bg-surface hover:text-text"
+              >
+                ⌘K
+              </button>
+            </HoverPop>
 
             {/* 居中标签:绝对居中于编辑列,穿透拖拽。 */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -254,7 +289,6 @@ export function CenterToolbar({
                     key={tg.key}
                     data-testid={tg.testid}
                     onClick={tg.onToggle}
-                    title={t(tg.key)}
                     aria-label={t(tg.key)}
                     aria-pressed={tg.on}
                     className={cn(
@@ -281,10 +315,8 @@ export function CenterToolbar({
         )}
       </div>
 
-      {/* 属性列表头:Inspector 自带 tab 表头,此处仅占位拖拽区,保持分隔线贯穿与高度对齐。 */}
-      {showProps && (
-        <div data-drag-region className="w-[280px] shrink-0 border-l border-crust" />
-      )}
+      {/* 右栏已提为全高(App.tsx,与顶栏齐高):不再在此压一条空占位条,顶部不留白。
+          分隔线由右栏自身的 border-l 提供,高度天然对齐。 */}
     </div>
   );
 }
