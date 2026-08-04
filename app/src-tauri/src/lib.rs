@@ -5,7 +5,10 @@
 //!
 //! 设计原则:命令函数只做 IO 与 core 之间的胶水,不写业务逻辑。
 
+mod acp;
+mod git_attr;
 mod logging;
+mod transcript;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -1548,7 +1551,20 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
+        .manage(acp::AcpState::default())
+        // §9.6 关闭善后:单窗口 app,主窗口关闭即退出 → 终止活动 agent 子进程,
+        // 防 orphan(kill_on_drop 在进程被强杀时不一定触发)。
+        .on_window_event(move |window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if let Some(st) = window.try_state::<acp::AcpState>() {
+                    acp::stop_state(&st.0);
+                }
+            }
+        })
         .setup(|app| {
+            // B-AGENT-PATHFIX:GUI 启动 PATH 极简,先并回用户登录 PATH + 常见目录,
+            // 否则 agent_list 检测 / AcpAgent spawn 都会失败。
+            acp::augment_path();
             // L1 客户端日志:AppLog 目录 + profile(env OPENOBS_LOG_PROFILE / debug→dev / release→prod)。
             let log_dir = app
                 .path()
@@ -1557,6 +1573,9 @@ pub fn run() {
             let profile = logging::resolve_profile_from_env();
             logging::init(log_dir, profile);
             logging::install_panic_hook();
+            // acp(agent 子进程)的握手/流式/错误始终记到 debug——即使全局 prod(error+),
+            // 便于排查「agent 连不上 / 握手卡住 / 流式不动」等问题。
+            logging::set_target_min("acp", logging::LogLevel::Debug);
 
             // 原生菜单:id 与 ui/src/lib/commands 注册表对齐(docs/10)。
             let file_new = MenuItemBuilder::with_id("new-note", "New Note")
@@ -1692,6 +1711,28 @@ pub fn run() {
             git_init,
             watch_vault,
             unwatch_vault,
+            acp::agent_list,
+            acp::agent_start,
+            acp::agent_prompt,
+            acp::agent_stop,
+            acp::agent_cancel,
+            acp::agent_alive,
+            acp::agent_permission_respond,
+            acp::agent_set_instant_commit,
+            acp::agent_set_mode,
+            acp::agent_set_config_option,
+            acp::agent_set_model,
+            acp::agent_session_info,
+            transcript::agent_thread_create,
+            transcript::agent_thread_list,
+            transcript::agent_thread_load,
+            transcript::agent_thread_append,
+            transcript::agent_thread_clear,
+            transcript::agent_thread_delete,
+            git_attr::agent_activity,
+            git_attr::agent_diff,
+            git_attr::agent_revert,
+            git_attr::agent_adopt,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
