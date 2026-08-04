@@ -96,7 +96,7 @@
 
 ## I. 图谱打磨 → Agent（远期 · 本期不做）
 
-> **产品拍板(2026-08-02)**:**§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留待远期。完整规格见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**。  
+> **产品拍板(2026-08-02)**:**§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留待远期。完整规格见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**。  
 > **历史(2026-08-01)**:曾规划先图再 agent;**已被 2026-08-02 决策覆盖**。  
 > 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,顺序默认 **6A → 6B → 6D → 6C**。
 
@@ -139,7 +139,7 @@
 
 ---
 
-## J. 客户端日志与诊断（见 [12-client-logging.md](./12-client-logging.md)）
+## J. 客户端日志与诊断（见 [13-client-logging.md](./13-client-logging.md)）
 
 > 现状:仅 `diag_log`→stderr。目标:文件落盘 + 可选端口 + profile 一键瘦身(prod 只 error/fatal),用户导出供排查。
 
@@ -184,6 +184,26 @@
 | B-SEARCH-RANK | 快开排序纯函数 | 🟢 | ✅ | `rankFiles` + canvas/sheet |
 | B-CMD-TEST | 注册表/过滤 + 面板 + e2e | 🟡 | ✅ | commands.test 20; CommandPalette.test 7; e2e palette-search 5 |
 
+## K. 应用内侧栏 Agent(ACP 托管,见 [11](./11-in-app-agent-roadmap.md))
+
+> **2026-08-04 Phase 7 完工**:第一版 Tier 1 + 完整 Tier 2 全部落代码、自测通过,**无推迟项**。完整实施状态见 doc 11 §10。状态图例:✅ 完整 · ⛔ 不在第一版。
+
+| ID | Tier | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-AGENT-SDK | 2 | 🔴 | ✅ | `agent-client-protocol` v2.0.0;fs/permission/notification 闭包齐全 |
+| B-AGENT-SHELL | 2 | 🔴 | ✅ | 专用线程 + `AcpAgent`(spawn+进程组 kill+kill_on_drop);**存活检测** `agent_alive`(`AtomicBool` + 脏退出 emit + 前端轮询)+ resume 边界文档 |
+| B-AGENT-PATHFIX | 2 | 🟢 | ✅ | `acp::augment_path()`;登录 shell PATH + 常见目录 + Node 探测 |
+| B-AGENT-PICKER | 2 | 🟡 | ✅ | 配方表(opencode/claude-code)+ 探测置灰 |
+| B-AGENT-THREADVIEW | 2 | 🟡 | ✅ | 流式增量气泡 + **tool_call 折叠卡(`ToolCard`,失败自动展开 + 二级折叠)** + inline 权限卡 |
+| B-AGENT-COMPOSER | 2 | 🟡 | ✅ | 单一动作槽(Send/Stop/**Queue**)+ **`@`-context 药丸**(附当前笔记 + 邻居正文) |
+| B-AGENT-TRANSCRIPT | 2 | 🟡 | ✅ | 每 vault 一 SQLite(app data);**threads 表 + messages + raw_blob + WAL**;回放最近线程 |
+| B-AGENT-PERM | 2 | 🟡 | ✅ | **三档**(正常逐次 / 宽松非高危自动 + 琥珀点 / 高危恒门控) |
+| B-AGENT-GIT-ATTR | 1 | 🔴 | ✅ | turn 快照→`refs/agents/<id>`(不动 HEAD)+ 活动面板 + diff + **采纳(入 HEAD)/ 撤销(reverse-apply)** + **影子仓库(非 git vault)** |
+| B-AGENT-RIGHTCOL-TABS | 2 | 🟢 | ✅ | 区4 Inspector \| Agent tab |
+| B-COL-RESIZE | 2 | 🟢 | ✅ | 三栏拖拽 + 持久化(`ColResizeHandle`) |
+| B-AGENT-CTX-MODELC | 2 | 🔴 | ✅ | Model C 跨 agent 移交:线程绑 agent + 显式移交(归一化 seed,`normalizeForHandoff`)+ 转录多线程 |
+| B-AGENT-TIER0-TERM | 0 | 🔴 | ⛔ | 停靠终端;不在第一版 |
+
 ## 建议实现顺序(产品向)
 
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / QQL 差分 / 媒体~~ ✅  
@@ -192,7 +212,7 @@
 4. **本期收尾**:合 main · B-GRAPH-FPS 真机 · AGENTS.md 叙事(人类) · 签名/Updater(凭证门)  
 5. **远期重启 §I**:6A → 6B → 6D → 6C(顺序待产品再定)  
 
-完整竖切与验收见 **[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。
+完整竖切与验收见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。
 
 ### 三项核实(2026-07-31)
 
@@ -209,7 +229,7 @@
 | 文档 | 角色 |
 |---|---|
 | **本文 backlog.md** | 未做清单总表(含 §I 图→agent ID) |
-| [**11-graph-and-agent-roadmap.md**](./11-graph-and-agent-roadmap.md) | **下一阶段主规划**(A→B→D→C) |
+| [**12-graph-and-agent-roadmap.md**](./12-graph-and-agent-roadmap.md) | **下一阶段主规划**(A→B→D→C) |
 | [plan.md](./plan.md) | 未完成实施计划 |
 | [FEATURE-INDEX.md](./FEATURE-INDEX.md) | 已落地功能 → 代码 |
 | [04-features.md](./04-features.md) | 功能规格与状态 |

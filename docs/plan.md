@@ -49,7 +49,7 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 
 > **2026-08-02 决策**:§I 图谱 polish(6A)整期推迟——图打磨 ROI 低、实现成本高(「图不好做」)。引擎保留,远期重启。
 
-见 [11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) 与 backlog §I。  
+见 [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) 与 backlog §I。  
 **不主动开 6A 帧率 / 6B MCP links / 6C 语义**,除非产品再改优先级。
 
 | 可后续 | 说明 |

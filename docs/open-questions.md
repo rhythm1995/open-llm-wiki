@@ -37,7 +37,7 @@
 
 ## Phase 6 已拍板 / 仍待定
 
-> 主规划:[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md)。
+> 主规划:[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)。
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
@@ -48,5 +48,5 @@
 | P6-7 | 布局文件是否进 git / 自动提交 | 【默认】**gitignore 布局文件**;写盘**不**走结构自动 commit | 与「结构自动 + 正文手动」策略对齐:频繁拖拽/reheat 若 auto-commit 会污染 log。用户可手动 un-ignore 以共享布局。若要「团队共享默认布局」可再改为 tracked + 仅 pin/导出时提交——开 6A1 前可改默认。 |
 | P6-5 | 语义边 / embedding(6C) | 【待定】未开 | 选项:不做 / 可选本地模型 / 可选外部 API / 先 mock 向量只做 UI。**默认关向量主索引**。开 6C 前必须拍板。 |
 | P6-6 | MCP `suggest`(未链提及) | 【默认】6B 可先不做或极简 title 匹配 | 完整 mention 扫描可二期;不阻塞 dead/orphans/hubs。 |
-| P6-8 | 6C 语义边是否进 core `EdgeKind` | 【待定】开 6C 前评审 | 进 core → 序列化/filter/QQL/MCP 级联;或仅前端缓存层。见 [11 §4](./11-graph-and-agent-roadmap.md)。 |
+| P6-8 | 6C 语义边是否进 core `EdgeKind` | 【待定】开 6C 前评审 | 进 core → 序列化/filter/QQL/MCP 级联;或仅前端缓存层。见 [12 §4](./12-graph-and-agent-roadmap.md)。 |
 

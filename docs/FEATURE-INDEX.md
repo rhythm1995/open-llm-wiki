@@ -61,7 +61,7 @@
 | Cytoscape 渲染 + cose/preset | Phase6 栈 | `GraphView.tsx`,`CytoscapeLayer.tsx` |
 | 过滤 / 健康 / 分层 / 时间轴 | B-GRAPH-* | `graph-*.ts` |
 | 布局落盘 `.openobsidian/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
-| 规划(未完项) | §I | [11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) |
+| 规划(未完项) | §I | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) |
 
 ## 导航 / 命令 / 设置
 
@@ -96,7 +96,7 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 客户端文件日志 + 导出 | B-LOG-* / 12 | `app/.../logging.rs`,`ui/src/lib/logger.ts` |
-| 规格 | — | [12-client-logging.md](./12-client-logging.md) |
+| 规格 | — | [13-client-logging.md](./13-client-logging.md) |
 
 ## 架构总览
 

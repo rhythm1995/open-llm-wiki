@@ -26,7 +26,7 @@
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。
   - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
-- **健康面(部分,见 [11](./11-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
+- **健康面(部分,见 [12](./12-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
 
 > UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
@@ -34,7 +34,7 @@
 
 **一句话**:内置声明式查询引擎,从全 vault 的 frontmatter/body 取数。**用户面已删,引擎保留待 agent。**
 
-> **2026-08-02 决策**:不让用户学一门新 DSL——QQL 的认知负担是「语法 + 字段名 + 字面值 + render 动词」四层叠加,门槛过高。故**删除全部用户面**,**保留引擎**作为 agent 的编译目标,等 [6B](./11-graph-and-agent-roadmap.md) 接 agent 时用**自然语言**重建表面。
+> **2026-08-02 决策**:不让用户学一门新 DSL——QQL 的认知负担是「语法 + 字段名 + 字面值 + render 动词」四层叠加,门槛过高。故**删除全部用户面**,**保留引擎**作为 agent 的编译目标,等 [6B](./12-graph-and-agent-roadmap.md) 接 agent 时用**自然语言**重建表面。
 
 - **保留(引擎 B)**——勿删:
   - Rust core:`qql::parse`(文本→AST)+ `query::eval`(求值),全在纯内核。
@@ -78,7 +78,7 @@
 | F-THEMES | 主题 | P2 | ✅ | 深/浅;Settings 面板 ✅。 |
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
-| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([11](./11-graph-and-agent-roadmap.md))。 |
+| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([12](./12-graph-and-agent-roadmap.md))。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |

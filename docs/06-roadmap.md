@@ -118,7 +118,7 @@ Tauri 2 外壳 + React 19:
 ### Phase 6 — 图谱打磨 → Agent 结合（当前主线 · 规划中）
 
 > **产品拍板(2026-08-01)**:先优化图,再把 AI agent 结合进去。  
-> **完整规划**:[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
+> **完整规划**:[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
 > **参考(概念 only)**:varshithm7x 图 UX(MIT);inkeep OpenKnowledge agent/`links` 语义(**GPL 禁止拷代码**)。  
 > **保留**:Cytoscape 图主路径 · graph-* 纯逻辑 · QQL 作 IR/MCP · Rust IO-free · MIT。
 
@@ -133,7 +133,7 @@ Tauri 2 外壳 + React 19:
 
 ### 后续能力与诚实取舍
 
-> **未做总表**:[backlog.md](./backlog.md)。**计划**:[plan.md](./plan.md)。**已做索引**:[FEATURE-INDEX.md](./FEATURE-INDEX.md)。下一阶段细节:[11](./11-graph-and-agent-roadmap.md)。
+> **未做总表**:[backlog.md](./backlog.md)。**计划**:[plan.md](./plan.md)。**已做索引**:[FEATURE-INDEX.md](./FEATURE-INDEX.md)。下一阶段细节:[12](./12-graph-and-agent-roadmap.md)。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
