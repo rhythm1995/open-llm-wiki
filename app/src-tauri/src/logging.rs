@@ -3,6 +3,7 @@
 //! Pure helpers are unit-tested without Tauri. IO lives in `LogBus`.
 //! See docs/12-client-logging.md.
 
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -226,6 +227,9 @@ struct BusInner {
     profile: Mutex<LogProfile>,
     /// Serialize file writes.
     write_lock: Mutex<()>,
+    /// Per-target 级别覆盖(放宽):key 存在时,该 target 用 min(全局, 覆盖)。
+    /// 用于让「acp」等排查必需的 target 在 release(prod = error+)下也记到 debug。
+    target_mins: Mutex<HashMap<String, LogLevel>>,
 }
 
 static BUS: OnceLock<BusInner> = OnceLock::new();
@@ -246,6 +250,7 @@ pub fn init(log_dir: PathBuf, profile: LogProfile) {
             min_level: AtomicU8::new(min),
             profile: Mutex::new(profile),
             write_lock: Mutex::new(()),
+            target_mins: Mutex::new(HashMap::new()),
         };
         // Startup banner always goes to stderr; file only if level allows info or lower min.
         let banner = format!(
@@ -332,6 +337,35 @@ pub fn emit(level: LogLevel, target: &str, msg: &str, fields: Option<serde_json:
     }
 }
 
+/// 为某 target 设一个「至少记到 X」的覆盖(只放宽、不收紧):若全局 profile 更宽松
+/// (数值更小),仍以全局为准。用于让 `acp` 等排查必需的 target 在 prod 下也详细。
+pub fn set_target_min(target: &str, level: LogLevel) {
+    if let Some(b) = bus() {
+        if let Ok(mut g) = b.target_mins.lock() {
+            g.insert(target.to_string(), level);
+        }
+    }
+}
+
+/// 某 target 的有效门槛:取全局 min 与该 target 覆盖中更宽松者(数值更小)。
+fn effective_min(b: &BusInner, target: &str) -> LogLevel {
+    let global = LogLevel::from_u8(b.min_level.load(Ordering::Relaxed));
+    let ov = b
+        .target_mins
+        .lock()
+        .ok()
+        .and_then(|g| g.get(target).copied());
+    pick_min(global, ov)
+}
+
+/// 纯函数:覆盖只放宽、不收紧。无覆盖 → 全局;有覆盖取更宽松者。
+fn pick_min(global: LogLevel, ov: Option<LogLevel>) -> LogLevel {
+    match ov {
+        Some(o) if (o as u8) < (global as u8) => o,
+        _ => global,
+    }
+}
+
 fn emit_raw(
     b: &BusInner,
     level: LogLevel,
@@ -339,7 +373,7 @@ fn emit_raw(
     msg: &str,
     fields: Option<&serde_json::Value>,
 ) {
-    let min = LogLevel::from_u8(b.min_level.load(Ordering::Relaxed));
+    let min = effective_min(b, target);
     if !should_emit(level, min) {
         return;
     }
@@ -556,6 +590,18 @@ mod tests {
     fn parse_level_profile() {
         assert_eq!(LogLevel::parse("WARN"), Some(LogLevel::Warn));
         assert_eq!(LogProfile::parse("production"), Some(LogProfile::Prod));
+    }
+
+    #[test]
+    fn pick_min_override_only_widens() {
+        // 无覆盖 → 全局。
+        assert_eq!(pick_min(LogLevel::Error, None), LogLevel::Error);
+        // 覆盖更宽松(Info < Error)→ 取覆盖。
+        assert_eq!(pick_min(LogLevel::Error, Some(LogLevel::Info)), LogLevel::Info);
+        // 覆盖更收紧(Trace 表示更宽,但给个比全局窄的:全局 Verbose=Trace,覆盖 Warn)
+        assert_eq!(pick_min(LogLevel::Trace, Some(LogLevel::Warn)), LogLevel::Trace);
+        // 覆盖 == 全局。
+        assert_eq!(pick_min(LogLevel::Debug, Some(LogLevel::Debug)), LogLevel::Debug);
     }
 
     #[test]
