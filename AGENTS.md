@@ -84,6 +84,6 @@ ui/node_modules/.bin/tauri build
 - 设计文档:[docs/](./docs/),先读 [docs/README.md](./docs/README.md)
 - 待拍板:[docs/open-questions.md](./docs/open-questions.md)
 - 路线图:[docs/06-roadmap.md](./docs/06-roadmap.md)
-- 延后 / 难点:[docs/deferred.md](./docs/deferred.md)
+- 延后 / 难点:[docs/plan.md](./docs/plan.md)(后置 / 不做清单)
 - 工作日志(开工先读):[WORKLOG.md](./WORKLOG.md)
 - 许可清单:[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
