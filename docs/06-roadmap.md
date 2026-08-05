@@ -127,10 +127,21 @@ Tauri 2 外壳 + React 19:
 |---|---|---|---|
 | **6A** | 传统图 polish(人) | ~~POS-PERSIST~~ ✅ / FORCES / SETTINGS-UI / HIDE-UNRESOLVED / PATH | ⏳(推迟) |
 | **6B** | 图健康 + MCP 工具化(agent) | MCP-LINKS ✅ / READ-BRIEF ✅ / WRITE-FEEDBACK ✅ / CONFIG ✅ / GRAPH-HEALTH-UI ⏳ | 🟡 MCP 侧 ✅;人侧 UI ⏳ |
-| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ⏳ |
+| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ✅(2026-08-05:`templates/wiki-starter/` + Health QQL 5 条 + [14](./14-llm-wiki-workflow.md)) |
 | **6C** | 语义发现层(可选) | B-GRAPH-SEMANTIC / SUGGEST-UI / INSIGHTS | ⏳ 后置 |
 
-默认顺序:**6A → 6B → 6D → 6C**。真机帧率 B-GRAPH-FPS 可与 6A 并行。
+默认顺序:**6A → 6B → 6D → 6C**(6B MCP 侧与 6D 已交付;剩 6A 人侧 / HEALTH-UI / 6C)。真机帧率 B-GRAPH-FPS 可与 6A 并行。
+
+### Phase 7 — 应用内侧栏 Agent(ACP 托管)✅(2026-08-04 完工)
+
+第一版 = **Tier 1(git 归因安全核心)+ 完整 Tier 2**,无整体推迟项:
+
+- **ACP 主线**:专用 OS 线程 + 进程组 kill + 存活检测(`agent_alive`);PATH 修正(GUI 启动也能找到 agent);配方 picker(opencode / claude-code 等,探测置灰)。
+- **对话体验**:流式 ThreadView + tool_call 折叠卡(失败自动展开);Composer 单一动作槽(Send/Stop/Queue)+ `@`-笔记上下文药丸。
+- **安全与归因**:权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具分类白名单;turn 级 git 快照进 `refs/agents/*`(不动 HEAD;非 git vault 走影子仓库),活动面板看 diff、采纳入 HEAD、撤销。
+- **协作与持久化**:Model C 跨 agent 移交(归一化 seed);每 vault 一 SQLite 转录(WAL)+ 历史会话回放。
+
+规划与完整实施状态见 **[11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md)** §10;ID 表见 [backlog §K](./backlog.md)。真机端到端(需本机 opencode / claude-code)留作用户验收。
 
 ### 后续能力与诚实取舍
 
@@ -140,6 +151,7 @@ Tauri 2 外壳 + React 19:
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
 | F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化(links / brief / write 审计)✅**;人侧健康面 UI 见 6B。 |
+| 应用内 Agent(ACP) | ✅ | Phase 7 完工(2026-08-04):Tier 1 + 完整 Tier 2,见 [11](./11-in-app-agent-roadmap.md);真机端到端待用户验收。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
@@ -147,11 +159,11 @@ Tauri 2 外壳 + React 19:
 | 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
 | 图谱 | 🟡 | Cytoscape+多布局 ✅;6A 人侧 polish **推迟**;6B MCP 侧 ✅ / 人侧健康面 UI ⏳;B-GRAPH-FPS 🧪。 |
-| 类型文档 / QQL 扩展 / QQL-TS | ✅ | 差分 CI 亦 ✅。 |
+| 类型文档 / QQL 扩展 | ✅ | QQL-TS 与差分 CI 随用户面删除(2026-08-02);引擎留 Rust core + MCP `run_qql`。 |
 | Live 索引 + 三层搜索 | ✅ | |
-| 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑;合 main 待操作。 |
+| 打包与分发 | 🟡 | 本地 dmg ✅ + universal 脚本 ✅(`scripts/build-universal-dmg.sh`);签名/Updater 🔑;feat/phase1-core 已合 main(`84accb0`),`release/v0.1.0` 进行中。 |
 
-**原则**:不塞空心 stub。**本期收尾**:合 main / 真机帧率 / 签名。**远期重启 §I**:6A 人侧图 polish → 6D wiki 脚手架 → 可选 6C 语义(6B 的 agent 侧 MCP 工具已落地,见上)。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。**本期收尾**:真机帧率 / 应用内 Agent 端到端 / 签名 / 发布收口。**远期重启 §I**:6A 人侧图 polish → 可选 6C 语义(6B 的 agent 侧 MCP 工具与 6D wiki 脚手架已交付,见上)。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

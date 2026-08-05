@@ -187,7 +187,7 @@ sequenceDiagram
 | 维度 | 02 初版设计 | 实际落地 | 原因 / 记录 |
 |---|---|---|---|
 | 编辑器 | BlockNote(主)+ CodeMirror(raw) | **CodeMirror 源码 + BlockNote WYSIWYG** 双模,同一 `.md` | WYSIWYG 落地;源码仍为 round-trip 逃生舱 |
-| 图谱 | react-force-graph-2d → sigma WebGL | **Cytoscape.js + cose/preset**(懒加载层) | 2026-08 再迁;path-stable `graph-model`;见 deferred |
+| 图谱 | react-force-graph-2d → sigma WebGL | **Cytoscape.js + cose/preset**(懒加载层) | 2026-08 再迁;path-stable `graph-model`;见 [12](./12-graph-and-agent-roadmap.md) 与 [backlog §I](./backlog.md) |
 | UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 + 少量 Radix** | 降依赖体积 |
 | Canvas | — | **Excalidraw(MIT)** 懒加载 | 已替换 tldraw;默认纯 MIT 分发 |
 | 索引 | 每次全量 WalkDir | **LiveVault 路径级 delta** + force 自愈 | open 一次全量;写/watcher 增量 |
@@ -215,4 +215,4 @@ sequenceDiagram
 - 数据模型(Vault/Note/frontmatter):[03-data-model](./03-data-model.md)
 - 功能矩阵:[04-features](./04-features.md) · TDD 策略:[05-tdd-strategy](./05-tdd-strategy.md)
 - 进度:[06-roadmap](./06-roadmap.md) · [plan](./plan.md) · [backlog](./backlog.md) · [FEATURE-INDEX](./FEATURE-INDEX.md)
-- **下一阶段(图 → Agent · Health 工具化 · wiki 脚手架)**:[12-graph-and-agent-roadmap](./12-graph-and-agent-roadmap.md)
+- **远期规划(图 → Agent;6B MCP 侧与 6D wiki 脚手架已交付)**:[12-graph-and-agent-roadmap](./12-graph-and-agent-roadmap.md) · 工作流:[14-llm-wiki-workflow](./14-llm-wiki-workflow.md)

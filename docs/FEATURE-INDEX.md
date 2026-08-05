@@ -81,7 +81,23 @@
 | 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx` |
 | 插件宿主(不深化) | B-PLUGIN ⛔ | 保留宿主 |
 | MCP server v1 + 图工具(links / brief / write 审计) | B-MCP / §I-B | `mcp/` |
+| LLM Wiki 脚手架(5 类型契约 + Health QQL 5 条) | B-WIKI-STARTER / HEALTH-QQL | `templates/wiki-starter/`;`core/tests/wiki_health_qql.rs`;规格 [14](./14-llm-wiki-workflow.md) |
 | 规格 | — | [09-big-features-v1.md](./09-big-features-v1.md) |
+
+## 应用内 Agent(ACP 托管 · Phase 7 ✅)
+
+| 功能 | ID | 代码入口 |
+|---|---|---|
+| ACP 主线(专用线程 + 进程组 kill + 存活检测 + PATH 修正) | B-AGENT-SDK / SHELL / PATHFIX | `app/src-tauri/src/acp.rs` |
+| 配方 picker(opencode / claude-code 等)+ 探测置灰 | B-AGENT-PICKER | `AgentPanel.tsx`(配方注册表见 `acp.rs`) |
+| 流式对话 + tool_call 折叠卡 + inline 权限卡 | B-AGENT-THREADVIEW | `AgentPanel.tsx`,`ToolCard.tsx` |
+| Composer:Send/Stop/Queue + `@`-笔记上下文药丸 | B-AGENT-COMPOSER | `AgentPanel.tsx` |
+| 权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具白名单 | B-AGENT-PERM | `acp.rs` + `AgentPanel.tsx` |
+| Model C 跨 agent 移交(归一化 seed) | B-AGENT-CTX-MODELC | `agent-session.ts`(`normalizeForHandoff`) |
+| 转录持久化(每 vault 一 SQLite + WAL + 历史回放) | B-AGENT-TRANSCRIPT | `app/src-tauri/src/transcript.rs` |
+| git 归因活动面板(turn 快照 `refs/agents/*` + 影子仓库 + 采纳/撤销 + 即时提交) | B-AGENT-GIT-ATTR | `app/src-tauri/src/git_attr.rs`,`AgentActivity.tsx` |
+| 区4 Inspector｜Agent tab + 三栏宽度拖拽 | B-AGENT-RIGHTCOL-TABS / B-COL-RESIZE | `Inspector.tsx`,`ColResizeHandle.tsx` |
+| 规格 / 实施状态 | — | [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) §10 |
 
 ## Git / 归档
 
@@ -95,7 +111,8 @@
 
 | 功能 | ID | 代码入口 |
 |---|---|---|
-| 客户端文件日志 + 导出 | B-LOG-* / 12 | `app/.../logging.rs`,`ui/src/lib/logger.ts` |
+| 客户端文件日志(NDJSON + profile)+ 导出 bundle | B-LOG-BUS / UI / IPC-SPANS | `app/src-tauri/src/logging.rs`,`ui/src/lib/logger.ts` |
+| TCP 日志端口(`OPENOBS_LOG_PORT`,`nc` 实时看 NDJSON;默认关) | B-LOG-PORT | `logging.rs` PortSink |
 | 规格 | — | [13-client-logging.md](./13-client-logging.md) |
 
 ## 架构总览

@@ -1,6 +1,7 @@
 # 12 — 图谱打磨 → Agent 结合（下一阶段规划）
 
 > **⚠ 状态(2026-08-02 更新):§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留(Cytoscape + graph-* 纯逻辑 + QQL IR/MCP + Rust core),远期重启时按本文 6A→6B→6D→6C 推进。  
+> **已交付(无需再开)**:**6B agent 侧 MCP 工具**(`links` / read 简报 / write 审计 / 客户端配置,见 [backlog §I-B](./backlog.md))与 **6D wiki 脚手架**(2026-08-05:`templates/wiki-starter/` + Health QQL 5 条 + [14-llm-wiki-workflow](./14-llm-wiki-workflow.md),见 [backlog §I-D](./backlog.md))。§I 剩余 = **6A 人侧全部 + `B-GRAPH-HEALTH-UI` + 6C(可选)**。  
 > **历史状态**:产品曾拍板(2026-08-01)先优化图再 agent;**已被 2026-08-02 决策覆盖**,下文规划作为远期参考保留。  
 > **阶段命名（全库统一）**:**Phase 6** 下分子阶段 **6A / 6B / 6C / 6D**（与 [06-roadmap](./06-roadmap.md)、[backlog §I](./backlog.md)、[open-questions P6-*](./open-questions.md) 一致）。下文 **不再**单独使用无前缀的 A/B/C/D 作阶段名。  
 > **参考（概念 / 产品语义 only，零代码复制）**:
@@ -208,8 +209,10 @@
 
 ---
 
-## 5. Phase 6D — LLM Wiki 工作流
+## 5. Phase 6D — LLM Wiki 工作流 ✅(2026-08-05 交付)
 
+> **落地形态**:`templates/wiki-starter/`(Source/Summary/Entity/Concept/Query **5 类型契约** + index + 示例链)+ `health/` **5 条 `type: Query` 模板**(语法+语义由 `core/tests/wiki_health_qql.rs` 锁定)+ [14-llm-wiki-workflow](./14-llm-wiki-workflow.md)(ingest/research/consolidate 飞轮 + MCP 速查)。与本节设计一致:`type:`/`status` 为唯一真相,文件夹不承载语义(实际交付直接以类型契约取代 sources/research/articles 目录约定)。
+>
 > 对标 inkeep/Karpathy：**结构即索引** + 晋升仪式；对齐 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
 ### 6D1 Starter vault — `B-WIKI-STARTER`
@@ -240,9 +243,9 @@ log.md            # append-only
 
 ### Phase 6D 验收
 
-- [ ] 新用户可一键/一文档得到脚手架  
-- [ ] QQL 示例可跑出 Health 指标；文档写明 status 为真相  
-- [ ] 与 6B MCP 文档交叉链接  
+- [x] 新用户可一键/一文档得到脚手架(2026-08-05:整目录拷 `templates/wiki-starter/` 进 vault;README 在内)  
+- [x] QQL 示例可跑出 Health 指标；文档写明 status 为真相(`wiki_health_qql.rs` 在代表性 fixture 锁住 5 条;doc 07 §Health 已对齐)  
+- [x] 与 6B MCP 文档交叉链接(doc 14 §4 MCP 工具速查 + `mcp/README.md`)  
 
 ---
 
@@ -320,3 +323,4 @@ log.md            # append-only
 | 2026-08-01 | 初版：合成 varshithm7x 图 UX + inkeep agent 面；先图后 agent |
 | 2026-08-01 | **审阅修订**:统一 6A–6D 命名；A1=落盘 atop 暖启动；P6-7 gitignore 默认；6C EdgeKind 级联与术语；6A5 不绑 links；MCP 6 tools；6B3 仅 MCP；6D status 唯一真相；6D2 🟢 |
 | 2026-08-02 | **图栈翻案**:主路径 **Cytoscape + cose**；废止「保留 sigma WebGL」旧口径 |
+| 2026-08-05 | **6D 交付**:`templates/wiki-starter/`(5 类型契约)+ Health QQL 5 条(`core/tests/wiki_health_qql.rs` 门禁)+ [14](./14-llm-wiki-workflow.md);backlog §I-D ✅。§I 剩余 = 6A 人侧 + `B-GRAPH-HEALTH-UI` + 6C |

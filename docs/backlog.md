@@ -94,12 +94,49 @@
 
 ---
 
+## F. 分发与工程
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-SIGN-MAC | macOS 签名 + 公证 | 🟢 | 🔑 | 需 APPLE_* secrets |
+| B-SIGN-WIN | Windows 安装包签名 | 🟢 | 🔑 | 需证书 |
+| B-UPDATER | 自动更新 | 🟡 | 🔑 | 需密钥 + 是否上线决策 |
+| B-UNIVERSAL-DMG | universal `.dmg` | 🟢 | ✅ | `scripts/build-universal-dmg.sh`(--target universal-apple-darwin --bundles dmg;自动补双 rust target);`build-app.sh` 仍为默认日常 .app |
+| B-AGENTS-TLDRAW | ~~AGENTS.md tldraw 叙述~~ | 🟢 | ✅ | tldraw 引用已从 AGENTS.md 移除(画布=Excalidraw MIT) |
+| B-MERGE-MAIN | `feat/phase1-core` → main | 🟢 | ✅ | 已合入 main(`84accb0`);后续开发在 `release/v0.1.0`(v0.1.0 tag 已打,领先 main) |
+
+---
+
+## G. 已完成(勿重复开坑)
+
+- F-GRAPH 主路径(Cytoscape + cose/preset)+ 多布局(力导向/分层/时间轴)+ 过滤/健康/落盘  
+- F-QUERY 引擎(Rust core + MCP `run_qql`)+ CONTAINS/STARTSWITH/ENDSWITH/IN + histogram;~~内联 qql(source)+ saved query~~ 用户面 2026-08-02 已删  
+- Live 索引 + watcher + 刷新索引自愈  
+- Excalidraw 画布;⌘F/⌘P;Nav TAGS;拖拽移动;git pull/push;类型文档提示  
+- zh/en i18n;标签循环;恢复上次笔记;CI + 本地 dmg  
+- 应用内 Agent 侧栏(§K,Phase 7);LLM wiki 脚手架(§I-D);客户端日志(§J)  
+
+---
+
+## H. 菜单 · 命令面板 · 搜索(见 [10](./10-menus-and-search.md)) ✅
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-CMD-REGISTRY | 单一命令注册表 + `runCommand` | 🟡 | ✅ | `ui/src/lib/commands/*` |
+| B-APP-MENU-V2 | 系统菜单补齐 + ⌘O=Open Vault | 🟡 | ✅ | File/Edit/View 扩;menu-action→dispatch |
+| B-PALETTE-V2 | 面板三 mode:commands/files/search | 🟡 | ✅ | ⌘K/⌘P/⌘⇧F;⌘O=开 vault |
+| B-SEARCH-UI | 库内全文 UI 接 `searchNotes` | 🟡 | ✅ | Palette mode=search |
+| B-SEARCH-RANK | 快开排序纯函数 | 🟢 | ✅ | `rankFiles` + canvas/sheet |
+| B-CMD-TEST | 注册表/过滤 + 面板 + e2e | 🟡 | ✅ | commands.test 20; CommandPalette.test 7; e2e palette-search 5 |
+
+---
+
 ## I. 图谱打磨 → Agent（远期 · 本期不做）
 
 > **产品拍板(2026-08-02)**:**§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留待远期。完整规格见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**。  
-> **例外(已落地)**:6B 的 **agent 侧 MCP 图工具**(`links` / read 简报 / write 审计 / 客户端配置)已随 MCP server 交付,见 §I-B ✅;§I 真正剩余的是**人侧**——6A 图 polish 全部 + `B-GRAPH-HEALTH-UI`。  
+> **例外(已落地)**:6B 的 **agent 侧 MCP 图工具**(`links` / read 简报 / write 审计 / 客户端配置)已随 MCP server 交付,见 §I-B ✅;**6D wiki 脚手架已交付**(2026-08-05),见 §I-D ✅;§I 真正剩余的是**人侧**——6A 图 polish 全部 + `B-GRAPH-HEALTH-UI`(+ 6C 语义可选)。  
 > **历史(2026-08-01)**:曾规划先图再 agent;**已被 2026-08-02 决策覆盖**。  
-> 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,顺序默认 **6A → 6B → 6D → 6C**。
+> 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,剩余默认顺序 **6A → 6C**(6B MCP 侧 / 6D 已交付)。
 
 ### I-A · 6A 传统图 polish（人侧 · 本期推迟）
 
@@ -142,7 +179,7 @@
 
 ## J. 客户端日志与诊断（见 [13-client-logging.md](./13-client-logging.md)）
 
-> 现状:仅 `diag_log`→stderr。目标:文件落盘 + 可选端口 + profile 一键瘦身(prod 只 error/fatal),用户导出供排查。
+> **已全部落地**(L1 LogBus + 导出 + TCP PortSink + IPC/git 打点)。原目标:文件落盘 + 可选端口 + profile 一键瘦身(prod 只 error/fatal),用户导出供排查。
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
@@ -150,40 +187,6 @@
 | B-LOG-UI | 设置:profile / 打开日志目录 / 导出 | 🟡 | ✅ | profile+打开目录+`log_export_bundle` 单文件 txt(非 zip) |
 | B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ✅ | app 做 server(127.0.0.1),`nc 127.0.0.1 <port>` 实时看 NDJSON 流;默认关,仅 env 开;接入 `init`/`emit_raw` |
 | B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | ✅ | index/write/pick_vault + **git 集中**(`run_git` 一处覆盖 status/log/commit/pull/push/init/restore/自动提交;成功 debug、失败 error 含 cmd+code+stderr) |
-
-## F. 分发与工程
-
-| ID | 项 | 难度 | 状态 | 说明 |
-|---|---|---|---|---|
-| B-SIGN-MAC | macOS 签名 + 公证 | 🟢 | 🔑 | 需 APPLE_* secrets |
-| B-SIGN-WIN | Windows 安装包签名 | 🟢 | 🔑 | 需证书 |
-| B-UPDATER | 自动更新 | 🟡 | 🔑 | 需密钥 + 是否上线决策 |
-| B-UNIVERSAL-DMG | universal `.dmg` | 🟢 | ✅ | `scripts/build-universal-dmg.sh`(--target universal-apple-darwin --bundles dmg;自动补双 rust target);`build-app.sh` 仍为默认日常 .app |
-| B-AGENTS-TLDRAW | ~~AGENTS.md tldraw 叙述~~ | 🟢 | ✅ | tldraw 引用已从 AGENTS.md 移除(画布=Excalidraw MIT) |
-| B-MERGE-MAIN | `feat/phase1-core` → main | 🟢 | 🧪 | 已 push;合 main 由你操作 |
-
----
-
-## G. 已完成(勿重复开坑)
-
-- F-GRAPH 主路径(Cytoscape + cose/preset)+ 多布局(力导向/分层/时间轴)+ 过滤/健康/落盘  
-- F-QUERY + CONTAINS/STARTSWITH/ENDSWITH/IN + histogram + 内联 qql(source)+ saved query  
-- Live 索引 + watcher + 刷新索引自愈  
-- Excalidraw 画布;⌘F/⌘P;Nav TAGS;拖拽移动;git pull/push;类型文档提示  
-- zh/en i18n;标签循环;恢复上次笔记;CI + 本地 dmg  
-
----
-
-## H. 菜单 · 命令面板 · 搜索(见 [10](./10-menus-and-search.md)) ✅
-
-| ID | 项 | 难度 | 状态 | 说明 |
-|---|---|---|---|---|
-| B-CMD-REGISTRY | 单一命令注册表 + `runCommand` | 🟡 | ✅ | `ui/src/lib/commands/*` |
-| B-APP-MENU-V2 | 系统菜单补齐 + ⌘O=Open Vault | 🟡 | ✅ | File/Edit/View 扩;menu-action→dispatch |
-| B-PALETTE-V2 | 面板三 mode:commands/files/search | 🟡 | ✅ | ⌘K/⌘P/⌘⇧F;⌘O=开 vault |
-| B-SEARCH-UI | 库内全文 UI 接 `searchNotes` | 🟡 | ✅ | Palette mode=search |
-| B-SEARCH-RANK | 快开排序纯函数 | 🟢 | ✅ | `rankFiles` + canvas/sheet |
-| B-CMD-TEST | 注册表/过滤 + 面板 + e2e | 🟡 | ✅ | commands.test 20; CommandPalette.test 7; e2e palette-search 5 |
 
 ## K. 应用内侧栏 Agent(ACP 托管,见 [11](./11-in-app-agent-roadmap.md))
 
@@ -207,11 +210,11 @@
 
 ## 建议实现顺序(产品向)
 
-1. ~~功能主路径 / 大件 v1 / 菜单搜索 / QQL 差分 / 媒体~~ ✅  
+1. ~~功能主路径 / 大件 v1 / 菜单搜索 / 媒体~~ ✅(QQL 差分 CI 随用户面删除,不再需要)  
 2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
-3. ~~§I · 6B / 6D / 6C~~ — 同上,随 §I 整组转远期  
-4. **本期收尾**:合 main · B-GRAPH-FPS 真机 · AGENTS.md 叙事(人类) · 签名/Updater(凭证门)  
-5. **远期重启 §I**:6A → 6B → 6D → 6C(顺序待产品再定)  
+3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6D wiki 脚手架** ✅(2026-08-05);剩人侧 `B-GRAPH-HEALTH-UI` 与 6C 随 §I 远期  
+4. **本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 签名/Updater(凭证门) · `release/v0.1.0` 发布收口(合 main 已完成 `84accb0`)  
+5. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
 
 完整竖切与验收见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。
 
@@ -232,7 +235,7 @@
 | 文档 | 角色 |
 |---|---|
 | **本文 backlog.md** | 未做清单总表(含 §I 图→agent ID) |
-| [**12-graph-and-agent-roadmap.md**](./12-graph-and-agent-roadmap.md) | **下一阶段主规划**(A→B→D→C) |
+| [**12-graph-and-agent-roadmap.md**](./12-graph-and-agent-roadmap.md) | §I 远期规划(6A–6D;6B MCP 侧 / 6D 已交付) |
 | [plan.md](./plan.md) | 未完成实施计划 |
 | [FEATURE-INDEX.md](./FEATURE-INDEX.md) | 已落地功能 → 代码 |
 | [04-features.md](./04-features.md) | 功能规格与状态 |

@@ -79,6 +79,7 @@
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
 | F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([12](./12-graph-and-agent-roadmap.md))。 |
+| F-AGENT | 应用内 Agent 侧栏(ACP 托管) | P2 | ✅ | Phase 7(2026-08-04 完工):picker/流式对话/权限三档/Model C 移交/SQLite 转录/git 归因面板;见 [11](./11-in-app-agent-roadmap.md)。真机端到端待用户验收。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
@@ -93,9 +94,9 @@
 
 **当前仍开放 / 值得做**(非「功能空白」):
 
-1. **合 main / AGENTS.md 叙事**(流程与人类文档)  
-2. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)
-3. **真机**:图谱 1k/5k 帧率(B-GRAPH-FPS);签名/Updater 凭证门  
-4. **可选硬化**:QQL TS↔Rust 同批差分 CI(目前两边各自有单测,无共享 fixture CI)  
+1. **发布收口**:feat/phase1-core 已合 main(`84accb0`);`release/v0.1.0` 进行中;签名 / Updater 凭证门  
+2. **真机验收**:图谱 1k/5k 帧率(B-GRAPH-FPS);应用内 Agent 端到端(需本机 opencode / claude-code)  
+3. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)  
+4. **远期**:§I 人侧(6A 图 polish + B-GRAPH-HEALTH-UI)与 6C 语义(6B MCP 侧 / 6D wiki 脚手架已交付)  
 
 完整 ID 表 → [backlog.md](./backlog.md)。

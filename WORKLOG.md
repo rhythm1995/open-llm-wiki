@@ -15,6 +15,30 @@
 
 ---
 
+### 2026-08-05 Claude — 文档整理:状态漂移修复 + 索引补齐 + CHANGELOG 补录
+
+- **branch**: `release/v0.1.0`(纯文档,未 commit)
+- **做了**:
+  1. **状态漂移修复**(Phase 7 / 6D / 合 main 之后文档没跟上):`B-MERGE-MAIN` → ✅(feat/phase1-core 已合 main `84accb0`;v0.1.0 tag 已打,后续在 release/v0.1.0);backlog(§F/§G/建议顺序)、plan、06-roadmap(**补 Phase 7 叙事段** + 6D ✅ + 修「QQL-TS/差分 CI ✅」旧表述)、04(新增 F-AGENT 行 + 重写「仍开放」清单)、docs/README(doc 11 改「✅ 已落地」+ 补 research/ 行)、open-questions(P6-4/6/7 标已落地)、doc 12(6D 交付横幅 + §5 落地形态 + 验收勾选 + 修订记录)、doc 07(修指向已删 deferred.md 的断链)。
+  2. **索引补齐**:FEATURE-INDEX 新增**应用内 Agent**(§K → 代码入口)与 **LLM wiki 脚手架**条目、诊断区补 TCP PortSink;修「B-LOG-* / 12」→ 13。
+  3. **CHANGELOG**:`[Unreleased]` 补录 v0.1.0 tag 后 15 commits(应用内 Agent / wiki 脚手架 / PortSink / universal dmg 脚本 / 文档重编号与调研);README 中英补应用内 Agent 条目。
+  4. **结构整理**:backlog 节序重排为 A–K(原 A–E、I、J、F–H、K);WORKLOG 08-05 wiki 条目原误置于文件末尾,移回倒序区位(**内容未改**,其「未 push」为当时事实,现 branch 已与 origin 同步)。
+- **理由 / 影响**:文档状态与代码事实对齐;「下一步」收口为:真机验收(B-GRAPH-FPS / agent 端到端)、签名凭证门、发布收口。
+- **下一步 / 接手注意**:`AGENTS.md` 第 87 行链已删 `docs/deferred.md` 的问题本次已改指 plan.md(用户批准代改,约定层仅此一行);纯文档,不影响 CI。
+
+### 2026-08-05 Claude Code — universal dmg / TCP 日志端口 / LLM wiki 脚手架(§I-D)
+
+- **branch**: `release/v0.1.0`(3 commits:`64c2763` build · `e803852` app · `1b77e37` wiki;**未 push**)。
+- **做了**:
+  1. **B-UNIVERSAL-DMG**:`scripts/build-universal-dmg.sh`——`tauri build --target universal-apple-darwin --bundles dmg`,自动 `rustup target add` 补双架构 target;与 `build-app.sh`(默认日常 .app)分工。未实跑(重构建)。
+  2. **B-LOG-PORT**:`logging.rs` 加可选 TCP PortSink——设了 `OPENOBS_LOG_PORT` 就在 `127.0.0.1:<port>` 起 server,把每条 NDJSON 行 fan-out 给连入的 `nc`。acceptor + writer 两线程,bounded channel(256)+ `try_send`,卡住的 client 不会阻塞 emit 路径;默认关。`port_tx` 包 `Mutex<Option<SyncSender>>` 解 `SyncSender !Sync`。+2 测试(解析单测 + 真 TCP 集成)。
+  3. **§I-D wiki 脚手架**:`templates/wiki-starter/`(5 类型契约 Source/Summary/Entity/Concept/Query + index + 示例链)+ 5 条 Health QQL(`type: Query`)+ `docs/14-llm-wiki-workflow.md`(ingest/research/consolidate 飞轮 + MCP 工具速查)。**修正了 doc 07 §Health 里跑不通的 QQL**:`GROUP BY`→`RENDER group_by()`、`IS EMPTY`→`mentioned_in.len() = 0`、`len(x)`→`x.len()`。新 `core/tests/wiki_health_qql.rs` 在代表性 fixture 上锁住 5 条的「能解析 + 语义正确」。
+- **验证**:`cargo test -p openobs-core` 全绿(127 单测 + qql_parity + 5 新 wiki-health);§I-D 纯 docs/templates,无需 tsc/vitest。提交后工作树 clean。
+- **下一步 / 接手注意**:
+  - `build-universal-dmg.sh` 与 PortSink 均**未真机跑过**:dmg 是重构建;PortSink 验法 = `OPENOBS_LOG_PORT=9876` 启 app + 另开 `nc 127.0.0.1 9876` 看实时 NDJSON。
+  - 3 commits 未 push;接手前 `git pull` / 确认是否 push。
+  - 脚手架在 repo 内 `templates/`;用户要 bootstrap 一个 LLM wiki 时,把 `templates/wiki-starter/` 整目录拷进 vault 即可(文件夹不承载语义,`type:` 才是)。
+
 ### 2026-08-05 Claude — 调研:知识库/LLM Wiki 作为 agent 长期记忆
 - **branch**: `release/v0.1.0`(纯文档,未 commit)
 - **做了**:deep-research 多源调研(40 来源 / 54 条证据,持久化于 `~/Documents/Agent_Memory_Research_20260805/`),产出 `docs/research/agent-memory-survey.md`(8 节:动机/分类学/三大+1 技术路线/8 张项目卡片/增益实证与失败模式/对照 OpenObsidian/引用)。覆盖 Karpathy LLM Wiki、LangChain Wiki Memory、MemGPT/Letta、A-MEM、mem0、Zep/Graphiti、Cognee、basic-memory、LoCoMo/LongMemEval 基准、记忆投毒安全面。
@@ -477,16 +501,3 @@
   - ⌘F 的 `window.find()` 是非标准 API,**Tauri WKWebView 真机需验证**;若不稳,fallback = 给 source 模式加 `@codemirror/search`(后置,未做)。
   - `editMode` 存 localStorage;老设备若之前存过 `"source"`,需手动切一次或清 `openobs.editMode` 才看得到 wysiwyg 默认。
   - 本批 3 commits 未 push;接手前先 `git pull` / 确认是否要我 push。
-
-### 2026-08-05 Claude Code — universal dmg / TCP 日志端口 / LLM wiki 脚手架(§I-D)
-
-- **branch**: `release/v0.1.0`(3 commits:`64c2763` build · `e803852` app · `1b77e37` wiki;**未 push**)。
-- **做了**:
-  1. **B-UNIVERSAL-DMG**:`scripts/build-universal-dmg.sh`——`tauri build --target universal-apple-darwin --bundles dmg`,自动 `rustup target add` 补双架构 target;与 `build-app.sh`(默认日常 .app)分工。未实跑(重构建)。
-  2. **B-LOG-PORT**:`logging.rs` 加可选 TCP PortSink——设了 `OPENOBS_LOG_PORT` 就在 `127.0.0.1:<port>` 起 server,把每条 NDJSON 行 fan-out 给连入的 `nc`。acceptor + writer 两线程,bounded channel(256)+ `try_send`,卡住的 client 不会阻塞 emit 路径;默认关。`port_tx` 包 `Mutex<Option<SyncSender>>` 解 `SyncSender !Sync`。+2 测试(解析单测 + 真 TCP 集成)。
-  3. **§I-D wiki 脚手架**:`templates/wiki-starter/`(5 类型契约 Source/Summary/Entity/Concept/Query + index + 示例链)+ 5 条 Health QQL(`type: Query`)+ `docs/14-llm-wiki-workflow.md`(ingest/research/consolidate 飞轮 + MCP 工具速查)。**修正了 doc 07 §Health 里跑不通的 QQL**:`GROUP BY`→`RENDER group_by()`、`IS EMPTY`→`mentioned_in.len() = 0`、`len(x)`→`x.len()`。新 `core/tests/wiki_health_qql.rs` 在代表性 fixture 上锁住 5 条的「能解析 + 语义正确」。
-- **验证**:`cargo test -p openobs-core` 全绿(127 单测 + qql_parity + 5 新 wiki-health);§I-D 纯 docs/templates,无需 tsc/vitest。提交后工作树 clean。
-- **下一步 / 接手注意**:
-  - `build-universal-dmg.sh` 与 PortSink 均**未真机跑过**:dmg 是重构建;PortSink 验法 = `OPENOBS_LOG_PORT=9876` 启 app + 另开 `nc 127.0.0.1 9876` 看实时 NDJSON。
-  - 3 commits 未 push;接手前 `git pull` / 确认是否 push。
-  - 脚手架在 repo 内 `templates/`;用户要 bootstrap 一个 LLM wiki 时,把 `templates/wiki-starter/` 整目录拷进 vault 即可(文件夹不承载语义,`type:` 才是)。
