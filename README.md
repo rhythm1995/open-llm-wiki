@@ -19,6 +19,7 @@
 - **编辑体验** —— 查找替换、大纲(标题)、source｜reading 并排预览、当前笔记断链提示、任务列表按钮。
 - **Git** —— status / log / commit / pull / push / restore + 自动提交,走系统 `git`,仅在 Tauri 桌面 app 内、vault 为 git 仓库时生效。
 - **AI 上下文导出** —— 一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown。
+- **应用内 Agent** —— 右侧栏 ACP 托管会话:配方 picker(opencode / claude-code)、权限三档、`@`-笔记上下文、跨 agent 移交、会话转录回放;agent 写入按 turn 级 git 快照归因,可采纳 / 撤销。
 - **本地优先** —— 一切在本地运行;偏好存于本地配置,绝不上传。
 - **面向 AI(MCP)** —— 内置 MCP server 暴露 6 个工具(`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`),Claude Desktop 等 agent 可读写你的库。
 - **i18n** —— 简体中文 / English 界面。

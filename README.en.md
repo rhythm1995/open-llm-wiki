@@ -19,6 +19,7 @@ A local-first, file-as-truth, MIT-licensed knowledge-base desktop app — your p
 - **Editing UX:** find & replace, outline (headings), source｜reading split preview, broken-link hints for the current note, task-list buttons.
 - **Git:** status / log / commit / pull / push / restore + auto-commit, via your system `git`; only inside the Tauri desktop app when the vault is a git repo.
 - **AI context export:** one-click copy of the current note plus the body of its linked neighbors as LLM-friendly Markdown.
+- **In-app Agent:** an ACP-managed agent sidebar — recipe picker (opencode / claude-code), three-tier permissions, `@`-note context, cross-agent handoff, transcript replay; agent writes are attributed as per-turn git snapshots you can adopt or revert.
 - **Local-first:** everything runs locally; preferences live in local config and are never uploaded.
 - **AI-ready (MCP):** a built-in MCP server exposes 6 tools (`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`) so agents like Claude Desktop can read and write your vault.
 - **i18n:** 简体中文 / English UI.
