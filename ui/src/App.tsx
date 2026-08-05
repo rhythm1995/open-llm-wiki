@@ -1,7 +1,7 @@
 /**
  * App —— OpenObsidian 主壳。
  *
- * 三栏布局(参考 Obsidian / Tolaria):
+ * 三栏布局(参考 Obsidian):
  *   左:Sidebar(文件树)  中:主视图(编辑器/图谱/QQL/搜索)  右:Inspector(反链/属性)
  * 顶 Toolbar 切换主视图;底 StatusBar 显示保存状态。
  *
@@ -16,10 +16,13 @@ import type { NavSelection } from "./lib/nav-filter";
 import { selectionLabel } from "./lib/nav-filter";
 import { Editor, type EditorHandle } from "./components/Editor";
 import { WysiwygView } from "./components/WysiwygView";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ReadingPane } from "./components/ReadingPane";
 import { FindBar } from "./components/FindBar";
 import { TabBar } from "./components/TabBar";
 import { Inspector } from "./components/Inspector";
+import { AgentPanel } from "./components/AgentPanel";
+import { ColResizeHandle, COL } from "./components/ColResizeHandle";
 import { GraphView } from "./components/GraphView";
 import { GitPanel } from "./components/GitPanel";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
@@ -189,6 +192,19 @@ export default function App() {
     "openobs.propsOpen",
     true,
   );
+  // 栏宽拖拽(B-COL-RESIZE):各栏可拖拽调宽,持久化;最小/默认见 COL。
+  const [navWidth, setNavWidth] = usePersistentState<number>(
+    "openobs.colW.nav",
+    COL.nav.default,
+  );
+  const [listWidth, setListWidth] = usePersistentState<number>(
+    "openobs.colW.list",
+    COL.list.default,
+  );
+  const [rightWidth, setRightWidth] = usePersistentState<number>(
+    "openobs.colW.right",
+    COL.right.default,
+  );
   // 图谱力参数(6A2):持久化;CytoscapeLayer 映射到 cose 时夹取,这里存原值即可。
   const [forces, setForces] = usePersistentState<ForceParams>(
     GRAPH_FORCES_KEY,
@@ -254,7 +270,30 @@ export default function App() {
   // 第二栏(列表)独立于第三栏视图:切图谱/git/搜索/查询时列表保留,只第三栏内容换。
   // 除非用户本就关了列表(listOpen=false)。——任务4:视图切换不再吞掉第二栏。
   const showList = listOpen && hasVault;
-  const showProps = propsOpen && view === "editor" && !isSpecialFile;
+  // 右栏 tab:inspector(仅 editor 非画布) | agent(任意视图)。doc 11 B-AGENT-RIGHTCOL-TABS。
+  const [rightTab, setRightTab] = usePersistentState<"inspector" | "agent">(
+    "openobs.rightTab",
+    "inspector",
+  );
+  const agentOpen = propsOpen && rightTab === "agent";
+  // 右栏整体可见:agent tab 任意视图都渲染;inspector 仅 editor 非画布。
+  const rightColVisible =
+    propsOpen && hasVault && (rightTab === "agent" || (view === "editor" && !isSpecialFile));
+  // focus-or-close:点 Props/Agent —— 关着就开并切到该 tab;开着且已是该 tab 就关;开着但在另一 tab 就切过来。
+  const onToggleProps = () => {
+    if (!propsOpen) {
+      setPropsOpen(true);
+      setRightTab("inspector");
+    } else if (rightTab === "inspector") setPropsOpen(false);
+    else setRightTab("inspector");
+  };
+  const onToggleAgent = () => {
+    if (!propsOpen) {
+      setPropsOpen(true);
+      setRightTab("agent");
+    } else if (rightTab === "agent") setPropsOpen(false);
+    else setRightTab("agent");
+  };
 
   // 顶栏居中标签:editor 视图取当前 Nav 选择(全部笔记/收件箱/某类型/…);
   // 其余视图取视图名(图谱/搜索/Git)。App 端算好,CenterToolbar 只渲染。
@@ -740,7 +779,12 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col">
-      {/* 全宽顶栏(Tolaria 式):视图切换 + Xcode 式面板切换簇,横跨四区、穿透列间分隔线。
+      {/* 上半区横向并排:左半(顶栏 + 导航/列表/编辑器)+ 右栏。右栏**全高**——与顶栏
+          齐高、其下不再压一条自己的表头,故右侧顶部没有空占位条(透明标题栏拖拽区改由
+          右栏表头 data-drag-region 承担);状态栏仍在底部全宽。 */}
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+      {/* 全宽顶栏:视图切换 + Xcode 式面板切换簇,横跨四区、穿透列间分隔线。
           透明标题栏(Overlay)下,它也是窗口拖拽区(内部留出 macOS 交通灯空间,见 CenterToolbar)。 */}
       <CenterToolbar
         view={view}
@@ -757,12 +801,15 @@ export default function App() {
         onForward={() => void actions.goForward()}
         navOpen={navOpen}
         listOpen={listOpen}
-        propsOpen={propsOpen}
+        propsOpen={propsOpen && rightTab === "inspector"}
+        agentOpen={agentOpen}
+        navWidth={navWidth}
+        listWidth={listWidth}
         onToggleNav={() => setNavOpen((v) => !v)}
         onToggleList={() => setListOpen((v) => !v)}
-        onToggleProps={() => setPropsOpen((v) => !v)}
+        onToggleProps={onToggleProps}
+        onToggleAgent={onToggleAgent}
         showList={showList}
-        showProps={showProps}
         vaultName={vaultName}
         onNewNote={openNewNote}
         onNewCanvas={openNewCanvas}
@@ -784,13 +831,16 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         {/* 区 1:导航(可隐藏)。智能视图 + VIEWS/TYPES/FOLDERS 分组。 */}
         {navOpen && (
-          <div className="w-56 shrink-0 border-r border-crust">
+          <div
+            className="shrink-0 border-r border-crust"
+            style={{ width: navWidth }}
+          >
             <Nav
               entries={state.entries}
               snapshot={state.snapshot}
               navSelection={navSelection}
               onNavSelect={handleNavSelect}
-              // 快速打开/命令面板打开时不高亮左侧筛选(Tolaria:浮层与 Nav 选择解耦)。
+              // 快速打开/命令面板打开时不高亮左侧筛选(浮层与 Nav 选择解耦)。
               isEditorView={view === "editor" && !paletteOpen}
               onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
               onNewNoteInFolder={openNewNoteInFolder}
@@ -798,12 +848,21 @@ export default function App() {
             />
           </div>
         )}
+        {navOpen && (
+          <ColResizeHandle
+            width={navWidth}
+            min={COL.nav.min}
+            side="right"
+            onChange={setNavWidth}
+          />
+        )}
 
         {/* 区 2:列表(可隐藏,仅 editor 视图)。据 navSelection 过滤;点行 → 编辑器。 */}
         {showList && (
           <div
             data-testid="note-list"
-            className="w-80 shrink-0 overflow-y-auto border-r border-crust bg-base"
+            className="shrink-0 overflow-y-auto border-r border-crust bg-base"
+            style={{ width: listWidth }}
           >
             <NoteListView
               root={state.root}
@@ -818,6 +877,14 @@ export default function App() {
               t={t}
             />
           </div>
+        )}
+        {showList && (
+          <ColResizeHandle
+            width={listWidth}
+            min={COL.list.min}
+            side="right"
+            onChange={setListWidth}
+          />
         )}
 
         {/* 区 3:编辑器(常驻,不参与切换)。主视图内容(CenterToolbar 已提到全宽顶栏)。 */}
@@ -909,20 +976,34 @@ export default function App() {
                       )}
                     </div>
                   ) : (
-                    <WysiwygView
-                      key={state.currentPath ?? "empty"}
-                      content={state.content}
-                      onChange={actions.setContent}
-                      onFollow={handleFollow}
-                      noteTitles={noteTitles}
-                      hasNote={state.currentPath !== null}
-                      theme={theme}
-                      root={state.root}
-                      attachmentsDir={attachmentsDir}
-                      attachmentLayout={attachmentLayout}
-                      notePath={state.currentPath}
-                      t={t}
-                    />
+                    <ErrorBoundary
+                      onError={() => setEditMode("source")}
+                      fallback={
+                        <div className="flex h-full items-center justify-center p-6 text-center text-[12px] text-subtext">
+                          <div className="max-w-xs">
+                            <p className="mb-1 font-medium text-text">
+                              此笔记在富文本模式下渲染失败
+                            </p>
+                            <p>已为你切换到源码模式,可在源码模式下查看 / 编辑。</p>
+                          </div>
+                        </div>
+                      }
+                    >
+                      <WysiwygView
+                        key={state.currentPath ?? "empty"}
+                        content={state.content}
+                        onChange={actions.setContent}
+                        onFollow={handleFollow}
+                        noteTitles={noteTitles}
+                        hasNote={state.currentPath !== null}
+                        theme={theme}
+                        root={state.root}
+                        attachmentsDir={attachmentsDir}
+                        attachmentLayout={attachmentLayout}
+                        notePath={state.currentPath}
+                        t={t}
+                      />
+                    </ErrorBoundary>
                   )}
                   {modeHint && !isSpecialFile && (
                     <div
@@ -1002,22 +1083,45 @@ export default function App() {
             {view === "git" && <GitPanel root={state.root} t={t} />}
           </div>
         </div>
+      </div>
+        </div>
 
-        {/* 区 4:属性(可隐藏,仅 editor 视图且非画布)。Inspector 暂不动内部结构。 */}
-        {showProps && (
-          <div className="w-[280px] shrink-0 border-l border-crust">
-            <Inspector
-              node={currentNode}
-              content={state.content}
-              backlinks={backlinks}
-              actions={actions}
-              onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
-              noteTitles={noteTitles}
-              typeOptions={typeOptions}
-              vaultNodes={state.snapshot?.nodes ?? []}
-              root={state.root}
-              t={t}
-            />
+        {/* 区 4:右栏(可隐藏,全高):agent tab 任意视图;inspector tab 仅 editor 非画布。
+            与顶栏齐高,故右侧顶部不再有空占位条。 */}
+        {rightColVisible && (
+          <ColResizeHandle
+            width={rightWidth}
+            min={COL.right.min}
+            side="left"
+            onChange={setRightWidth}
+          />
+        )}
+        {rightColVisible && (
+          <div
+            className="shrink-0 border-l border-crust"
+            style={{ width: rightWidth }}
+          >
+            {rightTab === "agent" ? (
+              <AgentPanel
+                root={state.root ?? ""}
+                t={t}
+                getAiContext={actions.buildAiContextMd}
+                getContextCandidates={actions.contextCandidates}
+              />
+            ) : (
+              <Inspector
+                node={currentNode}
+                content={state.content}
+                backlinks={backlinks}
+                actions={actions}
+                onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
+                noteTitles={noteTitles}
+                typeOptions={typeOptions}
+                vaultNodes={state.snapshot?.nodes ?? []}
+                root={state.root}
+                t={t}
+              />
+            )}
           </div>
         )}
       </div>

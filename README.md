@@ -19,8 +19,9 @@
 - **编辑体验** —— 查找替换、大纲(标题)、source｜reading 并排预览、当前笔记断链提示、任务列表按钮。
 - **Git** —— status / log / commit / pull / push / restore + 自动提交,走系统 `git`,仅在 Tauri 桌面 app 内、vault 为 git 仓库时生效。
 - **AI 上下文导出** —— 一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown。
+- **应用内 Agent** —— 右侧栏 ACP 托管会话:配方 picker(opencode / claude-code)、权限三档、`@`-笔记上下文、跨 agent 移交、会话转录回放;agent 写入按 turn 级 git 快照归因,可采纳 / 撤销。
 - **本地优先** —— 一切在本地运行;偏好存于本地配置,绝不上传。
-- **面向 AI(MCP)** —— 内置 MCP server 暴露 6 个工具(`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`),Claude Desktop 等 agent 可读写你的库。
+- **面向 AI(MCP)** —— 内置 MCP server 暴露 7 个工具(`list_notes` / `read_note` / `write_note` / `links` / `search_notes` / `run_qql` / `vault_info`),Claude Desktop 等 agent 可读写你的库。
 - **i18n** —— 简体中文 / English 界面。
 
 ## 快速开始
@@ -77,7 +78,7 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 - `core/` —— 纯函数、无 IO,单测 + proptest 守护。
 - `app/src-tauri/` —— Tauri 命令,串起文件 IO、git 与 `core`。
-- `mcp/` —— 内置 MCP server(6 工具),供 AI agent。
+- `mcp/` —— 内置 MCP server(7 工具),供 AI agent。
 - `ui/` —— 三栏布局(文件树 / 编辑器 / Inspector);可切换图谱 / Git 视图;⌘K 命令面板。浏览器开发走 `src/lib/mock.ts`(内存后端),无需编译 Rust 即可预览。
 
 ## 环境要求
@@ -98,11 +99,11 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 ## 贡献
 
-本项目是 clean-room 重写。**红线:本项目以 [Tolaria](https://github.com/refactoringhq/tolaria)(AGPL-3.0)的公开设计与实现为蓝本参考 —— 绝不复制其源码(逐字或近似逐字)。** 只借鉴架构、数据流、算法思路与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,同样不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
+本项目是**原创、独立的实现**,MIT 许可。**红线:绝不把 GPL/AGPL 等 copyleft 源码(逐字或近似逐字)引入本仓库**——那会让「MIT 许可」落空。只参考公开的思想、架构与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
 
 - 已做功能:[docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - 路线图 / 待办:[docs/backlog.md](./docs/backlog.md)
-- 新增依赖请登记 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md);任何 PR 不得引入 Tolaria 源码的逐字片段,review 时查重。
+- 新增依赖请登记 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md);任何 PR 不得引入 copyleft 源码的逐字片段,review 时查重。
 
 ## 已知限制
 

@@ -23,6 +23,12 @@ walkdir = "2"
 notify = "6"
 # 纯逻辑大脑:path 依赖同 workspace 的 core。
 openobs-core = { path = "../../core" }
+# 应用内 Agent(ACP 托管,doc 11 / Phase 7)。
+agent-client-protocol = "2.0.0"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros", "time", "io-util", "process"] }
+which = "7"
+# Agent 转录持久化(B-AGENT-TRANSCRIPT):每 vault 一 db,bundled 免系统 sqlite。
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [dev-dependencies]
 # 临时 vault 目录:git 集成测试(真实 round-trip 过系统 git)。

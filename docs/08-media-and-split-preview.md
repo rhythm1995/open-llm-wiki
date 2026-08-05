@@ -1,6 +1,6 @@
 # 08 — 附件 / 媒体 / 阅读预览
 
-> 产品:**工程形态参考 Tolaria**;**用户习惯参考 Obsidian**。  
+> 产品:**工程形态自定**;**用户习惯参考 Obsidian**。  
 > **已做代码索引**见 [FEATURE-INDEX §附件](./FEATURE-INDEX.md)。**未做切片**见 [plan §Media](./plan.md)。
 
 ## 原则

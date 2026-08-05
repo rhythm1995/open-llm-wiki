@@ -6,7 +6,7 @@
  * - 反链 tab:指向当前笔记的所有入边(wiki + relation),点击跳转来源。
  * - 属性 tab:可视化编辑 frontmatter(F-PROPERTIES)——按字段语义分发控件:
  *     · type        → 下拉(vault 内出现过的类型)
- *     · 关系字段    → wikilink chip + 标题补全(对标 Tolaria ADR-0010:值为 [[wikilink]]
+ *     · 关系字段    → wikilink chip + 标题补全(关系字段约定:值为 [[wikilink]]
  *                    的字段即关系;core 的 relationship_links 同此规则)
  *     · tags        → 自由文本 chip 增删
  *     · 其余        → 标量 / 逗号列表文本 input

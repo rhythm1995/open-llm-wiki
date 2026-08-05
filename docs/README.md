@@ -26,14 +26,17 @@
 | [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件/媒体规格 | 随媒体迭代更新 |
 | [09-big-features-v1.md](./09-big-features-v1.md) | SHEET/PLUGIN/MCP 切片 | 已落地参考 |
 | [10-menus-and-search.md](./10-menus-and-search.md) | 菜单/命令/搜索 | 已落地参考 |
-| [11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) | 图 polish → Agent | 主规划 |
-| [12-client-logging.md](./12-client-logging.md) | 客户端日志 | 已落地参考 |
+| [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | 应用内 Agent(ACP 托管) | ✅ 已落地(Phase 7 完工,待真机验收) |
+| [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) | 图 polish → 外部 Agent(MCP) | 远期参考(6A 推迟;6B MCP 侧 / 6D ✅) |
+| [13-client-logging.md](./13-client-logging.md) | 客户端日志 | 已落地参考 |
+| [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki 工作流(ingest/research/consolidate) | 已落地参考 |
+| [research/agent-memory-survey.md](./research/agent-memory-survey.md) | agent 长期记忆调研(40 来源 / 54 证据) | 参考 |
 | [open-questions.md](./open-questions.md) | 待拍板 | 维护中 |
 
 ## 一句话定位
 
-**本地优先、文件即真相、MIT 的知识管理 app**;clean-room 重写(不复制 Tolaria 源码);补齐图谱与聚合查询;类型为可选约定。
+**本地优先、文件即真相、MIT 的知识管理 app**;原创实现;图谱可视化与实时聚合查询做成原生一等公民;类型为可选约定。
 
 ## 法律摘要
 
-MIT;设计参考公开思想与功能对照;**零逐字复制**第三方源码。见根 [README](../README.md)。
+MIT;原创独立实现,只参考公开思想与功能对照;**零逐字复制**第三方源码(绝不引入 GPL/AGPL 等 copyleft 源码)。见根 [README](../README.md)。

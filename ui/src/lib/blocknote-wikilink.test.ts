@@ -25,6 +25,16 @@ describe("hydrateWikilinks", () => {
     ]);
   });
 
+  it("codeBlock 块整体跳过——绝不把里面的 [[x]] 升级成 chip(否则 createChecked 抛 RangeError → 白屏)", () => {
+    // 真实 tryParseMarkdownToBlocks 的 codeBlock,content 是 [{type:"text"}]。
+    const block = {
+      type: "codeBlock",
+      props: { language: "yaml" },
+      content: [{ type: "text", text: "---\ntype: Note\nrelated_to: \"[[some-note]]\"\n---", styles: {} }],
+    };
+    expect(hydrateWikilinks([block])).toEqual([block]);
+  });
+
   it("前后缀 + 多个 wikilink 交替", () => {
     const [b] = hydrateWikilinks([
       { content: [{ type: "text", text: "[[a]] and [[b]]", styles: {} }] },
@@ -66,6 +76,101 @@ describe("hydrateWikilinks", () => {
 
   it("非数组 content 的块透传", () => {
     expect(hydrateWikilinks([{ content: undefined }])).toEqual([{ content: undefined }]);
+  });
+});
+
+describe("递归:children 与 table 单元格", () => {
+  // 真实块形状来自真引擎探测(tryParseMarkdownToBlocks):嵌套列表在 children 里,
+  // table 的 content 是 {type:"tableContent", rows:[{cells:[{content:[…]}]}]} 对象。
+  const nestedList = () => ({
+    type: "bulletListItem",
+    content: [{ type: "text", text: "a [[top]]", styles: {} }],
+    children: [
+      {
+        type: "bulletListItem",
+        content: [{ type: "text", text: "b [[nested]]", styles: {} }],
+        children: [
+          {
+            type: "bulletListItem",
+            content: [{ type: "text", text: "c [[deep]]", styles: {} }],
+            children: [],
+          },
+        ],
+      },
+    ],
+  });
+
+  const table = () => ({
+    type: "table",
+    content: {
+      type: "tableContent",
+      columnWidths: [null, null],
+      headerRows: 1,
+      rows: [
+        { cells: [{ type: "tableCell", content: [{ type: "text", text: "h", styles: {} }], props: {} }] },
+        { cells: [{ type: "tableCell", content: [{ type: "text", text: "见 [[cell]]", styles: {} }], props: {} }] },
+      ],
+    },
+    children: [],
+  });
+
+  const chipsIn = (v: unknown): number => {
+    if (Array.isArray(v)) return v.map(chipsIn).reduce((a, n) => a + n, 0);
+    if (!v || typeof v !== "object") return 0;
+    const o = v as Record<string, unknown>;
+    let n = o.type === "wikilink" ? 1 : 0;
+    n += chipsIn(o.content) + chipsIn(o.children) + chipsIn(o.rows) + chipsIn(o.cells);
+    return n;
+  };
+
+  it("嵌套 children 里的 [[x]] 也 hydrate(任意深度)", () => {
+    const [b] = hydrateWikilinks([nestedList()]) as unknown as Array<Record<string, unknown>>;
+    expect(chipsIn(b)).toBe(3); // top / nested / deep 各一
+  });
+
+  it("table 单元格里的 [[x]] 也 hydrate", () => {
+    const [b] = hydrateWikilinks([table()]) as unknown as Array<Record<string, unknown>>;
+    expect(chipsIn(b)).toBe(1);
+  });
+
+  it("children 里的 codeBlock 仍整体跳过(白屏守卫随递归生效)", () => {
+    const block = {
+      type: "bulletListItem",
+      content: [{ type: "text", text: "item [[ok]]", styles: {} }],
+      children: [
+        {
+          type: "codeBlock",
+          props: { language: "yaml" },
+          content: [{ type: "text", text: "x: \"[[nope]]\"", styles: {} }],
+          children: [],
+        },
+      ],
+    };
+    const [b] = hydrateWikilinks([block]) as unknown as Array<Record<string, unknown>>;
+    expect(chipsIn(b)).toBe(1); // 只有 item 里的 [[ok]],[[nope]] 不进 chip
+    const codeChild = (b.children as Array<Record<string, unknown>>)[0];
+    expect(codeChild.content).toEqual(block.children[0].content); // 原样
+  });
+
+  it("dehydrate 同样递归(children + table 里的 chip 还原,无残留)", () => {
+    const hydrated = hydrateWikilinks([nestedList(), table()]);
+    const back = dehydrateWikilinks(hydrated) as unknown as Array<Record<string, unknown>>;
+    expect(chipsIn(back)).toBe(0);
+    // 抽查深层文本还原为 [[deep]] / [[cell]] 字面量。
+    const json = JSON.stringify(back);
+    expect(json).toContain("[[deep]]");
+    expect(json).toContain("[[cell]]");
+  });
+
+  it("无 children/content 字段的块不新增字段(形状透传)", () => {
+    const [b] = hydrateWikilinks([{ content: [{ type: "text", text: "x", styles: {} }] }]);
+    expect(Object.prototype.hasOwnProperty.call(b, "children")).toBe(false);
+  });
+
+  it("tableContent 形状不合预期时容错透传(不抛)", () => {
+    const weird = { type: "table", content: { type: "tableContent", rows: "oops" }, children: [] };
+    expect(() => hydrateWikilinks([weird])).not.toThrow();
+    expect(hydrateWikilinks([weird])).toEqual([weird]);
   });
 });
 

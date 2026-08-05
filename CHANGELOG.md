@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
+
+### ✨ 功能
+
+#### 面向 AI(应用内 Agent)
+
+- **应用内侧栏 Agent(ACP 托管)**:配方 picker(opencode / claude-code 等,运行时探测)+ 流式对话 + tool_call 折叠卡;Composer 单一动作槽(Send / Stop / Queue)+ `@`-笔记上下文药丸;权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具分类白名单;Model C 跨 agent 移交;每 vault 一 SQLite 转录 + 历史会话回放。
+- **git 归因活动面板**:agent 每轮写入打 turn 级快照进 `refs/agents/*`(不动 HEAD;非 git vault 走影子仓库),面板看 diff、采纳入 HEAD 或撤销;即时提交模式可选。
+
+#### LLM Wiki
+
+- **Wiki starter 脚手架**:`templates/wiki-starter/`(Source / Summary / Entity / Concept / Query 五类型契约 + index + 示例链)+ Health QQL 5 条(`type: Query` 笔记;`core/tests/wiki_health_qql.rs` 锁语法与语义)+ 工作流文档(docs/14:ingest / research / consolidate)。
+
+#### 诊断
+
+- **TCP 日志端口**:`OPENOBS_LOG_PORT=<port>` 在 127.0.0.1 起 PortSink,`nc` 实时看 NDJSON 流(默认关)。
+- 日志按 target 级别 override(must-debug targets)。
+
+#### 构建
+
+- **universal DMG 脚本**:`scripts/build-universal-dmg.sh`(`--target universal-apple-darwin --bundles dmg`,自动补双架构 rust target);`build-app.sh` 仍为日常默认。
+
+### 📚 文档
+
+- 设计文档重编号(11 应用内 Agent / 12 图+Agent / 13 日志);README 双语重写(中 / 英);新增 agent 长期记忆调研(`docs/research/agent-memory-survey.md`)。
+
 ## [0.1.0] — 2026-08-03
 
 首个可发布版本（技术 beta）。本地优先、文件即真相的知识库：双模编辑器 + Cytoscape 图谱 + Excalidraw 画布 + Sheet 表格 + git 集成，全部跑在你自己的机器上，无需账号、无云同步。

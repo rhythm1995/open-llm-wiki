@@ -4,12 +4,12 @@
 
 - **P0** — v1 必须。没有它,v1 不成立。
 - **P1** — v1 尽力。有它 v1 才"好用"。
-- **P2** — 后期阶段(成熟度对齐 Tolaria)。
-- **P3** — 远期(对齐 Tolaria 的高级能力)。
+- **P2** — 后期阶段(成熟度打磨)。
+- **P3** — 远期(高级能力探索)。
 
 ---
 
-## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
+## 两大差异化(Obsidian 靠插件拼、本项目做成原生:存在的理由)
 
 ### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局 · Cytoscape)
 
@@ -26,15 +26,15 @@
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。
   - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
-- **健康面(部分,见 [11](./11-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
+- **健康面(部分,见 [12](./12-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
 
-> UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
+> UI 蓝本:Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
 ### F-QUERY 聚合查询引擎 [P0] 🔄 引擎保留 / 用户面已删(2026-08-02)
 
 **一句话**:内置声明式查询引擎,从全 vault 的 frontmatter/body 取数。**用户面已删,引擎保留待 agent。**
 
-> **2026-08-02 决策**:不让用户学一门新 DSL——QQL 的认知负担是「语法 + 字段名 + 字面值 + render 动词」四层叠加,门槛过高。故**删除全部用户面**,**保留引擎**作为 agent 的编译目标,等 [6B](./11-graph-and-agent-roadmap.md) 接 agent 时用**自然语言**重建表面。
+> **2026-08-02 决策**:不让用户学一门新 DSL——QQL 的认知负担是「语法 + 字段名 + 字面值 + render 动词」四层叠加,门槛过高。故**删除全部用户面**,**保留引擎**作为 agent 的编译目标,等 [6B](./12-graph-and-agent-roadmap.md) 接 agent 时用**自然语言**重建表面。
 
 - **保留(引擎 B)**——勿删:
   - Rust core:`qql::parse`(文本→AST)+ `query::eval`(求值),全在纯内核。
@@ -58,9 +58,9 @@
 
 ---
 
-## Obsidian/Tolaria 对等能力
+## Obsidian 对等能力
 
-> UI 蓝本参考 Tolaria `design/*.pen`。以自己的实现重写。
+> UI 蓝本参考 Obsidian 公开交互。以自己的实现重写。
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|
@@ -78,7 +78,8 @@
 | F-THEMES | 主题 | P2 | ✅ | 深/浅;Settings 面板 ✅。 |
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
-| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([11](./11-graph-and-agent-roadmap.md))。 |
+| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([12](./12-graph-and-agent-roadmap.md))。 |
+| F-AGENT | 应用内 Agent 侧栏(ACP 托管) | P2 | ✅ | Phase 7(2026-08-04 完工):picker/流式对话/权限三档/Model C 移交/SQLite 转录/git 归因面板;见 [11](./11-in-app-agent-roadmap.md)。真机端到端待用户验收。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
@@ -93,9 +94,9 @@
 
 **当前仍开放 / 值得做**(非「功能空白」):
 
-1. **合 main / AGENTS.md 叙事**(流程与人类文档)  
-2. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)
-3. **真机**:图谱 1k/5k 帧率(B-GRAPH-FPS);签名/Updater 凭证门  
-4. **可选硬化**:QQL TS↔Rust 同批差分 CI(目前两边各自有单测,无共享 fixture CI)  
+1. **发布收口**:feat/phase1-core 已合 main(`84accb0`);`release/v0.1.0` 进行中;签名 / Updater 凭证门  
+2. **真机验收**:图谱 1k/5k 帧率(B-GRAPH-FPS);应用内 Agent 端到端(需本机 opencode / claude-code)  
+3. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)  
+4. **远期**:§I 人侧(6A 图 polish + B-GRAPH-HEALTH-UI)与 6C 语义(6B MCP 侧 / 6D wiki 脚手架已交付)  
 
 完整 ID 表 → [backlog.md](./backlog.md)。

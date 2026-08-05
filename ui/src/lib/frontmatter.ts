@@ -197,7 +197,7 @@ function linkInnerTarget(inner: string): string {
 
 /**
  * 判断一个 frontmatter 值是否是关系字段值——标量 `[[wikilink]]`,或全部元素都是
- * `[[wikilink]]` 的序列。对标 core 的 relationship_links 规则(Tolaria ADR-0010:
+ * `[[wikilink]]` 的序列。对标 core 的 relationship_links 规则(关系字段约定:
  * 任何值为 wikilink 的字段都视为关系),供 Inspector 把这类字段渲染成可补全的 chip。
  */
 export function isRelationValue(v: FmValue): boolean {

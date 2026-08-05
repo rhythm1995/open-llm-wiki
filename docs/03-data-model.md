@@ -1,6 +1,6 @@
 # 03 — 数据模型
 
-数据模型是图谱、聚合、反向链接共同的地基。它必须**严格、可测试、与 Obsidian/Tolaria 互通**(纯 md + frontmatter)。
+数据模型是图谱、聚合、反向链接共同的地基。它必须**严格、可测试、与 Obsidian 互通**(纯 md + frontmatter)。
 
 ## Vault(金库)
 
@@ -84,16 +84,11 @@ mentions:
 
 产生三条边,类型分别为 `source`、`mentions`。**图谱节点和边是统一的**:`core::graph` 把正文 wikilink(类型 `body`/`wikilink`)和 frontmatter 关系(类型 = 键名)合流进同一张图。
 
-这让我们与 cairn/Tolaria 的关系模型(双向 `mentions`↔`mentioned_in`)兼容:双向性是**查询时计算**,不强求写入时维护。
+这让我们与 cairn 的关系模型(双向 `mentions`↔`mentioned_in`)兼容:双向性是**查询时计算**,不强求写入时维护。
 
-## 类型(软)—— 与 Tolaria 的关键差异
+## 类型(软)
 
-| | Tolaria | OpenObsidian |
-|---|---|---|
-| `type:` | 强约定,驱动类型文档、模板、视图 | **可选标签**,仅用于分组/着色/默认视图 |
-| 缺失 `type:` | 视图可能不收 | 完全正常,默认 `type: Note` |
-| 校验 | 部分(类型文档暗示 schema) | **零校验**。永不阻止保存、永不报错。 |
-| 类型文档 | 一等公民 | v1 不做(后期可选,且纯属 UI 提示) |
+`type:` 是**可选标签**,仅用于分组/着色/默认视图;缺失时完全正常(默认 `type: Note`)。**零校验**:永不阻止保存、永不报错。类型文档(v1 不做,后期可选)若有也纯属 UI 提示,不做 schema 约束。
 
 **设计意图**:类型是"给你看和给 agent 看的标签",不是约束你的笼子。`type:` 永远是 `Option<String>`。
 

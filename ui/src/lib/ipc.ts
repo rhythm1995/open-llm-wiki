@@ -4,7 +4,7 @@
  * 设计:
  * - 在 Tauri webview 内,`window.__TAURI_INTERNALS__` 由运行时注入,据此分流。
  * - 不在 Tauri(纯 `vite dev` 浏览器)时,委托给 `mock.ts` 的内存后端,使整条 UI
- *   可在浏览器里独立开发/预览,无需启动 Rust。这是 Tolaria "mock-tauri" 模式的复刻。
+ *   可在浏览器里独立开发/预览,无需启动 Rust。采用 mock-tauri 模式。
  *
  * 命令签名与 `app/src-tauri/src/lib.rs` 的 `#[tauri::command]` 一一对应,DTO 类型
  * 也与后端 serde 序列化字段对齐(包括把 Rust `type_: Option<String>` 还原成 `type`)。

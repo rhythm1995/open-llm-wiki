@@ -4,7 +4,7 @@
 
 ## 项目一句话
 
-本地优先、文件即真相、MIT 许可的知识管理 app;以 [Tolaria](https://github.com/refactoringhq/tolaria) 的公开设计为蓝本做 **clean-room 重写**(不复制源码),补齐 Obsidian 最被需要的两件事:图谱可视化 与 QQL 实时聚合查询。
+本地优先、文件即真相、MIT 许可的知识管理 app;**原创实现**,补齐 Obsidian 最被需要的两件事:图谱可视化 与 QQL 实时聚合查询。
 
 ## 架构
 
@@ -52,12 +52,10 @@ ui/node_modules/.bin/tauri build
 - message 末尾加 trailer:`Co-Authored-By: Claude <noreply@anthropic.com>`(或对应 agent)。
 - **commit 正文只写技术改动**——不出现 licensing / 合规 / 协议 / agreement 类字眼,那些属于本文件与 README,不进 git 历史。
 - 未被明确要求时**不要 commit / push**;push 前先确认。
-- tldraw 相关改动必须保留 `licenses/tldraw-LICENSE.md`、`THIRD_PARTY_NOTICES.md`、"Powered by tldraw" 归属,且懒加载隔离在独立 chunk。
 
-## 许可红线(clean-room,最重要)
+## 许可红线(最重要)
 
-- **绝不逐字或近似逐字复制 Tolaria 源码(哪怕单行)**。Tolaria 是 AGPL-3.0,逐字复制仍是 AGPL,会让"MIT"落空。只借鉴架构 / 数据流 / 算法思路与功能概念;具体源码、组件实现、视觉表达一律自写。Obsidian 同理,仅作公开功能对照。
-- **tldraw(画布,F-CANVAS)是 source-available 非商用许可**,非 MIT:隔离在唯一懒加载模块(CanvasView),可一键移除回纯 MIT;作托管 web 服务公开部署需另取商用许可。
+- **绝不逐字或近似逐字复制任何 GPL/AGPL 等 copyleft 源码(哪怕单行)**。逐字复制的那部分仍受原许可约束,会让"MIT"落空。只参考公开的架构 / 数据流 / 算法思路与功能概念(多为不可版权的思想/方法);具体源码、组件实现、视觉表达一律自写。本项目是原创、独立的 MIT 实现。Obsidian 仅作公开功能对照,同样不复制其源码。
 - 新增依赖:登记进 `THIRD_PARTY_NOTICES.md`;不得引入 GPL/AGPL 直染依赖;上线前 `cargo license` / `pnpm licenses list` 复核。
 
 ## 多 agent 协作
@@ -86,6 +84,6 @@ ui/node_modules/.bin/tauri build
 - 设计文档:[docs/](./docs/),先读 [docs/README.md](./docs/README.md)
 - 待拍板:[docs/open-questions.md](./docs/open-questions.md)
 - 路线图:[docs/06-roadmap.md](./docs/06-roadmap.md)
-- 延后 / 难点:[docs/deferred.md](./docs/deferred.md)
+- 延后 / 难点:[docs/plan.md](./docs/plan.md)(后置 / 不做清单)
 - 工作日志(开工先读):[WORKLOG.md](./WORKLOG.md)
 - 许可清单:[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)

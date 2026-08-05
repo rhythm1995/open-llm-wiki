@@ -103,7 +103,7 @@ Tauri 2 外壳 + React 19:
 
 - ✅ **archive-via-git(取代 F-TRASH)**:删掉 `.trash/` 平行机制,删除/还原**全走 git**,唯一真相源。提交策略「结构自动 + 内容手动」——创建/删除/重命名自动 `git commit`(`git_commit_paths` **只暂存并提交给定路径**,未暂存的正文编辑绝不卷入,保 commit 卫生);正文编辑仍由 GitPanel 手动提交。后端命令 `git_is_repo` / `git_deleted_notes`(历史已删 `.md`,带 commit+date)/ `git_restore_note`(`git checkout <hash>^ -- <path>`)/ `git_init`;前端 `ArchiveView`(非 git 空态 +「初始化 git」/ 已删列表 + 还原 + 最近提交时间线)。**Rust 集成测试**(`git_tests`,真实 round-trip 过系统 git):is_repo、选择性提交(commit 卫生不变量)、删除→列出→还原。`trash.ts` 已删。
 - ✅ **关系图重做(做到完美)**:布局纯逻辑抽出 `graph-layout.ts`(seedNodes + relaxLayout[FR:全对斥力 + 边弹簧 + 向心 + 温度降温,Float64Array 热循环] + bbox + fitTransform,15 单测);GraphView 重写——撑满容器(ResizeObserver 真实尺寸)、位置 Map 跨帧持久(增量播种 + 暖启动,过滤/索引刷新时已有节点不乱跳)、结构签名 gate 重排、自动 fit、悬停邻域高亮、节点拖拽、以光标为中心缩放、平移、fit、按度数 top-K 截断(默认上限 ~400)、随缩放变边透明度、暗角 + 当前节点辉光、标签按缩放/度数/悬停门控(paintOrder 描边光晕)。右键菜单(自实现 ContextMenu:聚焦 1 跳 / 复制 wikilink / 隐藏类型)随重做落地。
-- ✅ **编辑器优化(参考 Tolaria,第三栏)**:CodeMirror 正文改无衬线(Inter)+ 可读行宽(居中 ≤760px);新增「半所见即所得」行装饰 ViewPlugin(`markdownLineDecorations`,仅可见视口:`#{1,6}` → cm-md-h* 按级放大、`>` → cm-md-quote;只动呈现不改文本,光标/历史无感);深色主题在 oneDark 上叠加应用底色令牌消除色缝。
+- ✅ **编辑器优化(第三栏)**:CodeMirror 正文改无衬线(Inter)+ 可读行宽(居中 ≤760px);新增「半所见即所得」行装饰 ViewPlugin(`markdownLineDecorations`,仅可见视口:`#{1,6}` → cm-md-h* 按级放大、`>` → cm-md-quote;只动呈现不改文本,光标/历史无感);深色主题在 oneDark 上叠加应用底色令牌消除色缝。
 - ✅ **验证加固**:全绿——core 99 + app-lib 7(4 preview + 3 git 集成)+ UI 237(22 文件);tsc clean;UI 构建重嵌 app + 运行时 diag_log 0 `[webview]` 报错。
 
 ### Phase 5+ 续五(本会话,v1 范围之外)✅
@@ -115,42 +115,55 @@ Tauri 2 外壳 + React 19:
 - ✅ **图谱渲染栈现为 Cytoscape**(见 Phase 3 / F-GRAPH);sigma/Worker/LOD 路径已退役。
 - ✅ **验证加固**:UI vitest + Playwright e2e;core cargo test;本地 `tauri build` 出未签名 dmg。
 
-### Phase 6 — 图谱打磨 → Agent 结合（当前主线 · 规划中）
+### Phase 6 — 图谱打磨 → Agent 结合（人侧推迟 · agent 侧 MCP 已落地）
 
 > **产品拍板(2026-08-01)**:先优化图,再把 AI agent 结合进去。  
-> **完整规划**:[11-graph-and-agent-roadmap.md](./11-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
+> **2026-08-02 更新**:§I **人侧图 polish(6A)整期推迟到很后**(ROI 低 / 图不好做)。但 **6B 的 agent 侧 MCP 图工具已随 MCP server 落地**(`links` / read 简报 / write 审计 + 客户端配置);人侧仅剩 `B-GRAPH-HEALTH-UI` 未做。  
+> **完整规划**:[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
 > **参考(概念 only)**:varshithm7x 图 UX(MIT);inkeep OpenKnowledge agent/`links` 语义(**GPL 禁止拷代码**)。  
 > **保留**:Cytoscape 图主路径 · graph-* 纯逻辑 · QQL 作 IR/MCP · Rust IO-free · MIT。
 
 | 子阶段 | 主题 | 关键 backlog | 状态 |
 |---|---|---|---|
-| **6A** | 传统图 polish(人) | B-GRAPH-POS-PERSIST / FORCES / SETTINGS-UI / HIDE-UNRESOLVED | ⏳ |
-| **6B** | 图健康 + MCP 工具化(agent) | B-MCP-LINKS / READ-BRIEF / WRITE-FEEDBACK / GRAPH-HEALTH-UI | ⏳ |
-| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ⏳ |
+| **6A** | 传统图 polish(人) | ~~POS-PERSIST~~ ✅ / FORCES / SETTINGS-UI / HIDE-UNRESOLVED / PATH | ⏳(推迟) |
+| **6B** | 图健康 + MCP 工具化(agent) | MCP-LINKS ✅ / READ-BRIEF ✅ / WRITE-FEEDBACK ✅ / CONFIG ✅ / GRAPH-HEALTH-UI ⏳ | 🟡 MCP 侧 ✅;人侧 UI ⏳ |
+| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ✅(2026-08-05:`templates/wiki-starter/` + Health QQL 5 条 + [14](./14-llm-wiki-workflow.md)) |
 | **6C** | 语义发现层(可选) | B-GRAPH-SEMANTIC / SUGGEST-UI / INSIGHTS | ⏳ 后置 |
 
-默认顺序:**6A → 6B → 6D → 6C**。真机帧率 B-GRAPH-FPS 可与 6A 并行。
+默认顺序:**6A → 6B → 6D → 6C**(6B MCP 侧与 6D 已交付;剩 6A 人侧 / HEALTH-UI / 6C)。真机帧率 B-GRAPH-FPS 可与 6A 并行。
+
+### Phase 7 — 应用内侧栏 Agent(ACP 托管)✅(2026-08-04 完工)
+
+第一版 = **Tier 1(git 归因安全核心)+ 完整 Tier 2**,无整体推迟项:
+
+- **ACP 主线**:专用 OS 线程 + 进程组 kill + 存活检测(`agent_alive`);PATH 修正(GUI 启动也能找到 agent);配方 picker(opencode / claude-code 等,探测置灰)。
+- **对话体验**:流式 ThreadView + tool_call 折叠卡(失败自动展开);Composer 单一动作槽(Send/Stop/Queue)+ `@`-笔记上下文药丸。
+- **安全与归因**:权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具分类白名单;turn 级 git 快照进 `refs/agents/*`(不动 HEAD;非 git vault 走影子仓库),活动面板看 diff、采纳入 HEAD、撤销。
+- **协作与持久化**:Model C 跨 agent 移交(归一化 seed);每 vault 一 SQLite 转录(WAL)+ 历史会话回放。
+
+规划与完整实施状态见 **[11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md)** §10;ID 表见 [backlog §K](./backlog.md)。真机端到端(需本机 opencode / claude-code)留作用户验收。
 
 ### 后续能力与诚实取舍
 
-> **未做总表**:[backlog.md](./backlog.md)。**计划**:[plan.md](./plan.md)。**已做索引**:[FEATURE-INDEX.md](./FEATURE-INDEX.md)。下一阶段细节:[11](./11-graph-and-agent-roadmap.md)。
+> **未做总表**:[backlog.md](./backlog.md)。**计划**:[plan.md](./plan.md)。**已做索引**:[FEATURE-INDEX.md](./FEATURE-INDEX.md)。下一阶段细节:[12](./12-graph-and-agent-roadmap.md)。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化 = Phase 6B**。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化(links / brief / write 审计)✅**;人侧健康面 UI 见 6B。 |
+| 应用内 Agent(ACP) | ✅ | Phase 7 完工(2026-08-04):Tier 1 + 完整 Tier 2,见 [11](./11-in-app-agent-roadmap.md);真机端到端待用户验收。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
 | 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
-| 图谱 | 🟡 | Cytoscape+多布局 ✅;**6A/6B 体验与健康面** 部分;B-GRAPH-FPS 🧪。 |
-| 类型文档 / QQL 扩展 / QQL-TS | ✅ | 差分 CI 亦 ✅。 |
+| 图谱 | 🟡 | Cytoscape+多布局 ✅;6A 人侧 polish **推迟**;6B MCP 侧 ✅ / 人侧健康面 UI ⏳;B-GRAPH-FPS 🧪。 |
+| 类型文档 / QQL 扩展 | ✅ | QQL-TS 与差分 CI 随用户面删除(2026-08-02);引擎留 Rust core + MCP `run_qql`。 |
 | Live 索引 + 三层搜索 | ✅ | |
-| 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑;合 main 待操作。 |
+| 打包与分发 | 🟡 | 本地 dmg ✅ + universal 脚本 ✅(`scripts/build-universal-dmg.sh`);签名/Updater 🔑;feat/phase1-core 已合 main(`84accb0`),`release/v0.1.0` 进行中。 |
 
-**原则**:不塞空心 stub。下一优先:**Phase 6A 图 polish** → **6B agent 图面** → 6D wiki → 可选 6C 语义。工程并行:合 main / 真机帧率 / 签名。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。**本期收尾**:真机帧率 / 应用内 Agent 端到端 / 签名 / 发布收口。**远期重启 §I**:6A 人侧图 polish → 可选 6C 语义(6B 的 agent 侧 MCP 工具与 6D wiki 脚手架已交付,见上)。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

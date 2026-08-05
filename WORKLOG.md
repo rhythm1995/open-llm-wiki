@@ -15,6 +15,44 @@
 
 ---
 
+### 2026-08-05 Claude — README/backlog MCP 工具数漂移修复(6→7);收口 push
+
+- **branch**: `release/v0.1.0`(本条 commit + 此前 3 条文档 commit,收工即 push)
+- **做了**:MCP 实际 7 个工具(`mcp/src/main.rs` 含 `links` 多 kind),README 中英两处与 backlog B-MCP 行仍写「6 tools」→ 统一改 7 tools 并补 `links`;backlog B-MCP 状态 🟡→✅(agent 侧全落地,仅剩人侧 `B-GRAPH-HEALTH-UI`)。调研 `docs/research/agent-memory-survey.md` §7.2 差距 ①② 已被同日 `1b77e37`(wiki 脚手架)闭合,报告原文未回改(历史文档,以本条为准)。
+- **理由 / 影响**:纯文档对齐,不影响 CI;doc 12 §0 规划理由表里的「6 tools」是规划时点的历史叙述,未动。
+- **下一步 / 接手注意**:push 后 release/v0.1.0 共 4 条文档 commit 上 origin;后续若加 MCP 工具,记得同步 README 中英 + backlog B-MCP 行的工具清单。
+
+### 2026-08-05 Claude — 文档整理:状态漂移修复 + 索引补齐 + CHANGELOG 补录
+
+- **branch**: `release/v0.1.0`(纯文档,未 commit)
+- **做了**:
+  1. **状态漂移修复**(Phase 7 / 6D / 合 main 之后文档没跟上):`B-MERGE-MAIN` → ✅(feat/phase1-core 已合 main `84accb0`;v0.1.0 tag 已打,后续在 release/v0.1.0);backlog(§F/§G/建议顺序)、plan、06-roadmap(**补 Phase 7 叙事段** + 6D ✅ + 修「QQL-TS/差分 CI ✅」旧表述)、04(新增 F-AGENT 行 + 重写「仍开放」清单)、docs/README(doc 11 改「✅ 已落地」+ 补 research/ 行)、open-questions(P6-4/6/7 标已落地)、doc 12(6D 交付横幅 + §5 落地形态 + 验收勾选 + 修订记录)、doc 07(修指向已删 deferred.md 的断链)。
+  2. **索引补齐**:FEATURE-INDEX 新增**应用内 Agent**(§K → 代码入口)与 **LLM wiki 脚手架**条目、诊断区补 TCP PortSink;修「B-LOG-* / 12」→ 13。
+  3. **CHANGELOG**:`[Unreleased]` 补录 v0.1.0 tag 后 15 commits(应用内 Agent / wiki 脚手架 / PortSink / universal dmg 脚本 / 文档重编号与调研);README 中英补应用内 Agent 条目。
+  4. **结构整理**:backlog 节序重排为 A–K(原 A–E、I、J、F–H、K);WORKLOG 08-05 wiki 条目原误置于文件末尾,移回倒序区位(**内容未改**,其「未 push」为当时事实,现 branch 已与 origin 同步)。
+- **理由 / 影响**:文档状态与代码事实对齐;「下一步」收口为:真机验收(B-GRAPH-FPS / agent 端到端)、签名凭证门、发布收口。
+- **下一步 / 接手注意**:`AGENTS.md` 第 87 行链已删 `docs/deferred.md` 的问题本次已改指 plan.md(用户批准代改,约定层仅此一行);纯文档,不影响 CI。
+
+### 2026-08-05 Claude Code — universal dmg / TCP 日志端口 / LLM wiki 脚手架(§I-D)
+
+- **branch**: `release/v0.1.0`(3 commits:`64c2763` build · `e803852` app · `1b77e37` wiki;**未 push**)。
+- **做了**:
+  1. **B-UNIVERSAL-DMG**:`scripts/build-universal-dmg.sh`——`tauri build --target universal-apple-darwin --bundles dmg`,自动 `rustup target add` 补双架构 target;与 `build-app.sh`(默认日常 .app)分工。未实跑(重构建)。
+  2. **B-LOG-PORT**:`logging.rs` 加可选 TCP PortSink——设了 `OPENOBS_LOG_PORT` 就在 `127.0.0.1:<port>` 起 server,把每条 NDJSON 行 fan-out 给连入的 `nc`。acceptor + writer 两线程,bounded channel(256)+ `try_send`,卡住的 client 不会阻塞 emit 路径;默认关。`port_tx` 包 `Mutex<Option<SyncSender>>` 解 `SyncSender !Sync`。+2 测试(解析单测 + 真 TCP 集成)。
+  3. **§I-D wiki 脚手架**:`templates/wiki-starter/`(5 类型契约 Source/Summary/Entity/Concept/Query + index + 示例链)+ 5 条 Health QQL(`type: Query`)+ `docs/14-llm-wiki-workflow.md`(ingest/research/consolidate 飞轮 + MCP 工具速查)。**修正了 doc 07 §Health 里跑不通的 QQL**:`GROUP BY`→`RENDER group_by()`、`IS EMPTY`→`mentioned_in.len() = 0`、`len(x)`→`x.len()`。新 `core/tests/wiki_health_qql.rs` 在代表性 fixture 上锁住 5 条的「能解析 + 语义正确」。
+- **验证**:`cargo test -p openobs-core` 全绿(127 单测 + qql_parity + 5 新 wiki-health);§I-D 纯 docs/templates,无需 tsc/vitest。提交后工作树 clean。
+- **下一步 / 接手注意**:
+  - `build-universal-dmg.sh` 与 PortSink 均**未真机跑过**:dmg 是重构建;PortSink 验法 = `OPENOBS_LOG_PORT=9876` 启 app + 另开 `nc 127.0.0.1 9876` 看实时 NDJSON。
+  - 3 commits 未 push;接手前 `git pull` / 确认是否 push。
+  - 脚手架在 repo 内 `templates/`;用户要 bootstrap 一个 LLM wiki 时,把 `templates/wiki-starter/` 整目录拷进 vault 即可(文件夹不承载语义,`type:` 才是)。
+
+### 2026-08-05 Claude — 调研:知识库/LLM Wiki 作为 agent 长期记忆
+- **branch**: `release/v0.1.0`(纯文档,未 commit)
+- **做了**:deep-research 多源调研(40 来源 / 54 条证据,持久化于 `~/Documents/Agent_Memory_Research_20260805/`),产出 `docs/research/agent-memory-survey.md`(8 节:动机/分类学/三大+1 技术路线/8 张项目卡片/增益实证与失败模式/对照 OpenObsidian/引用)。覆盖 Karpathy LLM Wiki、LangChain Wiki Memory、MemGPT/Letta、A-MEM、mem0、Zep/Graphiti、Cognee、basic-memory、LoCoMo/LongMemEval 基准、记忆投毒安全面。
+- **理由 / 影响**:为「vault 作为 agent 长期记忆」提供证据基础。核心结论:增益杠杆是**固化/综合 + 选择性检索**而非单纯持久化;记忆系统用少量准确率换数量级成本;wiki 路线甜蜜点在 <100-1000 篇。**对照结论**:OpenObsidian 五层架构与 wiki-memory 范式高度同构(「Health 即查询」是独有升级),MCP 读写反馈环已就位;差距集中在脚手架(B-WIKI-STARTER/HEALTH-QQL/AGENT-DOC 未建)与「对话→vault 蒸馏」管道缺失;P6-5 默认不做向量与 wiki-memory 路线一致,规模阈值(~1000 篇/单查询 >5-6 篇)是重估触发条件。
+- **下一步 / 接手注意**:报告第 7 节差距/机会点**只陈述不拍板**,沿用与否由人决定。另记录一处 backlog 小账:B-MCP-LINKS/READ-BRIEF/WRITE-FEEDBACK 在 backlog 标 ⏳ 但代码已交付,下次 backlog 清理时核对。
+- **验证**:报告 8 节齐全;§7 断言已逐条对照 doc 07/11/12、open-questions、mcp/README+main.rs、backlog;纯文档,不影响 CI。
+
 ### 2026-08-02 Claude — 非图杂项收口(git 日志打点 + source 任务按钮)+ §I 图谱推迟
 - **branch**: `feat/phase1-core`
 - **做了**:
@@ -175,7 +213,7 @@
 - **做了**:
   1. **决策**:QQL 的**用户面 A** 整体删除——笔记内联 ```qql 块 widget、`type: Query` saved query、`QueryPanel`、Query 视图、`MainView:"query"`、CenterToolbar 查询按钮、palette/registry 查询命令、TS 全量重写 `ui/src/lib/qql/*` + `mock-qql` + `qql-block` + `wysiwyg-qql`、相关 i18n 键。
   2. **引擎 B 保留**(勿删):Rust core `qql::parse`/`query::eval`、MCP `run_qql`、app Tauri `run_qql` 命令。
-  3. 文档同步:[04](docs/04-features.md) F-QUERY、[09](docs/09-big-features-v1.md) B-QQL-TS、[11](docs/11-graph-and-agent-roadmap.md) §6B(NL→QQL 写入)。
+  3. 文档同步:[04](docs/04-features.md) F-QUERY、[09](docs/09-big-features-v1.md) B-QQL-TS、[12](docs/12-graph-and-agent-roadmap.md) §6B(NL→QQL 写入)。
 - **理由 / 影响**:不让用户学新 DSL(认知负担=语法+字段名+字面值+render 动词四层叠加)。QQL 退成 IR,用户表面留到 6B 接 agent 用**自然语言**重建:NL → agent 生成可审查 QQL → `run_qql`。
 - **下一步 / 接手注意**:
   - 引擎 + MCP `run_qql` **勿删**;app Tauri `run_qql` 命令保留(未来 in-app NL 直连)。
@@ -195,13 +233,13 @@
 ### 2026-08-02 Grok — 调研:客户端日志/调试方案(doc 12)
 
 - **branch**: `feat/phase1-core`(文档)。
-- **做了**:新建 [docs/12-client-logging.md](docs/12-client-logging.md):现状 diag_log 仅 stderr;推荐 **LogBus 中间件**(Filter+Sink)+ 文件 NDJSON(AppLog 目录)+ 可选 TCP 端口;profile `dev/verbose/prod` 一键瘦身;用户导出 zip 供 agent 排查;分期 L1–L3;backlog **§J** 四 ID;docs/README 索引。
+- **做了**:新建 [docs/13-client-logging.md](docs/13-client-logging.md):现状 diag_log 仅 stderr;推荐 **LogBus 中间件**(Filter+Sink)+ 文件 NDJSON(AppLog 目录)+ 可选 TCP 端口;profile `dev/verbose/prod` 一键瘦身;用户导出 zip 供 agent 排查;分期 L1–L3;backlog **§J** 四 ID;docs/README 索引。
 - **下一步**:实现 B-LOG-BUS(L1) 即可让反馈问题可读客户端日志。
 
 ### 2026-08-01 Grok — 审阅修订 docs/11(#1–#5 与次要项)
 
 - **branch**: `feat/phase1-core`(文档)。
-- **做了**:按交叉审阅修订 [11](docs/11-graph-and-agent-roadmap.md)+ [backlog §I](docs/backlog.md)+ [open-questions](docs/open-questions.md) P6-4/7/8 + 04/deferred:
+- **做了**:按交叉审阅修订 [12](docs/12-graph-and-agent-roadmap.md)+ [backlog §I](docs/backlog.md)+ [open-questions](docs/open-questions.md) P6-4/7/8 + 04/deferred:
   1. 阶段名统一 **6A–6D**(消灭裸 A/B/C/D)。
   2. 6A1 标明内存暖启动已有,本项=落盘+键+合流;**.openobsidian/** 为新约定; **P6-7 默认 gitignore** 布局文件。
   3. 6C 写明 **EdgeKind::Semantic core 级联** + P6-8;洞察术语去 edge-bridge 混淆,难度 🔴。
@@ -212,7 +250,7 @@
 
 - **branch**: `feat/phase1-core`(文档未要求 commit)。
 - **做了**:
-  1. 新建 **[docs/11-graph-and-agent-roadmap.md](docs/11-graph-and-agent-roadmap.md)**:Phase **6A 图 UX** → **6B 图健康+MCP** → **6D LLM wiki** → **6C 语义边(可选)**;验收/测试/红线;合成 varshithm7x(图手感)与 inkeep(agent/`links` 语义,GPL 零拷贝)。
+  1. 新建 **[docs/12-graph-and-agent-roadmap.md](docs/12-graph-and-agent-roadmap.md)**:Phase **6A 图 UX** → **6B 图健康+MCP** → **6D LLM wiki** → **6C 语义边(可选)**;验收/测试/红线;合成 varshithm7x(图手感)与 inkeep(agent/`links` 语义,GPL 零拷贝)。
   2. 同步 **[backlog §I](docs/backlog.md)**(全部新 ID)、[06-roadmap Phase 6](docs/06-roadmap.md)、[04 F-GRAPH/F-AI](docs/04-features.md)、[deferred 图谱 UX+Agent](docs/deferred.md)、[open-questions P6-*](docs/open-questions.md)、[docs/README](docs/README.md)。
   3. B-MCP 状态改为 🟡(v1 齐,图工具化在 6B)。
 - **理由 / 影响**:产品确认「先图后 agent」;agent 开工有单一规划源与 backlog ID。

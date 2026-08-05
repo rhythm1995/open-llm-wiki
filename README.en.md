@@ -19,8 +19,9 @@ A local-first, file-as-truth, MIT-licensed knowledge-base desktop app — your p
 - **Editing UX:** find & replace, outline (headings), source｜reading split preview, broken-link hints for the current note, task-list buttons.
 - **Git:** status / log / commit / pull / push / restore + auto-commit, via your system `git`; only inside the Tauri desktop app when the vault is a git repo.
 - **AI context export:** one-click copy of the current note plus the body of its linked neighbors as LLM-friendly Markdown.
+- **In-app Agent:** an ACP-managed agent sidebar — recipe picker (opencode / claude-code), three-tier permissions, `@`-note context, cross-agent handoff, transcript replay; agent writes are attributed as per-turn git snapshots you can adopt or revert.
 - **Local-first:** everything runs locally; preferences live in local config and are never uploaded.
-- **AI-ready (MCP):** a built-in MCP server exposes 6 tools (`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`) so agents like Claude Desktop can read and write your vault.
+- **AI-ready (MCP):** a built-in MCP server exposes 7 tools (`list_notes` / `read_note` / `write_note` / `links` / `search_notes` / `run_qql` / `vault_info`) so agents like Claude Desktop can read and write your vault.
 - **i18n:** 简体中文 / English UI.
 
 ## Getting Started
@@ -77,7 +78,7 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 
 - `core/` — pure functions, no IO, guarded by unit tests + proptests.
 - `app/src-tauri/` — Tauri commands wiring file IO, git, and `core`.
-- `mcp/` — the built-in MCP server (6 tools) for AI agents.
+- `mcp/` — the built-in MCP server (7 tools) for AI agents.
 - `ui/` — three-pane layout (file tree / editor / inspector); switchable graph / git views; ⌘K palette. Browser dev uses `src/lib/mock.ts` (in-memory backend) — preview without compiling Rust.
 
 ## Requirements
@@ -98,11 +99,11 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 
 ## Contributing
 
-This is a clean-room rewrite. **Red line: the project takes [Tolaria](https://github.com/refactoringhq/tolaria) (AGPL-3.0) as a design and implementation reference only — no source is copied, verbatim or near-verbatim.** We borrow architecture, data flow, algorithmic ideas, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
+This is an **original, independent implementation**, MIT-licensed. **Red line: never introduce GPL/AGPL or other copyleft source into this repository (verbatim or near-verbatim)** — doing so would void the MIT license. We only reference public ideas, architecture, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
 
 - Done features: [docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - Roadmap / backlog: [docs/backlog.md](./docs/backlog.md)
-- New deps must be logged in [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md); no PR may introduce verbatim Tolaria source fragments — diffs are checked at review.
+- New deps must be logged in [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md); no PR may introduce verbatim copyleft source fragments — diffs are checked at review.
 
 ## Known Limitations
 

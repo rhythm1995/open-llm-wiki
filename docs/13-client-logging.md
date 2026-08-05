@@ -1,8 +1,8 @@
-# 12 — 客户端日志与远程/本地调试方案
+# 13 — 客户端日志与远程/本地调试方案
 
 > **状态**:设计 + **L1 已落地**（2026-08-02）。**先详细、后裁剪**；中间件多 sink；开发日常可查。  
 > **L1 实现**:`app/src-tauri/src/logging.rs` + 命令 `log_write` / `log_get_dir` / `log_open_dir` / `log_set_profile` / `log_get_status`；UI `logger.ts` + Settings 诊断区；`diag-log` 走 LogBus。  
-> **仍待 L2**:PortSink、导出 zip。  
+> **仍待 L2**:导出 zip(当前为单 txt,by design)。PortSink 已落地(见 §PortSink)。  
 > **约束**:MIT；`core` 仍 IO-free；不默认上报云端。
 
 ---

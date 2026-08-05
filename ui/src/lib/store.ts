@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ipc, type EdgeOut, type NodeOut, type VaultEntry, type VaultSnapshot } from "./ipc";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { tabReduce } from "./tabs";
 import {
   emptyHistory,
@@ -151,6 +152,15 @@ export function useVault() {
   const openVault = useCallback(
     async (root: string): Promise<boolean> => {
       try {
+        // §9.6 关闭善后:切换到不同 vault 时,先终止旧 vault 的活动 agent
+        // (其 cwd 绑定旧 root,否则会写错地方 / 泄漏子进程)。无活动 agent 时为 no-op。
+        if (state.root && state.root !== root) {
+          try {
+            await invoke<void>("agent_stop");
+          } catch {
+            /* 忽略:无活动 agent 或已退出 */
+          }
+        }
         const entries = await ipc.listVault(root);
         const firstMd = entries.find((e) => !e.is_dir);
         // 恢复上次打开的笔记(按 root 分键;命中且仍存在则用之,否则回退首个 .md)。
@@ -177,7 +187,7 @@ export function useVault() {
           openPaths: currentPath ? [currentPath] : [],
           content,
         });
-        // 记下成功打开的根,下次启动恢复(Tolaria / Obsidian 同款行为)。
+        // 记下成功打开的根,下次启动恢复(Obsidian 同款行为)。
         writeLastRoot(root);
         // Tauri 桌面:外部改动 → debounce 并集路径 → apply;失败则 force 自愈。
         // 切 vault 前先 stopWatch(清 timer + 作废 gen),防 vault A 定时器写进 B。
@@ -821,40 +831,89 @@ export function useVault() {
    * 下同样可用(内存 Map)。完整 MCP server(让 agent 反向读写 vault)见路线图。
    * 返回拼好的 markdown(剪贴板被禁用时仍返回,便于降级)。
    */
-  const copyAiContext = useCallback(async (): Promise<string | null> => {
-    const { root, path, content } = latest.current;
-    const snap = state.snapshot;
-    if (!root || !path || !snap) return null;
-    const cur = snap.nodes.find((n) => n.path === path) ?? null;
-    // 外向链接命中的邻居:去重、保留首次出现顺序。
-    const seen = new Set<number>();
-    const neighborIds: number[] = [];
-    if (cur) {
-      for (const e of snap.edges) {
-        if (e.from === cur.id && e.to != null && !seen.has(e.to)) {
-          seen.add(e.to);
-          neighborIds.push(e.to);
+  /** 构造「当前笔记 + 相关笔记」的 LLM 友好 markdown(复用 ai-context.ts)。
+   *  不写剪贴板;copyAiContext 与应用内 Agent 的 `@`-context 共用此纯取数逻辑。
+   *  - 传 paths(@-context 选择器,候选=编辑器打开的标签):只附勾选的笔记,直接按
+   *    路径读正文(不再限于当前笔记的外向链接邻居);当前笔记恒附,不受过滤。
+   *  - 不传(复制到剪贴板的旧语义):当前笔记 + 其外向链接命中的全部邻居。 */
+  const buildAiContextMd = useCallback(
+    async (paths?: string[]): Promise<string | null> => {
+      const { root, path, content } = latest.current;
+      const snap = state.snapshot;
+      if (!root || !path || !snap) return null;
+      const cur = snap.nodes.find((n) => n.path === path) ?? null;
+      const neighbors = [];
+      if (paths) {
+        for (const p of paths) {
+          if (p === path) continue; // 当前笔记恒附,走 current 通道
+          const n = snap.nodes.find((x) => x.path === p);
+          const c = await ipc.readNote(root, p);
+          neighbors.push({ path: p, title: n?.title ?? p, content: c });
+        }
+      } else {
+        // 外向链接命中的邻居:去重、保留首次出现顺序。
+        const seen = new Set<number>();
+        const neighborIds: number[] = [];
+        if (cur) {
+          for (const e of snap.edges) {
+            if (e.from === cur.id && e.to != null && !seen.has(e.to)) {
+              seen.add(e.to);
+              neighborIds.push(e.to);
+            }
+          }
+        }
+        for (const id of neighborIds) {
+          const n = snap.nodes.find((x) => x.id === id);
+          if (!n) continue;
+          const c = await ipc.readNote(root, n.path);
+          neighbors.push({ path: n.path, title: n.title, content: c });
         }
       }
+      return buildAiContext({
+        current: { path, title: cur?.title ?? path, content },
+        neighbors,
+      });
+    },
+    [state.snapshot],
+  );
+
+  /**
+   * §25:@-context 选择器的候选列表。候选与**编辑器顶部标签栏同源**:用户打开过的
+   * 文件(openPaths)即候选,按标签顺序;当前笔记若不在标签里则置顶(恒附)。
+   * 不预取正文。
+   */
+  const contextCandidates = useCallback(async (): Promise<
+    import("./ai-context").ContextCandidate[]
+  > => {
+    const { path, openPaths } = latest.current;
+    const snap = state.snapshot;
+    if (!snap) return [];
+    const paths: string[] = [];
+    if (path && !openPaths.includes(path)) paths.push(path);
+    for (const p of openPaths) {
+      if (!paths.includes(p)) paths.push(p);
     }
-    const neighbors = [];
-    for (const id of neighborIds) {
-      const n = snap.nodes.find((x) => x.id === id);
-      if (!n) continue;
-      const c = await ipc.readNote(root, n.path);
-      neighbors.push({ path: n.path, title: n.title, content: c });
-    }
-    const md = buildAiContext({
-      current: { path, title: cur?.title ?? path, content },
-      neighbors,
+    return paths.map((p) => {
+      const n = snap.nodes.find((x) => x.path === p);
+      return {
+        path: p,
+        title: n?.title ?? p.split("/").pop() ?? p,
+        isCurrent: p === path,
+      };
     });
-    try {
-      await navigator.clipboard.writeText(md);
-    } catch {
-      // 剪贴板被禁用(无 https / 权限)时静默;文本仍返回,调用方可降级提示。
+  }, [state.snapshot]);
+
+  const copyAiContext = useCallback(async (): Promise<string | null> => {
+    const md = await buildAiContextMd();
+    if (md) {
+      try {
+        await navigator.clipboard.writeText(md);
+      } catch {
+        // 剪贴板被禁用(无 https / 权限)时静默;文本仍返回,调用方可降级提示。
+      }
     }
     return md;
-  }, [state.snapshot]);
+  }, [buildAiContextMd]);
 
   // ────────── 派生:当前节点 + 反链 ──────────
   const currentNode = useMemo<NodeOut | null>(() => {
@@ -911,6 +970,8 @@ export function useVault() {
       clearError,
       saveNow,
       copyAiContext,
+      buildAiContextMd,
+      contextCandidates,
       // 手动/自愈刷新:force=true 全量 WalkDir,覆盖 silent 漏事件(无需 re-open)。
       // 保存后的节流 refresh 仍走 refreshIndex(root, false) 投影 live。
       refreshIndex: () => state.root && refreshIndex(state.root, true),

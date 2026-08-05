@@ -34,7 +34,20 @@ const CORPUS: Case[] = [
   { id: "nested-blockquote", md: "> outer\n> > inner\n" },
   { id: "code-fenced-lang", md: "```js\nconst x = 1;\n```\n" },
   { id: "code-fenced-plain", md: "```\nplain code block\n```\n" },
+  // 回归:代码块里夹 wikilink。若 hydrate 误把 [[x]] 升级进 codeBlock,
+  // tryParseMarkdownToBlocks→hydrate 会抛 RangeError(白屏根因)。此例必须不崩、往返保 token。
+  {
+    id: "code-fenced-yaml-with-wikilink",
+    md: "```yaml\ntype: Note\nrelated_to: \"[[some-note]]\"\n```\n",
+  },
   { id: "table-gfm", md: "| a | b |\n|---|---|\n| 1 | 2 |\n", risky: true },
+  // 回归:真实笔记大量是嵌套结构。wikilink 出现在嵌套列表 / 表格单元格 / 引用里时,
+  // hydrate/dehydrate 必须递归处理(否则 chip 缺失或残留)。真引擎往返必须保 token。
+  { id: "wikilink-in-nested-list", md: "- a [[top]]\n  - b [[nested]]\n" },
+  { id: "wikilink-in-task-nested", md: "- [ ] a [[t1]]\n  - [ ] b [[t2]]\n", risky: true },
+  { id: "wikilink-in-table-cell", md: "| h1 | h2 |\n|---|---|\n| c1 | [[cell]] |\n", risky: true },
+  { id: "wikilink-in-blockquote", md: "> quoted [[q]]\n" },
+  { id: "codeblock-with-wikilink-in-list", md: "- item [[ok]]\n\n  ```yaml\n  x: \"[[nope]]\"\n  ```\n" },
   { id: "wikilink-plain-alias-anchor", md: "See [[Note A]] and [[B|alias]] and [[C#sec]].\n" },
   { id: "image-md-syntax", md: "![alt text](image.png)\n" },
   { id: "image-wikilink", md: "![[photo.jpg]]\n" },
