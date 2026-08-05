@@ -115,17 +115,18 @@ Tauri 2 外壳 + React 19:
 - ✅ **图谱渲染栈现为 Cytoscape**(见 Phase 3 / F-GRAPH);sigma/Worker/LOD 路径已退役。
 - ✅ **验证加固**:UI vitest + Playwright e2e;core cargo test;本地 `tauri build` 出未签名 dmg。
 
-### Phase 6 — 图谱打磨 → Agent 结合（当前主线 · 规划中）
+### Phase 6 — 图谱打磨 → Agent 结合（人侧推迟 · agent 侧 MCP 已落地）
 
 > **产品拍板(2026-08-01)**:先优化图,再把 AI agent 结合进去。  
+> **2026-08-02 更新**:§I **人侧图 polish(6A)整期推迟到很后**(ROI 低 / 图不好做)。但 **6B 的 agent 侧 MCP 图工具已随 MCP server 落地**(`links` / read 简报 / write 审计 + 客户端配置);人侧仅剩 `B-GRAPH-HEALTH-UI` 未做。  
 > **完整规划**:[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
 > **参考(概念 only)**:varshithm7x 图 UX(MIT);inkeep OpenKnowledge agent/`links` 语义(**GPL 禁止拷代码**)。  
 > **保留**:Cytoscape 图主路径 · graph-* 纯逻辑 · QQL 作 IR/MCP · Rust IO-free · MIT。
 
 | 子阶段 | 主题 | 关键 backlog | 状态 |
 |---|---|---|---|
-| **6A** | 传统图 polish(人) | B-GRAPH-POS-PERSIST / FORCES / SETTINGS-UI / HIDE-UNRESOLVED | ⏳ |
-| **6B** | 图健康 + MCP 工具化(agent) | B-MCP-LINKS / READ-BRIEF / WRITE-FEEDBACK / GRAPH-HEALTH-UI | ⏳ |
+| **6A** | 传统图 polish(人) | ~~POS-PERSIST~~ ✅ / FORCES / SETTINGS-UI / HIDE-UNRESOLVED / PATH | ⏳(推迟) |
+| **6B** | 图健康 + MCP 工具化(agent) | MCP-LINKS ✅ / READ-BRIEF ✅ / WRITE-FEEDBACK ✅ / CONFIG ✅ / GRAPH-HEALTH-UI ⏳ | 🟡 MCP 侧 ✅;人侧 UI ⏳ |
 | **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ⏳ |
 | **6C** | 语义发现层(可选) | B-GRAPH-SEMANTIC / SUGGEST-UI / INSIGHTS | ⏳ 后置 |
 
@@ -138,19 +139,19 @@ Tauri 2 外壳 + React 19:
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化 = Phase 6B**。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化(links / brief / write 审计)✅**;人侧健康面 UI 见 6B。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
 | 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
-| 图谱 | 🟡 | Cytoscape+多布局 ✅;**6A/6B 体验与健康面** 部分;B-GRAPH-FPS 🧪。 |
+| 图谱 | 🟡 | Cytoscape+多布局 ✅;6A 人侧 polish **推迟**;6B MCP 侧 ✅ / 人侧健康面 UI ⏳;B-GRAPH-FPS 🧪。 |
 | 类型文档 / QQL 扩展 / QQL-TS | ✅ | 差分 CI 亦 ✅。 |
 | Live 索引 + 三层搜索 | ✅ | |
 | 打包与分发 | 🟡 | 本地 dmg ✅;签名/Updater 🔑;合 main 待操作。 |
 
-**原则**:不塞空心 stub。下一优先:**Phase 6A 图 polish** → **6B agent 图面** → 6D wiki → 可选 6C 语义。工程并行:合 main / 真机帧率 / 签名。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。**本期收尾**:合 main / 真机帧率 / 签名。**远期重启 §I**:6A 人侧图 polish → 6D wiki 脚手架 → 可选 6C 语义(6B 的 agent 侧 MCP 工具已落地,见上)。TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

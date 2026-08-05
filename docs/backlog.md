@@ -26,7 +26,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 T/O 核心亦非主路径;git 即可) |
+| B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 Obsidian 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
 | B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | 🟡 | v1 6 tools:`list_notes`/`read_note`/`write_note`/`search_notes`/`run_qql`/`vault_info` ✅;图工具化见 **§I-B** |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 安全样例表 + app 层 wikilink/fm;与 DEEP 共用 `safeFixtureHolds` |
@@ -97,6 +97,7 @@
 ## I. 图谱打磨 → Agent（远期 · 本期不做）
 
 > **产品拍板(2026-08-02)**:**§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留待远期。完整规格见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**。  
+> **例外(已落地)**:6B 的 **agent 侧 MCP 图工具**(`links` / read 简报 / write 审计 / 客户端配置)已随 MCP server 交付,见 §I-B ✅;§I 真正剩余的是**人侧**——6A 图 polish 全部 + `B-GRAPH-HEALTH-UI`。  
 > **历史(2026-08-01)**:曾规划先图再 agent;**已被 2026-08-02 决策覆盖**。  
 > 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,顺序默认 **6A → 6B → 6D → 6C**。
 
@@ -104,7 +105,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ⏳ | 内存暖启动**已有**;本项=序列化+path-stable+与暖启动合流;默认 gitignore(P6-7) |
+| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ✅ | `read/save_graph_layout` IPC + GraphView 读写 `.openobsidian/graph-layout.json`;写盘不走结构自动 commit(P6-7) |
 | B-GRAPH-FORCES | 力参数 + Recalculate | 🟡 | ⏳ | center/repel/link/distance;Reset 默认 |
 | B-GRAPH-SETTINGS-UI | 图设置分组面板 | 🟡 | ⏳ | Filters / Display / Text / Forces |
 | B-GRAPH-HIDE-UNRESOLVED | 隐藏悬空/phantom | 🟢 | ⏳ | ghost 边一键 hide |
@@ -114,11 +115,11 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-MCP-LINKS | MCP `links` 多 kind | 🔴 | ⏳ | backlinks/forward/dead/orphans/hubs/(suggest);可数组 audit |
-| B-MCP-READ-BRIEF | read 附带图上下文 | 🟡 | ⏳ | in/out 边 + orphan/hub 标志 |
-| B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ⏳ | 仅 MCP 契约;提示不阻断保存 |
-| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式 |
-| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ⏳ | Claude Desktop 等;非 skills 商店 |
+| B-MCP-LINKS | MCP `links` 多 kind | 🔴 | ✅ | `links`:backlinks/forward/dead/orphans/hubs/suggest;可数组 audit(`mcp/src/main.rs`) |
+| B-MCP-READ-BRIEF | read 附带图上下文 | 🟡 | ✅ | `links_brief`:in/out 边 + dead + degree(`read_note.graph`) |
+| B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ✅ | `write_note` 返回 `broken_links[]`+`orphan_hint`;提示不阻断保存 |
+| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式(MCP 侧已能算,缺人侧 UI) |
+| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ✅ | Claude Code / Cursor 配置见 `mcp/README.md` §Client configuration |
 | B-ED-BROKEN-LINKS | ~~见 §C~~ | 🟢 | →§C | 与编辑器断链提示合并 |
 
 ### I-C · 6C 语义发现（可选,后置）
@@ -158,7 +159,7 @@
 | B-SIGN-WIN | Windows 安装包签名 | 🟢 | 🔑 | 需证书 |
 | B-UPDATER | 自动更新 | 🟡 | 🔑 | 需密钥 + 是否上线决策 |
 | B-UNIVERSAL-DMG | universal `.dmg` | 🟢 | ⏳ | 现分架构各打 |
-| B-AGENTS-TLDRAW | **AGENTS.md tldraw 叙述** | 🟢 | ⏳ | 人类改:Excalidraw / 纯 MIT(agent 不改 AGENTS.md) |
+| B-AGENTS-TLDRAW | ~~AGENTS.md tldraw 叙述~~ | 🟢 | ✅ | tldraw 引用已从 AGENTS.md 移除(画布=Excalidraw MIT) |
 | B-MERGE-MAIN | `feat/phase1-core` → main | 🟢 | 🧪 | 已 push;合 main 由你操作 |
 
 ---
@@ -216,10 +217,12 @@
 
 ### 三项核实(2026-07-31)
 
+> ⚠️ 2026-07-31 快照;**部分结论已被后续决策覆盖**(QQL 差分已删、§I 已推迟),以本文 §B/§E/§I 正文为准。
+
 | 说法 | 是否成立 | 结论 |
 |---|---|---|
-| QQL TS↔Rust 差分 CI | **已落地** | B-QQL-PARITY-CI ✅(`fixtures/qql-parity`) |
-| 04/06「最大缺口=编辑器菜单」 | **文案过时** | §C/§D/§H 已 ✅;下一主线=§I 图→agent |
+| QQL TS↔Rust 差分 CI | **已废** | B-QQL-PARITY-CI 🗑️ 已删(2026-08-02 随 QQL 用户面);Rust core 单测仍在 |
+| 04/06「最大缺口=编辑器菜单」 | **文案过时** | §C/§D/§H 已 ✅;§I 图→agent 已**推迟**(2026-08-02),6B 的 MCP 工具另随 MCP 落地 |
 | 图谱 1k/5k 帧率 | **半成立** | 渲染/布局代码齐 + 生成器有;缺**测得的帧率数据**与 CI |
 
 ---
