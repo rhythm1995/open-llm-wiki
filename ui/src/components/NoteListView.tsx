@@ -6,13 +6,13 @@
  * 点击 → 选中笔记(编辑器加载,列表保持)。
  * kind:"archive" 时交给 {@link ArchiveView}(删除/还原已并入 git,无 `.trash/`)。
  *
- * 表头顶是一个**即时过滤框**(Tolaria 式):按 title+preview 子串收窄「当前 Nav 选择
+ * 表头顶是一个**即时过滤框**:按 title+preview 子串收窄「当前 Nav 选择
  * 的列表」。这与第三栏的两种搜索职责不同 —— 过滤只看当前列表的标题/预览,⌘F 看当前
  * 笔记正文,⌘⇧F 看全库正文。把表头从静态标签改成输入框,也顺带消除了「点 search 后
  * 第二栏仍高亮『全部笔记』」的残留态 bug(表头不再是会被误读为高亮的标签)。
  *
  * 行右键 → 复用 {@link ContextMenu}:重命名 / 复制 [[wikilink]] / 切 status / 归档 /
- * 在 Finder 中显示(桌面专用,mock 下隐藏)。对标 Tolaria 笔记右键菜单。
+ * 在 Finder 中显示(桌面专用,mock 下隐藏)。对标常见笔记右键菜单。
  *
  * 过滤纯逻辑在 nav-filter.ts,日期在 date-format.ts,frontmatter 字段写在前段由
  * store.setNoteStatus / frontmatter.ts 处理。

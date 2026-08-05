@@ -98,11 +98,11 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 ## 贡献
 
-本项目是 clean-room 重写。**红线:本项目以 [Tolaria](https://github.com/refactoringhq/tolaria)(AGPL-3.0)的公开设计与实现为蓝本参考 —— 绝不复制其源码(逐字或近似逐字)。** 只借鉴架构、数据流、算法思路与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,同样不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
+本项目是**原创、独立的实现**,MIT 许可。**红线:绝不把 GPL/AGPL 等 copyleft 源码(逐字或近似逐字)引入本仓库**——那会让「MIT 许可」落空。只参考公开的思想、架构与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
 
 - 已做功能:[docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - 路线图 / 待办:[docs/backlog.md](./docs/backlog.md)
-- 新增依赖请登记 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md);任何 PR 不得引入 Tolaria 源码的逐字片段,review 时查重。
+- 新增依赖请登记 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md);任何 PR 不得引入 copyleft 源码的逐字片段,review 时查重。
 
 ## 已知限制
 

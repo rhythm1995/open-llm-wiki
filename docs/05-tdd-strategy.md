@@ -44,7 +44,7 @@
 
 ### `ui`(React/TS)—— 组件测试 + mock-tauri
 
-- **mock-tauri 层**(借鉴 Tolaria):把 `invoke()` 抽成接口,测试时换成内存 mock。前端组件可完全脱离 Tauri/文件系统测试。
+- **mock-tauri 层**(通用做法):把 `invoke()` 抽成接口,测试时换成内存 mock。前端组件可完全脱离 Tauri/文件系统测试。
 - **测什么**:有逻辑的组件——图谱过滤交互、查询结果渲染、文件树状态机、属性面板校验。
 - **不测什么**:纯展示组件的颜色/间距(那是视觉回归,用 Playwright 截图兜)。
 - 工具:Vitest + @testing-library/react + jsdom。

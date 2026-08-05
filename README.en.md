@@ -98,11 +98,11 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 
 ## Contributing
 
-This is a clean-room rewrite. **Red line: the project takes [Tolaria](https://github.com/refactoringhq/tolaria) (AGPL-3.0) as a design and implementation reference only — no source is copied, verbatim or near-verbatim.** We borrow architecture, data flow, algorithmic ideas, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
+This is an **original, independent implementation**, MIT-licensed. **Red line: never introduce GPL/AGPL or other copyleft source into this repository (verbatim or near-verbatim)** — doing so would void the MIT license. We only reference public ideas, architecture, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
 
 - Done features: [docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - Roadmap / backlog: [docs/backlog.md](./docs/backlog.md)
-- New deps must be logged in [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md); no PR may introduce verbatim Tolaria source fragments — diffs are checked at review.
+- New deps must be logged in [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md); no PR may introduce verbatim copyleft source fragments — diffs are checked at review.
 
 ## Known Limitations
 

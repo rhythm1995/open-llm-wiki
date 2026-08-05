@@ -2,7 +2,7 @@
  * WysiwygView —— 中栏:BlockNote 块编辑器(md 的 WYSIWYG 模式)。
  *
  * 与 {@link Editor}(CodeMirror 源码模式)并列,两者读写**同一个** `state.content`
- * (.md 真相源)。对标 Tolaria 的 WYSIWYG/Raw 双模式:这里负责「所见即所得」,
+ * (.md 真相源)。WYSIWYG/源码双模式:这里负责「所见即所得」,
  * Editor 负责「源码」,CM 模式同时也是任何 round-trip 漏洞的逃生舱。
  *
  * frontmatter 不进块编辑器(YAML 在 BlockNote 里无原生块、round-trip 会重排——

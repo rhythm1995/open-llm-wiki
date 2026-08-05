@@ -1,7 +1,7 @@
 /**
  * App —— OpenObsidian 主壳。
  *
- * 三栏布局(参考 Obsidian / Tolaria):
+ * 三栏布局(参考 Obsidian):
  *   左:Sidebar(文件树)  中:主视图(编辑器/图谱/QQL/搜索)  右:Inspector(反链/属性)
  * 顶 Toolbar 切换主视图;底 StatusBar 显示保存状态。
  *
@@ -784,7 +784,7 @@ export default function App() {
           右栏表头 data-drag-region 承担);状态栏仍在底部全宽。 */}
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-      {/* 全宽顶栏(Tolaria 式):视图切换 + Xcode 式面板切换簇,横跨四区、穿透列间分隔线。
+      {/* 全宽顶栏:视图切换 + Xcode 式面板切换簇,横跨四区、穿透列间分隔线。
           透明标题栏(Overlay)下,它也是窗口拖拽区(内部留出 macOS 交通灯空间,见 CenterToolbar)。 */}
       <CenterToolbar
         view={view}
@@ -840,7 +840,7 @@ export default function App() {
               snapshot={state.snapshot}
               navSelection={navSelection}
               onNavSelect={handleNavSelect}
-              // 快速打开/命令面板打开时不高亮左侧筛选(Tolaria:浮层与 Nav 选择解耦)。
+              // 快速打开/命令面板打开时不高亮左侧筛选(浮层与 Nav 选择解耦)。
               isEditorView={view === "editor" && !paletteOpen}
               onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
               onNewNoteInFolder={openNewNoteInFolder}

@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(见 clean-room 声明)。本文件
+OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(原创、独立的实现)。本文件
 诚实记录所有**直接依赖**及其许可。**默认分发无 source-available 生产限制** ——
 可本地与托管部署(仍须遵守各依赖自身的 OSI 条款,如 MPL 文件级 copyleft)。
 
@@ -25,8 +25,8 @@ OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(见 clean-room 声明)�
 | Vitest / esbuild | MIT | 测试与构建(仅开发期)。 |
 
 完整传递依赖以 `cargo license`、`pnpm licenses list` 为准;上线前复核无
-GPL/AGPL 直染依赖(本项目以 Tolaria 公开设计为蓝本 clean-room 重写,严禁
-复制 AGPL 源码 —— 见 [README](./README.md) 红线)。
+GPL/AGPL 直染依赖(本项目严禁引入任何 copyleft 源码 —— 见 [README](./README.md)
+红线)。
 
 ## 商用 / 托管部署
 

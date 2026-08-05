@@ -431,7 +431,7 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.menu.copyLink": "复制 [[wikilink]]",
     "graph.menu.hideType": "隐藏此类型({type})",
     "graph.menu.copied": "已复制",
-    // 第二栏列表过滤(Tolaria 式即时过滤)
+    // 第二栏列表过滤(即时过滤)
     "list.filterPlaceholder": "筛选「{scope}」…",
     // 文档内查找条(⌘F)
     "find.placeholder": "查找…",
@@ -843,7 +843,7 @@ export const dict: Record<Locale, Record<string, string>> = {
     "graph.menu.copyLink": "Copy [[wikilink]]",
     "graph.menu.hideType": "Hide this type ({type})",
     "graph.menu.copied": "Copied",
-    // Column-2 list filter (Tolaria-style instant filter)
+    // Column-2 list filter (instant filter)
     "list.filterPlaceholder": "Filter \"{scope}\"…",
     // In-note find bar (⌘F)
     "find.placeholder": "Find…",

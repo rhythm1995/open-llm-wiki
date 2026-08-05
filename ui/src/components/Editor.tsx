@@ -120,7 +120,7 @@ const themeCompartment = new Compartment();
 
 const lightEditor: Extension = EditorView.theme({
   "&": { backgroundColor: "var(--color-base)", color: "var(--color-text)" },
-  // 活动行浅底高亮(无线号 gutter;对齐 Tolaria 编辑器)。
+  // 活动行浅底高亮(无线号 gutter)。
   ".cm-activeLine": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
 });
 

@@ -38,7 +38,7 @@ const CORPUS: Case[] = [
   // tryParseMarkdownToBlocks→hydrate 会抛 RangeError(白屏根因)。此例必须不崩、往返保 token。
   {
     id: "code-fenced-yaml-with-wikilink",
-    md: "```yaml\ntype: Note\nrelated_to: \"[[tolaria]]\"\n```\n",
+    md: "```yaml\ntype: Note\nrelated_to: \"[[some-note]]\"\n```\n",
   },
   { id: "table-gfm", md: "| a | b |\n|---|---|\n| 1 | 2 |\n", risky: true },
   // 回归:真实笔记大量是嵌套结构。wikilink 出现在嵌套列表 / 表格单元格 / 引用里时,

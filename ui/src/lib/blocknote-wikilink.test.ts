@@ -30,7 +30,7 @@ describe("hydrateWikilinks", () => {
     const block = {
       type: "codeBlock",
       props: { language: "yaml" },
-      content: [{ type: "text", text: "---\ntype: Note\nrelated_to: \"[[tolaria]]\"\n---", styles: {} }],
+      content: [{ type: "text", text: "---\ntype: Note\nrelated_to: \"[[some-note]]\"\n---", styles: {} }],
     };
     expect(hydrateWikilinks([block])).toEqual([block]);
   });

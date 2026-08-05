@@ -10,7 +10,7 @@
 | **B-QQL-TS** | ~~TS 全量解析+求值;mock `run_qql` 走 TS~~ **已删(2026-08-02)**:QQL 用户面整体移除,TS 重写 `ui/src/lib/qql/*` + `mock-qql` 一并清掉。引擎仅留 Rust core + MCP `run_qql`,待 6B 用 NL 重建表面。详见 [04](./04-features.md) F-QUERY。 | — |
 | **B-MCP** | 独立 `openobs-mcp` stdio JSON-RPC:list/read/write/search/qql | OAuth、远程 HTTP、细粒度多租户权限 |
 | **B-PLUGIN** | v1 宿主保留 | **产品决定不做深化**(商店/签名/vault 扫描 UI) |
-| **B-SHEET** | v2:多表、冻结、图表、md 嵌入、SUM 族、IronCalc 可选 | **⛔ 不做**:XLSX 全量导入导出、实时协作(对照 Tolaria/Obsidian 核心亦非主路径;共享靠 git) |
+| **B-SHEET** | v2:多表、冻结、图表、md 嵌入、SUM 族、IronCalc 可选 | **⛔ 不做**:XLSX 全量导入导出、实时协作(对照 Obsidian 核心亦非主路径;共享靠 git) |
 
 ## 架构落点
 

@@ -1,7 +1,7 @@
 /**
  * StatusBar —— 底栏:保存状态 + 当前路径 + 节点计数 + mock 提示 + 主题/语言切换。
  *
- * 对齐 Tolaria:底栏收纳主题/语言切换(Tolaria 不在顶栏突出这些)。Phase B 会在此
+ * 底栏收纳主题/语言切换(不在顶栏突出这些)。Phase B 会在此
  * 扩充 vault 名 / 版本 / Git Changes 徽标 / 最近提交(见 useGit hook,本轮未做)。
  */
 import { Check, CircleNotch, Sun, Moon } from "@phosphor-icons/react";

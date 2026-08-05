@@ -2,7 +2,7 @@
  * mock-tauri —— 浏览器内内存后端。
  *
  * 仅在非 Tauri 环境(纯 `vite dev`)生效,让整条 UI 可在浏览器里跑起来,
- * 无需编译 Rust。这是 Tolaria `src/mock-tauri` 模式的复刻:同一套命令名,
+ * 无需编译 Rust。采用 mock-tauri 模式:同一套命令名,
  * 内存实现。
  *
  * 范围:

@@ -4,12 +4,12 @@
 
 - **P0** — v1 必须。没有它,v1 不成立。
 - **P1** — v1 尽力。有它 v1 才"好用"。
-- **P2** — 后期阶段(成熟度对齐 Tolaria)。
-- **P3** — 远期(对齐 Tolaria 的高级能力)。
+- **P2** — 后期阶段(成熟度打磨)。
+- **P3** — 远期(高级能力探索)。
 
 ---
 
-## 两大差异化(Tolaria 缺、Obsidian 靠插件:本项目存在的理由)
+## 两大差异化(Obsidian 靠插件拼、本项目做成原生:存在的理由)
 
 ### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局 · Cytoscape)
 
@@ -28,7 +28,7 @@
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
 - **健康面(部分,见 [12](./12-graph-and-agent-roadmap.md) §I)**:Orphans/Hubs 列表、最短路径等;MCP `links` 等继续深化。
 
-> UI 蓝本:Tolaria / Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
+> UI 蓝本:Obsidian 交互心智 + 公开参考产品语义(概念 only)。实现独立编写。总表 [backlog §I](./backlog.md)。
 
 ### F-QUERY 聚合查询引擎 [P0] 🔄 引擎保留 / 用户面已删(2026-08-02)
 
@@ -58,9 +58,9 @@
 
 ---
 
-## Obsidian/Tolaria 对等能力
+## Obsidian 对等能力
 
-> UI 蓝本参考 Tolaria `design/*.pen`。以自己的实现重写。
+> UI 蓝本参考 Obsidian 公开交互。以自己的实现重写。
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|

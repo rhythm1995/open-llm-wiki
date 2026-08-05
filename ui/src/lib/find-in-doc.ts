@@ -1,7 +1,7 @@
 /**
  * find-in-doc —— 当前笔记内查找的纯逻辑(可测)。
  *
- * 对标 Tolaria editorFind 的产品心智:在整篇文档文本上找全部匹配,
+ * 对标编辑器查找的产品心智:在整篇文档文本上找全部匹配,
  * 返回 from/to 与循环 next 索引。不依赖 DOM / CodeMirror。
  */
 

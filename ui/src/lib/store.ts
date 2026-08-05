@@ -187,7 +187,7 @@ export function useVault() {
           openPaths: currentPath ? [currentPath] : [],
           content,
         });
-        // 记下成功打开的根,下次启动恢复(Tolaria / Obsidian 同款行为)。
+        // 记下成功打开的根,下次启动恢复(Obsidian 同款行为)。
         writeLastRoot(root);
         // Tauri 桌面:外部改动 → debounce 并集路径 → apply;失败则 force 自愈。
         // 切 vault 前先 stopWatch(清 timer + 作废 gen),防 vault A 定时器写进 B。

@@ -46,7 +46,7 @@ export function ColResizeHandle({
     <div className="relative w-0 shrink-0 self-stretch">
       <div
         onMouseDown={onDown}
-        // 模拟 Tolaria:细灰高亮,不抢眼(命中区 4px 跨接缝,hover 显中性灰)。
+        // 细灰高亮,不抢眼(命中区 4px 跨接缝,hover 显中性灰)。
         className="absolute -left-[2px] top-0 z-30 h-full w-[4px] cursor-col-resize hover:bg-overlay/40"
       />
     </div>

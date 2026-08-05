@@ -115,7 +115,7 @@ LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Op
 
 ### Health 即查询(核心洞察)
 
-传统 LLM Wiki 的 Health 层是一篇**手写刷新**的 `wiki-health` 快照(因为 Tolaria 这类工具没有原生聚合)。
+传统 LLM Wiki 的 Health 层是一篇**手写刷新**的 `wiki-health` 快照(因为通用笔记工具没有原生聚合)。
 OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是一条 QQL,存成 `type: Query` 的笔记,自举进图谱/检索:
 
 | Health 指标 | 对应 QQL(示意) |
@@ -196,7 +196,7 @@ sequenceDiagram
 3. **文件即真相 + git 唯一版本源** —— 删除/还原全走 git;结构操作自动提交、正文手动提交。
 4. **软类型,不靠文件夹** —— `type:` + wikilink + 关系键;文件夹不承载语义。
 5. **画布 MIT** —— Excalidraw 懒加载隔离;旧 tldraw 文件只读兼容。
-6. **clean-room** —— 以 Tolaria 公开设计为蓝本,严禁复制其 AGPL 源码。
+6. **原创 MIT 实现** —— 严禁引入任何 GPL/AGPL 等 copyleft 源码。
 
 ---
 

@@ -1,7 +1,7 @@
 /**
  * F-THEMES 主题的纯逻辑(无 DOM、无 IO)。
  *
- * 明/暗两套,浅色为产品默认(对齐 Tolaria 基准)。偏好可显式 light/dark,
+ * 明/暗两套,浅色为产品默认。偏好可显式 light/dark,
  * 或 system 跟随系统;无偏好时回退到浅色(浅色优先)。实际落盘(localStorage)
  * 与 DOM 属性由 useTheme hook 完成。
  */

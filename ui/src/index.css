@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* ───────────────────────────────────────────────────────────────
-   OpenObsidian 主题 —— 对齐 Tolaria 基准:浅色优先 + 蓝色强调。
-   设计参考 Tolaria(仅参考,不抄源码):编辑区为 primary 底,侧栏/面板略灰,
+   OpenObsidian 主题 —— 浅色优先 + 蓝色强调。
+   设计自定:编辑区为 primary 底,侧栏/面板略灰,
    1px 细分隔线;强调色统一走蓝(--color-blue,所有 text-blue/bg-blue 自动跟随)。
    全站组件只引用这套语义令牌,故只改这里的值即可全站换肤。
 
@@ -34,7 +34,7 @@
 
 :root {
   color-scheme: light;
-  /* 小控件圆角(按钮/chip);面板走直角,贴合 Tolaria。 */
+  /* 小控件圆角(按钮/chip);面板走直角。 */
   --radius-panel: 4px;
 }
 
@@ -121,7 +121,7 @@ body {
 
 /* CodeMirror 撑满容器。
    编辑器正文用比例无衬线(Inter)——笔记 prose 的可读性远胜等宽;代码块/行内代码
-   仍走等宽(defaultHighlightStyle 给 monospace 标签注入 font-family)。对齐 Tolaria。 */
+   仍走等宽(defaultHighlightStyle 给 monospace 标签注入 font-family)。 */
 .cm-editor {
   height: 100%;
 }

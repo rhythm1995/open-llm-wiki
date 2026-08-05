@@ -103,7 +103,7 @@ Tauri 2 外壳 + React 19:
 
 - ✅ **archive-via-git(取代 F-TRASH)**:删掉 `.trash/` 平行机制,删除/还原**全走 git**,唯一真相源。提交策略「结构自动 + 内容手动」——创建/删除/重命名自动 `git commit`(`git_commit_paths` **只暂存并提交给定路径**,未暂存的正文编辑绝不卷入,保 commit 卫生);正文编辑仍由 GitPanel 手动提交。后端命令 `git_is_repo` / `git_deleted_notes`(历史已删 `.md`,带 commit+date)/ `git_restore_note`(`git checkout <hash>^ -- <path>`)/ `git_init`;前端 `ArchiveView`(非 git 空态 +「初始化 git」/ 已删列表 + 还原 + 最近提交时间线)。**Rust 集成测试**(`git_tests`,真实 round-trip 过系统 git):is_repo、选择性提交(commit 卫生不变量)、删除→列出→还原。`trash.ts` 已删。
 - ✅ **关系图重做(做到完美)**:布局纯逻辑抽出 `graph-layout.ts`(seedNodes + relaxLayout[FR:全对斥力 + 边弹簧 + 向心 + 温度降温,Float64Array 热循环] + bbox + fitTransform,15 单测);GraphView 重写——撑满容器(ResizeObserver 真实尺寸)、位置 Map 跨帧持久(增量播种 + 暖启动,过滤/索引刷新时已有节点不乱跳)、结构签名 gate 重排、自动 fit、悬停邻域高亮、节点拖拽、以光标为中心缩放、平移、fit、按度数 top-K 截断(默认上限 ~400)、随缩放变边透明度、暗角 + 当前节点辉光、标签按缩放/度数/悬停门控(paintOrder 描边光晕)。右键菜单(自实现 ContextMenu:聚焦 1 跳 / 复制 wikilink / 隐藏类型)随重做落地。
-- ✅ **编辑器优化(参考 Tolaria,第三栏)**:CodeMirror 正文改无衬线(Inter)+ 可读行宽(居中 ≤760px);新增「半所见即所得」行装饰 ViewPlugin(`markdownLineDecorations`,仅可见视口:`#{1,6}` → cm-md-h* 按级放大、`>` → cm-md-quote;只动呈现不改文本,光标/历史无感);深色主题在 oneDark 上叠加应用底色令牌消除色缝。
+- ✅ **编辑器优化(第三栏)**:CodeMirror 正文改无衬线(Inter)+ 可读行宽(居中 ≤760px);新增「半所见即所得」行装饰 ViewPlugin(`markdownLineDecorations`,仅可见视口:`#{1,6}` → cm-md-h* 按级放大、`>` → cm-md-quote;只动呈现不改文本,光标/历史无感);深色主题在 oneDark 上叠加应用底色令牌消除色缝。
 - ✅ **验证加固**:全绿——core 99 + app-lib 7(4 preview + 3 git 集成)+ UI 237(22 文件);tsc clean;UI 构建重嵌 app + 运行时 diag_log 0 `[webview]` 报错。
 
 ### Phase 5+ 续五(本会话,v1 范围之外)✅
