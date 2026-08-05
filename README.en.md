@@ -21,7 +21,7 @@ A local-first, file-as-truth, MIT-licensed knowledge-base desktop app — your p
 - **AI context export:** one-click copy of the current note plus the body of its linked neighbors as LLM-friendly Markdown.
 - **In-app Agent:** an ACP-managed agent sidebar — recipe picker (opencode / claude-code), three-tier permissions, `@`-note context, cross-agent handoff, transcript replay; agent writes are attributed as per-turn git snapshots you can adopt or revert.
 - **Local-first:** everything runs locally; preferences live in local config and are never uploaded.
-- **AI-ready (MCP):** a built-in MCP server exposes 6 tools (`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`) so agents like Claude Desktop can read and write your vault.
+- **AI-ready (MCP):** a built-in MCP server exposes 7 tools (`list_notes` / `read_note` / `write_note` / `links` / `search_notes` / `run_qql` / `vault_info`) so agents like Claude Desktop can read and write your vault.
 - **i18n:** 简体中文 / English UI.
 
 ## Getting Started
@@ -78,7 +78,7 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 
 - `core/` — pure functions, no IO, guarded by unit tests + proptests.
 - `app/src-tauri/` — Tauri commands wiring file IO, git, and `core`.
-- `mcp/` — the built-in MCP server (6 tools) for AI agents.
+- `mcp/` — the built-in MCP server (7 tools) for AI agents.
 - `ui/` — three-pane layout (file tree / editor / inspector); switchable graph / git views; ⌘K palette. Browser dev uses `src/lib/mock.ts` (in-memory backend) — preview without compiling Rust.
 
 ## Requirements

@@ -21,7 +21,7 @@
 - **AI 上下文导出** —— 一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown。
 - **应用内 Agent** —— 右侧栏 ACP 托管会话:配方 picker(opencode / claude-code)、权限三档、`@`-笔记上下文、跨 agent 移交、会话转录回放;agent 写入按 turn 级 git 快照归因,可采纳 / 撤销。
 - **本地优先** —— 一切在本地运行;偏好存于本地配置,绝不上传。
-- **面向 AI(MCP)** —— 内置 MCP server 暴露 6 个工具(`list_notes` / `read_note` / `write_note` / `search_notes` / `run_qql` / `vault_info`),Claude Desktop 等 agent 可读写你的库。
+- **面向 AI(MCP)** —— 内置 MCP server 暴露 7 个工具(`list_notes` / `read_note` / `write_note` / `links` / `search_notes` / `run_qql` / `vault_info`),Claude Desktop 等 agent 可读写你的库。
 - **i18n** —— 简体中文 / English 界面。
 
 ## 快速开始
@@ -78,7 +78,7 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 - `core/` —— 纯函数、无 IO,单测 + proptest 守护。
 - `app/src-tauri/` —— Tauri 命令,串起文件 IO、git 与 `core`。
-- `mcp/` —— 内置 MCP server(6 工具),供 AI agent。
+- `mcp/` —— 内置 MCP server(7 工具),供 AI agent。
 - `ui/` —— 三栏布局(文件树 / 编辑器 / Inspector);可切换图谱 / Git 视图;⌘K 命令面板。浏览器开发走 `src/lib/mock.ts`(内存后端),无需编译 Rust 即可预览。
 
 ## 环境要求

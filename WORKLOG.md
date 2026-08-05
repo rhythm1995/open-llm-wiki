@@ -15,6 +15,13 @@
 
 ---
 
+### 2026-08-05 Claude — README/backlog MCP 工具数漂移修复(6→7);收口 push
+
+- **branch**: `release/v0.1.0`(本条 commit + 此前 3 条文档 commit,收工即 push)
+- **做了**:MCP 实际 7 个工具(`mcp/src/main.rs` 含 `links` 多 kind),README 中英两处与 backlog B-MCP 行仍写「6 tools」→ 统一改 7 tools 并补 `links`;backlog B-MCP 状态 🟡→✅(agent 侧全落地,仅剩人侧 `B-GRAPH-HEALTH-UI`)。调研 `docs/research/agent-memory-survey.md` §7.2 差距 ①② 已被同日 `1b77e37`(wiki 脚手架)闭合,报告原文未回改(历史文档,以本条为准)。
+- **理由 / 影响**:纯文档对齐,不影响 CI;doc 12 §0 规划理由表里的「6 tools」是规划时点的历史叙述,未动。
+- **下一步 / 接手注意**:push 后 release/v0.1.0 共 4 条文档 commit 上 origin;后续若加 MCP 工具,记得同步 README 中英 + backlog B-MCP 行的工具清单。
+
 ### 2026-08-05 Claude — 文档整理:状态漂移修复 + 索引补齐 + CHANGELOG 补录
 
 - **branch**: `release/v0.1.0`(纯文档,未 commit)

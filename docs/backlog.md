@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 Obsidian 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
-| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | 🟡 | v1 6 tools:`list_notes`/`read_note`/`write_note`/`search_notes`/`run_qql`/`vault_info` ✅;图工具化见 **§I-B** |
+| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | 7 tools:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`;read 简报 / write 审计 / 配置样例见 **§I-B** 全 ✅;剩人侧 UI(`B-GRAPH-HEALTH-UI`) |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 安全样例表 + app 层 wikilink/fm;与 DEEP 共用 `safeFixtureHolds` |
 | B-QQL-TS | ~~**QQL 求值器移植到 TS**~~ | 🔴 | 🗑️ 已删 | 2026-08-02 随 QQL 用户面删除:`ui/src/lib/qql/*` + `mock-qql` 全清。引擎仅留 Rust core + MCP `run_qql`(见 [04](./04-features.md) F-QUERY) |
 
