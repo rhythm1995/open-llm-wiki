@@ -134,9 +134,9 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-WIKI-STARTER | starter vault 脚手架 | 🟡 | ⏳ | 目录仅约定;`status` frontmatter 为唯一状态真相 |
-| B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ⏳ | 引擎已有;交付模板+文档 |
-| B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ⏳ | ingest/research/consolidate 文档 |
+| B-WIKI-STARTER | starter vault 脚手架 | 🟡 | ✅ | `templates/wiki-starter/`:5 类型契约 + index + 示例链;文件夹不承载语义,`status` 为唯一状态真相 |
+| B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ✅ | `templates/wiki-starter/health/` 5 条 `type: Query`;语法+语义由 `core/tests/wiki_health_qql.rs` 锁住;doc 07 §Health 已对齐 |
+| B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ✅ | `docs/14-llm-wiki-workflow.md`:ingest/research/consolidate 飞轮 + MCP 工具速查 |
 
 ---
 

@@ -29,6 +29,7 @@
 | [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | 应用内 Agent(ACP 托管)· 规划 | 📋 规划(高优) |
 | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) | 图 polish → 外部 Agent(MCP) | 主规划(图推迟) |
 | [13-client-logging.md](./13-client-logging.md) | 客户端日志 | 已落地参考 |
+| [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki 工作流(ingest/research/consolidate) | 已落地参考 |
 | [open-questions.md](./open-questions.md) | 待拍板 | 维护中 |
 
 ## 一句话定位

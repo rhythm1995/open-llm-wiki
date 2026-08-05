@@ -118,14 +118,22 @@ LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Op
 传统 LLM Wiki 的 Health 层是一篇**手写刷新**的 `wiki-health` 快照(因为通用笔记工具没有原生聚合)。
 OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是一条 QQL,存成 `type: Query` 的笔记,自举进图谱/检索:
 
-| Health 指标 | 对应 QQL(示意) |
+| Health 指标 | 对应 QQL |
 |---|---|
 | 矛盾健康度(Contested 概念) | `WHERE type = "Concept" AND status = "Contested" SHOW title` |
-| 孤儿(无入边的 Entity/Concept) | `WHERE type IN ("Entity","Concept") AND mentioned_in IS EMPTY SHOW title` |
-| 概念饥饿度(按引用数分组) | `WHERE type = "Concept" GROUP BY status SHOW count` |
-| 证据质量分布 | `WHERE type = "Source" GROUP BY evidence_tier SHOW count` |
-| 综合度(单源概念) | `WHERE type = "Concept" AND len(mentioned_in) < 2 SHOW title` |
+| 孤儿(无入边的 Entity/Concept) | `WHERE type IN ("Entity", "Concept") AND mentioned_in.len() = 0 SHOW title` |
+| 概念饥饿度(按引用深度排序,最浅在前) | `WHERE type = "Concept" SHOW title, mentioned_in.len() AS depth SORT mentioned_in.len() ASC` |
+| 证据质量分布(按 tier 分组数 Source) | `WHERE type = "Source" RENDER group_by(evidence_tier)` |
+| 综合度(单源 / 薄证据概念) | `WHERE type = "Concept" AND mentioned_in.len() < 2 SHOW title` |
 
+> **语法要点**(对照 [core 的 QQL 语法](../core/src/qql.rs)):子句只有 `WHERE`/`SORT`/`LIMIT`/`SHOW`/`RENDER`,
+> 顺序不限;**没有** `GROUP BY` 子句、**没有** `IS EMPTY` 运算符——分组是 `RENDER group_by(<字段>)`、
+> 「空」用图算的反链入度 `mentioned_in.len() = 0` 表达(入度由正文 `[[wikilink]]` 生成,与 frontmatter 是否写了该键无关)。
+> 字段长度统一写 `<字段>.len()`,如 `mentioned_in.len()`(不是 `len(mentioned_in)`)。
+>
+> 这五条作为可即用的 `type: Query` 笔记随 starter vault 交付([`templates/wiki-starter/health/`](../templates/wiki-starter/health/)),
+> 并由 [`core/tests/wiki_health_qql.rs`](../core/tests/wiki_health_qql.rs) 锁住「能解析 + 语义正确」——改引擎或改模板都会被它挡下。
+>
 > 这是「LLM Wiki 结合本身设计」最浓缩的一处:**OpenObsidian 不存 Health,它存"能算出 Health 的查询"**。
 > 查询本身又是笔记,所以 Health 指标可以被 `[[link]]`、被别的查询再聚合——自举到第二层。
 
