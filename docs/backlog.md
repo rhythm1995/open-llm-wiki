@@ -158,7 +158,7 @@
 | B-SIGN-MAC | macOS 签名 + 公证 | 🟢 | 🔑 | 需 APPLE_* secrets |
 | B-SIGN-WIN | Windows 安装包签名 | 🟢 | 🔑 | 需证书 |
 | B-UPDATER | 自动更新 | 🟡 | 🔑 | 需密钥 + 是否上线决策 |
-| B-UNIVERSAL-DMG | universal `.dmg` | 🟢 | ⏳ | 现分架构各打 |
+| B-UNIVERSAL-DMG | universal `.dmg` | 🟢 | ✅ | `scripts/build-universal-dmg.sh`(--target universal-apple-darwin --bundles dmg;自动补双 rust target);`build-app.sh` 仍为默认日常 .app |
 | B-AGENTS-TLDRAW | ~~AGENTS.md tldraw 叙述~~ | 🟢 | ✅ | tldraw 引用已从 AGENTS.md 移除(画布=Excalidraw MIT) |
 | B-MERGE-MAIN | `feat/phase1-core` → main | 🟢 | 🧪 | 已 push;合 main 由你操作 |
 
