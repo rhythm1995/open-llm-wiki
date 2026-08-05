@@ -366,28 +366,101 @@ fn run_shell_path(shell: &str, args: &[&str], watchdog: bool) -> Option<String> 
 
 // ─────────────────────────── 食谱 / 检测 ────────────────────────────
 
+/// 一个 agent 的「连接器」:把它的全部私有知识收进一处——身份、启动命令、
+/// 探测策略、安装指引、登录命令。加 agent = 加一个 Recipe 字面量,别处不动。
 struct Recipe {
     id: &'static str,
     label: &'static str,
     /// 完整启动命令,会被 `AcpAgent::from_str` 解析成 program + args。
     command: &'static str,
-    /// 探测是否已安装时 `which` 的二进制(通常是命令首词)。
-    detect_bin: &'static str,
-    /// 未安装时给用户看的安装指引(命令 + 说明)。
+    /// 探测策略(封装「需要什么才能跑」),见 [`Detect`]。
+    detect: Detect,
+    /// 未安装时给用户看的安装指引(命令 + 说明);node/npx 缺失时由 Detect 再补根因句。
     install_hint: &'static str,
-    /// 是否依赖 Node 运行时(npx/npm):缺失时优先引导装 Node。
-    needs_node: bool,
+    /// 未登录 / API key 失效时,错误提示里给的登录命令(None = 无统一命令,走通用提示)。
+    login_cmd: Option<&'static str>,
 }
 
-fn recipes() -> Vec<Recipe> {
-    vec![
+/// 探测策略:按 agent 的启动形态分类,各自封装「就绪判定」与「缺什么补什么提示」。
+/// 取代了旧的 `detect_bin` 字符串特判 + `needs_node` bool——通用循环里不再有 agent 分支。
+enum Detect {
+    /// 仅需某二进制在 PATH(独立 CLI,如 grok)。
+    Binary(&'static str),
+    /// npx 拉起的适配器(claude / cursor):需 node + 一个真能跑的 npx(壳可能是失效 shim)。
+    NpxAdapter,
+    /// 二进制 + node 都要在(如 pi:pi-acp 经 npx 拉起,再调 pi 二进制)。
+    BinaryPlusNode(&'static str),
+}
+
+/// node 缺失时的共用提示:某依赖(adapter 壳 / 目标二进制)在不在,给两种措辞。
+/// 复刻原 agent_list 里 `needs_node && !node_present` 的两分支,逐字一致。
+fn node_missing_suffix(base: &str, dep_present: bool) -> String {
+    if dep_present {
+        format!(
+            "{}\n⚠ 检测到 npx 但未检测到 node(常由 nvm/fnm 管理,未进登录 PATH)。请在终端确认 `node -v` 可用后重启 app;或装 Node:brew install node",
+            base
+        )
+    } else {
+        format!(
+            "{}\n⚠ 需要 Node 运行时但未检测到。安装 Node:brew install node  或  https://nodejs.org",
+            base
+        )
+    }
+}
+
+impl Detect {
+    /// 是否就绪:满足探测条件即可启动。
+    fn probe(&self, node_present: bool) -> bool {
+        match self {
+            Detect::Binary(b) => which::which(b).is_ok(),
+            Detect::NpxAdapter => node_present && resolve_working_npx().is_some(),
+            Detect::BinaryPlusNode(b) => node_present && which::which(b).is_ok(),
+        }
+    }
+
+    /// 装配安装指引:就绪 / 无特别说明 → 原样 base;否则按「缺什么」补一句根因型提示。
+    /// 行为与重构前 agent_list 的 hint 分支逐字一致(含 pi 下 npx 措辞——保留不改)。
+    fn hint(&self, base: &str, node_present: bool) -> String {
+        if self.probe(node_present) {
+            return base.to_string();
+        }
+        match self {
+            Detect::Binary(_) => base.to_string(),
+            Detect::NpxAdapter => {
+                let npx = resolve_working_npx().is_some();
+                if !node_present {
+                    node_missing_suffix(base, npx)
+                } else {
+                    // node 在但 npx 不可用:PATH 上的 shim 全失效。
+                    format!(
+                        "{}\n⚠ 未找到可用的 npx(PATH 上的 shim 均已失效,常见于 npm/pnpm 全局升级残留)。在系统终端修复:重装 Node 或 `npm i -g npm`,随后重启 app",
+                        base
+                    )
+                }
+            }
+            Detect::BinaryPlusNode(b) => {
+                if !node_present {
+                    node_missing_suffix(base, which::which(b).is_ok())
+                } else {
+                    // node 在、目标二进制不在:base 自带的安装指引已够,不加冗余。
+                    base.to_string()
+                }
+            }
+        }
+    }
+}
+
+/// 内置 agent 连接器表(单一注册源)。返回 &'static 切片,供 agent_list 迭代、
+/// agent_connect_error 按 id 查 login_cmd,共用零分配借用。
+fn recipes() -> &'static [Recipe] {
+    &[
         Recipe {
             id: "opencode",
             label: "OpenCode",
             command: "opencode acp",
-            detect_bin: "opencode",
+            detect: Detect::Binary("opencode"),
             install_hint: "安装:brew install sst/tap/opencode  或  npm i -g opencode-ai",
-            needs_node: false,
+            login_cmd: Some("opencode auth login"),
         },
         Recipe {
             id: "claude-code",
@@ -396,9 +469,9 @@ fn recipes() -> Vec<Recipe> {
             // agent-client-protocol SDK 同源、版本对齐。先前用的 @zed-industries/claude-code-acp
             // 是旧分支:session/new 时 mcpServers 处理不兼容,握手后进程即崩(Query closed)。
             command: "npx -y @agentclientprotocol/claude-agent-acp@latest",
-            detect_bin: "npx",
+            detect: Detect::NpxAdapter,
             install_hint: "经 npx 运行,无需单独安装;但要先装 Node,且已 claude /login 登录。",
-            needs_node: true,
+            login_cmd: Some("claude /login"),
         },
         Recipe {
             id: "cursor",
@@ -406,9 +479,9 @@ fn recipes() -> Vec<Recipe> {
             // 社区 ACP 适配器(blowmage/cursor-agent-acp-npm),把 Cursor CLI 包成
             // ACP 服务,stdio、无子命令。类比 claude-code 的 npx adapter 路径。
             command: "npx -y @blowmage/cursor-agent-acp",
-            detect_bin: "npx",
+            detect: Detect::NpxAdapter,
             install_hint: "经 npx 运行,无需单独安装;但要先装 Node,且 Cursor CLI 已登录。",
-            needs_node: true,
+            login_cmd: Some("cursor-agent login"),
         },
         Recipe {
             id: "grok-build",
@@ -416,9 +489,9 @@ fn recipes() -> Vec<Recipe> {
             // xAI Grok Build CLI(`grok`),ACP 原生:`agent stdio` 子命令即 ACP 服务
             // (grok-build-vscode / grok-remote 均以此驱动)。独立二进制,非 Node。
             command: "grok agent stdio",
-            detect_bin: "grok",
+            detect: Detect::Binary("grok"),
             install_hint: "安装:curl -fsSL https://x.ai/cli/install.sh | bash  (macOS/Linux)",
-            needs_node: false,
+            login_cmd: None,
         },
         Recipe {
             id: "pi",
@@ -427,9 +500,9 @@ fn recipes() -> Vec<Recipe> {
             // (svkozak/pi-acp)桥接:pi-acp 经 stdio 说 ACP,内部 spawn `pi --mode rpc`。
             // 故需 Node(npx 拉适配器)+ pi 二进制(被适配器调用)同时在 PATH。
             command: "npx -y pi-acp",
-            detect_bin: "pi",
+            detect: Detect::BinaryPlusNode("pi"),
             install_hint: "安装:npm i -g @earendil-works/pi-coding-agent  (需 Pi v0.80.4+ 与 Node 22+)",
-            needs_node: true,
+            login_cmd: None,
         },
     ]
 }
@@ -594,47 +667,17 @@ pub fn agent_list() -> Vec<AgentInfo> {
         })),
     );
     recipes()
-        .into_iter()
+        .iter()
         .map(|r| {
-            // npx/npm 壳找到 ≠ node 在 PATH:nvm/fnm/volta 把 node 只放进交互式 PATH,
-            // 登录式探测漏掉时会出现「壳在、node 不在」——点了会在 spawn 处报
-            // `exec: node: not found`。故依赖 Node 的 agent 必须**两者都到位**才算就绪。
-            // 另:npx 壳还可能是**失效 shim**(全局 npm 升级残留);探测一个真能跑的。
-            let bin_present = if r.detect_bin == "npx" {
-                resolve_working_npx().is_some()
-            } else {
-                which::which(r.detect_bin).is_ok()
-            };
-            let installed = bin_present && (!r.needs_node || node_present);
-            // 给出根因型指引:npx 在但 node 缺 → 提示 node 版本管理器 / 装 node。
-            let install_hint = if installed {
-                r.install_hint.to_string()
-            } else if r.needs_node && !node_present {
-                if bin_present {
-                    format!(
-                        "{}\n⚠ 检测到 npx 但未检测到 node(常由 nvm/fnm 管理,未进登录 PATH)。请在终端确认 `node -v` 可用后重启 app;或装 Node:brew install node",
-                        r.install_hint
-                    )
-                } else {
-                    format!(
-                        "{}\n⚠ 需要 Node 运行时但未检测到。安装 Node:brew install node  或  https://nodejs.org",
-                        r.install_hint
-                    )
-                }
-            } else if r.needs_node && r.detect_bin == "npx" && !bin_present {
-                format!(
-                    "{}\n⚠ 未找到可用的 npx(PATH 上的 shim 均已失效,常见于 npm/pnpm 全局升级残留)。在系统终端修复:重装 Node 或 `npm i -g npm`,随后重启 app",
-                    r.install_hint
-                )
-            } else {
-                r.install_hint.to_string()
-            };
+            // 探测策略全在 Recipe.detect 里(连接器模式):通用循环只做
+            // probe → installed、detect.hint → 根因型安装指引,零 agent_id / detect_bin 分支。
+            let installed = r.detect.probe(node_present);
             AgentInfo {
                 id: r.id.to_string(),
                 label: r.label.to_string(),
                 command: r.command.to_string(),
                 installed,
-                install_hint,
+                install_hint: r.detect.hint(r.install_hint, node_present),
             }
         })
         .collect()
@@ -996,12 +1039,13 @@ fn agent_connect_error(agent_id: &str, stage: &str, raw: &str, stderr_tail: &str
         || hay.contains("authentication")
         || hay.contains("needs login")
         || hay.contains("not authenticated");
-    let login_cmd: Option<&str> = match agent_id {
-        "cursor" | "cursor-agent" => Some("cursor-agent login"),
-        "claude-code" | "claude" | "claude-agent" => Some("claude /login"),
-        "opencode" => Some("opencode auth login"),
-        _ => None,
-    };
+    // 登录命令随 recipe 走(连接器模式):不再维护第二张 agent_id→cmd 表。
+    // 旧 match 覆盖的别名(cursor-agent / claude / claude-agent)前端不会传入
+    // (agent_id 恒为 recipe.id),故直接按 id 查即可。
+    let login_cmd: Option<&'static str> = recipes()
+        .iter()
+        .find(|r| r.id == agent_id)
+        .and_then(|r| r.login_cmd);
     let cmd_not_found = hay.contains("enoent")
         || hay.contains("command not found")
         || hay.contains("no such file")
@@ -2513,5 +2557,35 @@ mod tests {
         // 但绝不能把参数弄丢、也不能换成另一个失效壳。
         assert!(out == "npx -y some-pkg" || out.starts_with('/'));
         assert!(out.ends_with("-y some-pkg"), "参数必须保留:{out}");
+    }
+
+    #[test]
+    fn node_missing_suffix_both_branches() {
+        // 依赖在 → 「检测到 npx 但未检测到 node」措辞;依赖不在 → 「需要 Node」措辞。
+        // 锁住重构后与原 agent_list 逐字一致的两条根因句。
+        assert!(node_missing_suffix("base", true).starts_with("base\n⚠ 检测到 npx 但未检测到 node"));
+        assert!(node_missing_suffix("base", false).starts_with("base\n⚠ 需要 Node 运行时但未检测到"));
+    }
+
+    #[test]
+    fn detect_binary_hint_passthrough_when_absent() {
+        // 独立二进制(grok / opencode)形态:二进制不在时,安装指引就是 base 原样,
+        // 不附加 node/npx 相关提示(那些只对 NpxAdapter / BinaryPlusNode 生效)。
+        let d = Detect::Binary("definitely-not-a-real-binary-zzz-123");
+        assert!(!d.probe(false));
+        assert_eq!(d.hint("base", false), "base");
+        assert_eq!(d.hint("base", true), "base");
+    }
+
+    #[test]
+    fn recipes_are_single_source_for_login_cmd() {
+        // 连接器模式:login_cmd 只能从 recipe 表查到,别处无第二张表。
+        // claude-code / cursor / opencode 有;grok-build / pi 无。
+        let by_id = |id: &str| recipes().iter().find(|r| r.id == id).and_then(|r| r.login_cmd);
+        assert_eq!(by_id("claude-code"), Some("claude /login"));
+        assert_eq!(by_id("cursor"), Some("cursor-agent login"));
+        assert_eq!(by_id("opencode"), Some("opencode auth login"));
+        assert_eq!(by_id("grok-build"), None);
+        assert_eq!(by_id("pi"), None);
     }
 }
