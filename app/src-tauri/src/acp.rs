@@ -410,6 +410,27 @@ fn recipes() -> Vec<Recipe> {
             install_hint: "经 npx 运行,无需单独安装;但要先装 Node,且 Cursor CLI 已登录。",
             needs_node: true,
         },
+        Recipe {
+            id: "grok-build",
+            label: "Grok Build",
+            // xAI Grok Build CLI(`grok`),ACP 原生:`agent stdio` 子命令即 ACP 服务
+            // (grok-build-vscode / grok-remote 均以此驱动)。独立二进制,非 Node。
+            command: "grok agent stdio",
+            detect_bin: "grok",
+            install_hint: "安装:curl -fsSL https://x.ai/cli/install.sh | bash  (macOS/Linux)",
+            needs_node: false,
+        },
+        Recipe {
+            id: "pi",
+            label: "Pi",
+            // Pi 编码 agent(earendil-works/pi)。原生不直说 ACP,经社区适配器 pi-acp
+            // (svkozak/pi-acp)桥接:pi-acp 经 stdio 说 ACP,内部 spawn `pi --mode rpc`。
+            // 故需 Node(npx 拉适配器)+ pi 二进制(被适配器调用)同时在 PATH。
+            command: "npx -y pi-acp",
+            detect_bin: "pi",
+            install_hint: "安装:npm i -g @earendil-works/pi-coding-agent  (需 Pi v0.80.4+ 与 Node 22+)",
+            needs_node: true,
+        },
     ]
 }
 
