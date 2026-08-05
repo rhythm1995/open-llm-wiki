@@ -6,7 +6,11 @@
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, SyncSender};
+use std::sync::Arc;
+use std::time::Duration;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -217,6 +221,87 @@ fn short_session_id() -> String {
     format!("{:x}", nanos % 0xffff_ffff)
 }
 
+// ─── PortSink (optional TCP live-stream, dev/debug only) ─────────
+
+/// Parse the `OPENOBS_LOG_PORT` value into a port. Pure (env lookup done by
+/// the caller) so it is unit-testable. Empty / non-numeric / 0 → None.
+pub fn parse_log_port(raw: Option<&str>) -> Option<u16> {
+    let p: u16 = raw?.trim().parse().ok()?;
+    (p > 0).then_some(p)
+}
+
+/// Start a localhost TCP log sink. The app acts as a **server**: it binds the
+/// already-bound `listener` (127.0.0.1) and clients — `nc 127.0.0.1 <port>` or
+/// `socat - TCP:127.0.0.1:<port>` — connect in to tail the live NDJSON stream.
+/// Returns a bounded sender the bus pushes lines through.
+///
+/// Two threads: an acceptor adds inbound streams to a shared client list; a
+/// writer drains the channel and fans each line out to every client, dropping
+/// any that error or time out. The channel is bounded + `try_send` is used on
+/// the emit side, so a stalled writer/client can never block logging.
+pub(crate) fn start_port_sink(listener: TcpListener) -> SyncSender<String> {
+    let (tx, rx) = mpsc::sync_channel::<String>(256);
+    let write_timeout = Duration::from_millis(200);
+    let clients: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
+
+    // Acceptor (blocking accept; connections queue in the OS backlog meanwhile).
+    let acc_clients = clients.clone();
+    let _ = std::thread::Builder::new()
+        .name("openobs-log-port-accept".into())
+        .spawn(move || {
+            while let Ok((stream, addr)) = listener.accept() {
+                let _ = stream.set_write_timeout(Some(write_timeout));
+                if let Ok(mut g) = acc_clients.lock() {
+                    g.push(stream);
+                }
+                eprintln!("[openobs] log port: client connected {addr}");
+            }
+        });
+
+    // Writer (fan-out; drop dead clients).
+    let wr_clients = clients;
+    std::thread::Builder::new()
+        .name("openobs-log-port-writer".into())
+        .spawn(move || {
+            while let Ok(line) = rx.recv() {
+                let mut payload = line.into_bytes();
+                payload.push(b'\n');
+                if let Ok(mut g) = wr_clients.lock() {
+                    let mut dead = Vec::new();
+                    for (i, c) in g.iter_mut().enumerate() {
+                        if c.write_all(&payload).is_err() {
+                            dead.push(i);
+                        }
+                    }
+                    for i in dead.into_iter().rev() {
+                        g.remove(i);
+                    }
+                }
+            }
+        })
+        .expect("spawn openobs-log-port-writer");
+    tx
+}
+
+/// Bind + start the PortSink when `OPENOBS_LOG_PORT` is set. Best-effort: a
+/// bind failure is logged to stderr and returns None (app keeps running).
+fn start_log_port_sink_from_env() -> Option<SyncSender<String>> {
+    let port = parse_log_port(std::env::var("OPENOBS_LOG_PORT").ok().as_deref())?;
+    match TcpListener::bind(("127.0.0.1", port)) {
+        Ok(listener) => {
+            eprintln!(
+                "[openobs] log port: live NDJSON stream on 127.0.0.1:{port} \
+                 (tail with: nc 127.0.0.1 {port})"
+            );
+            Some(start_port_sink(listener))
+        }
+        Err(e) => {
+            eprintln!("[openobs] log port: failed to bind 127.0.0.1:{port}: {e}");
+            None
+        }
+    }
+}
+
 // ─── Bus ─────────────────────────────────────────────────────────
 
 struct BusInner {
@@ -230,6 +315,8 @@ struct BusInner {
     /// Per-target 级别覆盖(放宽):key 存在时,该 target 用 min(全局, 覆盖)。
     /// 用于让「acp」等排查必需的 target 在 release(prod = error+)下也记到 debug。
     target_mins: Mutex<HashMap<String, LogLevel>>,
+    /// Optional TCP PortSink sender (Some only when OPENOBS_LOG_PORT is set).
+    port_tx: Mutex<Option<SyncSender<String>>>,
 }
 
 static BUS: OnceLock<BusInner> = OnceLock::new();
@@ -244,6 +331,7 @@ pub fn init(log_dir: PathBuf, profile: LogProfile) {
         let _ = fs::create_dir_all(&log_dir);
         let min = profile.min_level() as u8;
         let session_id = short_session_id();
+        let port_tx = start_log_port_sink_from_env();
         let inner = BusInner {
             dir: log_dir,
             session_id: session_id.clone(),
@@ -251,6 +339,7 @@ pub fn init(log_dir: PathBuf, profile: LogProfile) {
             profile: Mutex::new(profile),
             write_lock: Mutex::new(()),
             target_mins: Mutex::new(HashMap::new()),
+            port_tx: Mutex::new(port_tx),
         };
         // Startup banner always goes to stderr; file only if level allows info or lower min.
         let banner = format!(
@@ -379,6 +468,14 @@ fn emit_raw(
     }
     let ts = utc_ts_now();
     let line = format_ndjson_line(&ts, level, target, msg, fields, &b.session_id);
+
+    // Optional TCP PortSink (dev/debug only; default off). Bounded channel +
+    // try_send so a stalled client can never block the emit path.
+    if let Ok(g) = b.port_tx.lock() {
+        if let Some(tx) = g.as_ref() {
+            let _ = tx.try_send(line.clone());
+        }
+    }
 
     // stderr for warn+
     if level >= LogLevel::Warn {
@@ -602,6 +699,60 @@ mod tests {
         assert_eq!(pick_min(LogLevel::Trace, Some(LogLevel::Warn)), LogLevel::Trace);
         // 覆盖 == 全局。
         assert_eq!(pick_min(LogLevel::Debug, Some(LogLevel::Debug)), LogLevel::Debug);
+    }
+
+    #[test]
+    fn parse_log_port_strict() {
+        assert_eq!(parse_log_port(Some("9876")), Some(9876));
+        assert_eq!(parse_log_port(Some(" 9876 ")), Some(9876));
+        assert_eq!(parse_log_port(None), None);
+        assert_eq!(parse_log_port(Some("")), None);
+        assert_eq!(parse_log_port(Some("not-a-port")), None);
+        // 0 is rejected (would mean "OS picks" — useless to nc into).
+        assert_eq!(parse_log_port(Some("0")), None);
+        // Out of u16 range.
+        assert_eq!(parse_log_port(Some("70000")), None);
+    }
+
+    #[test]
+    fn port_sink_streams_lines_to_client() {
+        use std::io::Read;
+        // Bind an ephemeral port; start the sink directly (no global bus).
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let tx = start_port_sink(listener);
+
+        let mut client = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        // Let the acceptor pick the connection up.
+        std::thread::sleep(Duration::from_millis(100));
+
+        tx.send(r#"{"msg":"ping"}"#.to_string()).unwrap();
+
+        // Poll-read until we see a newline (absorb scheduling jitter).
+        let mut got = String::new();
+        let mut buf = [0u8; 256];
+        for _ in 0..10 {
+            match client.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    got.push_str(std::str::from_utf8(&buf[..n]).unwrap());
+                    if got.contains('\n') {
+                        break;
+                    }
+                }
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.kind() == std::io::ErrorKind::TimedOut =>
+                {
+                    std::thread::sleep(Duration::from_millis(40));
+                }
+                Err(_) => break,
+            }
+        }
+        assert!(got.contains("ping"), "expected the streamed line, got: {got:?}");
     }
 
     #[test]

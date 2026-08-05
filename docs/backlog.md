@@ -148,7 +148,7 @@
 |---|---|---|---|---|
 | B-LOG-BUS | LogBus + Filter + File/Stderr + panic hook | 🟡 | ✅ | L1:`logging.rs`;NDJSON;dev/verbose/prod;panic hook |
 | B-LOG-UI | 设置:profile / 打开日志目录 / 导出 | 🟡 | ✅ | profile+打开目录+`log_export_bundle` 单文件 txt(非 zip) |
-| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ⏳ | 仍可选;非本批 |
+| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ✅ | app 做 server(127.0.0.1),`nc 127.0.0.1 <port>` 实时看 NDJSON 流;默认关,仅 env 开;接入 `init`/`emit_raw` |
 | B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | ✅ | index/write/pick_vault + **git 集中**(`run_git` 一处覆盖 status/log/commit/pull/push/init/restore/自动提交;成功 debug、失败 error 含 cmd+code+stderr) |
 
 ## F. 分发与工程
