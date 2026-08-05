@@ -15,6 +15,13 @@
 
 ---
 
+### 2026-08-05 Claude — 调研:知识库/LLM Wiki 作为 agent 长期记忆
+- **branch**: `release/v0.1.0`(纯文档,未 commit)
+- **做了**:deep-research 多源调研(40 来源 / 54 条证据,持久化于 `~/Documents/Agent_Memory_Research_20260805/`),产出 `docs/research/agent-memory-survey.md`(8 节:动机/分类学/三大+1 技术路线/8 张项目卡片/增益实证与失败模式/对照 OpenObsidian/引用)。覆盖 Karpathy LLM Wiki、LangChain Wiki Memory、MemGPT/Letta、A-MEM、mem0、Zep/Graphiti、Cognee、basic-memory、LoCoMo/LongMemEval 基准、记忆投毒安全面。
+- **理由 / 影响**:为「vault 作为 agent 长期记忆」提供证据基础。核心结论:增益杠杆是**固化/综合 + 选择性检索**而非单纯持久化;记忆系统用少量准确率换数量级成本;wiki 路线甜蜜点在 <100-1000 篇。**对照结论**:OpenObsidian 五层架构与 wiki-memory 范式高度同构(「Health 即查询」是独有升级),MCP 读写反馈环已就位;差距集中在脚手架(B-WIKI-STARTER/HEALTH-QQL/AGENT-DOC 未建)与「对话→vault 蒸馏」管道缺失;P6-5 默认不做向量与 wiki-memory 路线一致,规模阈值(~1000 篇/单查询 >5-6 篇)是重估触发条件。
+- **下一步 / 接手注意**:报告第 7 节差距/机会点**只陈述不拍板**,沿用与否由人决定。另记录一处 backlog 小账:B-MCP-LINKS/READ-BRIEF/WRITE-FEEDBACK 在 backlog 标 ⏳ 但代码已交付,下次 backlog 清理时核对。
+- **验证**:报告 8 节齐全;§7 断言已逐条对照 doc 07/11/12、open-questions、mcp/README+main.rs、backlog;纯文档,不影响 CI。
+
 ### 2026-08-02 Claude — 非图杂项收口(git 日志打点 + source 任务按钮)+ §I 图谱推迟
 - **branch**: `feat/phase1-core`
 - **做了**:
