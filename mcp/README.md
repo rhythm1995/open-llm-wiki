@@ -25,6 +25,7 @@ The binary is `openobs-mcp`. It resolves the vault root from (in order): the fir
 | `search_notes` | `query` | Full-text AND hits over titles/bodies, scored. |
 | `run_qql` | `qql` | OpenObsidian Query Language result (list / count / table / groups). |
 | `vault_info` | — | `{ root, notes }`. |
+| `lint_vault` | — | `{ summary, findings[], duplicate_names[] }` — L1 structural lint (see below). |
 
 ### `links` kinds
 
@@ -44,6 +45,20 @@ Example — one call, multiple kinds:
 ```jsonc
 { "kind": ["orphans", "hubs", "dead"], "limit": 5 }
 ```
+
+### `lint_vault` — L1 structural lint
+
+Cross-note checks QQL cannot express (single-note predicates only). **Candidates only — the tool never mutates the vault**; acting on a finding is an explicit `write_note` decision by the agent/human (see `docs/14-llm-wiki-workflow.md` §3.2).
+
+| Finding kind | Meaning |
+| --- | --- |
+| `contradiction_uncontested` | A `contradicts` edge exists but neither endpoint is `status: Contested`. |
+| `contested_without_contradiction` | A Concept is `status: Contested` but has no inbound `contradicts` edge (state and graph disagree). |
+| `summary_on_superseded` | A Summary's `source:` points at a Superseded page (retired Summary/Source pairs are exempt). |
+| `ref_to_superseded` | An Active/Contested page still references a Superseded page (`contradicts` / `superseded_by` edges exempt). |
+| `duplicate_names[]` | Normalized (lowercase + trim) title/alias collisions — link resolution silently prefers the first note. |
+
+Each finding carries `kind`, `hint`, `subject { path, title }` and `other { path, title } | null`.
 
 ## Client configuration
 
