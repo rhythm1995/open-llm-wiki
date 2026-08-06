@@ -15,6 +15,61 @@
 
 ---
 
+### 2026-08-06 Grok — 零代码三件:蒸馏 L2a + lint L2 工作流 + CHANGELOG/FEATURE-INDEX 对齐
+
+- **branch**: `release/v0.1.0`(未 commit;纯文档,叠加在既有未提交批之上)
+- **做了**:
+  1. **蒸馏 L2a**:`docs/14` 新增 §1.1(对话/会话→vault 零代码路径:入口形态、可复制 agent 指令、四槽分装、provenance 钩子、人审门、重启信号);`templates/wiki-starter/prompts/ingest-distill.md` 可复制提示词;starter README 登记 `prompts/`。
+  2. **lint L2**:`docs/14` §3.2 拆成 3.2.1 链接/计数 · 3.2.2 L1 core 函数索引(只产候选、消费面未接通) · 3.2.3 内容级 agent-in-the-loop(五分类落笔表 + 禁止自动改 status)+ L2-tool/L3 指针;§4 工具表 Health 五→十一 + lint 未暴露注记;§5 不变量补转录/候选政策。
+  3. **索引对齐**:CHANGELOG `[Unreleased]` 补 provenance / lint L1 / L2a+L2 文档;FEATURE-INDEX 加 lint core、provenance、蒸馏 L2a、lint L2;docs/README 四专项状态从「待拍板」改为落地分层;research 蒸馏/content-lint TL;DR 各加落地状态条;backlog `B-WIKI-AGENT-DOC` 说明扩写。
+- **理由 / 影响**:闭合 WORKLOG 上条「下两个零代码动作」;agent 今天即可按 §1.1 ingest 会话 Source、按 §3.2.3 跑内容 lint,无需等 MCP/UI。
+- **下一步 / 接手注意**:仍勿默认开 `B-WIKI-LINT-MCP`;大块未 commit 代码+文档建议按粒度拆 commit 再 push。抽独立库讨论已否决,勿重开。
+
+### 2026-08-06 Claude — 评估并否决:core+mcp 抽独立通用库(维持单仓库)
+
+- **branch**: `release/v0.1.0`(未 commit;仅 docs/plan.md + 本条日志)
+- **做了**:用户提议把「人机共用记忆系统」抽成独立项目/通用库,做了完整可行性探查(两个 agent 清点 core 公开 API / OpenObsidian 残留 / app+mcp 依赖面 / CI / 许可登记格式)。结论:**技术可行且接缝干净**——core 依赖仅 serde+serde_yaml,IO-free;mcp 已结构独立(单二进制、自带 walker、零 app 耦合);templates+docs/14 无代码引用。代价面:跨仓库版本同步 + 多 agent 纪律要复制一套,而当前只有一个消费者。
+- **理由 / 影响**:**人拍板放弃独立路线**(2026-08-06)。记忆系统留在本仓库内演化;对 backlog 无影响(B-WIKI-LINT-MCP/UI 照旧)。决定已记入 `docs/plan.md`「评估后不做」节,含重启时可复用的探查事实。
+- **下一步 / 接手注意**:别重开此讨论,除非出现第二个消费者(外部项目要用这套记忆引擎)——那才是重启信号。
+
+### 2026-08-06 Claude — backlog 补记:P0/P1 尚无消费面,LINT-MCP / LINT-UI 记录在案暂不做
+
+- **branch**: `release/v0.1.0`(未 commit,叠加在上一条之上)
+- **做了**:人拍板「先记录不做」→ `docs/backlog.md` §I-D 加四行:`B-WIKI-PROVENANCE` ✅(P0 L1,L2 写入路径补缺省待探针观察)、`B-WIKI-LINT-CORE` ✅(P1)、`B-WIKI-LINT-MCP` ⏳(P1 产生价值的最短一跳:app command + generate_handler 注册 + mcp 透传)、`B-WIKI-LINT-UI` ⏳ 后置(品味依赖,先跑探针);顺手把 `B-WIKI-HEALTH-QQL` 行的「5 条」更正为「11 条」。
+- **理由 / 影响**:当前 P0/P1 唯一消费路径是 agent 经 MCP `run_qql`;core lint 函数三层(app/mcp/ui)都够不着,记录清楚防下一个 agent 误以为已接通。
+- **下一步 / 接手注意**:要让 lint 生效先做 B-WIKI-LINT-MCP;UI 面等探针信号。
+
+### 2026-08-06 Claude — P0+P1 落地:provenance 约定进模板/Health 查询;内容级 lint L1 进 core(只产候选)
+
+- **branch**: `release/v0.1.0`(未 commit;含一处 UI a11y 修复)
+- **做了**:按 `docs/research/trust-provenance-frontmatter.md` 与 `content-lint-contradiction.md` 的 §5 规格实现:
+  - **P0 provenance L1(纯约定,零 core 改动)**:`provenance: human|agent|ingested` + `reviewed: YYYY-MM-DD` + 可选 `trust: 0-3` 软字段进 `types/` 五契约与 `examples/` 四篇;`health/` 新增四条查询(agent-unreviewed / stale-agent-notes(cutoff 由运行者插值,建议 N≈180)/ unreviewed-pages / knowledge-mix(`(none)` 桶 = 字段腐烂探针));index.md 登记;docs/14 §3.1 表(五条→十一条)、§3.2 lint 段、§5 不变量(「写 ≠ 复审」)与 docs/07 Health 即查询表同步。
+  - **P1 内容级 lint L1(core 纯函数)**:新增 `core/src/lint.rs`——四条结构启发式:① contradicts↔Contested 双向一致性(contradicts 边两端皆非 Contested / Concept 标 Contested 却无入边 contradicts);② 归一化(lowercase+trim)title/alias 撞名桶;③ Summary 的 `source:` 指向 Superseded 源(豁免已退役对);④ Active/Contested 页引用 Superseded 页(豁免 `contradicts`/`superseded_by` 边)。全部只产候选、不做判决。19 单测 + 4 proptest 性质(不 panic / finding 节点有效 / 指向事实)。graph.rs `aliases_of` 转 pub。
+  - **测试锁**:`core/tests/wiki_health_qql.rs` 加 6 fixture 布点 + 6 用例(五条→十一条),锁住新六条查询的解析 + 语义;撞名粗筛用内联 fixture。
+  - **修复(顺手)**:e2e `smoke.spec.ts`「新建笔记」用例持续超时——查实为**本分支既有回归**(与本次改动无关):`7d7cf77`(agent-ui)把列表列头三个图标按钮(新建笔记/画布/打开 vault)从 `title=` 换成 HoverPop 时丢了可访问名,`getByRole(name: "新建笔记")` 不再命中。用既有 i18n key(sidebar.newNote/newCanvas/openVault)补回 `aria-label` → e2e 恢复 18/18。
+- **理由 / 影响**:决策点——① 规则②对「主动反驳别人但没有入边」的 Contested 页照样报(状态必须与图一致);② L1-D 不报 Superseded Summary→Superseded Source 退役对(减噪);③ 可选的 low-trust-concepts 查询暂缓(trust 采纳未定,open question R4),`trust` 留作可选字段;④ lint 签名只取 `&Graph`(Graph 自带 notes),避免冗余参数。
+- **验证**:CI 门全绿——`cargo test -p openobs-core` 150 lib + 1 parity + 11 wiki-health;clippy(core) clean;`cargo test -p openobs-app` 46 pass / 1 ignored;typecheck ✓;vitest 56 files / 557 tests ✓;`test:cov` 同套件过;**e2e 18/18**(修复前 17/18)。
+- **下一步 / 接手注意**:P0 字段是「探针」——观察约一个月采纳率(knowledge-mix 的 `(none)` 桶占比)再定写入路径补缺省(L2);下两个零代码动作 = 蒸馏 L2a 文档 + lint L2 文档。全部改动未 commit;建议提交粒度:`feat(core): lint` + `test(core)` / `feat(templates)` / `fix(ui): aria-label` / `docs`。
+
+### 2026-08-06 Claude — 调研补记:四方向优先级排序 +「品味依赖度」排序方法论(survey §7.4)
+
+- **branch**: `release/v0.1.0`(纯文档,未 commit;叠加在上一条四篇调研的未 commit 改动之上)
+- **做了**:围绕四篇专项调研做优先级讨论,并把结论回写文档,避免只留在会话里:① `agent-memory-survey.md` 新增 **§7.4「四个方向的优先级与排序依据」**——初版排序(价值×成本:P0 provenance L1 / P1 内容级 lint L1 / P2 蒸馏 L1 / P3 语义检索不排期);核心发现 = P0–P2 各带不同程度的**用户品味/维护纪律依赖**,④ 是唯一纯客观量化触发的方向 → 排序依据改为「可逆性 × 可观测性」三原则(不可标准化的不标准化、可逆性代替正确性、品味问题转观察问题),每方向配一个可观测信号;② 四篇专项文档 TL;DR 各补一条「优先级定位」指针(provenance **重定性为探针**、lint 照做、蒸馏**降为等信号**、语义检索看阈值);③ docs/README survey 行状态补注。
+- **理由 / 影响**:方法论(「价值 = 机制 × 维护纪律;纪律项未知时先测不先建」)对后续所有脚手架类特性通用。仍守「只陈述不拍板」——§7.4 明示是建议非决策。
+- **下一步 / 接手注意**:survey + 四专项共五篇均未 commit;若人认可 §7.4 定位,动作序 = 内容级 lint L1(core 纯函数)→ provenance L1 模板并当探针跑一个月 → 蒸馏等「手动复制行为」信号出现再动;语义检索只看阈值。
+
+### 2026-08-06 Claude — 调研:§7.3 四个未落工程机会点的专项调研 + 工程方案(4 篇)
+
+- **branch**: `release/v0.1.0`(纯文档 + docs/README 索引,未 commit)
+- **做了**:对 `docs/research/agent-memory-survey.md` §7.3 中「尚无工程对应」的四个机会点,各出一篇「技术调研 + 工程方案」(四 agent 并行调研、全部对照仓库事实核断言),产出在 `docs/research/`:
+  1. `conversation-to-vault-distillation.md`(③ 对话→vault 蒸馏管道):固化时机光谱(Claude Code `#` 快捷键演化 / Auto memory / Letta sleep-time / A-MEM evolution)+ 蒸馏粒度光谱;方案 = 显式、蒸馏式、人审管道,原始转录永留应用数据(不推翻 doc 11 刻意决策);**L1 = 线程导出为 `type: Source`(零新命令/零 core/零依赖)**。
+  2. `trust-provenance-frontmatter.md`(⑥ 信任分级/provenance):W3C PROV 塌缩为三维;**`evidence_tier` ≠ 信任(证据质量是输入,信任是结论)**;最小字段集 `provenance: human|agent|ingested` + `reviewed` + 可选 `trust`;**本地实测 QQL 可读任意 frontmatter 字段 → 零 core 改动**。
+  3. `content-lint-contradiction.md`(内容级 lint/矛盾检测):NLI/LLM-judge/claim 对齐三条路 + 候选生成是成本决定项;推荐**判断权归 agent/人、系统只产候选**;L1 五条结构启发式均给可执行形态(QQL/图算法)。
+  4. `semantic-retrieval.md`(④ 语义检索):**维持默认关**,触发条件量化(>1000 篇 / 单查询 >5–6 篇等);许可核到一手(jina-v3 权重 CC-BY-NC → 许可红线排除);触发后推荐 fastembed-rs + bge-small-zh-v1.5,向量层不进 core。
+- **理由 / 影响**:四篇均为「只陈述不拍板」的候选方案,采否与先落哪层由人决定。交叉已对齐:蒸馏产物字段对齐 provenance 专文;中文分词弱点被两方向独立印证;内容级 lint 与语义检索对 P6-5 口径一致。顺手记录两处 drift:doc 11「线程导出为 md」backlog 无 ID;doc 11 §3 表结构写 `normalized_text`,代码实为 `text` 列。
+- **验证**:纯文档不影响 CI;抽查 content-lint 文「mcp crate 不在 CI 门」断言属实(ci.yml 只跑 core/app);`git status` 仅新增四篇调研 + README 索引改动。
+- **下一步 / 接手注意**:四篇未 commit;人拍板后再进 backlog(建议 ID 前缀沿用 §I/§K 之后新节);provenance 专文 L1(纯模板)与蒸馏 L1(纯前端)是成本最低的两刀;docs/README 文档地图已加四行。
+
 ### 2026-08-05 Claude — README/backlog MCP 工具数漂移修复(6→7);收口 push
 
 - **branch**: `release/v0.1.0`(本条 commit + 此前 3 条文档 commit,收工即 push)

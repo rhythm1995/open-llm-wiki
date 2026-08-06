@@ -16,6 +16,8 @@ Entity 页面**综合**所有提到它的 Summary,给出一个跨来源的稳定
 | `status` | `Active`(实体一般稳定;废弃了可归档) |
 | `mentioned_in` | **图谱自动算**(不用手填):指向它的所有 [[summary|Summary]] 形成的反链。`mentioned_in.len()` = 入度。 |
 | `related_to` | 关系列表 → 相关的其他 [[Entity]] |
+| `provenance` | 谁产出:`human` / `agent` / `ingested`。可选软字段,缺失不校验 |
+| `reviewed` | 最近复审日期 `YYYY-MM-DD`;写 ≠ 复审。可选 |
 
 ## 与 Concept 的区别
 
@@ -35,6 +37,8 @@ Entity 页面**综合**所有提到它的 Summary,给出一个跨来源的稳定
 ---
 type: Entity
 status: Active
+provenance: agent
+reviewed: 2026-08-04
 related_to:
   - "[[another-entity]]"
 ---

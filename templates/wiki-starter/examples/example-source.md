@@ -1,6 +1,7 @@
 ---
 type: Source
 status: Digested
+provenance: ingested
 url: https://example.com/the-article
 evidence_tier: analysis
 last_verified: 2026-08-04

@@ -125,14 +125,24 @@ OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是�
 | 概念饥饿度(按引用深度排序,最浅在前) | `WHERE type = "Concept" SHOW title, mentioned_in.len() AS depth SORT mentioned_in.len() ASC` |
 | 证据质量分布(按 tier 分组数 Source) | `WHERE type = "Source" RENDER group_by(evidence_tier)` |
 | 综合度(单源 / 薄证据概念) | `WHERE type = "Concept" AND mentioned_in.len() < 2 SHOW title` |
+| 溯源:agent 产出未复审 | `WHERE provenance = "agent" AND NOT has reviewed SHOW title` |
+| 溯源:agent 产出复审超期(cutoff 插值) | `WHERE provenance = "agent" AND (NOT has reviewed OR reviewed < "<今天−N 天>") SHOW title` |
+| 漂移:无复审日期的 Wiki 层页 | `WHERE type IN ("Concept", "Entity", "Summary") AND NOT has reviewed SHOW title` |
+| 溯源:知识构成(`(none)` 桶 = 字段腐烂探针) | `WHERE type IN ("Concept", "Entity", "Summary") RENDER group_by(provenance)` |
+| Source 漂移(`last_verified` 超期 / 缺失) | `WHERE type = "Source" AND last_verified < "<cutoff>" …` + `WHERE type = "Source" AND NOT has last_verified SHOW title` |
+| 同名撞车粗筛(count>1 的桶) | `WHERE type IN ("Concept", "Entity") RENDER group_by(title)` |
 
 > **语法要点**(对照 [core 的 QQL 语法](../core/src/qql.rs)):子句只有 `WHERE`/`SORT`/`LIMIT`/`SHOW`/`RENDER`,
 > 顺序不限;**没有** `GROUP BY` 子句、**没有** `IS EMPTY` 运算符——分组是 `RENDER group_by(<字段>)`、
-> 「空」用图算的反链入度 `mentioned_in.len() = 0` 表达(入度由正文 `[[wikilink]]` 生成,与 frontmatter 是否写了该键无关)。
+> 「空」用图算的反链入度 `mentioned_in.len() = 0` 表达(入度由正文 `[[wikilink]]` 生成,与 frontmatter 是否写了该键无关);
+> 「缺字段」用 `NOT has <字段>`,缺字段的页在 `group_by` 里落 `(none)` 桶。
 > 字段长度统一写 `<字段>.len()`,如 `mentioned_in.len()`(不是 `len(mentioned_in)`)。
 >
-> 这五条作为可即用的 `type: Query` 笔记随 starter vault 交付([`templates/wiki-starter/health/`](../templates/wiki-starter/health/)),
+> 这十一条作为可即用的 `type: Query` 笔记随 starter vault 交付([`templates/wiki-starter/health/`](../templates/wiki-starter/health/)),
 > 并由 [`core/tests/wiki_health_qql.rs`](../core/tests/wiki_health_qql.rs) 锁住「能解析 + 语义正确」——改引擎或改模板都会被它挡下。
+> 后六条依赖 `provenance`/`reviewed`/`trust` 软字段约定(可选、永不校验,见 [docs/14](./14-llm-wiki-workflow.md) §3.1/§5
+> 与 [`docs/research/trust-provenance-frontmatter.md`](./research/trust-provenance-frontmatter.md));
+> QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名、挂废源/引用废源)在 core `lint` 模块(只产候选、不做判决)。
 >
 > 这是「LLM Wiki 结合本身设计」最浓缩的一处:**OpenObsidian 不存 Health,它存"能算出 Health 的查询"**。
 > 查询本身又是笔记,所以 Health 指标可以被 `[[link]]`、被别的查询再聚合——自举到第二层。

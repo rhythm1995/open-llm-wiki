@@ -172,8 +172,12 @@
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
 | B-WIKI-STARTER | starter vault 脚手架 | 🟡 | ✅ | `templates/wiki-starter/`:5 类型契约 + index + 示例链;文件夹不承载语义,`status` 为唯一状态真相 |
-| B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ✅ | `templates/wiki-starter/health/` 5 条 `type: Query`;语法+语义由 `core/tests/wiki_health_qql.rs` 锁住;doc 07 §Health 已对齐 |
-| B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ✅ | `docs/14-llm-wiki-workflow.md`:ingest/research/consolidate 飞轮 + MCP 工具速查 |
+| B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ✅ | `templates/wiki-starter/health/` **11 条** `type: Query`(2026-08-06 加 6 条溯源/漂移);语法+语义由 `core/tests/wiki_health_qql.rs` 锁住;doc 07 §Health 已对齐 |
+| B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ✅ | `docs/14-llm-wiki-workflow.md`:ingest/research/consolidate + **§1.1 蒸馏 L2a** + **§3.2 分层 lint(L1 索引 / L2 agent 五分类)** + MCP 工具速查;`templates/wiki-starter/prompts/ingest-distill.md` |
+| B-WIKI-PROVENANCE | provenance/reviewed/trust 软字段约定(P0 L1) | 🟢 | ✅ | 2026-08-06:纯约定零 core 改动(QQL 直读任意 frontmatter);进 types/examples/health/docs 14,07;字段可选永不校验;**L2(写入路径只补缺省不覆盖)待探针观察约一个月采纳率后再定** |
+| B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源),19 单测 + 4 proptest;**只产候选不判决**;尚无消费面 → 见下两行 |
+| B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ⏳ | **P1 产生价值的最短一跳**:app 加 command(注册进 `generate_handler!`)+ mcp 侧透传(如 `lint_vault` 返回 Finding 列表),agent consolidate 即可消费。**已记录,暂不做(2026-08-06 拍板)** |
+| B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立 Health 视图;品味依赖度高(survey §7.4),先让探针跑再决定做不做。**已记录,暂不做** |
 
 ---
 

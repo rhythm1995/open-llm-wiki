@@ -10,6 +10,7 @@
 //! - → `search`(倒排全文检索)
 //! - → `vault`(顶层纯索引器:把以上串成一个 `VaultIndex`)
 //! - → `media`(附件文件表 + 引用正排/倒排;与笔记索引平行,IO-free)
+//! - → `lint`(内容级 lint L1:结构启发式候选生成;只产候选、不做判决)
 //!
 //! 顶层入口:`crate::vault::VaultIndex::build(Vec<(path, content)>)`。
 //! 文本查询入口:`crate::qql::parse("WHERE type = \"Concept\" SORT title")`。
@@ -17,6 +18,7 @@
 
 pub mod graph;
 pub mod index;
+pub mod lint;
 pub mod media;
 pub mod parse;
 pub mod qql;
@@ -24,7 +26,8 @@ pub mod query;
 pub mod search;
 pub mod vault;
 
-pub use graph::{Edge, EdgeKind, Graph, NodeId, OrphanMode, Target};
+pub use graph::{aliases_of, Edge, EdgeKind, Graph, NodeId, OrphanMode, Target};
+pub use lint::{contradiction_consistency, duplicate_names, refs_to_superseded, summaries_on_superseded, Finding, FindingKind};
 pub use index::{
     enrich, frontmatter_str, parse_frontmatter, relationship_links, tags, type_of, Frontmatter,
     Note,

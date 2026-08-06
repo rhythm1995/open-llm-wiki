@@ -17,6 +17,8 @@ Summary 是「用你自己的话重述」,不是复制粘贴;引用原文必须�
 | `source` | 关系 → 它提炼自的 [[Source]] |
 | `mentions` | 关系列表 → 它触及的 [[entity|Entity]] / [[concept|Concept]] |
 | `generated` | 生成日期 `YYYY-MM-DD` |
+| `provenance` | 谁产出:`human` / `agent` / `ingested`;Summary 通常 `agent`(agent 综合)。可选软字段 |
+| `reviewed` | 最近复审日期 `YYYY-MM-DD`。**写 ≠ 复审**,只有人/流程确认后才更新。可选;喂给 [[agent-unreviewed]] / [[unreviewed-pages]] 健康查询 |
 
 ## 关系方向(重要)
 

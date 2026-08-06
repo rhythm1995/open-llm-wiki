@@ -17,8 +17,9 @@
 |---|---|
 | [`types/`](./types/) | 五个软类型的契约:`Source` / `Summary` / `Entity` / `Concept` / `Query`。每个是一篇 `type: Type` 的笔记,说明该类型的字段、关系与 `status` 取值。 |
 | [`index.md`](./index.md) | Navigation 层:wiki 的目录 / 入口。 |
-| [`health/`](./health/) | Health 层:5 条健康指标,每条是一篇 `type: Query` 的笔记,正文里是可直接跑的 QQL。 |
+| [`health/`](./health/) | Health 层:11 条健康指标,每条是一篇 `type: Query` 的笔记,正文里是可直接跑的 QQL。前五条量图谱结构(矛盾/孤儿/饥饿度/证据/综合度),后六条量溯源与漂移(provenance 三值约定 + 复审超期 + 同名撞车,见 `docs/research/trust-provenance-frontmatter.md` / `content-lint-contradiction.md`)。 |
 | [`examples/`](./examples/) | 一条最小示例链(Source→Summary→Entity→Concept),演示关系怎么连。可删。 |
+| [`prompts/`](./prompts/) | 可复制给 agent 的提示词。现有 [`ingest-distill.md`](./prompts/ingest-distill.md):对已有 Source 做蒸馏式 ingest(docs/14 §1.1 L2a)。 |
 
 ## 三条铁律
 
@@ -35,4 +36,5 @@
 # 命令行(core):见 docs/14 的「consolidate」段
 ```
 
-这五条查询的语法与语义由 [`core/tests/wiki_health_qql.rs`](../../core/tests/wiki_health_qql.rs) 锁住,改引擎或改模板都会被测试挡下。
+这十一条查询的语法与语义由 [`core/tests/wiki_health_qql.rs`](../../core/tests/wiki_health_qql.rs) 锁住,改引擎或改模板都会被测试挡下。
+QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名精筛、挂废源 / 引用废源)在 core 的 `lint` 模块(`core/src/lint.rs`,只产候选、不做判决)。

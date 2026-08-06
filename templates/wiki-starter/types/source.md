@@ -17,6 +17,7 @@ Source 只记录「这是什么、从哪来、可信度如何」;它的内容被
 | `url` | 原始链接(若有) |
 | `evidence_tier` | 证据质量,见下表 |
 | `last_verified` | 上次核实日期 `YYYY-MM-DD`;陈旧(> 6 个月)进复核队列 |
+| `provenance` | 谁产出:`human` / `agent` / `ingested`。Source 通常 `ingested`(外部原样摄取)。可选软字段,缺失不校验、不阻止保存 |
 | `derived_into` | 关系 → 派生出的 [[Summary]] |
 
 ### `evidence_tier` 取值(高 → 低)
@@ -36,6 +37,7 @@ Source 只记录「这是什么、从哪来、可信度如何」;它的内容被
 ---
 type: Source
 status: Unprocessed
+provenance: ingested
 url: https://example.com/the-article
 evidence_tier: analysis
 last_verified: 2026-08-04

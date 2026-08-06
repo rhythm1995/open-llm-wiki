@@ -237,7 +237,7 @@ impl ResolveIndex {
 }
 
 /// frontmatter `aliases`(字符串或字符串列表)。
-fn aliases_of(n: &Note) -> Vec<String> {
+pub fn aliases_of(n: &Note) -> Vec<String> {
     match n.frontmatter.get("aliases") {
         Some(Value::String(s)) => vec![s.clone()],
         Some(Value::Sequence(seq)) => seq

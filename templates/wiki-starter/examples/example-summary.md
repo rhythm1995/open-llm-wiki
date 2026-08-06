@@ -1,6 +1,7 @@
 ---
 type: Summary
 status: Active
+provenance: agent
 source: "[[example-source]]"
 mentions:
   - "[[example-entity]]"
@@ -12,6 +13,7 @@ generated: 2026-08-04
 
 > 🧪 **示例,可删。** 演示一篇 Summary 怎么重述 [[example-source]]、怎么 `[[链接]]` 到它触及的 [[example-entity]] 与 [[example-concept]]。
 > 注意:这里写了 `[[example-concept]]`,所以那个 Concept 的反链入度 `mentioned_in.len()` 自动 +1(不用在 Concept 里手填)。
+> 它带 `provenance: agent` 且没写 `reviewed`(写 ≠ 复审),所以装好后跑 [[agent-unreviewed]] / [[unreviewed-pages]] 能看到它(非空)。
 
 ## TL;DR
 
