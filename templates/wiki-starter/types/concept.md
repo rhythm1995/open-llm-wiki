@@ -17,6 +17,9 @@ status: Active
 | `mentioned_in` | **图谱自动算**:指向它的所有 [[summary|Summary]] 的反链。入度 = 支撑它的来源数。 |
 | `related` | 关系列表 → 相关的 [[Concept]] |
 | `contradicts` | 关系列表 → 它反驳的 [[Concept]](一旦出现,被反驳方应标 `Contested`) |
+| `provenance` | 谁产出:`human` / `agent` / `ingested`。可选软字段,缺失不校验 |
+| `reviewed` | 最近复审日期 `YYYY-MM-DD`;写 ≠ 复审。可选 |
+| `trust` | 显式信任级 `0–3`(**可选**):0=草稿/未核,1=agent 产出未复核,2=已复核,3=人确认/多源交叉。不填则靠 `provenance`+`reviewed` 隐式推 |
 
 ## `status` 决策
 
@@ -39,6 +42,9 @@ status: Active
 ---
 type: Concept
 status: Active
+provenance: agent
+trust: 1
+reviewed: 2026-08-04
 related:
   - "[[a-related-concept]]"
 ---

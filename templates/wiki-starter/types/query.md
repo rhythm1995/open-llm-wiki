@@ -15,7 +15,7 @@ status: Active
 |---|---|
 | `type` | `Query`(固定) |
 | `status` | `Active` |
-| `metric` | 短 slug,标它量的是哪个健康指标(如 `contested`、`orphans`、`hunger`、`evidence`、`synthesis`) |
+| `metric` | 短 slug,标它量的是哪个健康指标(如 `contested`、`orphans`、`hunger`、`evidence`、`synthesis`、`provenance`、`drift`、`duplicates`) |
 
 ## 正文约定
 
@@ -49,5 +49,6 @@ WHERE type = "Concept" AND status = "Contested" SHOW title
 - 子句只有 `WHERE` / `SORT` / `LIMIT` / `SHOW` / `RENDER`,顺序不限,可跨行。
 - **没有** `GROUP BY` 子句:分组是 `RENDER group_by(<字段>)`。
 - **没有** `IS EMPTY`:「空」用反链入度 `mentioned_in.len() = 0`。
+- **没有** `IS MISSING`:「缺字段」用 `NOT has <字段>`(如 `NOT has reviewed` 挑出从未复审的页);缺字段的页在 `group_by` 里落 `(none)` 桶。
 - 长度统一写 `<字段>.len()`,如 `mentioned_in.len()`(不是 `len(mentioned_in)`)。
 - 完整语法见 [`core/src/qql.rs`](../../../core/src/qql.rs) 文件头注释。
