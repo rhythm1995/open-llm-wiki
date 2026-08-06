@@ -15,7 +15,10 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 
 #### LLM Wiki
 
-- **Wiki starter 脚手架**:`templates/wiki-starter/`(Source / Summary / Entity / Concept / Query 五类型契约 + index + 示例链)+ Health QQL 5 条(`type: Query` 笔记;`core/tests/wiki_health_qql.rs` 锁语法与语义)+ 工作流文档(docs/14:ingest / research / consolidate)。
+- **Wiki starter 脚手架**:`templates/wiki-starter/`(Source / Summary / Entity / Concept / Query 五类型契约 + index + 示例链)+ Health QQL **11** 条(`type: Query` 笔记;`core/tests/wiki_health_qql.rs` 锁语法与语义)+ 工作流文档(docs/14:ingest / research / consolidate)。
+- **provenance 软字段约定(P0 L1)**:`provenance: human|agent|ingested` + `reviewed` + 可选 `trust` 进类型契约与示例;Health 增 agent-unreviewed / stale-agent-notes / unreviewed-pages / knowledge-mix 等溯源/漂移查询(字段可选、永不校验)。
+- **内容级 lint L1(core)**:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性、归一化撞名、Summary 挂废源、Active 引废源);只产候选、不自动改 status。消费面(MCP/UI)未接通。
+- **蒸馏 L2a + lint L2 工作流(文档)**:docs/14 §1.1 对话→vault 零代码 ingest 路径 + `templates/wiki-starter/prompts/ingest-distill.md`;§3.2 分层 lint(链接/L1/L2 agent 五分类/L3 远期)。
 
 #### 诊断
 
@@ -29,6 +32,9 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 ### 📚 文档
 
 - 设计文档重编号(11 应用内 Agent / 12 图+Agent / 13 日志);README 双语重写(中 / 英);新增 agent 长期记忆调研(`docs/research/agent-memory-survey.md`)。
+- 四篇专项调研:对话蒸馏 / provenance / 内容 lint / 语义检索(`docs/research/*`);survey §7.4 优先级与品味依赖排序。
+- docs/14 扩写:蒸馏 L2a、结构 lint L1 索引、内容级 lint L2 agent 工作流;plan「评估后不做」:core+mcp 抽独立库(技术可行、人否决)。
+- FEATURE-INDEX / backlog 对齐:Health 11 条、lint core、LINT-MCP/UI 暂不做、MCP 工具数 7。
 
 ## [0.1.0] — 2026-08-03
 

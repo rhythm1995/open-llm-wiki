@@ -29,8 +29,12 @@
 | [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | 应用内 Agent(ACP 托管) | ✅ 已落地(Phase 7 完工,待真机验收) |
 | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) | 图 polish → 外部 Agent(MCP) | 远期参考(6A 推迟;6B MCP 侧 / 6D ✅) |
 | [13-client-logging.md](./13-client-logging.md) | 客户端日志 | 已落地参考 |
-| [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki 工作流(ingest/research/consolidate) | 已落地参考 |
-| [research/agent-memory-survey.md](./research/agent-memory-survey.md) | agent 长期记忆调研(40 来源 / 54 证据) | 参考 |
+| [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki 工作流(ingest/research/consolidate)+ 蒸馏 L2a + lint L1/L2 | 已落地参考(持续增补) |
+| [research/agent-memory-survey.md](./research/agent-memory-survey.md) | agent 长期记忆调研(40 来源 / 54 证据);**§7.4 = 四专项的优先级与排序依据** | 参考 |
+| [research/conversation-to-vault-distillation.md](./research/conversation-to-vault-distillation.md) | 对话→vault 蒸馏管道:调研+方案(survey §7.3③) | L2a 已写进 doc 14 §1.1;L1/L2b UI 等信号 |
+| [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) | 信任分级/provenance frontmatter:调研+方案(survey §7.3⑥) | **P0 L1 已落地**(模板+Health);L2 写入路径等探针 |
+| [research/content-lint-contradiction.md](./research/content-lint-contradiction.md) | 内容级 lint/矛盾检测:调研+方案 | **L1 core ✅**;L2 工作流 ✅(doc 14 §3.2.3);MCP/UI 暂不做 |
+| [research/semantic-retrieval.md](./research/semantic-retrieval.md) | 语义检索:调研+方案(维持默认关,触发条件量化) | 候选方案,默认关 |
 | [open-questions.md](./open-questions.md) | 待拍板 | 维护中 |
 
 ## 一句话定位
