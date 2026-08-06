@@ -27,7 +27,11 @@ pub mod search;
 pub mod vault;
 
 pub use graph::{aliases_of, Edge, EdgeKind, Graph, NodeId, OrphanMode, Target};
-pub use lint::{contradiction_consistency, duplicate_names, refs_to_superseded, summaries_on_superseded, Finding, FindingKind};
+pub use lint::{
+    contradiction_consistency, duplicate_names, lint_all, refs_to_superseded,
+    summaries_on_superseded, DuplicateNameGroup, Finding, FindingKind, FindingReport, LintReport,
+    NodeRef,
+};
 pub use index::{
     enrich, frontmatter_str, parse_frontmatter, relationship_links, tags, type_of, Frontmatter,
     Note,
