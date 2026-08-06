@@ -213,6 +213,7 @@ export function CenterToolbar({
           <HoverPop side="down" align="right" text={t("sidebar.newNoteTip")}>
             <button
               onClick={onNewNote}
+              aria-label={t("sidebar.newNote")}
               className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
             >
               <Plus size={15} weight="bold" />
@@ -221,6 +222,7 @@ export function CenterToolbar({
           <HoverPop side="down" align="right" text={t("sidebar.newCanvasTip")}>
             <button
               onClick={onNewCanvas}
+              aria-label={t("sidebar.newCanvas")}
               className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
             >
               <Rectangle size={15} weight="bold" />
@@ -229,6 +231,7 @@ export function CenterToolbar({
           <HoverPop side="down" align="right" text={t("sidebar.openVaultTip")}>
             <button
               onClick={onOpenVault}
+              aria-label={t("sidebar.openVault")}
               className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
             >
               <FolderPlus size={15} />
