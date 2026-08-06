@@ -166,7 +166,7 @@ Concept 是 `Active`/`Contested`——都只看 frontmatter,不看文件夹。
 | L1-D | `lint::summaries_on_superseded` | Summary 的 `source:` 指向 Superseded 源 | 重摄取或标 Summary Superseded |
 | L1-E | `lint::refs_to_superseded` | Active/Contested 仍引用 Superseded(豁免 `contradicts` / `superseded_by`) | 改链到替代页或标 superseded_by |
 
-**消费面(2026-08-06)**:core 函数已落地;**尚未**暴露为 app command / MCP 工具(`B-WIKI-LINT-MCP` ⏳ 暂不做)。在接通前,agent 用 §3.1 的 QQL + `links` 覆盖 L1-C 与部分 L1-B;L1-A/D/E 只能等 MCP 或人用测试/本地 crate 调。consolidate 仍应**假设**这些不变量成立,手写/MCP 写时自觉对齐 §1 第 4 步。
+**消费面(2026-08-06)**:core 函数已落地,并经 MCP `lint_vault` 暴露(B-WIKI-LINT-MCP ✅):一次调用返回 L1-A/B/D/E 全部结构候选(`{summary, findings[], duplicate_names[]}`,见 §4)。L1-C(陈旧 Source)仍走 §3.1 的 QQL `health/stale-sources`。agent 在 consolidate 前后跑 `lint_vault`,findings 只当**候选**处理——按 §3.2.3 五分类定性后经 `write_note` 落笔,**禁止自动改 `status`**。consolidate 仍应**假设**这些不变量成立,手写/MCP 写时自觉对齐 §1 第 4 步。
 
 #### 3.2.3 内容级 lint L2(agent-in-the-loop · 零新工具)
 
@@ -197,7 +197,7 @@ Concept 是 `Active`/`Contested`——都只看 frontmatter,不看文件夹。
 - 系统或脚本**自动**改 `status` / 批量写 `contradicts`(high-risk;误报会污染唯一状态真相)。
 - 为「看起来干净」把 real contradiction 抹成含糊折中——应保留 Contested 直到有新 Source。
 
-**L2 → 工具化**(L2-tool,未排期):候选生成可沉为 core 纯函数 + MCP `lint_content`(shared_link / shared_tag / term_overlap + 粗粒度摘录)。**先靠本文跑几轮**,用实践决定 signal 权重;再开 `B-WIKI-LINT-MCP` 时把 L1 Finding 与 L2 候选一并暴露。详见调研 §5.2。
+**L2 → 工具化**(L2-tool,未排期):候选生成可沉为 core 纯函数 + MCP `lint_content`(shared_link / shared_tag / term_overlap + 粗粒度摘录)。**先靠本文跑几轮**,用实践决定 signal 权重;L1 Finding 已经 MCP `lint_vault` 暴露(2026-08-06,B-WIKI-LINT-MCP ✅),L2 候选届时并入同一报告面。详见调研 §5.2。
 
 **L3 自动判**(远期):本地 NLI 或外部 LLM 只作排序信号,永不判决;触发条件见调研 §5.3(候选积压 + 误报基线 + 许可审计 + 人批)。默认关。
 
@@ -223,10 +223,11 @@ Concept 是 `Active`/`Contested`——都只看 frontmatter,不看文件夹。
 | `search_notes(terms)` | 全文检索(标题加权) | research |
 | `run_qql(qql)` | 跑结构化查询(§3.1 十一条 Health + 任何自定义) | research / consolidate |
 | `links(kind, [path], [mode], [limit])` | 图谱查询:`backlinks` / `forward` / `dead` / `orphans` / `hubs` / `suggest` | research / consolidate |
+| `lint_vault` | §3.2.2 全部 L1 结构检查(contradicts↔Contested / 撞名精筛 / 挂废源 / 引废源);返回 `{summary, findings[], duplicate_names[]}`,**只产候选** | consolidate |
 | `vault_info` | vault 元信息 | 全部 |
 
 > 客户端配置(Claude Code / Cursor)见 [`mcp/README.md`](../mcp/README.md) §Client configuration。  
-> **尚未暴露**:`core::lint` 结构启发式(§3.2.2)——接通前见 backlog `B-WIKI-LINT-MCP`。
+> `lint_vault` 的 finding 带 `kind` + `hint` + `subject/other {path,title}`——按 §3.2.3 五分类落笔,**禁止自动改 `status`**;桌面端同源的 `lint_vault` Tauri 命令供后续 UI 面(B-WIKI-LINT-UI)。
 
 ---
 

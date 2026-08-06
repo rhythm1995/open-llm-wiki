@@ -15,6 +15,18 @@
 
 ---
 
+### 2026-08-06 Claude — B-WIKI-LINT-MCP ✅:lint_vault 接通 MCP + app 命令(lint 从「存在」变「可用」)
+
+- **branch**: `release/v0.1.0`(收工已 commit 四刀 + push:`cda87ce` core / `4e53360` mcp / `972e0c9` app / `0d6f036` docs)
+- **做了**:用户明确指示「搞定它」→ 落地 lint 生效的最短一跳:
+  1. **core 报告层**:`core/src/lint.rs` 新增 `lint_all(&Graph) -> LintReport`(`NodeRef` / `FindingReport` / `DuplicateNameGroup`,把 NodeId 解析成 path/title,四条启发式一次聚合);+3 单测(全 kind fixture / clean vault 空报告 / JSON 可序列化)。
+  2. **MCP 第 8 个工具 `lint_vault`**:无状态、每次调用建索引跑 `lint_all`;返回 `{summary, findings[], duplicate_names[]}`,每条 finding 带英文 hint + kind slug(`contradiction_uncontested` / `contested_without_contradiction` / `summary_on_superseded` / `ref_to_superseded`);mcp/README 工具表 + 专节。
+  3. **app `lint_vault` Tauri 命令**:只读 live 索引(不 WalkDir),已注册进 `generate_handler!`;+1 测试(live_apply fixture → 报候选)。为 B-WIKI-LINT-UI 铺路。
+  4. **文档同步**:README 中英 7→8 tools;FEATURE-INDEX;backlog B-WIKI-LINT-MCP ⏳→✅;docs/14 §3.2.2 消费面 + §4 工具表 + L2-tool 段;docs/07 Health-即查询注;templates/wiki-starter README。
+- **理由 / 影响**:上条 WORKLOG「仍勿默认开」被用户明确指示覆盖;政策不变——**只产候选、永不判决**,findings 不自动落 status/边。MCP 是独立二进制直连 core(不经 app);app 命令为未来 UI 面。agent 现在可在 consolidate 前后一次调用拿全部 L1 结构候选(L1-A/B/D/E;L1-C 仍走 QQL)。
+- **验证**:`cargo test -p openobs-core` 153 lib + 1 parity + 11 wiki-health ✓;`cargo test -p openobs-mcp` 19/19 ✓;`cargo test -p openobs-app` 47 pass / 1 ignored ✓;`cargo clippy --workspace --all-targets` 仅存量警告(新代码零警告);本轮零 ui 改动。
+- **下一步 / 接手注意**:B-WIKI-LINT-UI 等探针信号再动(品味依赖);L2-tool(`lint_content`)未排期,届时并入同一报告面。改动已按 core/mcp/app/docs 四刀 commit 并 push。
+
 ### 2026-08-06 Grok — 零代码三件:蒸馏 L2a + lint L2 工作流 + CHANGELOG/FEATURE-INDEX 对齐
 
 - **branch**: `release/v0.1.0`(未 commit;纯文档,叠加在既有未提交批之上)

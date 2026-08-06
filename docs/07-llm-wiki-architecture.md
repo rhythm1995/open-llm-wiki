@@ -142,7 +142,8 @@ OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是�
 > 并由 [`core/tests/wiki_health_qql.rs`](../core/tests/wiki_health_qql.rs) 锁住「能解析 + 语义正确」——改引擎或改模板都会被它挡下。
 > 后六条依赖 `provenance`/`reviewed`/`trust` 软字段约定(可选、永不校验,见 [docs/14](./14-llm-wiki-workflow.md) §3.1/§5
 > 与 [`docs/research/trust-provenance-frontmatter.md`](./research/trust-provenance-frontmatter.md));
-> QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名、挂废源/引用废源)在 core `lint` 模块(只产候选、不做判决)。
+> QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名、挂废源/引用废源)在 core `lint` 模块(只产候选、不做判决);
+> 消费面为 MCP `lint_vault` 工具 + 桌面端 `lint_vault` Tauri 命令(2026-08-06,B-WIKI-LINT-MCP;见 [docs/14](./14-llm-wiki-workflow.md) §3.2.2)。
 >
 > 这是「LLM Wiki 结合本身设计」最浓缩的一处:**OpenObsidian 不存 Health,它存"能算出 Health 的查询"**。
 > 查询本身又是笔记,所以 Health 指标可以被 `[[link]]`、被别的查询再聚合——自举到第二层。

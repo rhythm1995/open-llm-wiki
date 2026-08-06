@@ -37,4 +37,4 @@
 ```
 
 这十一条查询的语法与语义由 [`core/tests/wiki_health_qql.rs`](../../core/tests/wiki_health_qql.rs) 锁住,改引擎或改模板都会被测试挡下。
-QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名精筛、挂废源 / 引用废源)在 core 的 `lint` 模块(`core/src/lint.rs`,只产候选、不做判决)。
+QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名精筛、挂废源 / 引用废源)在 core 的 `lint` 模块(`core/src/lint.rs`,只产候选、不做判决),agent 经 MCP `lint_vault` 工具一次调用拿到全部结构候选(见 `docs/14` §3.2.2 / §4)。

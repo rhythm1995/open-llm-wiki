@@ -21,7 +21,7 @@
 | QQL 求值(引擎) | F-QUERY | `core/src/query.rs` + `qql.rs` |
 | 全文检索 | F-SEARCH | `core/src/search.rs` |
 | VaultIndex 聚合 | — | `core/src/vault.rs` |
-| **内容级 lint L1**(结构启发式,只产候选) | B-WIKI-LINT-CORE | `core/src/lint.rs`(`contradiction_consistency` / `duplicate_names` / `summaries_on_superseded` / `refs_to_superseded`);规格 [14](./14-llm-wiki-workflow.md) §3.2.2 |
+| **内容级 lint L1**(结构启发式,只产候选) | B-WIKI-LINT-CORE / -MCP | `core/src/lint.rs`(`contradiction_consistency` / `duplicate_names` / `summaries_on_superseded` / `refs_to_superseded` + `lint_all` 报告层);消费面 MCP `lint_vault` + app `lint_vault` 命令(B-WIKI-LINT-MCP);规格 [14](./14-llm-wiki-workflow.md) §3.2.2 |
 | **MediaIndex**(附件文件表+引用正排/倒排) | B-ED-MEDIA-INDEX | `core/src/media.rs` |
 | Live 增量索引 | — | `app/src-tauri/src/lib.rs`(`LiveVault`) |
 
@@ -81,7 +81,7 @@
 | 表格 F-SHEET | B-SHEET | `SheetView.tsx`,`sheet.ts` |
 | 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx` |
 | 插件宿主(不深化) | B-PLUGIN ⛔ | 保留宿主 |
-| MCP server v1 + 图工具(links / brief / write 审计;7 tools) | B-MCP / §I-B | `mcp/` |
+| MCP server v1 + 图工具(links / brief / write 审计;8 tools,含 `lint_vault`) | B-MCP / §I-B / §I-D | `mcp/` |
 | LLM Wiki 脚手架(5 类型契约 + Health QQL **11** 条) | B-WIKI-STARTER / HEALTH-QQL | `templates/wiki-starter/`;`core/tests/wiki_health_qql.rs`;规格 [14](./14-llm-wiki-workflow.md) |
 | provenance / reviewed / trust 软字段约定(P0 L1) | B-WIKI-PROVENANCE | `templates/wiki-starter/types/*` + `health/agent-unreviewed` 等;规格 [14](./14-llm-wiki-workflow.md) §3.1 / [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) |
 | 对话→vault 蒸馏 L2a(零代码工作流 + 提示词) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §1.1;`templates/wiki-starter/prompts/ingest-distill.md` |

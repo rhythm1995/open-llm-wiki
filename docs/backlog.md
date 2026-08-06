@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 Obsidian 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
-| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | 7 tools:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`;read 简报 / write 审计 / 配置样例见 **§I-B** 全 ✅;剩人侧 UI(`B-GRAPH-HEALTH-UI`) |
+| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | 8 tools:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`/`lint_vault`;read 简报 / write 审计 / 配置样例见 **§I-B** 全 ✅;剩人侧 UI(`B-GRAPH-HEALTH-UI`) |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 安全样例表 + app 层 wikilink/fm;与 DEEP 共用 `safeFixtureHolds` |
 | B-QQL-TS | ~~**QQL 求值器移植到 TS**~~ | 🔴 | 🗑️ 已删 | 2026-08-02 随 QQL 用户面删除:`ui/src/lib/qql/*` + `mock-qql` 全清。引擎仅留 Rust core + MCP `run_qql`(见 [04](./04-features.md) F-QUERY) |
 
@@ -175,8 +175,8 @@
 | B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ✅ | `templates/wiki-starter/health/` **11 条** `type: Query`(2026-08-06 加 6 条溯源/漂移);语法+语义由 `core/tests/wiki_health_qql.rs` 锁住;doc 07 §Health 已对齐 |
 | B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ✅ | `docs/14-llm-wiki-workflow.md`:ingest/research/consolidate + **§1.1 蒸馏 L2a** + **§3.2 分层 lint(L1 索引 / L2 agent 五分类)** + MCP 工具速查;`templates/wiki-starter/prompts/ingest-distill.md` |
 | B-WIKI-PROVENANCE | provenance/reviewed/trust 软字段约定(P0 L1) | 🟢 | ✅ | 2026-08-06:纯约定零 core 改动(QQL 直读任意 frontmatter);进 types/examples/health/docs 14,07;字段可选永不校验;**L2(写入路径只补缺省不覆盖)待探针观察约一个月采纳率后再定** |
-| B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源),19 单测 + 4 proptest;**只产候选不判决**;尚无消费面 → 见下两行 |
-| B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ⏳ | **P1 产生价值的最短一跳**:app 加 command(注册进 `generate_handler!`)+ mcp 侧透传(如 `lint_vault` 返回 Finding 列表),agent consolidate 即可消费。**已记录,暂不做(2026-08-06 拍板)** |
+| B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源)+ `lint_all` 报告层(`LintReport`),19+3 单测 + 4 proptest;**只产候选不判决**;消费面见下行 |
+| B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ✅ | 2026-08-06:MCP `lint_vault` 工具(`mcp/src/main.rs`,8th tool,内联测试 + `mcp/README.md`)+ app `lint_vault` 命令(注册进 `generate_handler!`,live 索引);agent consolidate 即可消费。**人侧 UI 见下行** |
 | B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立 Health 视图;品味依赖度高(survey §7.4),先让探针跑再决定做不做。**已记录,暂不做** |
 
 ---
