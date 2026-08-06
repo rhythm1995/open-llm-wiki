@@ -20,8 +20,8 @@ use std::time::Duration;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use openobs_core::{
-    apply_entry_deltas, frontmatter_str, parse_query, tags as note_tags, type_of, EdgeKind,
-    ResultSet, Target, VaultIndex,
+    apply_entry_deltas, frontmatter_str, lint_all, parse_query, tags as note_tags, type_of,
+    EdgeKind, LintReport, ResultSet, Target, VaultIndex,
 };
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
@@ -1072,6 +1072,16 @@ fn search_notes(
         .collect())
 }
 
+/// L1 结构 lint(B-WIKI-LINT-MCP 的人侧接通点)。**只读 live.index**,不 WalkDir;
+/// 返回候选([`LintReport`]),永不改 vault——修不修由 UI/人显式决定。
+#[tauri::command]
+fn lint_vault(root: String, state: State<LiveVaultState>) -> Result<LintReport, String> {
+    ensure_live(&state, &root)?;
+    let g = state.0.lock().map_err(|e| e.to_string())?;
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
+    Ok(lint_all(live.index.graph()))
+}
+
 /// 前端→ LogBus:把 webview 的 console.error / 未捕获错误写入文件 + stderr。
 /// 兼容旧调用方;等价于 `log_write(error, webview, line)`。
 #[tauri::command]
@@ -1691,6 +1701,7 @@ pub fn run() {
             apply_vault_changes,
             run_qql,
             search_notes,
+            lint_vault,
             pick_vault,
             reveal_in_finder,
             diag_log,
@@ -1855,6 +1866,37 @@ mod tests {
             other => panic!("expected Count, got {other:?}"),
         }
         assert_eq!(live.index.search(&["truth"]).len(), 1);
+    }
+
+    /// `lint_vault` 命令的数据路径:delta 建起的 live 索引 → lint_all → 报告。
+    #[test]
+    fn lint_over_live_index_reports_candidates() {
+        let mut live = LiveVault {
+            root: "/tmp/v".into(),
+            entries: BTreeMap::new(),
+            index: VaultIndex::build(vec![]),
+            media: openobs_core::MediaIndex::new(),
+        };
+        live_apply(
+            &mut live,
+            vec![
+                (
+                    "a.md".into(),
+                    Some(
+                        "---\ntype: Concept\nstatus: Active\ncontradicts:\n  - \"[[b]]\"\n---\n# A\n"
+                            .into(),
+                    ),
+                ),
+                (
+                    "b.md".into(),
+                    Some("---\ntype: Concept\nstatus: Active\n---\n# B\n".into()),
+                ),
+            ],
+        );
+        let report = openobs_core::lint_all(live.index.graph());
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].subject.path, "a.md");
+        assert_eq!(report.findings[0].other.as_ref().unwrap().path, "b.md");
     }
 
     #[test]
