@@ -14,6 +14,41 @@ cargo build -p openobs-mcp        # release: cargo build -p openobs-mcp --releas
 
 The binary is `openobs-mcp`. It resolves the vault root from (in order): the first CLI arg, the `OPENOBS_VAULT` env var, or the current directory.
 
+## Agent onboarding
+
+`openobs-mcp` can wire itself into your locally installed agents:
+
+```bash
+openobs-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
+openobs-mcp doctor [--vault P]
+openobs-mcp init <dir> [--force]
+openobs-mcp help
+```
+
+- `setup` detects which agents are installed (PATH binary ∨ config file ∨ macOS app bundle) and registers an `openobsidian` entry (`command` = this binary, `args` = vault path) in each agent's **user-level** MCP config. If the vault does not exist yet it is seeded from the bundled wiki-starter template (23 files) after confirmation.
+  - `--vault P` — vault to expose (default: `$OPENOBS_VAULT`, else `~/OpenObsidian-Memory`)
+  - `--agent ID` — only act on these agents (repeatable); default: every detected one
+  - `--yes` — never prompt (required when stdin is not a terminal, e.g. in CI)
+  - `--dry-run` — print the plan without writing anything
+  - `--remove` — unregister instead of register
+- `doctor` diagnoses wiring health (binary / vault / notes / `format: owf/1` / scaffold / per-agent entry) and exits 1 on failure — script-friendly.
+- `init <dir> [--force]` seeds the wiki-starter template (`--force` merges into a non-empty dir; existing files are never overwritten).
+
+Agent ids: `claude-code`, `claude-desktop`, `cursor`, `codex`, `windsurf`, `zed`, `grok` (manual).
+
+Safety (writing other apps' config files):
+
+1. `.openobsidian.bak` backup before every real write;
+2. atomic write (same-directory temp file + rename);
+3. files that cannot be parsed (e.g. JSONC with comments) are **never touched** — you get a manual snippet instead;
+4. only user-level global configs are modified — never project-level (`.mcp.json`, `.claude/settings.json`);
+5. `claude-code` prefers the official CLI (`claude mcp add-json -s user`) and falls back to direct file edits;
+6. the guidance snippet printed at the end of `setup` is for you to paste into your agents' guidance files (CLAUDE.md / AGENTS.md) — it is never written anywhere automatically.
+
+The desktop app exposes the same logic in **Settings → Agent Memory Onboarding** (no CLI needed).
+
+Windows registry entries compile but are untested this round; the Linux Claude Desktop path is a community path, also untested.
+
 ## Tools
 
 | Tool | Args | Returns |
@@ -60,9 +95,13 @@ Cross-note checks QQL cannot express (single-note predicates only). **Candidates
 
 Each finding carries `kind`, `hint`, `subject { path, title }` and `other { path, title } | null`.
 
-## Client configuration
+## Client configuration (manual fallback)
 
-### Claude Code (`~/.config/claude-code/config.json` or project `.mcp.json`)
+`setup` writes these for you; the snippets below are the fallback when a config file cannot be auto-edited (e.g. JSONC with comments). Use absolute paths; if you pass the vault as an arg **and** set `OPENOBS_VAULT`, the arg wins.
+
+### Claude Code — `~/.claude.json` (user scope)
+
+Prefer the official CLI: `claude mcp add-json openobsidian '{"command":"/abs/openobs-mcp","args":["/abs/vault"]}' -s user`
 
 ```jsonc
 {
@@ -75,20 +114,48 @@ Each finding carries `kind`, `hint`, `subject { path, title }` and `other { path
 }
 ```
 
-### Cursor / generic MCP (`command` + `env`)
+### Claude Desktop
+
+macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Windows: `%APPDATA%\Claude\claude_desktop_config.json` (JSON, same shape as Claude Code). Restart the app after wiring.
+
+### Cursor — `~/.cursor/mcp.json` · Windsurf — `~/.codeium/windsurf/mcp_config.json`
 
 ```jsonc
 {
   "mcpServers": {
     "openobsidian": {
       "command": "/absolute/path/to/openobs-mcp",
-      "env": { "OPENOBS_VAULT": "/absolute/path/to/your/vault" }
+      "args": ["/absolute/path/to/your/vault"]
     }
   }
 }
 ```
 
-> Use an absolute path to the binary. If you pass the vault as an arg **and** set `OPENOBS_VAULT`, the arg wins.
+### Codex CLI — `~/.codex/config.toml`
+
+```toml
+[mcp_servers.openobsidian]
+command = "/absolute/path/to/openobs-mcp"
+args = ["/absolute/path/to/your/vault"]
+```
+
+### Zed — `~/.config/zed/settings.json`
+
+```jsonc
+{
+  "context_servers": {
+    "openobsidian": {
+      "command": "/absolute/path/to/openobs-mcp",
+      "args": ["/absolute/path/to/your/vault"],
+      "settings": {}
+    }
+  }
+}
+```
+
+### Grok CLI / others (manual)
+
+No auto-wire surface is known; add the server in whatever MCP config mechanism the tool provides (the JSON shape above), or run `openobs-mcp setup` and copy the printed snippet.
 
 ## Notes
 

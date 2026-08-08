@@ -156,7 +156,8 @@
 | B-MCP-READ-BRIEF | read 附带图上下文 | 🟡 | ✅ | `links_brief`:in/out 边 + dead + degree(`read_note.graph`) |
 | B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ✅ | `write_note` 返回 `broken_links[]`+`orphan_hint`;提示不阻断保存 |
 | B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式(MCP 侧已能算,缺人侧 UI) |
-| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ✅ | Claude Code / Cursor 配置见 `mcp/README.md` §Client configuration |
+| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ✅ | 六家 agent 手动 snippet 兜底见 `mcp/README.md` §Client configuration |
+| B-MCP-ONBOARD | MCP 一键接入(setup/doctor/init) | 🔴 | ✅ | `mcp/src/onboard.rs`(lib,CLI 与桌面共用):探测 7 家 agent + 写用户级配置(备份/原子/不可解析拒触/`--dry-run`);桌面 Settings「Agent 记忆接入」面板复用同一逻辑(`app/src-tauri/src/onboarding.rs` + `AgentOnboardingSection.tsx`);见 `mcp/README.md` §Agent onboarding |
 | B-ED-BROKEN-LINKS | ~~见 §C~~ | 🟢 | →§C | 与编辑器断链提示合并 |
 
 ### I-C · 6C 语义发现（可选,后置）

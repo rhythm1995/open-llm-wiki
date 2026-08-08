@@ -82,6 +82,7 @@
 | 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx` |
 | 插件宿主(不深化) | B-PLUGIN ⛔ | 保留宿主 |
 | MCP server v1 + 图工具(links / brief / write 审计;8 tools,含 `lint_vault`) | B-MCP / §I-B / §I-D | `mcp/` |
+| Agent 一键接入(CLI `setup`/`doctor`/`init` + 桌面 Settings「Agent 记忆接入」) | B-MCP-ONBOARD | `mcp/src/onboard.rs`(lib 共用);`app/src-tauri/src/onboarding.rs`;`ui/src/components/AgentOnboardingSection.tsx`;`mcp/README.md` §Agent onboarding |
 | LLM Wiki 脚手架(5 类型契约 + Health QQL **11** 条) | B-WIKI-STARTER / HEALTH-QQL | `templates/wiki-starter/`;`core/tests/wiki_health_qql.rs`;规格 [14](./14-llm-wiki-workflow.md) |
 | provenance / reviewed / trust 软字段约定(P0 L1) | B-WIKI-PROVENANCE | `templates/wiki-starter/types/*` + `health/agent-unreviewed` 等;规格 [14](./14-llm-wiki-workflow.md) §3.1 / [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) |
 | 对话→vault 蒸馏 L2a(零代码工作流 + 提示词) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §1.1;`templates/wiki-starter/prompts/ingest-distill.md` |

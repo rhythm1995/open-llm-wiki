@@ -22,6 +22,8 @@ OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(原创、独立的实现
 | **@ironcalc/wasm** | **MIT / Apache-2.0** | 表格公式引擎增强(F-SHEET);可选,失败回退内置求值。 |
 | serde / serde_yaml | MIT / Apache-2.0 | Rust 序列化。 |
 | walkdir | MIT / Unlicense | Rust 目录遍历。 |
+| which | MIT | PATH 二进制解析(app ACP 配方探测 + mcp agent 接入)。 |
+| toml_edit | MIT / Apache-2.0 | mcp 接入写 Codex `~/.codex/config.toml`(保格式保注释)。 |
 | Vitest / esbuild | MIT | 测试与构建(仅开发期)。 |
 
 完整传递依赖以 `cargo license`、`pnpm licenses list` 为准;上线前复核无

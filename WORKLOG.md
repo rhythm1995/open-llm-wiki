@@ -15,6 +15,18 @@
 
 ---
 
+### 2026-08-09 Claude — B-MCP-ONBOARD ✅:本地 agent 一键接入(CLI setup/doctor/init + 桌面 Settings 面板,lib 共用)
+
+- **branch**: `release/v0.1.0`(收工**未 commit**,留工作区待人审)
+- **做了**:针对「MCP 接入不友好」(找二进制绝对路径、知道每家配置位置格式、手写 JSON/TOML 易弄坏文件),落地友好检测 + 接入:
+  1. **mcp lib 化**:`mcp/Cargo.toml` 加 `[lib]` 段(`openobs_mcp`);`list_md` 移入 `mcp/src/lib.rs`;`main.rs` 加保留词首参分派(`setup`/`doctor`/`init`/`help`/`serve`;裸跑 / 路径 / `$OPENOBS_VAULT` 的 serve 行为逐字节不变;未知 `--flag` → exit 2)。新增依赖 `which` 7、`toml_edit` 0.25,`serde_json` 开 `preserve_order`(护 `~/.claude.json` 键序)。
+  2. **`mcp/src/onboard.rs`**(含测试 ~1400 行):数据驱动 7 家 agent 注册表(claude-code / claude-desktop / cursor / codex / windsurf / zed / grok 手动;加新 agent = 加一条 `AgentSpec` 字面量);探测证据 = PATH 二进制 ∨ 配置文件 ∨ mac app bundle;写入器:JSON `mcpServers`(Zed 走 `context_servers` schema,已有 `settings` 不覆盖)+ Codex TOML(toml_edit 保格式保注释);**安全四件套**:写真文件前先 `.openobsidian.bak` 备份 / 同目录 tmp+rename 原子写 / 不可解析文件绝不触碰(打印手动 snippet 兜底)/ `--dry-run`;claude-code 官方 CLI 优先(`claude mcp add-json -s user`)→ 文件直写兜底;`init` 播种 wiki-starter 23 文件(include_str! + drift-guard 测试;`--force` 合并但永不覆盖);doctor 有 Fail → exit 1。只动 user-level 全局配置,绝不碰项目级 `.mcp.json` / `.claude/settings.json`;GUIDANCE snippet 只打印给用户,绝不自动写入。
+  3. **桌面侧复用同一 lib**:app 加 `openobs-mcp` 依赖;`app/src-tauri/src/onboarding.rs` 8 个 `onboard_*` 命令(scan/apply/remove/doctor/init/guidance/resolve/pick;二进制解析:app exe 同目录 → which → 手动 picker),已注册 `generate_handler!`;`ui/src/components/AgentOnboardingSection.tsx` 挂进 Settings(接入/拆线/诊断/播种/引导复制;浏览器 mock 模式只显占位);i18n 中英全键。用户无需碰终端。
+  4. **登记**:mcp/README 新增 §Agent onboarding + 修正 Claude Code 错误路径(`~/.config/claude-code/config.json` → `~/.claude.json`)+ 补全六家手动 snippet;backlog `B-MCP-ONBOARD` ✅ 行;FEATURE-INDEX 一行;THIRD_PARTY_NOTICES 登记 `which`(顺带补 app 旧账)与 `toml_edit`;ci.yml core-and-ui job 补 `cargo test -p openobs-mcp`(此前 mcp 测试完全不在 CI)。
+- **理由 / 影响**:接入成本从「手工三件事」降到一条 `openobs-mcp setup` 或 Settings 面板一次点击;弄坏用户配置的风险面被四件套压住。Windows 注册表条目编译可得但本轮未实测(README 已注明);Linux Claude Desktop 为社区路径,未测。
+- **验证**:`cargo test -p openobs-mcp` 52 ✓ / `-p openobs-app` 49 ✓;clippy --workspace 零新警告;typecheck ✓;vitest 566/566 ✓;playwright e2e 18/18 ✓;真机冒烟:`setup --dry-run` 检出本机 6 家 agent、doctor / init / 裸 serve 均正常。
+- **下一步 / 接手注意**:本轮改动**未 commit**,待人定 commit 粒度(建议 mcp / app / ui / docs 四刀)。未来实测 Windows / Linux 接线后去掉 README「未测」注记;新增 agent 只需加 `AgentSpec` 字面量(+ 必要时新 `ConfigTarget` 变体)。
+
 ### 2026-08-09 Claude — OWF-1 档 1 落地 ✅:格式规范转正 + vault 版本钉住(零新词汇、零行为改变)
 
 - **branch**: `release/v0.1.0`(收工已 commit 三刀 + push:`17bd8f0` test(core) / `2a83ba1` feat(templates) / `a319d19` docs)
