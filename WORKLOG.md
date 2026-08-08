@@ -17,7 +17,7 @@
 
 ### 2026-08-09 Claude — OWF-1 档 1 落地 ✅:格式规范转正 + vault 版本钉住(零新词汇、零行为改变)
 
-- **branch**: `release/v0.1.0`(收工已 commit 三刀:`17bd8f0` test(core) / `2a83ba1` feat(templates) / `ebc068e` docs)
+- **branch**: `release/v0.1.0`(收工已 commit 三刀 + push:`17bd8f0` test(core) / `2a83ba1` feat(templates) / `a319d19` docs)
 - **做了**:OWF-1(OpenObsidian Wiki Format v1)**档 1** 落地(人批准档 1、明确不做档 2):
   1. **规范转正**:`docs/15-owf-format.md` 新建并转正——把既有 type/status/关系词汇成文化为单一契约(status 两轴词表:Source 生命周期 `Unprocessed→Digested` + 知识状态 `Active/Contested/Superseded`;wikilink 即关系边;文件夹无语义);不变量映射到 lint L1-A/B/D/E(§7);OKF v0.2 仅映射表无实现(§8,fork+投影,`Contested` 导出是唯一有损点)。
   2. **唯一新产物**:vault index.md frontmatter 的 `format: owf/1` 版本声明——`templates/wiki-starter/index.md` 已带;无声明 vault 按 owf/1 尽力解析,不拒绝服务。
