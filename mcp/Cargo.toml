@@ -7,6 +7,10 @@ license = "MIT"
 edition = "2021"
 rust-version = "1.77.2"
 
+[lib]
+name = "openobs_mcp"
+path = "src/lib.rs"
+
 [[bin]]
 name = "openobs-mcp"
 path = "src/main.rs"
@@ -14,8 +18,14 @@ path = "src/main.rs"
 [dependencies]
 openobs-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# preserve_order:upsert agent 配置(如 ~/.claude.json 这类多 MB 活体状态文件)
+# 时不得重排用户键序——解析→插键→序列化保持原顺序。
+serde_json = { version = "1", features = ["preserve_order"] }
 walkdir = "2"
+# 本地 agent 探测(PATH 二进制);MIT。
+which = "7"
+# Codex config.toml 保格式/保注释 upsert;MIT OR Apache-2.0。
+toml_edit = "0.25"
 
 [dev-dependencies]
 tempfile = "3"

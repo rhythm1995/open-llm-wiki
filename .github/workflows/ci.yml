@@ -38,6 +38,9 @@ jobs:
       - name: Core logic tests (openobs-core)
         run: cargo test -p openobs-core
 
+      - name: MCP server tests (openobs-mcp)
+        run: cargo test -p openobs-mcp
+
       - name: UI typecheck
         run: pnpm --dir ui typecheck
 

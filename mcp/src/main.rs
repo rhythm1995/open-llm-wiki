@@ -7,6 +7,12 @@
 //!   openobs-mcp /path/to/vault
 //!   OPENOBS_VAULT=/path/to/vault openobs-mcp
 //!
+//! onboarding 子命令(B-MCP-ONBOARD,逻辑在 lib `openobs_mcp::onboard`):
+//!   openobs-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
+//!   openobs-mcp doctor [--vault P]
+//!   openobs-mcp init <dir> [--force]
+//!   openobs-mcp help
+//!
 //! Tools: list_notes, read_note, write_note, search_notes, run_qql, vault_info, links, lint_vault
 //!
 //! graph-aware 增量(6B):
@@ -26,20 +32,69 @@ use openobs_core::{
     lint_all, parse_query, EdgeKind, FindingKind, Graph, LintReport, NodeId, OrphanMode,
     ResultSet, Target, VaultIndex,
 };
+use openobs_mcp::list_md;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use walkdir::WalkDir;
 
 fn main() {
-    let vault = resolve_vault_root();
-    if let Err(e) = run_server(&vault) {
+    let args: Vec<String> = env::args().skip(1).collect();
+    match dispatch(&args) {
+        Action::Serve => {
+            let vault = resolve_vault_root_from(&args);
+            if let Err(e) = run_server(&vault) {
+                eprintln!("openobs-mcp error: {e}");
+                std::process::exit(1);
+            }
+        }
+        Action::Setup => exit_with(openobs_mcp::onboard::run_setup(&args)),
+        Action::Doctor => exit_with(openobs_mcp::onboard::run_doctor(&args)),
+        Action::Init => exit_with(openobs_mcp::onboard::run_init(&args)),
+        Action::Help => println!("{}", openobs_mcp::onboard::USAGE),
+        Action::UnknownFlag(f) => {
+            eprintln!("openobs-mcp: unknown option `{f}` (see `openobs-mcp help`)");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn exit_with(res: Result<(), String>) {
+    if let Err(e) = res {
         eprintln!("openobs-mcp error: {e}");
         std::process::exit(1);
     }
 }
 
-fn resolve_vault_root() -> PathBuf {
-    if let Some(a) = env::args().nth(1) {
+#[derive(Debug, PartialEq)]
+enum Action {
+    Serve,
+    Setup,
+    Doctor,
+    Init,
+    Help,
+    UnknownFlag(String),
+}
+
+/// 纯分派:首词是保留词则进子命令;其余一律当 vault 路径(向后兼容裸跑与 `<path>` 形式)。
+fn dispatch(args: &[String]) -> Action {
+    match args.first().map(String::as_str) {
+        Some("setup") => Action::Setup,
+        Some("doctor") => Action::Doctor,
+        Some("init") => Action::Init,
+        Some("help" | "--help" | "-h") => Action::Help,
+        Some("serve") => Action::Serve,
+        Some(s) if s.starts_with('-') => Action::UnknownFlag(s.to_string()),
+        _ => Action::Serve,
+    }
+}
+
+/// vault 决议:第一个位置参数(跳过可选的显式 `serve`)> `$OPENOBS_VAULT` > 当前目录。
+fn resolve_vault_root_from(args: &[String]) -> PathBuf {
+    let rest: &[String] = if args.first().map(String::as_str) == Some("serve") {
+        &args[1..]
+    } else {
+        args
+    };
+    if let Some(a) = rest.first() {
         return PathBuf::from(a);
     }
     if let Ok(v) = env::var("OPENOBS_VAULT") {
@@ -590,35 +645,6 @@ fn resolve_under(root: &Path, path: &str) -> Result<PathBuf, String> {
     Ok(root.join(path))
 }
 
-fn list_md(root: &Path) -> Result<Vec<String>, String> {
-    if !root.is_dir() {
-        return Err(format!("not a directory: {}", root.display()));
-    }
-    let mut out = Vec::new();
-    for entry in WalkDir::new(root).min_depth(1) {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let p = entry.path();
-        if p.components().any(|c| {
-            c.as_os_str()
-                .to_str()
-                .map(|s| s.starts_with('.'))
-                .unwrap_or(false)
-        }) {
-            continue;
-        }
-        if p.extension().and_then(|e| e.to_str()) == Some("md") && p.is_file() {
-            let rel = p
-                .strip_prefix(root)
-                .unwrap_or(p)
-                .to_string_lossy()
-                .replace('\\', "/");
-            out.push(rel);
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
 fn load_index(root: &Path) -> Result<VaultIndex, String> {
     let mut entries: BTreeMap<String, String> = BTreeMap::new();
     for rel in list_md(root)? {
@@ -1037,5 +1063,60 @@ mod tests {
         let defs = tool_defs();
         let names: Vec<&str> = defs.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"lint_vault"));
+    }
+
+    // ── dispatch(B-MCP-ONBOARD)────────────────────────────────────────────
+
+    fn args(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn dispatch_bare_and_path_are_serve() {
+        // 向后兼容:裸跑与 `<path>` 一律 Serve。
+        assert_eq!(dispatch(&args(&[])), Action::Serve);
+        assert_eq!(dispatch(&args(&["/tmp/vault"])), Action::Serve);
+        assert_eq!(dispatch(&args(&["serve", "/tmp/vault"])), Action::Serve);
+    }
+
+    #[test]
+    fn dispatch_reserved_words() {
+        assert_eq!(dispatch(&args(&["setup"])), Action::Setup);
+        assert_eq!(dispatch(&args(&["setup", "--dry-run"])), Action::Setup);
+        assert_eq!(dispatch(&args(&["doctor"])), Action::Doctor);
+        assert_eq!(dispatch(&args(&["init", "/tmp/x"])), Action::Init);
+        assert_eq!(dispatch(&args(&["help"])), Action::Help);
+        assert_eq!(dispatch(&args(&["--help"])), Action::Help);
+        assert_eq!(dispatch(&args(&["-h"])), Action::Help);
+    }
+
+    #[test]
+    fn dispatch_unknown_flag_rejected() {
+        // 今天会被静默当 vault 路径;改为显式拒绝。
+        assert_eq!(
+            dispatch(&args(&["--bogus"])),
+            Action::UnknownFlag("--bogus".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_vault_root_from_variants() {
+        assert_eq!(resolve_vault_root_from(&args(&["/v"])), PathBuf::from("/v"));
+        assert_eq!(
+            resolve_vault_root_from(&args(&["serve", "/v"])),
+            PathBuf::from("/v")
+        );
+        // env 回退(清掉可能的环境值再设)。
+        env::remove_var("OPENOBS_VAULT");
+        env::set_var("OPENOBS_VAULT", "/env-vault");
+        assert_eq!(
+            resolve_vault_root_from(&args(&[])),
+            PathBuf::from("/env-vault")
+        );
+        assert_eq!(
+            resolve_vault_root_from(&args(&["serve"])),
+            PathBuf::from("/env-vault")
+        );
+        env::remove_var("OPENOBS_VAULT");
     }
 }

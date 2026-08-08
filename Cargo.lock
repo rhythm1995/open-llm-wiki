@@ -2436,6 +2436,7 @@ dependencies = [
  "agent-client-protocol",
  "notify",
  "openobs-core",
+ "openobs-mcp",
  "rusqlite",
  "serde",
  "serde_json",
@@ -2466,7 +2467,9 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "toml_edit 0.25.13+spec-1.1.0",
  "walkdir",
+ "which",
 ]
 
 [[package]]
@@ -4195,6 +4198,7 @@ dependencies = [
  "indexmap 2.14.0",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 1.0.4",
 ]
 
