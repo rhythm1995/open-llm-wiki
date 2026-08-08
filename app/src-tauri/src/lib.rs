@@ -8,6 +8,7 @@
 mod acp;
 mod git_attr;
 mod logging;
+mod onboarding;
 mod transcript;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -1744,6 +1745,14 @@ pub fn run() {
             git_attr::agent_diff,
             git_attr::agent_revert,
             git_attr::agent_adopt,
+            onboarding::onboard_scan,
+            onboarding::onboard_apply,
+            onboarding::onboard_remove,
+            onboarding::onboard_doctor,
+            onboarding::onboard_init,
+            onboarding::onboard_guidance,
+            onboarding::onboard_resolve_binary,
+            onboarding::onboard_pick_binary,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
