@@ -20,6 +20,7 @@ import {
   type LogProfile,
   type LogStatus,
 } from "../lib/logger";
+import { AgentOnboardingSection } from "./AgentOnboardingSection";
 import { X } from "@phosphor-icons/react";
 
 interface Props {
@@ -28,9 +29,18 @@ interface Props {
   settings: AppSettings;
   onChange: (patch: Partial<AppSettings>) => void;
   t: TFunc;
+  /** 当前打开的 vault 根(「Agent 记忆接入」的默认记忆 vault)。 */
+  vaultRoot?: string | null;
 }
 
-export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
+export function SettingsPanel({
+  open,
+  onClose,
+  settings,
+  onChange,
+  t,
+  vaultRoot = null,
+}: Props) {
   const [logStatus, setLogStatus] = useState<LogStatus | null>(null);
   const [exportPath, setExportPath] = useState<string | null>(null);
   const [exportErr, setExportErr] = useState<string | null>(null);
@@ -52,7 +62,7 @@ export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-[min(420px,92vw)] rounded-lg border border-crust bg-mantle p-4 shadow-2xl"
+        className="max-h-[80vh] w-[min(420px,92vw)] overflow-y-auto rounded-lg border border-crust bg-mantle p-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -232,6 +242,8 @@ export function SettingsPanel({ open, onClose, settings, onChange, t }: Props) {
             {t("settings.force.reset")}
           </button>
         </div>
+
+        <AgentOnboardingSection vaultRoot={vaultRoot} t={t} />
 
         <div className="mt-4 border-t border-crust pt-3" data-testid="settings-diagnostics">
           <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">

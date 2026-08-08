@@ -1160,6 +1160,7 @@ export default function App() {
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        vaultRoot={state.root}
         settings={{
           theme,
           locale,

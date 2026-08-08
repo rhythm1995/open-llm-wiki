@@ -122,6 +122,53 @@ export interface DeletedNote {
   deleted_at: string;
 }
 
+/** Agent 记忆接入(B-MCP-ONBOARD):扫描结果里的单个 agent 行。 */
+export interface OnboardAgentRow {
+  id: string;
+  label: string;
+  /** 检测到已安装(任一硬证据命中)。 */
+  present: boolean;
+  evidence: string[];
+  hints: string[];
+  config_path: string | null;
+  note: string;
+  /** 无自动接线面(只给 snippet,如 grok)。 */
+  manual_only: boolean;
+  /** 已接线时:条目里的 command 路径。 */
+  wired_command: string | null;
+  /** 已接线时:条目里的 vault。 */
+  wired_vault: string | null;
+  /** 配置文件存在但不可解析(不触碰,展示原因)。 */
+  config_error: string | null;
+}
+
+export interface OnboardScan {
+  home: string;
+  /** 自动解析到的 openobs-mcp 二进制;null = 需手选。 */
+  resolved_binary: string | null;
+  agents: OnboardAgentRow[];
+  /** 可粘贴进 agent 指引文件的引导文本(只复制,绝不自动写入)。 */
+  guidance: string;
+}
+
+/** 单 agent 接线/拆线回执。 */
+export interface OnboardActionResult {
+  id: string;
+  ok: boolean;
+  message: string;
+}
+
+export interface OnboardCheck {
+  name: string;
+  status: "ok" | "warn" | "fail";
+  detail: string;
+}
+
+export interface OnboardSeedReport {
+  written: string[];
+  skipped: string[];
+}
+
 async function call<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   if (isTauri) {
     return invoke<T>(cmd, args);
@@ -297,6 +344,39 @@ export const ipc = {
   //   前端 listen → 节流全量 refresh。mock/浏览器不监听(无 fs)。
   watchVault: (root: string) => call<void>("watch_vault", { root }),
   unwatchVault: () => call<void>("unwatch_vault", {}),
+
+  // ── Agent 记忆接入(B-MCP-ONBOARD):桌面专用(mock 模式下面板展示占位提示)。
+  //   与 CLI `openobs-mcp setup/doctor/init` 共享同一套探测/接线/播种逻辑。
+  /** 探测本地 agent + 已接线状态 + 自动解析的二进制路径。 */
+  onboardScan: () => call<OnboardScan>("onboard_scan", {}),
+  /** 接入所选 agent(写各家 MCP 配置;备份 + 原子写护栏在后端)。 */
+  onboardApply: (
+    binary: string,
+    vault: string,
+    agentIds: string[],
+    dryRun = false,
+  ) =>
+    call<OnboardActionResult[]>("onboard_apply", {
+      binary,
+      vault,
+      agentIds,
+      dryRun,
+    }),
+  /** 拆线所选 agent(只删各家配置里的 openobsidian 条目)。 */
+  onboardRemove: (agentIds: string[]) =>
+    call<OnboardActionResult[]>("onboard_remove", { agentIds }),
+  /** 接线健康诊断(与 `openobs-mcp doctor` 同一份检查)。 */
+  onboardDoctor: (vault: string, binary?: string | null) =>
+    call<OnboardCheck[]>("onboard_doctor", { vault, binary: binary ?? null }),
+  /** 播种 wiki-starter 模板(force 合并,永不覆盖已有文件)。 */
+  onboardInit: (dir: string, force = false) =>
+    call<OnboardSeedReport>("onboard_init", { dir, force }),
+  /** 引导文本(粘贴进 agent 指引文件;UI 只复制,绝不代写)。 */
+  onboardGuidance: () => call<string>("onboard_guidance", {}),
+  /** 重新解析 openobs-mcp 二进制路径。 */
+  onboardResolveBinary: () => call<string | null>("onboard_resolve_binary", {}),
+  /** 系统文件对话框手选 openobs-mcp 二进制。 */
+  onboardPickBinary: () => call<string | null>("onboard_pick_binary", {}),
 
   /** 浏览器 dev 用的标志:为 true 时 UI 应提示"当前为 mock 模式"。 */
   isMock: () => !isTauri,
