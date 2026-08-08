@@ -1,6 +1,7 @@
 ---
 type: Index
 status: Active
+format: owf/1
 ---
 
 # Index — Wiki 目录
