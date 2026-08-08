@@ -86,6 +86,7 @@
 | provenance / reviewed / trust 软字段约定(P0 L1) | B-WIKI-PROVENANCE | `templates/wiki-starter/types/*` + `health/agent-unreviewed` 等;规格 [14](./14-llm-wiki-workflow.md) §3.1 / [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) |
 | 对话→vault 蒸馏 L2a(零代码工作流 + 提示词) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §1.1;`templates/wiki-starter/prompts/ingest-distill.md` |
 | 内容级 lint L2 工作流(agent-in-the-loop,零新工具) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §3.2.3;调研 [research/content-lint-contradiction.md](./research/content-lint-contradiction.md) |
+| OWF-1 格式规范(**档 1** ✅:装订现状 + 钉版本,零新词汇) | B-WIKI-FORMAT | 规格 [15](./15-owf-format.md);`format: owf/1` 声明在 `templates/wiki-starter/index.md`;宽容规则测试锁 `core/tests/owf_conformance.rs` |
 | 规格 | — | [09-big-features-v1.md](./09-big-features-v1.md) |
 
 ## 应用内 Agent(ACP 托管 · Phase 7 ✅)

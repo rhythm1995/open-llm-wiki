@@ -178,6 +178,7 @@
 | B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源)+ `lint_all` 报告层(`LintReport`),19+3 单测 + 4 proptest;**只产候选不判决**;消费面见下行 |
 | B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ✅ | 2026-08-06:MCP `lint_vault` 工具(`mcp/src/main.rs`,8th tool,内联测试 + `mcp/README.md`)+ app `lint_vault` 命令(注册进 `generate_handler!`,live 索引);agent consolidate 即可消费。**人侧 UI 见下行** |
 | B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立 Health 视图;品味依赖度高(survey §7.4),先让探针跑再决定做不做。**已记录,暂不做** |
+| B-WIKI-FORMAT | OWF-1 格式规范(**档 1**) | 🟢 | ✅ | 2026-08-09:[`docs/15-owf-format.md`](./15-owf-format.md) 转正——装订现状 + 钉版本,零新词汇/字段/行为;唯一新产物 = vault index.md 的 `format: owf/1` 声明(模板已带);宽容规则升为测试锁(`core/tests/owf_conformance.rs`)。**档 2 三项(draft / deprecated / stale_after)未采纳**,设计+触发信号存档 doc 15 §9.2,等真实信号再升级 |
 
 ---
 

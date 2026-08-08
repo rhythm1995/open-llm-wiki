@@ -15,6 +15,19 @@
 
 ---
 
+### 2026-08-09 Claude — OWF-1 档 1 落地 ✅:格式规范转正 + vault 版本钉住(零新词汇、零行为改变)
+
+- **branch**: `release/v0.1.0`(收工已 commit 三刀:`17bd8f0` test(core) / `2a83ba1` feat(templates) / `ebc068e` docs)
+- **做了**:OWF-1(OpenObsidian Wiki Format v1)**档 1** 落地(人批准档 1、明确不做档 2):
+  1. **规范转正**:`docs/15-owf-format.md` 新建并转正——把既有 type/status/关系词汇成文化为单一契约(status 两轴词表:Source 生命周期 `Unprocessed→Digested` + 知识状态 `Active/Contested/Superseded`;wikilink 即关系边;文件夹无语义);不变量映射到 lint L1-A/B/D/E(§7);OKF v0.2 仅映射表无实现(§8,fork+投影,`Contested` 导出是唯一有损点)。
+  2. **唯一新产物**:vault index.md frontmatter 的 `format: owf/1` 版本声明——`templates/wiki-starter/index.md` 已带;无声明 vault 按 owf/1 尽力解析,不拒绝服务。
+  3. **宽容从偶然属性升为测试锁住的承诺**:`core/tests/owf_conformance.rs` 4 条(未知 type 全链路不丢、未知 frontmatter 字段全量保留、缺 status/format 合法、format 声明本身是普通字段)。
+  4. **档 2 候选项存档(未采纳)**:`draft` / `deprecated` / `stale_after` 三项的设计、升级触发信号、升级时要动的位置全部记录在 doc 15 §9.2;回滚台账 §9.3(删 4 处改动即完全回滚,零运行时影响——标准是契约层,引擎不依赖它)。
+  5. **索引同步**:docs/README 文档地图 15 行、FEATURE-INDEX 大件表 OWF-1 行、backlog `B-WIKI-FORMAT` ✅ 行。
+- **理由 / 影响**:① 反漂移——约定此前散在 docs/14 + templates + core 行为三处,已两次实证会漂移,格式变更从此必须显式 bump 版本;② vault 自描述——冷启动 agent 靠 index.md 一行读懂契约,不依赖本 repo 文档;③ 词汇线归属——`Source/Summary/Concept/Entity + Active/Contested/Superseded` 谱系(Karpathy gist → 维护者 kb cairn 约定 → OpenObsidian)在公开世界无家(refactoringhq 转 Portent),本规范即其家。**引擎零改动**。
+- **验证**:`cargo test -p openobs-core` 153 lib + 4 owf_conformance + 1 parity + 11 wiki-health 全绿 ✓;`cargo clippy --workspace --all-targets` 仅存量警告(新测试零警告)。本轮未动 ui/app/mcp/CI/依赖。
+- **下一步 / 接手注意**:档 2 三项等真实信号再升级(doc 15 §9.2 有触发条件清单),届时同步规范 + conformance 测试 + 模板并 bump 次版(owf/1.x)。改动已按 test(core) / feat(templates) / docs 三刀 commit(见 branch 行)。
+
 ### 2026-08-06 Claude — B-WIKI-LINT-MCP ✅:lint_vault 接通 MCP + app 命令(lint 从「存在」变「可用」)
 
 - **branch**: `release/v0.1.0`(收工已 commit 四刀 + push:`cda87ce` core / `4e53360` mcp / `972e0c9` app / `0d6f036` docs)
