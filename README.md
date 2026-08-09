@@ -93,7 +93,7 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 - [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS 4](https://tailwindcss.com/) —— UI。
 - [CodeMirror 6](https://codemirror.net/) —— 源码编辑器。
 - [BlockNote](https://blocknotejs.org/) —— WYSIWYG 编辑器。
-- [Cytoscape](https://js.cytoscape.org/) —— 图谱。
+- [force-graph](https://github.com/vasturiano/force-graph) —— 图谱 Canvas 力导向。
 - [Excalidraw](https://excalidraw.com/) —— 画布。
 - [ironcalc](https://www.ironcalc.com/) —— Sheet。
 

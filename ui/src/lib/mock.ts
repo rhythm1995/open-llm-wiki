@@ -151,6 +151,40 @@ last_verified: 2026-07-25
 # Karpathy LLM Wiki
 
 一份用 LLM 维护的 wiki 流水线设想。被 [[Zettelkasten]] 提及。
+也关联 [[Evergreen Notes]] 与 [[Agent Memory]]。
+`,
+    "concepts/agent-memory.md": `---
+type: Concept
+status: Active
+tags: [method, ai]
+---
+
+# Agent Memory
+
+agent 长期记忆:wiki 路线 vs 向量库。参见 [[Zettelkasten]]、[[Karpathy LLM Wiki]]、[[Index]]。
+
+related_to: "[[Evergreen Notes]]"
+`,
+    "concepts/knowledge-graph.md": `---
+type: Concept
+status: Active
+tags: [method]
+---
+
+# Knowledge Graph
+
+笔记网络可视化与检索。链接到 [[Agent Memory]] 与 [[Index]]。
+`,
+    "summaries/bitunix-margin.md": `---
+type: Summary
+status: Active
+tags: [finance]
+source: "[[Karpathy LLM Wiki]]"
+---
+
+# Summary — 从成本中心到利润中心
+
+派生自源笔记。交叉引用 [[Knowledge Graph]] 与 [[Agent Memory]]。
 `,
     // 模板示例:演示 F-TEMPLATES(`{{title}}` / `{{date}}` 占位符)。
     "templates/concept.md": `---

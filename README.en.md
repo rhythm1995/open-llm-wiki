@@ -93,7 +93,7 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 - [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS 4](https://tailwindcss.com/) — UI.
 - [CodeMirror 6](https://codemirror.net/) — source editor.
 - [BlockNote](https://blocknotejs.org/) — WYSIWYG editor.
-- [Cytoscape](https://js.cytoscape.org/) — graph.
+- [force-graph](https://github.com/vasturiano/force-graph) — graph (Canvas force layout).
 - [Excalidraw](https://excalidraw.com/) — canvas.
 - [ironcalc](https://www.ironcalc.com/) — Sheet.
 

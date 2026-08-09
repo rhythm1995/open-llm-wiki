@@ -8,6 +8,10 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 
 ### ✨ 功能
 
+#### 图谱
+
+- **图渲染换代(force-graph)**:Cytoscape → `force-graph` Canvas 主路径;OpenWiki 气质 glow 节点 / 有向粒子边 / 邻域 dim / 选中不抢镜头;克制类型色板;工具条减料(过滤+更多)+ 当前笔记摘要卡。数据管线(filter/model/modes/落盘)保留。
+
 #### 面向 AI(应用内 Agent)
 
 - **应用内侧栏 Agent(ACP 托管)**:配方 picker(opencode / claude-code 等,运行时探测)+ 流式对话 + tool_call 折叠卡;Composer 单一动作槽(Send / Stop / Queue)+ `@`-笔记上下文药丸;权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具分类白名单;Model C 跨 agent 移交;每 vault 一 SQLite 转录 + 历史会话回放。

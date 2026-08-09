@@ -59,7 +59,7 @@
 
 | 功能 | ID | 代码入口 |
 |---|---|---|
-| Cytoscape 渲染 + cose/preset | Phase6 栈 | `GraphView.tsx`,`CytoscapeLayer.tsx` |
+| force-graph Canvas 渲染 + d3-force / preset | Phase6 栈 | `GraphView.tsx`,`ForceGraphLayer.tsx` |
 | 过滤 / 健康 / 分层 / 时间轴 | B-GRAPH-* | `graph-*.ts` |
 | 布局落盘 `.openobsidian/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
 | 规划(未完项) | §I | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) |

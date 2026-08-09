@@ -15,6 +15,46 @@
 
 ---
 
+### 2026-08-10 Grok — 修复点选后图甩到左上角(flyTo 用过期坐标)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:badcase 点「从成本中心到利润中心」后整图跑左上、中心空白。根因 = `currentId` 变化重置 didFly 并 `centerAt(n.x,n.y)` 且 n.x/y 是父组件滞后值(常近原点)。改为:① 仅 vault 打开后首次有稳定 positions 时飞一次,图内点选不再 fly;② 坐标用 positionsRef;③ 拒绝 (0,0);④ graphData 同步时冻结态保留相机;⑤ positions 回写节点对象。
+- **验证**:typecheck + rebuild app
+- **下一步**:真机再点该 Summary 节点确认视口不再甩
+
+### 2026-08-10 Grok — 图谱点击抖动:布局冻结(点选不 reheat)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:点选笔记会 reheat 力导向(syncGraphData 每次 d3Reheat + 每帧清 fx + isCurrent 改半径)→ 晃几秒。改为:
+  1. engine stop 后 **freeze 全图 fx/fy**
+  2. 仅结构签名变化时更新 graphData;冻结后邻域增删 **不 reheat**(新点钉质心旁)
+  3. 仅「重排/力参/布局模式」解冻 reheat;cooldown≤100 + 更快 alpha 衰减
+  4. 选中不再缩放节点半径
+- **验证**:typecheck ✓;需真机点选体感确认
+- **下一步**:用户验收;若邻域模式换焦点也要完全静止,当前已冻,不应再晃
+
+### 2026-08-10 Grok — 图谱观感三轮迭代(粒子/边/力/控件/fit)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:按「改→跑 mock→截图→验收」循环 3 轮:
+  1. R1: 粒子默认关(仅高亮细粒子)、边加实、斥力/边长加大、glow 仅强调态、控件改主题 token
+  2. R2: 浅色选中不用白核、缩放钮对比加强、mock 加密图、`d3-force-3d` collide
+  3. R3: 斥力/边长/碰撞再加强;engine stop / fit 时 zoomToFit **排除孤立节点**(防模板甩飞撑 bbox)
+- **截图**:`ui/tmp-shots/graph-r1.png` / `graph-r2b.png` / `graph-r3-final.png`
+- **验证**:typecheck ✓; vitest 566 ✓; 终态截图边清晰、节点有空隙、无大粒子、浅色控件可读
+- **下一步**:真机 vault(47 笔记级)再 `build-app` 验收;大图可再调 charge 曲线
+
+### 2026-08-09 Grok — 图谱视觉 P0+P1+P2:force-graph 换代 + 减料壳
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. **P0 视觉语言**:`graph-style` 克制色板 / 画布 `#050a16` / accent `#7FC8FF`;去 Catppuccin 彩虹满屏。
+  2. **P1 渲染层**:新增 `ForceGraphLayer`(npm `force-graph@1.49.5`,离线打包);glow+核+粒子边+dim 邻域+选中不抢镜头;d3-force 映射 ForceParams;preset 模式 fx/fy 冻结;卸 `cytoscape` + 删 `CytoscapeLayer`。
+  3. **P2 交互壳**:过滤默认折叠;布局/范围/健康/重排收进「更多」;左下当前笔记摘要卡;顶栏/缩放控件对齐深色图空间。
+  4. 许可/索引:THIRD_PARTY + README 中英 + FEATURE-INDEX + CHANGELOG;i18n `graph.more` / `graph.focusCard.degree`。
+- **验证**:`pnpm typecheck` ✓;`pnpm test` 566 ✓。
+- **下一步 / 接手注意**:真机进图谱看观感/帧率(B-GRAPH-FPS);Shift 框选暂未接;大图粒子可再按 zoom 降噪。
+
 ### 2026-08-09 Claude — B-MCP-ONBOARD ✅:本地 agent 一键接入(CLI setup/doctor/init + 桌面 Settings 面板,lib 共用)
 
 - **branch**: `release/v0.1.0`(收工**未 commit**,留工作区待人审)
