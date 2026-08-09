@@ -17,20 +17,21 @@
 import { useMemo, useState } from "react";
 import {
   Archive,
+  BookmarkSimple,
   CaretDown,
   CaretRight,
   Copy,
+  Files,
   Folder,
   FolderOpen,
   Funnel,
   Hash,
-  NoteBlank,
   Plus,
-  Tag,
   Tray,
 } from "@phosphor-icons/react";
 import type { VaultEntry, VaultSnapshot } from "../lib/ipc";
 import { isInbox, sameSelection, type NavSelection } from "../lib/nav-filter";
+import { typeColor, typeIcon } from "../lib/nav-icons";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -328,7 +329,7 @@ export function Nav({
             )}
             {itemRow(
               { kind: "all" },
-              <NoteBlank size={14} />,
+              <Files size={14} />,
               t("nav.allNotes"),
               isEditorView && sameSelection(navSelection, { kind: "all" }),
               nodes.length,
@@ -350,19 +351,20 @@ export function Nav({
 
           <div className="my-2 border-t border-crust" />
 
-          {/* ▼ TYPES:type 去重 + 计数。 */}
-          {sectionHeader("types", <Tag size={12} />, t("nav.section.types"), types.length)}
+          {/* ▼ TYPES:type 去重 + 计数;每个 type 按名挑图标 + 配色(见 nav-icons)。 */}
+          {sectionHeader("types", <BookmarkSimple size={12} />, t("nav.section.types"), types.length)}
           {openSections.has("types") && (
             <div className="mb-1 mt-0.5 flex flex-col gap-0.5">
-              {types.map(([id, count]) =>
-                itemRow(
+              {types.map(([id, count]) => {
+                const TypeIcon = typeIcon(id);
+                return itemRow(
                   { kind: "type", id },
-                  <Tag size={13} />,
+                  <TypeIcon size={13} className={typeColor(id)} weight="fill" />,
                   id === "" ? t("nav.untyped") : id,
                   isEditorView && sameSelection(navSelection, { kind: "type", id }),
                   count,
-                ),
-              )}
+                );
+              })}
             </div>
           )}
 
