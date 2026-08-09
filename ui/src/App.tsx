@@ -205,7 +205,7 @@ export default function App() {
     "openobs.colW.right",
     COL.right.default,
   );
-  // 图谱力参数(6A2):持久化;CytoscapeLayer 映射到 cose 时夹取,这里存原值即可。
+  // 图谱力参数(6A2):持久化;ForceGraphLayer 映射到 d3-force 时夹取,这里存原值即可。
   const [forces, setForces] = usePersistentState<ForceParams>(
     GRAPH_FORCES_KEY,
     DEFAULT_FORCES,
@@ -271,8 +271,9 @@ export default function App() {
   // 除非用户本就关了列表(listOpen=false)。——任务4:视图切换不再吞掉第二栏。
   const showList = listOpen && hasVault;
   // 右栏 tab:inspector(仅 editor 非画布) | agent(任意视图)。doc 11 B-AGENT-RIGHTCOL-TABS。
+  // key 加 .v2:旧版默认 agent,现已改为 inspector;新 key 读不到旧值 → 落回 inspector 默认。
   const [rightTab, setRightTab] = usePersistentState<"inspector" | "agent">(
-    "openobs.rightTab",
+    "openobs.rightTab.v2",
     "inspector",
   );
   const agentOpen = propsOpen && rightTab === "agent";
