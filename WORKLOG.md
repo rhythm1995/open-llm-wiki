@@ -15,6 +15,88 @@
 
 ---
 
+### 2026-08-11 Grok — Agent 图标改用官方矢量
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 去掉手绘几何标;`ui/public/agent-icons/*.svg` 换成官方/brand-pack 路径(Cursor/Windsurf/Zed/OpenCode/Pi/Claude/OpenAI/Grok),`SOURCES.md` 溯源;`AgentIcon` 用 CSS mask 套这些文件。
+- **验证**: typecheck ✓; vitest 607 ✓。
+
+### 2026-08-11 Grok — 设置 select 加大 + Agent 品牌小标
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. Settings 全部 native select → `h-10` + `text-[13px]` 更大触控/字号。
+  2. 新增 `ui/src/lib/agent-icons.tsx` 与 Agent 列表接入(后改为官方矢量,见上条)。
+- **验证**: typecheck ✓; vitest 607 ✓。
+
+### 2026-08-11 Grok — 设置移除「图谱」tab
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 删 Settings「图谱」力参数 UI 与相关 i18n;tab 剩 通用 / Agent 记忆 / 诊断。图谱主视图与默认 forces 持久化保留。
+- **验证**: typecheck ✓; vitest 605 ✓。
+
+### 2026-08-11 Grok — Agent 记忆一键接入 + 删 entryHint
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. **一键接入**:`AgentOnboardingSection` 主 CTA「一键接入」— 自动解析 mcp 二进制 + 当前 vault、可选播种、批量接线;路径/勾选/诊断收进「高级选项」。
+  2. **打包**:`build-app.sh` 已嵌入 `open-llm-wiki-mcp` 到 `Contents/MacOS/`(与 resolve 同目录命中)。
+  3. **文案**:删 `settings.onboard.entryHint`(⌘K 搜记忆/需二进制那段);补齐 oneClick / status / need* i18n(中英)。
+  4. 单测按默认折叠高级区改写 + 一键路径覆盖。
+- **验证**:typecheck ✓;vitest 605 ✓。
+- **下一步**:正式打包重装后点「一键接入」验收;无本地 agent 时会提示 needAgent。
+
+### 2026-08-11 Grok — 启动不闪欢迎台 + MG 关闭收起到右上角 logo
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. **vaultBootReady**:有 lastRoot 时 pending,恢复完成前不渲染 WelcomeEmpty/MG,只显示轻量 logo 占位,消除每次打开闪首页。
+  2. **MG 关闭**:WelcomePhilosophyMg 右上角 ✕ → Dialog 询问;勾选「以后默认右上角 logo」→ `welcomeMgPlacement=corner`;顶栏 `toolbar-brand-logo` 常显,corner 下点 logo 可恢复 hero。
+  3. pref 纯逻辑 + 单测。
+- **验证**:typecheck ✓;vitest 603 ✓。
+
+### 2026-08-11 Grok — 正确 logo 应用位 + 首次 MG 嵌入 + Apache-2.0
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. **Logo/图标**:从批准 `app-icon-flat-1024.png` / `olw-mark-transparent.png` 刷新 Tauri icons、favicon、`ui/public/olw-mark.png`。
+  2. **首次进入 MG**:`WelcomePhilosophyMg` + `welcome-mg.css` 嵌进无 Vault 的 `WelcomeEmpty`(三幕循环;reduced-motion 定格主标);`docs/16` 标为已接入。
+  3. **许可**:项目 `LICENSE` → Apache-2.0;Cargo/package/tauri/README/AGENTS/docs/THIRD_PARTY 项目自述同步(第三方 Excalidraw MIT 等不变)。
+- **验证**:typecheck ✓;vitest 600 ✓。
+- **下一步**:打包重装可看 dock 图标与无 vault 欢迎台 MG。
+
+### 2026-08-10 Grok — 首次启动 MG 文档化（v4 prompt 包）
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 新增 `docs/16-first-run-mg-philosophy.md`：三幕叙事、品牌硬约束、否决方案、**完整/增量/主标/嵌入** prompt 包；`docs/README` + `brand/LOCK` 互链。产物仍为 `brand/mg-philosophy.html`（未进客户端）。
+- **下一步**: 满意后可把 stage 嵌进 WelcomeEmpty。
+
+### 2026-08-10 Grok — 首次启动欢迎台(无 vault 空状态优化)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. **状态分流**:无 `root` 时中心渲染 `WelcomeEmpty`,不再显示「从左侧选择笔记」(该文案仅有 vault 未选笔记时保留)。
+  2. **欢迎台**:logo 示意 + 产品名/价值主张 + Vault=Markdown 文件夹说明;主 CTA「打开 Markdown 文件夹」;次要「创建示例知识库」;最近打开 MRU 列表(可移除)。
+  3. **最近 vault**:`last-note.ts` 增 `recentRoots` MRU(上限 5);`writeLastRoot` 同步推入;失败 `forgetRecentRoot`。
+  4. **示例库**:Rust `create_sample_vault` → Documents/`Open LLM Wiki Demo*`(含 Welcome + Concept + Source + wikilink);mock `create_sample_vault` 灌种子。
+  5. **拖放**:Tauri webview `onDragDropEvent` 拖文件夹打开。
+  6. **状态栏**:无 vault 显示「未打开知识库」。
+  7. **测试**:vitest 600; rust `create_sample_vault_writes_welcome` ✓。
+- **理由 / 影响**:修第一印象空壳;主路径一键可达。
+- **下一步**:用户可 `bash scripts/build-app.sh` 重装验证;浏览器 mock 仍自动开种子库(欢迎台主测桌面无 lastRoot)。
+
+### 2026-08-10 Grok — VI-board logo lock → SVG + Tauri icons + favicons
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. 用户锁定 `brand/olw-vi-board.jpg` 为唯一设计源(主标/变体 superseded)。
+  2. 手写几何矢量化:insight lattice lightbulb → `brand/olw-mark.svg` / mono / 16px 精简 / app-icon(near-black `#050A16` + sky `#7FC8FF`);可重生脚本 `brand/render_mark.py`。
+  3. `tauri icon` 全套写入 `app/src-tauri/icons/`(icns/ico/png/iOS/Android);32px 改用精简拓扑。
+  4. Web:`ui/public/favicon.*` + `ui/index.html` link。
+  5. `brand/LOCK.md` 更新为生产 SoT + regenerate步骤。
+- **理由 / 影响**:产品有可打包的官方图标;矢量可调、小尺寸可读。
+- **下一步 / 接手注意**:未 commit;确认 dock 观感后可 `git add brand/ app/src-tauri/icons/ ui/public ui/index.html` 单独 commit。字标/包装 VI 板可选。
+
 ### 2026-08-10 Claude — 画布入口隐藏 + FOLDERS 拖放重做 + nav Concept 图标 + 文档同步
 
 - **branch**: `release/v0.1.0`(已 commit 五刀:`818f3ed` nav-icon / `59d350c` canvas-hide / `2184e03` folders-drop / `5ab00e3` docs / 见下 WORKLOG;未 push)
@@ -26,6 +108,13 @@
 - **理由 / 影响**:① 画布作为孤立白板,「新建」入口占据高频表头位但与核心价值零交集,隐藏后表头更干净;② FOLDERS 虚拟节点心智模型错误且常隐藏,新方案符合 Finder/Obsidian/Tolaria 惯例,折叠态也可拖放;③ 隔离结论显式存档防止下一个 agent 误判画布是核心组件。
 - **验证**:typecheck ✓;vitest 585/585 ✓;cargo app 49 passed ✓;浏览器 mock 实拍:表头无画布按钮、⌘K 无画布命令、FOLDERS 无虚拟节点、whiteboard.canvas 仍可打开。
 - **下一步 / 接手注意**:画布「打通」是独立工程线(无萌芽),除非产品诉求否则维持隔离;恢复入口 = 改 gate / 取消注释。五刀未 push,待人确认。
+
+### 2026-08-10 Grok — 品牌重命名 OpenObsidian → Open LLM Wiki / open-llm-wiki
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:全库去旧品牌——产品名 Open LLM Wiki;crate/包 `open-llm-wiki-{core,app,mcp,ui}`;标识 `dev.openllmwiki.desktop`;配置目录 `.open-llm-wiki`;env `OPEN_LLM_WIKI_*`;localStorage `open-llm-wiki.*`;sheet/canvas schema 键 `openLlmWikiSheet/Canvas`(canvas 读兼容旧 openobsidianCanvas)。Obsidian 仅作功能对照保留。
+- **验证**:`cargo test -p open-llm-wiki-core --lib` 153 ✓;`pnpm typecheck` ✓; vitest 585 ✓
+- **下一步**:用户用 LogoCreator 出 logo 后换 icons;可选重命名磁盘目录/ GitHub 仓库
 
 ### 2026-08-10 Grok — 图相机:软边界 + 空视口回到图 + ensureVisible
 
@@ -101,25 +190,25 @@
 
 - **branch**: `release/v0.1.0`(收工**未 commit**,留工作区待人审)
 - **做了**:针对「MCP 接入不友好」(找二进制绝对路径、知道每家配置位置格式、手写 JSON/TOML 易弄坏文件),落地友好检测 + 接入:
-  1. **mcp lib 化**:`mcp/Cargo.toml` 加 `[lib]` 段(`openobs_mcp`);`list_md` 移入 `mcp/src/lib.rs`;`main.rs` 加保留词首参分派(`setup`/`doctor`/`init`/`help`/`serve`;裸跑 / 路径 / `$OPENOBS_VAULT` 的 serve 行为逐字节不变;未知 `--flag` → exit 2)。新增依赖 `which` 7、`toml_edit` 0.25,`serde_json` 开 `preserve_order`(护 `~/.claude.json` 键序)。
-  2. **`mcp/src/onboard.rs`**(含测试 ~1400 行):数据驱动 7 家 agent 注册表(claude-code / claude-desktop / cursor / codex / windsurf / zed / grok 手动;加新 agent = 加一条 `AgentSpec` 字面量);探测证据 = PATH 二进制 ∨ 配置文件 ∨ mac app bundle;写入器:JSON `mcpServers`(Zed 走 `context_servers` schema,已有 `settings` 不覆盖)+ Codex TOML(toml_edit 保格式保注释);**安全四件套**:写真文件前先 `.openobsidian.bak` 备份 / 同目录 tmp+rename 原子写 / 不可解析文件绝不触碰(打印手动 snippet 兜底)/ `--dry-run`;claude-code 官方 CLI 优先(`claude mcp add-json -s user`)→ 文件直写兜底;`init` 播种 wiki-starter 23 文件(include_str! + drift-guard 测试;`--force` 合并但永不覆盖);doctor 有 Fail → exit 1。只动 user-level 全局配置,绝不碰项目级 `.mcp.json` / `.claude/settings.json`;GUIDANCE snippet 只打印给用户,绝不自动写入。
-  3. **桌面侧复用同一 lib**:app 加 `openobs-mcp` 依赖;`app/src-tauri/src/onboarding.rs` 8 个 `onboard_*` 命令(scan/apply/remove/doctor/init/guidance/resolve/pick;二进制解析:app exe 同目录 → which → 手动 picker),已注册 `generate_handler!`;`ui/src/components/AgentOnboardingSection.tsx` 挂进 Settings(接入/拆线/诊断/播种/引导复制;浏览器 mock 模式只显占位);i18n 中英全键。用户无需碰终端。
-  4. **登记**:mcp/README 新增 §Agent onboarding + 修正 Claude Code 错误路径(`~/.config/claude-code/config.json` → `~/.claude.json`)+ 补全六家手动 snippet;backlog `B-MCP-ONBOARD` ✅ 行;FEATURE-INDEX 一行;THIRD_PARTY_NOTICES 登记 `which`(顺带补 app 旧账)与 `toml_edit`;ci.yml core-and-ui job 补 `cargo test -p openobs-mcp`(此前 mcp 测试完全不在 CI)。
-- **理由 / 影响**:接入成本从「手工三件事」降到一条 `openobs-mcp setup` 或 Settings 面板一次点击;弄坏用户配置的风险面被四件套压住。Windows 注册表条目编译可得但本轮未实测(README 已注明);Linux Claude Desktop 为社区路径,未测。
-- **验证**:`cargo test -p openobs-mcp` 52 ✓ / `-p openobs-app` 49 ✓;clippy --workspace 零新警告;typecheck ✓;vitest 566/566 ✓;playwright e2e 18/18 ✓;真机冒烟:`setup --dry-run` 检出本机 6 家 agent、doctor / init / 裸 serve 均正常。
+  1. **mcp lib 化**:`mcp/Cargo.toml` 加 `[lib]` 段(`open_llm_wiki_mcp`);`list_md` 移入 `mcp/src/lib.rs`;`main.rs` 加保留词首参分派(`setup`/`doctor`/`init`/`help`/`serve`;裸跑 / 路径 / `$OPEN_LLM_WIKI_VAULT` 的 serve 行为逐字节不变;未知 `--flag` → exit 2)。新增依赖 `which` 7、`toml_edit` 0.25,`serde_json` 开 `preserve_order`(护 `~/.claude.json` 键序)。
+  2. **`mcp/src/onboard.rs`**(含测试 ~1400 行):数据驱动 7 家 agent 注册表(claude-code / claude-desktop / cursor / codex / windsurf / zed / grok 手动;加新 agent = 加一条 `AgentSpec` 字面量);探测证据 = PATH 二进制 ∨ 配置文件 ∨ mac app bundle;写入器:JSON `mcpServers`(Zed 走 `context_servers` schema,已有 `settings` 不覆盖)+ Codex TOML(toml_edit 保格式保注释);**安全四件套**:写真文件前先 `.open-llm-wiki.bak` 备份 / 同目录 tmp+rename 原子写 / 不可解析文件绝不触碰(打印手动 snippet 兜底)/ `--dry-run`;claude-code 官方 CLI 优先(`claude mcp add-json -s user`)→ 文件直写兜底;`init` 播种 wiki-starter 23 文件(include_str! + drift-guard 测试;`--force` 合并但永不覆盖);doctor 有 Fail → exit 1。只动 user-level 全局配置,绝不碰项目级 `.mcp.json` / `.claude/settings.json`;GUIDANCE snippet 只打印给用户,绝不自动写入。
+  3. **桌面侧复用同一 lib**:app 加 `open-llm-wiki-mcp` 依赖;`app/src-tauri/src/onboarding.rs` 8 个 `onboard_*` 命令(scan/apply/remove/doctor/init/guidance/resolve/pick;二进制解析:app exe 同目录 → which → 手动 picker),已注册 `generate_handler!`;`ui/src/components/AgentOnboardingSection.tsx` 挂进 Settings(接入/拆线/诊断/播种/引导复制;浏览器 mock 模式只显占位);i18n 中英全键。用户无需碰终端。
+  4. **登记**:mcp/README 新增 §Agent onboarding + 修正 Claude Code 错误路径(`~/.config/claude-code/config.json` → `~/.claude.json`)+ 补全六家手动 snippet;backlog `B-MCP-ONBOARD` ✅ 行;FEATURE-INDEX 一行;THIRD_PARTY_NOTICES 登记 `which`(顺带补 app 旧账)与 `toml_edit`;ci.yml core-and-ui job 补 `cargo test -p open-llm-wiki-mcp`(此前 mcp 测试完全不在 CI)。
+- **理由 / 影响**:接入成本从「手工三件事」降到一条 `open-llm-wiki-mcp setup` 或 Settings 面板一次点击;弄坏用户配置的风险面被四件套压住。Windows 注册表条目编译可得但本轮未实测(README 已注明);Linux Claude Desktop 为社区路径,未测。
+- **验证**:`cargo test -p open-llm-wiki-mcp` 52 ✓ / `-p open-llm-wiki-app` 49 ✓;clippy --workspace 零新警告;typecheck ✓;vitest 566/566 ✓;playwright e2e 18/18 ✓;真机冒烟:`setup --dry-run` 检出本机 6 家 agent、doctor / init / 裸 serve 均正常。
 - **下一步 / 接手注意**:本轮改动**未 commit**,待人定 commit 粒度(建议 mcp / app / ui / docs 四刀)。未来实测 Windows / Linux 接线后去掉 README「未测」注记;新增 agent 只需加 `AgentSpec` 字面量(+ 必要时新 `ConfigTarget` 变体)。
 
 ### 2026-08-09 Claude — OWF-1 档 1 落地 ✅:格式规范转正 + vault 版本钉住(零新词汇、零行为改变)
 
 - **branch**: `release/v0.1.0`(收工已 commit 三刀 + push:`17bd8f0` test(core) / `2a83ba1` feat(templates) / `a319d19` docs)
-- **做了**:OWF-1(OpenObsidian Wiki Format v1)**档 1** 落地(人批准档 1、明确不做档 2):
+- **做了**:OWF-1(Open LLM Wiki Wiki Format v1)**档 1** 落地(人批准档 1、明确不做档 2):
   1. **规范转正**:`docs/15-owf-format.md` 新建并转正——把既有 type/status/关系词汇成文化为单一契约(status 两轴词表:Source 生命周期 `Unprocessed→Digested` + 知识状态 `Active/Contested/Superseded`;wikilink 即关系边;文件夹无语义);不变量映射到 lint L1-A/B/D/E(§7);OKF v0.2 仅映射表无实现(§8,fork+投影,`Contested` 导出是唯一有损点)。
   2. **唯一新产物**:vault index.md frontmatter 的 `format: owf/1` 版本声明——`templates/wiki-starter/index.md` 已带;无声明 vault 按 owf/1 尽力解析,不拒绝服务。
   3. **宽容从偶然属性升为测试锁住的承诺**:`core/tests/owf_conformance.rs` 4 条(未知 type 全链路不丢、未知 frontmatter 字段全量保留、缺 status/format 合法、format 声明本身是普通字段)。
   4. **档 2 候选项存档(未采纳)**:`draft` / `deprecated` / `stale_after` 三项的设计、升级触发信号、升级时要动的位置全部记录在 doc 15 §9.2;回滚台账 §9.3(删 4 处改动即完全回滚,零运行时影响——标准是契约层,引擎不依赖它)。
   5. **索引同步**:docs/README 文档地图 15 行、FEATURE-INDEX 大件表 OWF-1 行、backlog `B-WIKI-FORMAT` ✅ 行。
-- **理由 / 影响**:① 反漂移——约定此前散在 docs/14 + templates + core 行为三处,已两次实证会漂移,格式变更从此必须显式 bump 版本;② vault 自描述——冷启动 agent 靠 index.md 一行读懂契约,不依赖本 repo 文档;③ 词汇线归属——`Source/Summary/Concept/Entity + Active/Contested/Superseded` 谱系(Karpathy gist → 维护者 kb cairn 约定 → OpenObsidian)在公开世界无家(refactoringhq 转 Portent),本规范即其家。**引擎零改动**。
-- **验证**:`cargo test -p openobs-core` 153 lib + 4 owf_conformance + 1 parity + 11 wiki-health 全绿 ✓;`cargo clippy --workspace --all-targets` 仅存量警告(新测试零警告)。本轮未动 ui/app/mcp/CI/依赖。
+- **理由 / 影响**:① 反漂移——约定此前散在 docs/14 + templates + core 行为三处,已两次实证会漂移,格式变更从此必须显式 bump 版本;② vault 自描述——冷启动 agent 靠 index.md 一行读懂契约,不依赖本 repo 文档;③ 词汇线归属——`Source/Summary/Concept/Entity + Active/Contested/Superseded` 谱系(Karpathy gist → 维护者 kb cairn 约定 → Open LLM Wiki)在公开世界无家(refactoringhq 转 Portent),本规范即其家。**引擎零改动**。
+- **验证**:`cargo test -p open-llm-wiki-core` 153 lib + 4 owf_conformance + 1 parity + 11 wiki-health 全绿 ✓;`cargo clippy --workspace --all-targets` 仅存量警告(新测试零警告)。本轮未动 ui/app/mcp/CI/依赖。
 - **下一步 / 接手注意**:档 2 三项等真实信号再升级(doc 15 §9.2 有触发条件清单),届时同步规范 + conformance 测试 + 模板并 bump 次版(owf/1.x)。改动已按 test(core) / feat(templates) / docs 三刀 commit(见 branch 行)。
 
 ### 2026-08-06 Claude — B-WIKI-LINT-MCP ✅:lint_vault 接通 MCP + app 命令(lint 从「存在」变「可用」)
@@ -131,7 +220,7 @@
   3. **app `lint_vault` Tauri 命令**:只读 live 索引(不 WalkDir),已注册进 `generate_handler!`;+1 测试(live_apply fixture → 报候选)。为 B-WIKI-LINT-UI 铺路。
   4. **文档同步**:README 中英 7→8 tools;FEATURE-INDEX;backlog B-WIKI-LINT-MCP ⏳→✅;docs/14 §3.2.2 消费面 + §4 工具表 + L2-tool 段;docs/07 Health-即查询注;templates/wiki-starter README。
 - **理由 / 影响**:上条 WORKLOG「仍勿默认开」被用户明确指示覆盖;政策不变——**只产候选、永不判决**,findings 不自动落 status/边。MCP 是独立二进制直连 core(不经 app);app 命令为未来 UI 面。agent 现在可在 consolidate 前后一次调用拿全部 L1 结构候选(L1-A/B/D/E;L1-C 仍走 QQL)。
-- **验证**:`cargo test -p openobs-core` 153 lib + 1 parity + 11 wiki-health ✓;`cargo test -p openobs-mcp` 19/19 ✓;`cargo test -p openobs-app` 47 pass / 1 ignored ✓;`cargo clippy --workspace --all-targets` 仅存量警告(新代码零警告);本轮零 ui 改动。
+- **验证**:`cargo test -p open-llm-wiki-core` 153 lib + 1 parity + 11 wiki-health ✓;`cargo test -p open-llm-wiki-mcp` 19/19 ✓;`cargo test -p open-llm-wiki-app` 47 pass / 1 ignored ✓;`cargo clippy --workspace --all-targets` 仅存量警告(新代码零警告);本轮零 ui 改动。
 - **下一步 / 接手注意**:B-WIKI-LINT-UI 等探针信号再动(品味依赖);L2-tool(`lint_content`)未排期,届时并入同一报告面。改动已按 core/mcp/app/docs 四刀 commit 并 push。
 
 ### 2026-08-06 Grok — 零代码三件:蒸馏 L2a + lint L2 工作流 + CHANGELOG/FEATURE-INDEX 对齐
@@ -147,7 +236,7 @@
 ### 2026-08-06 Claude — 评估并否决:core+mcp 抽独立通用库(维持单仓库)
 
 - **branch**: `release/v0.1.0`(未 commit;仅 docs/plan.md + 本条日志)
-- **做了**:用户提议把「人机共用记忆系统」抽成独立项目/通用库,做了完整可行性探查(两个 agent 清点 core 公开 API / OpenObsidian 残留 / app+mcp 依赖面 / CI / 许可登记格式)。结论:**技术可行且接缝干净**——core 依赖仅 serde+serde_yaml,IO-free;mcp 已结构独立(单二进制、自带 walker、零 app 耦合);templates+docs/14 无代码引用。代价面:跨仓库版本同步 + 多 agent 纪律要复制一套,而当前只有一个消费者。
+- **做了**:用户提议把「人机共用记忆系统」抽成独立项目/通用库,做了完整可行性探查(两个 agent 清点 core 公开 API / Open LLM Wiki 残留 / app+mcp 依赖面 / CI / 许可登记格式)。结论:**技术可行且接缝干净**——core 依赖仅 serde+serde_yaml,IO-free;mcp 已结构独立(单二进制、自带 walker、零 app 耦合);templates+docs/14 无代码引用。代价面:跨仓库版本同步 + 多 agent 纪律要复制一套,而当前只有一个消费者。
 - **理由 / 影响**:**人拍板放弃独立路线**(2026-08-06)。记忆系统留在本仓库内演化;对 backlog 无影响(B-WIKI-LINT-MCP/UI 照旧)。决定已记入 `docs/plan.md`「评估后不做」节,含重启时可复用的探查事实。
 - **下一步 / 接手注意**:别重开此讨论,除非出现第二个消费者(外部项目要用这套记忆引擎)——那才是重启信号。
 
@@ -167,7 +256,7 @@
   - **测试锁**:`core/tests/wiki_health_qql.rs` 加 6 fixture 布点 + 6 用例(五条→十一条),锁住新六条查询的解析 + 语义;撞名粗筛用内联 fixture。
   - **修复(顺手)**:e2e `smoke.spec.ts`「新建笔记」用例持续超时——查实为**本分支既有回归**(与本次改动无关):`7d7cf77`(agent-ui)把列表列头三个图标按钮(新建笔记/画布/打开 vault)从 `title=` 换成 HoverPop 时丢了可访问名,`getByRole(name: "新建笔记")` 不再命中。用既有 i18n key(sidebar.newNote/newCanvas/openVault)补回 `aria-label` → e2e 恢复 18/18。
 - **理由 / 影响**:决策点——① 规则②对「主动反驳别人但没有入边」的 Contested 页照样报(状态必须与图一致);② L1-D 不报 Superseded Summary→Superseded Source 退役对(减噪);③ 可选的 low-trust-concepts 查询暂缓(trust 采纳未定,open question R4),`trust` 留作可选字段;④ lint 签名只取 `&Graph`(Graph 自带 notes),避免冗余参数。
-- **验证**:CI 门全绿——`cargo test -p openobs-core` 150 lib + 1 parity + 11 wiki-health;clippy(core) clean;`cargo test -p openobs-app` 46 pass / 1 ignored;typecheck ✓;vitest 56 files / 557 tests ✓;`test:cov` 同套件过;**e2e 18/18**(修复前 17/18)。
+- **验证**:CI 门全绿——`cargo test -p open-llm-wiki-core` 150 lib + 1 parity + 11 wiki-health;clippy(core) clean;`cargo test -p open-llm-wiki-app` 46 pass / 1 ignored;typecheck ✓;vitest 56 files / 557 tests ✓;`test:cov` 同套件过;**e2e 18/18**(修复前 17/18)。
 - **下一步 / 接手注意**:P0 字段是「探针」——观察约一个月采纳率(knowledge-mix 的 `(none)` 桶占比)再定写入路径补缺省(L2);下两个零代码动作 = 蒸馏 L2a 文档 + lint L2 文档。全部改动未 commit;建议提交粒度:`feat(core): lint` + `test(core)` / `feat(templates)` / `fix(ui): aria-label` / `docs`。
 
 ### 2026-08-06 Claude — 调研补记:四方向优先级排序 +「品味依赖度」排序方法论(survey §7.4)
@@ -212,18 +301,18 @@
 - **branch**: `release/v0.1.0`(3 commits:`64c2763` build · `e803852` app · `1b77e37` wiki;**未 push**)。
 - **做了**:
   1. **B-UNIVERSAL-DMG**:`scripts/build-universal-dmg.sh`——`tauri build --target universal-apple-darwin --bundles dmg`,自动 `rustup target add` 补双架构 target;与 `build-app.sh`(默认日常 .app)分工。未实跑(重构建)。
-  2. **B-LOG-PORT**:`logging.rs` 加可选 TCP PortSink——设了 `OPENOBS_LOG_PORT` 就在 `127.0.0.1:<port>` 起 server,把每条 NDJSON 行 fan-out 给连入的 `nc`。acceptor + writer 两线程,bounded channel(256)+ `try_send`,卡住的 client 不会阻塞 emit 路径;默认关。`port_tx` 包 `Mutex<Option<SyncSender>>` 解 `SyncSender !Sync`。+2 测试(解析单测 + 真 TCP 集成)。
+  2. **B-LOG-PORT**:`logging.rs` 加可选 TCP PortSink——设了 `OPEN_LLM_WIKI_LOG_PORT` 就在 `127.0.0.1:<port>` 起 server,把每条 NDJSON 行 fan-out 给连入的 `nc`。acceptor + writer 两线程,bounded channel(256)+ `try_send`,卡住的 client 不会阻塞 emit 路径;默认关。`port_tx` 包 `Mutex<Option<SyncSender>>` 解 `SyncSender !Sync`。+2 测试(解析单测 + 真 TCP 集成)。
   3. **§I-D wiki 脚手架**:`templates/wiki-starter/`(5 类型契约 Source/Summary/Entity/Concept/Query + index + 示例链)+ 5 条 Health QQL(`type: Query`)+ `docs/14-llm-wiki-workflow.md`(ingest/research/consolidate 飞轮 + MCP 工具速查)。**修正了 doc 07 §Health 里跑不通的 QQL**:`GROUP BY`→`RENDER group_by()`、`IS EMPTY`→`mentioned_in.len() = 0`、`len(x)`→`x.len()`。新 `core/tests/wiki_health_qql.rs` 在代表性 fixture 上锁住 5 条的「能解析 + 语义正确」。
-- **验证**:`cargo test -p openobs-core` 全绿(127 单测 + qql_parity + 5 新 wiki-health);§I-D 纯 docs/templates,无需 tsc/vitest。提交后工作树 clean。
+- **验证**:`cargo test -p open-llm-wiki-core` 全绿(127 单测 + qql_parity + 5 新 wiki-health);§I-D 纯 docs/templates,无需 tsc/vitest。提交后工作树 clean。
 - **下一步 / 接手注意**:
-  - `build-universal-dmg.sh` 与 PortSink 均**未真机跑过**:dmg 是重构建;PortSink 验法 = `OPENOBS_LOG_PORT=9876` 启 app + 另开 `nc 127.0.0.1 9876` 看实时 NDJSON。
+  - `build-universal-dmg.sh` 与 PortSink 均**未真机跑过**:dmg 是重构建;PortSink 验法 = `OPEN_LLM_WIKI_LOG_PORT=9876` 启 app + 另开 `nc 127.0.0.1 9876` 看实时 NDJSON。
   - 3 commits 未 push;接手前 `git pull` / 确认是否 push。
   - 脚手架在 repo 内 `templates/`;用户要 bootstrap 一个 LLM wiki 时,把 `templates/wiki-starter/` 整目录拷进 vault 即可(文件夹不承载语义,`type:` 才是)。
 
 ### 2026-08-05 Claude — 调研:知识库/LLM Wiki 作为 agent 长期记忆
 - **branch**: `release/v0.1.0`(纯文档,未 commit)
-- **做了**:deep-research 多源调研(40 来源 / 54 条证据,持久化于 `~/Documents/Agent_Memory_Research_20260805/`),产出 `docs/research/agent-memory-survey.md`(8 节:动机/分类学/三大+1 技术路线/8 张项目卡片/增益实证与失败模式/对照 OpenObsidian/引用)。覆盖 Karpathy LLM Wiki、LangChain Wiki Memory、MemGPT/Letta、A-MEM、mem0、Zep/Graphiti、Cognee、basic-memory、LoCoMo/LongMemEval 基准、记忆投毒安全面。
-- **理由 / 影响**:为「vault 作为 agent 长期记忆」提供证据基础。核心结论:增益杠杆是**固化/综合 + 选择性检索**而非单纯持久化;记忆系统用少量准确率换数量级成本;wiki 路线甜蜜点在 <100-1000 篇。**对照结论**:OpenObsidian 五层架构与 wiki-memory 范式高度同构(「Health 即查询」是独有升级),MCP 读写反馈环已就位;差距集中在脚手架(B-WIKI-STARTER/HEALTH-QQL/AGENT-DOC 未建)与「对话→vault 蒸馏」管道缺失;P6-5 默认不做向量与 wiki-memory 路线一致,规模阈值(~1000 篇/单查询 >5-6 篇)是重估触发条件。
+- **做了**:deep-research 多源调研(40 来源 / 54 条证据,持久化于 `~/Documents/Agent_Memory_Research_20260805/`),产出 `docs/research/agent-memory-survey.md`(8 节:动机/分类学/三大+1 技术路线/8 张项目卡片/增益实证与失败模式/对照 Open LLM Wiki/引用)。覆盖 Karpathy LLM Wiki、LangChain Wiki Memory、MemGPT/Letta、A-MEM、mem0、Zep/Graphiti、Cognee、basic-memory、LoCoMo/LongMemEval 基准、记忆投毒安全面。
+- **理由 / 影响**:为「vault 作为 agent 长期记忆」提供证据基础。核心结论:增益杠杆是**固化/综合 + 选择性检索**而非单纯持久化;记忆系统用少量准确率换数量级成本;wiki 路线甜蜜点在 <100-1000 篇。**对照结论**:Open LLM Wiki 五层架构与 wiki-memory 范式高度同构(「Health 即查询」是独有升级),MCP 读写反馈环已就位;差距集中在脚手架(B-WIKI-STARTER/HEALTH-QQL/AGENT-DOC 未建)与「对话→vault 蒸馏」管道缺失;P6-5 默认不做向量与 wiki-memory 路线一致,规模阈值(~1000 篇/单查询 >5-6 篇)是重估触发条件。
 - **下一步 / 接手注意**:报告第 7 节差距/机会点**只陈述不拍板**,沿用与否由人决定。另记录一处 backlog 小账:B-MCP-LINKS/READ-BRIEF/WRITE-FEEDBACK 在 backlog 标 ⏳ 但代码已交付,下次 backlog 清理时核对。
 - **验证**:报告 8 节齐全;§7 断言已逐条对照 doc 07/11/12、open-questions、mcp/README+main.rs、backlog;纯文档,不影响 CI。
 
@@ -292,11 +381,11 @@
 - **做了**:
   1. **core::media**:`MediaIndex`(files / by_note / by_media);extract md+html+wiki 图;`orphans`/`missing`/`refcount`;单测 5。
   2. **LiveVault.media**:open walk 图片;note delta 增量引用;`save_attachment` upsert file。
-  3. **IPC**:`media_index` / `media_of_note` / `media_used_by` / `trash_attachments`(→ `.openobsidian/media-trash/`)。
+  3. **IPC**:`media_index` / `media_of_note` / `media_used_by` / `trash_attachments`(→ `.open-llm-wiki/media-trash/`)。
   4. **UI**:Inspector「附件」tab;⌘K「清理未引用附件…」确认后 trash;**delete_note 不自动 GC**。
   5. mock 对齐;docs/08 + backlog B-ED-MEDIA-INDEX / GC ✅。
 - **理由**:用户要求媒体索引模块二期一次收口;有索引后 GC 才可谈且默认安全。
-- **验证**:`cargo test -p openobs-core media`;`cargo test -p openobs-app --lib`;待 ui typecheck/test。
+- **验证**:`cargo test -p open-llm-wiki-core media`;`cargo test -p open-llm-wiki-app --lib`;待 ui typecheck/test。
 - **下一步**:真机插图后看 Inspector 附件;可选相册 UI。
 
 ### 2026-08-02 Grok — 附件管理 v1.5(组织 / 查盘 / 引用索引)
@@ -316,7 +405,7 @@
   - 纯逻辑:`extractMarkdownImagePaths` / `buildMediaRefIndex` / `findOrphanAttachments`;
   - Editor / Wysiwyg 传 `notePath` + layout;docs/08 + backlog `B-ED-MEDIA-ORG` ✅。
 - **明确未做**:相册 UI、删笔记自动 GC、note-folder 迁笔记跟图、wiki 嵌入语法。
-- **验证**:vitest attachments/wysiwyg-media/settings;openobs-app 编译。
+- **验证**:vitest attachments/wysiwyg-media/settings;open-llm-wiki-app 编译。
 - **下一步**:可选 B-ED-MEDIA-GC(孤儿清单 UI);重打包安装后真机插图看新路径。
 
 ### 2026-08-02 Grok — 修空图:asset 协议 + data URL 解析
@@ -401,7 +490,7 @@
   3. UI:`logger.ts`、`diag-log` 接 LogBus;Settings 诊断区(profile + 打开文件夹);i18n zh/en。
   4. IPC 打点:index_vault / write_note / pick_vault。
   5. 测试:logging 6 单测;logger + i18n vitest;typecheck 绿。
-- **用法**:`~/Library/Logs/dev.openobsidian.desktop/`(macOS);`OPENOBS_LOG_PROFILE=verbose`;设置→诊断。
+- **用法**:`~/Library/Logs/dev.openllmwiki.desktop/`(macOS);`OPEN_LLM_WIKI_LOG_PROFILE=verbose`;设置→诊断。
 - **下一步**:L2 端口 + 导出 zip;更多 git 打点。
 
 ### 2026-08-02 Grok — 调研:客户端日志/调试方案(doc 12)
@@ -415,7 +504,7 @@
 - **branch**: `feat/phase1-core`(文档)。
 - **做了**:按交叉审阅修订 [12](docs/12-graph-and-agent-roadmap.md)+ [backlog §I](docs/backlog.md)+ [open-questions](docs/open-questions.md) P6-4/7/8 + 04/deferred:
   1. 阶段名统一 **6A–6D**(消灭裸 A/B/C/D)。
-  2. 6A1 标明内存暖启动已有,本项=落盘+键+合流;**.openobsidian/** 为新约定; **P6-7 默认 gitignore** 布局文件。
+  2. 6A1 标明内存暖启动已有,本项=落盘+键+合流;**.open-llm-wiki/** 为新约定; **P6-7 默认 gitignore** 布局文件。
   3. 6C 写明 **EdgeKind::Semantic core 级联** + P6-8;洞察术语去 edge-bridge 混淆,难度 🔴。
   4. 6A5 不绑 6B links;MCP 写全 **6 tools**;6B3 仅 MCP 契约 + 可选 B-ED-BROKEN-LINKS;6D `status` 唯一真相;6D2 🟢。
 - **下一步**:6A 实现;P6-7 若要团队共享布局再改默认。
@@ -437,7 +526,7 @@
   1. `fixtures/qql-parity/cases.json` + `core/tests/qql_parity.rs` + `ui/src/lib/qql/parity.test.ts`(B-QQL-PARITY-CI)。
   2. WYSIWYG 粘贴/拖入图:`wysiwyg-media.ts` + WysiwygView paste/drop + attachmentsDir。
   3. `graph-layout-large.test.ts`:1k Barnes-Hut 限时冒烟(非 GUI fps)。
-- **验证**:typecheck;vitest 全绿;cargo test -p openobs-core;playwright 18。
+- **验证**:typecheck;vitest 全绿;cargo test -p open-llm-wiki-core;playwright 18。
 
 ### 2026-07-31 Grok — 文档对齐 + 三项核实(QQL 差分/缺口文案/图谱帧率)
 
@@ -474,7 +563,7 @@
 ### 2026-07-30 Grok — 产品拍板:SHEET 不做 xlsx 全量 / 实时协作
 
 - **branch**: `feat/phase1-core`。
-- **做了**:文档落档——对照 Tolaria/Obsidian 核心也不以 xlsx 互通与同屏协作为主路径;OpenObsidian 明确 ⛔。共享 vault 继续 git。
+- **做了**:文档落档——对照 Tolaria/Obsidian 核心也不以 xlsx 互通与同屏协作为主路径;Open LLM Wiki 明确 ⛔。共享 vault 继续 git。
 - **下一步**:无此二项工程;合 main / 签名 / 真机图谱等另议。
 
 ### 2026-07-30 Grok — F-SHEET v2(多表/冻结/图表/嵌入/IronCalc);插件深化不做
@@ -495,11 +584,11 @@
 - **做了**:
   1. 方案 [docs/09-big-features-v1.md](docs/09-big-features-v1.md)。
   2. **B-QQL-TS**:`ui/src/lib/qql/*` 全量 parse+eval;mock `run_qql` 改走 TS。
-  3. **B-MCP**:`mcp/` crate `openobs-mcp` stdio tools(list/read/write/search/qql)。
+  3. **B-MCP**:`mcp/` crate `open-llm-wiki-mcp` stdio tools(list/read/write/search/qql)。
   4. **B-PLUGIN**:manifest + 权限 + iframe 示例插件 → ⌘K 命令。
   5. **B-SHEET**:`.sheet` schema + SheetView 网格 + 基础公式;store/App 路由。
   6. backlog §B 四项 ✅(v1);deferred/04/README 同步。
-- **验证**:ui typecheck + **491** tests;cargo check openobs-mcp。
+- **验证**:ui typecheck + **491** tests;cargo check open-llm-wiki-mcp。
 - **下一步**:插件 vault 扫描 UI;MCP 接 Claude Desktop 配置样例;sheet 深化或差分 QQL。
 
 ### 2026-07-30 Grok — 附件媒体 v1 + 并排阅读预览(B-ED-MEDIA / B-ED-READING)
@@ -511,7 +600,7 @@
   3. **并排**:source 下 `editorLayout` edit|split;左 Editor / 右 ReadingPane;设置项 + ⌘K + 工具栏切换。
   4. Settings:`attachmentsDir` / `editorLayout`;backlog 标 ✅。
 - **理由 / 影响**:补齐笔记插图与阅读对照;非 Live Preview、无相册。
-- **验证**:`pnpm --dir ui typecheck` + `test`;`cargo test -p openobs-app` 相关单测。
+- **验证**:`pnpm --dir ui typecheck` + `test`;`cargo test -p open-llm-wiki-app` 相关单测。
 - **下一步 / 接手注意**:真机粘贴 PNG 验收;WYSIWYG 插图后续;大件仍 F-SHEET/F-PLUGIN/MCP/QQL-TS。
 
 ### 2026-07-30 Grok — 非大件收口:设置/WYSIWYG qql/原生菜单/保真门禁
@@ -524,7 +613,7 @@
   4. Tauri File/Edit/View 菜单 emit `menu-action`。
   5. Nav type/tag 右键;mock-qql AND/OR;blocknote-fidelity 轻量门禁。
   6. backlog 非大件项标 ✅。
-- **验证**:typecheck;ui 450 tests;cargo check openobs-app。
+- **验证**:typecheck;ui 450 tests;cargo check open-llm-wiki-app。
 
 ### 2026-07-30 Grok — 编辑器/菜单打磨:⌘K 扩面、格式条、右键
 
@@ -553,7 +642,7 @@
   2. **B-GRAPH-LAYER/TIME/UI**:`graph-modes.ts` + GraphView 布局下拉(力导向/分层/时间轴)。
   3. **B-QQL-EXPAND**:core `CONTAINS`/`STARTSWITH`/`ENDSWITH`/`IN`;mock-qql 同步。
   4. backlog §A 标 ✅。
-- **验证**:cargo test -p openobs-core;pnpm ui typecheck/test。
+- **验证**:cargo test -p open-llm-wiki-core;pnpm ui typecheck/test。
 
 ### 2026-07-30 Grok — 文档:v1 边界改待办 + backlog 总表
 
@@ -641,18 +730,18 @@
 
 - **branch**: `feat/phase1-core`(未 commit)。
 - **做了**:
-  1. README 补「安装与覆盖旧版」:固定 bundle id `dev.openobsidian.desktop`,安装时**替换**同名 app,附 dmg 拖装 / `rm + cp` 命令行覆盖、数据与 Gatekeeper 说明。
+  1. README 补「安装与覆盖旧版」:固定 bundle id `dev.openllmwiki.desktop`,安装时**替换**同名 app,附 dmg 拖装 / `rm + cp` 命令行覆盖、数据与 Gatekeeper 说明。
   2. 清理 `target/release/bundle` 旧产物后 **`tauri build` 重打** macOS `.app` + `.dmg`。
 - **安装产物**:
-  - `target/release/bundle/macos/OpenObsidian.app`
-  - `target/release/bundle/dmg/OpenObsidian_0.1.0_aarch64.dmg`
-- **下一步**:用户用 dmg 或 cp 覆盖 `/Applications/OpenObsidian.app` 做真机验收(⌘F / ⌘P / 标签 / 拖拽 / 图谱 / histogram / git pull)。
+  - `target/release/bundle/macos/Open LLM Wiki.app`
+  - `target/release/bundle/dmg/Open LLM Wiki_0.1.0_aarch64.dmg`
+- **下一步**:用户用 dmg 或 cp 覆盖 `/Applications/Open LLM Wiki.app` 做真机验收(⌘F / ⌘P / 标签 / 拖拽 / 图谱 / histogram / git pull)。
 
 ### 2026-07-30 Grok — 第 1 类打磨全落地(快捷键/标签/拖拽/图谱/QQL 直方/git pull)
 
 - **branch**: `feat/phase1-core`(未 commit / 未 push;工作区有本批改动)。
 - **做了**:
-  1. **editMode 一次性迁移**(`edit-mode.ts`):旧默认 `source` 在 `openobs.editMode.migratedV2` 未写时 → `wysiwyg`;之后用户手切 source 会保留。
+  1. **editMode 一次性迁移**(`edit-mode.ts`):旧默认 `source` 在 `open-llm-wiki.editMode.migratedV2` 未写时 → `wysiwyg`;之后用户手切 source 会保留。
   2. **⌘F**:source 走 `@codemirror/search`(`EditorHandle.find`);wysiwyg 仍 `window.find()`。真机 WKWebView 需你验。
   3. **⌘P / ⌘O 快速打开**:`CommandPalette` 分 `commands` / `quickOpen` 模式(仅笔记)。
   4. **F-TAGS**:Nav `TAGS` 分组 + `NavSelection.kind:"tag"` + 列表过滤。
@@ -661,7 +750,7 @@
   7. **图谱交互**:悬停预览浮层、拖拽后自动 pin、右键 pin/unpin、Shift+框选多选高亮。
   8. **QQL histogram**:core `Render::Histogram` + `ResultSet::Histogram` + 面板条形图 + `qql-block` HTML。
   9. **Git pull/push**:`git_pull` / `git_push` 命令 + 冲突横幅(`UU` 等)提示手改后 commit。
-  10. **打包**:`target/release/bundle/macos/OpenObsidian.app` + `…/dmg/OpenObsidian_0.1.0_aarch64.dmg`。
+  10. **打包**:`target/release/bundle/macos/Open LLM Wiki.app` + `…/dmg/Open LLM Wiki_0.1.0_aarch64.dmg`。
 - **验证**:core 110 · app 10 · UI 343 · typecheck clean · e2e 12/12 · tauri build OK。
 - **下一步 / 接手注意(需人类真机)**:
   - 打开 dmg/app 验:⌘F(source + wysiwyg)、⌘P、标签区、拖拽移动、图谱 status/文本/框选/pin、`RENDER histogram(type)`、有 remote 的 vault 上 pull/冲突。
@@ -677,8 +766,8 @@
   4. 第二栏笔记行**右键菜单**:重命名 / 复制 `[[wikilink]]` / 切 status(Active/Contested/Superseded/Draft + 清除)/ 归档(confirm)/ Reveal in Finder(桌面专用,mock 隐藏)。
 - **顺手修的真 bug**:inline 重命名提交后列表标题不刷新——新 H1 落盘发生在 `renameNote` 的 `refreshIndex` 之后,索引里 body 仍是占位 H1。给 `commitDraftRename` 末尾补 `await refreshIndex(root)`。
 - **新后端命令**:`reveal_in_finder`(macOS `open -R` / Windows `explorer /select,` / Linux `xdg-open <parent>`),已注册进 `generate_handler!`。
-- **CI 门**:typecheck clean · `test:cov` 67.84% · e2e 12/12 · `cargo test -p openobs-core` + `-p openobs-app` 绿 · `pnpm --dir ui build` OK。
+- **CI 门**:typecheck clean · `test:cov` 67.84% · e2e 12/12 · `cargo test -p open-llm-wiki-core` + `-p open-llm-wiki-app` 绿 · `pnpm --dir ui build` OK。
 - **下一步 / 接手注意**:
   - ⌘F 的 `window.find()` 是非标准 API,**Tauri WKWebView 真机需验证**;若不稳,fallback = 给 source 模式加 `@codemirror/search`(后置,未做)。
-  - `editMode` 存 localStorage;老设备若之前存过 `"source"`,需手动切一次或清 `openobs.editMode` 才看得到 wysiwyg 默认。
+  - `editMode` 存 localStorage;老设备若之前存过 `"source"`,需手动切一次或清 `open-llm-wiki.editMode` 才看得到 wysiwyg 默认。
   - 本批 3 commits 未 push;接手前先 `git pull` / 确认是否要我 push。
