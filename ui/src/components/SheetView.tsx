@@ -20,7 +20,7 @@ import {
   setFreeze,
   upsertChart,
   type ChartType,
-  type OpenObsidianSheet,
+  type OpenLlmWikiSheet,
 } from "../lib/sheet";
 import { evalSheetWithIroncalc } from "../lib/sheet-ironcalc";
 import type { TFunc } from "../lib/i18n";
@@ -32,7 +32,7 @@ interface Props {
 }
 
 export function SheetView({ content, onSave, t }: Props) {
-  const [doc, setDoc] = useState<OpenObsidianSheet>(() => parseSheet(content));
+  const [doc, setDoc] = useState<OpenLlmWikiSheet>(() => parseSheet(content));
   const [active, setActive] = useState("A1");
   const [draft, setDraft] = useState("");
   const [engine, setEngine] = useState<"native" | "ironcalc">("native");
@@ -77,7 +77,7 @@ export function SheetView({ content, onSave, t }: Props) {
   const display = icDisplay ?? nativeDisplay;
 
   const persist = useCallback(
-    (next: OpenObsidianSheet) => {
+    (next: OpenLlmWikiSheet) => {
       setDoc(next);
       onSave(serializeSheet(next));
     },

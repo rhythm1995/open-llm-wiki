@@ -477,7 +477,7 @@ export function useVault() {
 
   /**
    * 新建一张画布(F-CANVAS / Excalidraw):写空 `.canvas` 文件并打开。
-   * 内容由 CanvasView 防抖回写 OpenObsidianCanvas JSON;这里只负责落空壳。
+   * 内容由 CanvasView 防抖回写 OpenLlmWikiCanvas JSON;这里只负责落空壳。
    * 与 createNote 分开:扩展名不同、初始内容为空串、不走模板。
    */
   const createCanvas = useCallback(

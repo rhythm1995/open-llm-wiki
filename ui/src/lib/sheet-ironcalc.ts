@@ -1,12 +1,12 @@
 /**
  * sheet-ironcalc —— 可选 IronCalc WASM 引擎增强(F-SHEET)。
  *
- * 把 OpenObsidianSheet 灌进 ironcalc Model 求值,拿回格式化显示值。
+ * 把 OpenLlmWikiSheet 灌进 ironcalc Model 求值,拿回格式化显示值。
  * 失败(未 init / wasm 不可用)时返回 null,调用方回退 sheet.ts 自研引擎。
  *
  * 许可:MIT/Apache-2.0,见 THIRD_PARTY_NOTICES。
  */
-import type { OpenObsidianSheet } from "./sheet";
+import type { OpenLlmWikiSheet } from "./sheet";
 import { activeTab, cellRef, parseCellRef } from "./sheet";
 
 type IronModel = {
@@ -58,7 +58,7 @@ export function ironcalcAvailableSync(): boolean {
  * 不可用时返回 null。
  */
 export async function evalSheetWithIroncalc(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId?: string,
 ): Promise<Map<string, string> | null> {
   const ok = await ensureIroncalc();
@@ -66,7 +66,7 @@ export async function evalSheetWithIroncalc(
 
   let model: IronModel | null = null;
   try {
-    model = new ModelCtor("OpenObsidian", "en", "UTC", "en");
+    model = new ModelCtor("Open LLM Wiki", "en", "UTC", "en");
     // ironcalc 默认已有 sheet 0;额外 sheet 用 newSheet
     for (let si = 0; si < doc.sheets.length; si++) {
       if (si > 0) model.newSheet();

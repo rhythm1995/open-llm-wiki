@@ -1,7 +1,7 @@
 /**
  * CanvasView —— 中栏:Excalidraw 画布(F-CANVAS,MIT)。
  *
- * 持久化:`.canvas` = OpenObsidianCanvas JSON(`canvas.ts`)。挂载读 content;
+ * 持久化:`.canvas` = OpenLlmWikiCanvas JSON(`canvas.ts`)。挂载读 content;
  * Excalidraw onChange 防抖 → serialize → onSave → 与笔记同构落盘。
  * App 用 `key={path}` 挂载,避免 载入→回写 回环。
  *

@@ -15,7 +15,7 @@ import {
 } from "./canvas";
 
 const DOC = {
-  openobsidianCanvas: CANVAS_SCHEMA_VERSION,
+  openLlmWikiCanvas: CANVAS_SCHEMA_VERSION,
   engine: CANVAS_ENGINE,
   elements: [{ id: "a", type: "rectangle" }],
   appState: { theme: "dark" },
@@ -31,7 +31,7 @@ describe("emptyCanvasContent", () => {
 describe("createEmptyCanvasDoc", () => {
   it("带 schema 标记与空 elements", () => {
     const d = createEmptyCanvasDoc();
-    expect(d.openobsidianCanvas).toBe(1);
+    expect(d.openLlmWikiCanvas).toBe(1);
     expect(d.engine).toBe("excalidraw");
     expect(d.elements).toEqual([]);
   });
@@ -76,7 +76,7 @@ describe("parseCanvasContent", () => {
   it("缺 engine / elements → null", () => {
     expect(
       parseCanvasContent(
-        JSON.stringify({ openobsidianCanvas: 1, engine: "excalidraw" }),
+        JSON.stringify({ openLlmWikiCanvas: 1, engine: "excalidraw" }),
       ),
     ).toBeNull();
   });

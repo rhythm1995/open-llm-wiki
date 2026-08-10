@@ -20,7 +20,7 @@ import {
   parseSheet,
   setCell,
   sheetToHtmlTable,
-  type OpenObsidianSheet,
+  type OpenLlmWikiSheet,
 } from "./sheet";
 
 export interface SheetBlock {
@@ -103,7 +103,7 @@ export function sheetBlockToHtml(
   spec: SheetBlockSpec,
   fileContent: string | null,
 ): string {
-  let doc: OpenObsidianSheet;
+  let doc: OpenLlmWikiSheet;
   if (spec.path && fileContent != null) {
     doc = parseSheet(fileContent);
     if (spec.tab) {
