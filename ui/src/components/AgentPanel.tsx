@@ -26,7 +26,9 @@ import {
 } from "@phosphor-icons/react";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
+import { AgentIcon } from "../lib/agent-icons";
 import { usePersistentState } from "../lib/usePersistentState";
+import { ipc } from "../lib/ipc";
 import {
   parseSessionUpdate,
   normalizeForHandoff,
@@ -265,6 +267,7 @@ export function AgentPanel({
   t,
   getAiContext,
   getContextCandidates,
+  onOpenMemoryOnboard,
 }: {
   root: string;
   t: TFunc;
@@ -275,6 +278,8 @@ export function AgentPanel({
   getAiContext?: (paths?: string[]) => Promise<string | null>;
   /** §25:@-context 选择器的候选列表(当前笔记 + 外向邻居),不预取正文。 */
   getContextCandidates?: () => Promise<ContextCandidate[]>;
+  /** 打开「设置 → Agent 记忆接入」(外部 MCP)。 */
+  onOpenMemoryOnboard?: () => void;
 }) {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [active, setActive] = useState(false);
@@ -310,7 +315,7 @@ export function AgentPanel({
 
   /** 权限模式:normal(逐次问)/ permissive(宽松,非高危自动放行)。琥珀点提示后者。 */
   const [permMode, setPermMode] = usePersistentState<"normal" | "permissive">(
-    "openobs.agent.permMode",
+    "open-llm-wiki.agent.permMode",
     "normal",
   );
   /**
@@ -319,7 +324,7 @@ export function AgentPanel({
    * 等高危类后端不发 kind,故永远进不来。
    */
   const [whitelist, setWhitelist] = usePersistentState<string[]>(
-    "openobs.agent.permWhitelist",
+    "open-llm-wiki.agent.permWhitelist",
     [],
   );
   /**
@@ -327,7 +332,7 @@ export function AgentPanel({
    * per-agent ref 仍留作回滚镜像。用户在隔离 / 即时提交之间切换。
    */
   const [instantCommit, setInstantCommit] = usePersistentState<boolean>(
-    "openobs.agent.instantCommit",
+    "open-llm-wiki.agent.instantCommit",
     false,
   );
   /** §2.3 agent 声明的会话模式 / 配置(会话建立后由 agent-session-info 填充)。 */
@@ -1105,7 +1110,8 @@ export function AgentPanel({
                         th.id === threadIdRef.current && "bg-surface",
                       )}
                     >
-                      <span className="flex w-full items-center gap-1">
+                      <span className="flex w-full items-center gap-1.5">
+                        <AgentIcon id={th.agent} size={14} />
                         <span className="truncate font-medium text-text">
                           {agents.find((a) => a.id === th.agent)?.label ?? th.agent}
                         </span>
@@ -1140,6 +1146,25 @@ export function AgentPanel({
           <p className="mb-3 text-[12px] leading-relaxed text-overlay">
             {t("agent.intro")}
           </p>
+          {/* 外部 MCP 记忆接入入口(与右侧「应用内 Agent」并列引导,避免只藏在设置深处)。 */}
+          {onOpenMemoryOnboard && !ipc.isMock() && (
+            <div
+              className="mb-3 rounded-lg border border-blue/30 bg-blue/5 px-2.5 py-2"
+              data-testid="agent-memory-banner"
+            >
+              <p className="text-[11px] leading-snug text-subtext">
+                {t("agent.memoryBanner")}
+              </p>
+              <button
+                type="button"
+                onClick={onOpenMemoryOnboard}
+                className="mt-1.5 inline-flex items-center gap-1 rounded bg-blue px-2 py-1 text-[11px] font-medium text-white hover:opacity-90"
+              >
+                <PlugsConnected size={12} weight="bold" />
+                {t("agent.memoryBannerBtn")}
+              </button>
+            </div>
+          )}
           {/* 权限模式切换只在活动会话的 composer 里(§5);此处不再重复。 */}
           <div className="flex flex-col gap-1.5">
             {installed.length === 0 && (
@@ -1154,14 +1179,14 @@ export function AgentPanel({
                 onClick={() => void startAgent(a)}
                 title={a.installed ? undefined : a.installHint}
                 className={cn(
-                  "flex items-center gap-2 rounded border px-2.5 py-2 text-left text-[12px]",
+                  "flex items-center gap-2.5 rounded border px-2.5 py-2 text-left text-[12px]",
                   a.installed
                     ? "border-crust bg-mantle text-text hover:bg-surface"
                     : "border-crust bg-mantle/50 text-overlay opacity-50",
                   "disabled:cursor-wait",
                 )}
               >
-                <Robot size={15} className="shrink-0 text-blue" />
+                <AgentIcon id={a.id} size={22} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="flex items-center gap-1">
                     <span className="font-medium">{a.label}</span>
@@ -1192,7 +1217,7 @@ export function AgentPanel({
         <>
           {/* 当前 agent + 移交入口(移交仅在活动会话可用)+ 关闭(×)。 */}
           <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-crust px-2.5 text-[11px]">
-            <Robot size={12} className="text-blue" />
+            {activeAgent && <AgentIcon id={activeAgent} size={16} />}
             <span className="font-medium text-text">
               {agents.find((a) => a.id === activeAgent)?.label ?? activeAgent}
             </span>
@@ -1217,9 +1242,12 @@ export function AgentPanel({
                       <button
                         key={tg.id}
                         onClick={() => void handoffTo(tg)}
-                        className="block w-full px-2 py-1 text-left text-[11px] text-text hover:bg-surface"
+                        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px] text-text hover:bg-surface"
                       >
-                        {t("agent.handoffTo")} {tg.label}
+                        <AgentIcon id={tg.id} size={14} />
+                        <span>
+                          {t("agent.handoffTo")} {tg.label}
+                        </span>
                       </button>
                     ))}
                   </div>

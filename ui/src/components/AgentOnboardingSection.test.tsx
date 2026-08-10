@@ -1,8 +1,9 @@
 /**
  * AgentOnboardingSection 测试 —— Settings「Agent 记忆接入」面板(B-MCP-ONBOARD 桌面侧)。
  *
- * 覆盖:mock 占位 / agent 行渲染与默认勾选 / 接入提交 / 拆线 / 诊断 /
- * 播种模板(带确认)/ 引导文本展开与复制 / 必填校验。
+ * 主路径:一键接入。高级区默认折叠,路径/勾选/诊断等在「高级选项」内。
+ * 覆盖:一键接入 / mock 占位 / 展开高级后 agent 行与默认勾选 / 接入所选 /
+ * 拆线 / 诊断 / 播种 / 引导复制 / 浏览回填。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -13,8 +14,8 @@ import type { OnboardScan } from "../lib/ipc";
 
 const scanFixture: OnboardScan = {
   home: "/home/u",
-  resolved_binary: "/bin/openobs-mcp",
-  guidance: "## OpenObsidian memory\nuse write_note etc.",
+  resolved_binary: "/bin/open-llm-wiki-mcp",
+  guidance: "## Open LLM Wiki memory\nuse write_note etc.",
   agents: [
     {
       id: "claude-code",
@@ -25,7 +26,7 @@ const scanFixture: OnboardScan = {
       config_path: "/home/u/.claude.json",
       note: "",
       manual_only: false,
-      wired_command: "/bin/openobs-mcp",
+      wired_command: "/bin/open-llm-wiki-mcp",
       wired_vault: "/vault",
       config_error: null,
     },
@@ -90,7 +91,7 @@ const onboardInit = vi.fn(async (_dir: string, _force?: boolean) => ({
 }));
 const onboardScan = vi.fn(async () => scanFixture);
 const onboardGuidance = vi.fn(async () => scanFixture.guidance);
-const onboardPickBinary = vi.fn(async () => "/picked/openobs-mcp");
+const onboardPickBinary = vi.fn(async () => "/picked/open-llm-wiki-mcp");
 
 /** vi.mock 工厂被提升,用 hoisted 容器让个别用例切换 mock 模式。 */
 const flags = vi.hoisted(() => ({ mock: false }));
@@ -107,7 +108,7 @@ vi.mock("../lib/ipc", () => ({
     onboardInit: (dir: string, force?: boolean) => onboardInit(dir, force),
     onboardGuidance: () => onboardGuidance(),
     onboardPickBinary: () => onboardPickBinary(),
-    onboardResolveBinary: async () => "/bin/openobs-mcp",
+    onboardResolveBinary: async () => "/bin/open-llm-wiki-mcp",
   },
 }));
 
@@ -118,30 +119,71 @@ const t = ((key: string, vars?: Record<string, string | number>) => {
     .join(" ")}`;
 }) as TFunc;
 
+/** 高级区默认折叠;需要路径/勾选/诊断控件时先展开。 */
+async function expandAdvanced(user: ReturnType<typeof userEvent.setup>) {
+  await waitFor(() =>
+    expect(screen.getByTestId("settings-onboard-advanced-toggle")).toBeInTheDocument(),
+  );
+  await user.click(screen.getByTestId("settings-onboard-advanced-toggle"));
+  await waitFor(() =>
+    expect(screen.getByTestId("settings-onboard-binary")).toBeInTheDocument(),
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   flags.mock = false;
 });
 
 describe("AgentOnboardingSection", () => {
-  it("扫描后渲染 agent 行,检测到的非手动 agent 默认勾选", async () => {
+  it("主路径展示一键接入按钮与状态摘要,不默认展开高级路径表单", async () => {
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
     await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-agent-cursor")).toBeInTheDocument(),
+      expect(screen.getByTestId("settings-onboard-oneclick")).toBeInTheDocument(),
     );
-    // 二进制与 vault 默认值:解析结果 + 当前打开的 vault。
+    expect(screen.getByText("settings.onboard.statusOk")).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-onboard-binary")).toBeNull();
+    expect(screen.queryByTestId("settings-onboard-connect")).toBeNull();
+    // 不出现已删除的 entryHint 键。
+    expect(screen.queryByText(/settings\.onboard\.entryHint/)).toBeNull();
+  });
+
+  it("一键接入:自动播种 + 提交 binary/vault/检测到的 agent", async () => {
+    const user = userEvent.setup();
+    render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-onboard-oneclick")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByTestId("settings-onboard-oneclick"));
+    await waitFor(() => expect(onboardInit).toHaveBeenCalledTimes(1));
+    expect(onboardInit.mock.calls[0][0]).toBe("/vault");
+    expect(onboardInit.mock.calls[0][1]).toBe(true);
+    await waitFor(() => expect(onboardApply).toHaveBeenCalledTimes(1));
+    const [binary, vault, ids] = onboardApply.mock.calls[0];
+    expect(binary).toBe("/bin/open-llm-wiki-mcp");
+    expect(vault).toBe("/vault");
+    expect(ids.sort()).toEqual(["claude-code", "cursor"]);
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-onboard-results")).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/\[ok\] claude-code/)).toBeInTheDocument();
+    expect(screen.getByText(/\[!!\] cursor/)).toBeInTheDocument();
+  });
+
+  it("展开高级后:agent 行渲染,检测到的非手动 agent 默认勾选", async () => {
+    const user = userEvent.setup();
+    render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
+    await expandAdvanced(user);
     expect(
       (screen.getByTestId("settings-onboard-binary") as HTMLInputElement).value,
-    ).toBe("/bin/openobs-mcp");
+    ).toBe("/bin/open-llm-wiki-mcp");
     expect(
       (screen.getByTestId("settings-onboard-vault") as HTMLInputElement).value,
     ).toBe("/vault");
-    // claude-code 已接入徽章;cursor 未接入;grok 仅手动;zed 未检测到。
     expect(screen.getByText("settings.onboard.wired")).toBeInTheDocument();
     expect(screen.getByText("settings.onboard.notWired")).toBeInTheDocument();
     expect(screen.getByText("settings.onboard.manualOnly")).toBeInTheDocument();
     expect(screen.getByText("settings.onboard.notDetected")).toBeInTheDocument();
-    // 默认勾选:present && !manual_only → claude-code + cursor(grok 手动、zed 未装不选)。
     const cursorBox = screen
       .getByTestId("settings-onboard-agent-cursor")
       .querySelector("input[type=checkbox]") as HTMLInputElement;
@@ -155,13 +197,11 @@ describe("AgentOnboardingSection", () => {
   it("接入所选:提交 binary/vault/ids 并展示逐 agent 结果", async () => {
     const user = userEvent.setup();
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-connect")).toBeInTheDocument(),
-    );
+    await expandAdvanced(user);
     await user.click(screen.getByTestId("settings-onboard-connect"));
     await waitFor(() => expect(onboardApply).toHaveBeenCalledTimes(1));
     const [binary, vault, ids] = onboardApply.mock.calls[0];
-    expect(binary).toBe("/bin/openobs-mcp");
+    expect(binary).toBe("/bin/open-llm-wiki-mcp");
     expect(vault).toBe("/vault");
     expect(ids.sort()).toEqual(["claude-code", "cursor"]);
     await waitFor(() =>
@@ -174,9 +214,7 @@ describe("AgentOnboardingSection", () => {
   it("移除所选走 onboard_remove", async () => {
     const user = userEvent.setup();
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-disconnect")).toBeInTheDocument(),
-    );
+    await expandAdvanced(user);
     await user.click(screen.getByTestId("settings-onboard-disconnect"));
     await waitFor(() => expect(onboardRemove).toHaveBeenCalledTimes(1));
     const [ids] = onboardRemove.mock.calls[0];
@@ -186,9 +224,7 @@ describe("AgentOnboardingSection", () => {
   it("诊断展示 ok/fail 检查项", async () => {
     const user = userEvent.setup();
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-doctor")).toBeInTheDocument(),
-    );
+    await expandAdvanced(user);
     await user.click(screen.getByTestId("settings-onboard-doctor"));
     await waitFor(() => expect(onboardDoctor).toHaveBeenCalledTimes(1));
     await waitFor(() =>
@@ -202,9 +238,7 @@ describe("AgentOnboardingSection", () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-init")).toBeInTheDocument(),
-    );
+    await expandAdvanced(user);
     await user.click(screen.getByTestId("settings-onboard-init"));
     await waitFor(() => expect(onboardInit).toHaveBeenCalledTimes(1));
     const [dir, force] = onboardInit.mock.calls[0];
@@ -213,7 +247,6 @@ describe("AgentOnboardingSection", () => {
     await waitFor(() =>
       expect(screen.getByTestId("settings-onboard-seedmsg")).toBeInTheDocument(),
     );
-    // t() 桩把插值参数拼在 key 后:written=2 skipped=1。
     expect(screen.getByTestId("settings-onboard-seedmsg").textContent).toContain(
       "settings.onboard.initDone written=2 skipped=1",
     );
@@ -228,12 +261,10 @@ describe("AgentOnboardingSection", () => {
       configurable: true,
     });
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-guidance-toggle")).toBeInTheDocument(),
-    );
+    await expandAdvanced(user);
     await user.click(screen.getByTestId("settings-onboard-guidance-toggle"));
     expect(screen.getByTestId("settings-onboard-guidance").textContent).toContain(
-      "OpenObsidian memory",
+      "Open LLM Wiki memory",
     );
     await user.click(screen.getByTestId("settings-onboard-copy"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -243,14 +274,12 @@ describe("AgentOnboardingSection", () => {
   it("浏览按钮走系统对话框回填二进制路径", async () => {
     const user = userEvent.setup();
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
-    await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-pick")).toBeInTheDocument(),
-    );
+    await expandAdvanced(user);
     await user.click(screen.getByTestId("settings-onboard-pick"));
     await waitFor(() =>
       expect(
         (screen.getByTestId("settings-onboard-binary") as HTMLInputElement).value,
-      ).toBe("/picked/openobs-mcp"),
+      ).toBe("/picked/open-llm-wiki-mcp"),
     );
   });
 
@@ -258,15 +287,14 @@ describe("AgentOnboardingSection", () => {
     flags.mock = true;
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
     expect(screen.getByTestId("settings-onboard-mock")).toBeInTheDocument();
-    expect(screen.queryByTestId("settings-onboard-agent-cursor")).toBeNull();
-    // 浏览器模式不触碰任何接入命令。
+    expect(screen.queryByTestId("settings-onboard-oneclick")).toBeNull();
     expect(onboardScan).not.toHaveBeenCalled();
   });
 
   it("桌面模式不出现 mock 占位", async () => {
     render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
     await waitFor(() =>
-      expect(screen.getByTestId("settings-onboard-agent-cursor")).toBeInTheDocument(),
+      expect(screen.getByTestId("settings-onboard-oneclick")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("settings-onboard-mock")).toBeNull();
   });

@@ -1,5 +1,5 @@
 /**
- * IPC 层 —— 前端与 Tauri 后端(openobs-app)的唯一胶水。
+ * IPC 层 —— 前端与 Tauri 后端(open-llm-wiki-app)的唯一胶水。
  *
  * 设计:
  * - 在 Tauri webview 内,`window.__TAURI_INTERNALS__` 由运行时注入,据此分流。
@@ -144,7 +144,7 @@ export interface OnboardAgentRow {
 
 export interface OnboardScan {
   home: string;
-  /** 自动解析到的 openobs-mcp 二进制;null = 需手选。 */
+  /** 自动解析到的 open-llm-wiki-mcp 二进制;null = 需手选。 */
   resolved_binary: string | null;
   agents: OnboardAgentRow[];
   /** 可粘贴进 agent 指引文件的引导文本(只复制,绝不自动写入)。 */
@@ -236,18 +236,18 @@ export const ipc = {
   mediaUsedBy: (root: string, path: string) =>
     call<string[]>("media_used_by", { root, path }),
   /**
-   * 将附件移入 `.openobsidian/media-trash/` 并更新索引。
+   * 将附件移入 `.open-llm-wiki/media-trash/` 并更新索引。
    * 需用户确认后调用;delete_note 不自动 GC。
    */
   trashAttachments: (root: string, paths: string[]) =>
     call<number>("trash_attachments", { root, paths }),
   /**
    * 读取落盘的图谱布局快照(B-GRAPH-POS-PERSIST)。无文件 → null。
-   * 文件位于 `<root>/.openobsidian/graph-layout.json`。
+   * 文件位于 `<root>/.open-llm-wiki/graph-layout.json`。
    */
   readGraphLayout: (root: string) =>
     call<string | null>("read_graph_layout", { root }),
-  /** 写入图谱布局快照(创建 `.openobsidian/` 目录)。 */
+  /** 写入图谱布局快照(创建 `.open-llm-wiki/` 目录)。 */
   saveGraphLayout: (root: string, json: string) =>
     call<void>("save_graph_layout", { root, json }),
   /**
@@ -311,6 +311,11 @@ export const ipc = {
   searchNotes: (root: string, query: string) =>
     call<SearchHit[]>("search_notes", { root, query }),
   pickVault: () => call<string | null>("pick_vault", {}),
+  /**
+   * 在用户 Documents 下创建示例知识库并返回绝对路径(桌面);
+   * mock 返回内存示例库根并灌入种子笔记。
+   */
+  createSampleVault: () => call<string>("create_sample_vault", {}),
   /** 在系统文件管理器中显示笔记(macOS Finder / Windows 资源管理器 / Linux)。桌面专用。 */
   revealInFinder: (root: string, path: string) =>
     call<void>("reveal_in_finder", { root, path }),
@@ -346,7 +351,7 @@ export const ipc = {
   unwatchVault: () => call<void>("unwatch_vault", {}),
 
   // ── Agent 记忆接入(B-MCP-ONBOARD):桌面专用(mock 模式下面板展示占位提示)。
-  //   与 CLI `openobs-mcp setup/doctor/init` 共享同一套探测/接线/播种逻辑。
+  //   与 CLI `open-llm-wiki-mcp setup/doctor/init` 共享同一套探测/接线/播种逻辑。
   /** 探测本地 agent + 已接线状态 + 自动解析的二进制路径。 */
   onboardScan: () => call<OnboardScan>("onboard_scan", {}),
   /** 接入所选 agent(写各家 MCP 配置;备份 + 原子写护栏在后端)。 */
@@ -362,10 +367,10 @@ export const ipc = {
       agentIds,
       dryRun,
     }),
-  /** 拆线所选 agent(只删各家配置里的 openobsidian 条目)。 */
+  /** 拆线所选 agent(只删各家配置里的 open-llm-wiki 条目)。 */
   onboardRemove: (agentIds: string[]) =>
     call<OnboardActionResult[]>("onboard_remove", { agentIds }),
-  /** 接线健康诊断(与 `openobs-mcp doctor` 同一份检查)。 */
+  /** 接线健康诊断(与 `open-llm-wiki-mcp doctor` 同一份检查)。 */
   onboardDoctor: (vault: string, binary?: string | null) =>
     call<OnboardCheck[]>("onboard_doctor", { vault, binary: binary ?? null }),
   /** 播种 wiki-starter 模板(force 合并,永不覆盖已有文件)。 */
@@ -373,9 +378,9 @@ export const ipc = {
     call<OnboardSeedReport>("onboard_init", { dir, force }),
   /** 引导文本(粘贴进 agent 指引文件;UI 只复制,绝不代写)。 */
   onboardGuidance: () => call<string>("onboard_guidance", {}),
-  /** 重新解析 openobs-mcp 二进制路径。 */
+  /** 重新解析 open-llm-wiki-mcp 二进制路径。 */
   onboardResolveBinary: () => call<string | null>("onboard_resolve_binary", {}),
-  /** 系统文件对话框手选 openobs-mcp 二进制。 */
+  /** 系统文件对话框手选 open-llm-wiki-mcp 二进制。 */
   onboardPickBinary: () => call<string | null>("onboard_pick_binary", {}),
 
   /** 浏览器 dev 用的标志:为 true 时 UI 应提示"当前为 mock 模式"。 */
