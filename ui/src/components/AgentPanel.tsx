@@ -1047,9 +1047,7 @@ export function AgentPanel({
     })();
   };
 
-  /** 上下文用量条(顶部唯一保留项;mode/effort 下拉已下移到 composer)。 */
-  const fmtTokens = (n: number) =>
-    n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`;
+  /** 上下文用量百分比(供 composer 内的上下文环使用;顶部进度条已移除)。 */
   const ctxPct =
     usage && usage.size > 0
       ? Math.min(100, (usage.used / usage.size) * 100)
@@ -1240,33 +1238,6 @@ export function AgentPanel({
               <X size={12} weight="bold" />
             </button>
           </div>
-
-          {active && usage && usage.size > 0 && (
-            <HoverPop
-              className="block"
-              align="right"
-              lead={t("agent.contextTokens", {
-                used: usage.used,
-                size: usage.size,
-              })}
-              text={t("agent.contextTokensTip")}
-            >
-            <div className="flex shrink-0 items-center justify-end gap-1 border-b border-crust px-2.5 py-1 text-[10px] text-overlay">
-              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-crust">
-                <div
-                  className={cn(
-                    "h-full rounded-full",
-                    ctxPct > 85 ? "bg-amber-500" : "bg-blue",
-                  )}
-                  style={{ width: `${ctxPct}%` }}
-                />
-              </div>
-              <span className="tabular-nums">
-                {fmtTokens(usage.used)}/{fmtTokens(usage.size)}
-              </span>
-            </div>
-            </HoverPop>
-          )}
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-2.5">
             <div className="flex flex-col gap-2">
