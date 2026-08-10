@@ -90,11 +90,11 @@ Tauri 2 外壳 + React 19:
 
 ### Phase 5+ 续三(本会话,v1 范围之外)✅ → 画布已换引擎
 
-- ✅ **F-CANVAS(初版 tldraw → 现 Excalidraw MIT)**:无限画布;`.canvas` 文件即真相。
+- ✅ **F-CANVAS(初版 tldraw → 现 Excalidraw MIT)**:无限画布;`.canvas` 文件即真相。**孤立白板**:与图谱/QQL/wikilink/搜索完全解耦,不参与关联网络;「新建」入口默认隐藏(底层保留,已有 `.canvas` 仍可编辑)。详见 [research/canvas-isolation](./research/canvas-isolation.md)。
   - **现引擎**:`@excalidraw/excalidraw`(MIT)。磁盘 schema:`{ openobsidianCanvas:1, engine:"excalidraw", elements, appState, files }`(`canvas.ts` 纯逻辑 + 单测)。
   - **懒加载**:`CanvasView` 独立 chunk;App `key={path}` 防载入回写回环。
   - **旧 tldraw 文件**:识别为 legacy 只读提示,不自动迁移。
-  - **索引隔离**:`build_index` 只取 `.md`;`list_vault` 放行 `.canvas`。
+  - **索引隔离(刻意设计)**:`build_index` 只取 `.md`;`list_vault` 放行 `.canvas`。画布 JSON 不被 frontmatter / wikilink 解析器扫描,避免污染图谱。
   - 历史 tldraw 实现与「非商用许可隔离」叙述见 git 历史;`THIRD_PARTY_NOTICES` 以 Excalidraw 为准。
 
 ### Phase 5+ 续四(本会话,v1 范围之外)✅
@@ -153,7 +153,7 @@ Tauri 2 外壳 + React 19:
 | F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化(links / brief / write 审计)✅**;人侧健康面 UI 见 6B。 |
 | 应用内 Agent(ACP) | ✅ | Phase 7 完工(2026-08-04):Tier 1 + 完整 Tier 2,见 [11](./11-in-app-agent-roadmap.md);真机端到端待用户验收。 |
 | F-L10N | ✅ | zh/en。 |
-| F-CANVAS | ✅ | Excalidraw MIT。 |
+| F-CANVAS | ✅ | Excalidraw MIT。孤立白板(与图谱/QQL 解耦);「新建」入口默认隐藏。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
 | 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |

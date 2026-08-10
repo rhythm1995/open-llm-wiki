@@ -81,14 +81,14 @@
 | F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([12](./12-graph-and-agent-roadmap.md))。 |
 | F-AGENT | 应用内 Agent 侧栏(ACP 托管) | P2 | ✅ | Phase 7(2026-08-04 完工):picker/流式对话/权限三档/Model C 移交/SQLite 转录/git 归因面板;见 [11](./11-in-app-agent-roadmap.md)。真机端到端待用户验收。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
-| F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。 |
+| F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。**孤立白板**:与图谱/QQL/wikilink/搜索完全解耦(不进 `build_index`);「新建」入口默认隐藏,底层保留(已有 `.canvas` 仍可编辑)。详见 [research/canvas-isolation](./research/canvas-isolation.md)。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
 | F-PLUGIN | 插件 | P3 | ⛔ | v1 宿主保留;**产品不做深化**。 |
 | F-APP-MENU | 系统菜单栏 | P2 | ✅ | File/Edit/View 与命令注册表对齐(B-APP-MENU-V2)。 |
 
 ## 范围说明
 
-**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(Cytoscape + 多布局) / **QQL IR**(Rust + MCP,用户面 UI 已撤) / 类型文档 / git / 画布 / 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
+**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(Cytoscape + 多布局) / **QQL IR**(Rust + MCP,用户面 UI 已撤) / 类型文档 / git / 画布(孤立白板,入口隐藏)/ 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
 
 **原 v1 边界 §A** ✅ · **§C 编辑器 / §D 菜单 / §H 命令搜索** ✅ · **大件 v1** ✅(插件深化 ⛔)。
 

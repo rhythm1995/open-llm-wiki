@@ -16,7 +16,7 @@
 | 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。ReadingView(marked + DOMPurify)。保真:app wikilink + 真 BN 引擎往返门禁([FEATURE-INDEX](./FEATURE-INDEX.md))。 |
 | 图谱渲染 | **Cytoscape.js**(懒加载 `CytoscapeLayer`)+ 力导向 **cose** + 预设坐标(type 层/时间轴) | 交互/样式一体、可测纯逻辑在 `graph-*` lib;大图 top-K 截断;真机帧率见 [backlog](./backlog.md) B-GRAPH-FPS / [plan](./plan.md)。 |
 | 阅读渲染 | **marked 18 + DOMPurify 3** | Markdown → HTML + sanitize;F-READING 安全加固。 |
-| Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
+| Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk。**孤立白板**:不进 `build_index`、不参与图谱/QQL/wikilink(见 [research/canvas-isolation](./research/canvas-isolation.md));「新建」入口默认隐藏。 |
 | 包管理 | **pnpm**(workspace monorepo) | 快、磁盘高效。 |
 | 测试 | **cargo test**(Rust)+ **Vitest 4**(TS) + **Playwright**(e2e) | 单元(cargo + Vitest node 纯逻辑)+ @testing-library/jsdom 组件测试 + Playwright e2e(mock 模式 smoke,见 [05-tdd-strategy](./05-tdd-strategy.md))。 |
 
@@ -148,7 +148,7 @@ watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径�
 - **图谱**:`graph-model`(path-stable)+ **Cytoscape** 渲染;`cose` 力导向(滑条→布局参数);type 层/时间轴为 preset 坐标;`graph-filter` / health / cluster / style 纯逻辑可测。大图 **top-K 按度数截断**(~2000)。
 - **查询**:Rust 原生(`query::eval` 在 live 不可变快照上);MCP `run_qql` 为 agent/IR 入口。UI 搜索:⌘F 文档内、⌘P 快速打开、⌘K 命令(**无**独立 Query 面板)。
 - **编辑器**:CodeMirror 源码 + BlockNote WYSIWYG 双模;自动保存防抖。
-- **画布**:Excalidraw(MIT),懒加载。
+- **画布**:Excalidraw(MIT),懒加载。孤立白板 —— 不进图谱/QQL/wikilink 索引,「新建」入口默认隐藏(底层保留,见 [research/canvas-isolation](./research/canvas-isolation.md))。
 
 ## 为什么是这个架构(诚实取舍)
 

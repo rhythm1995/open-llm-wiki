@@ -109,7 +109,7 @@ interface CommandDef {
 | id | 动作 | 菜单 | 面板 | 备注 |
 |---|---|---|---|---|
 | `file.newNote` | 新建笔记 | ✅ | ✅ | ⌘N |
-| `file.newCanvas` | 新建画布 | ✅ | ✅ | |
+| `file.newCanvas` | 新建画布 | ✅ | ✅(入口默认隐藏)| |
 | `file.newSheet` | 新建表格 | ✅ | ✅ | **菜单现缺** |
 | `file.openVault` | 打开 vault | ✅ | ✅ | **快捷键改为 ⌘O** |
 | `file.save` | 保存 | ✅ | ✅ | ⌘S |
@@ -187,7 +187,7 @@ interface CommandDef {
 ```
 File
   New Note          ⌘N
-  New Canvas
+  New Canvas        (入口默认隐藏:孤立白板,与图谱/QQL 解耦)
   New Spreadsheet
   ────────
   Open Vault…       ⌘O     ← 纠正语义

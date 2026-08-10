@@ -79,7 +79,7 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 表格 F-SHEET | B-SHEET | `SheetView.tsx`,`sheet.ts` |
-| 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx` |
+| 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx`(孤立白板;「新建」入口默认隐藏,见 [research/canvas-isolation](./research/canvas-isolation.md)) |
 | 插件宿主(不深化) | B-PLUGIN ⛔ | 保留宿主 |
 | MCP server v1 + 图工具(links / brief / write 审计;8 tools,含 `lint_vault`) | B-MCP / §I-B / §I-D | `mcp/` |
 | Agent 一键接入(CLI `setup`/`doctor`/`init` + 桌面 Settings「Agent 记忆接入」) | B-MCP-ONBOARD | `mcp/src/onboard.rs`(lib 共用);`app/src-tauri/src/onboarding.rs`;`ui/src/components/AgentOnboardingSection.tsx`;`mcp/README.md` §Agent onboarding |

@@ -37,6 +37,7 @@
 | [research/content-lint-contradiction.md](./research/content-lint-contradiction.md) | 内容级 lint/矛盾检测:调研+方案 | **L1 core ✅**;L2 工作流 ✅(doc 14 §3.2.3);MCP/UI 暂不做 |
 | [research/semantic-retrieval.md](./research/semantic-retrieval.md) | 语义检索:调研+方案(维持默认关,触发条件量化) | 候选方案,默认关 |
 | [research/openkb-survey.md](./research/openkb-survey.md) | OpenKB 调研:编译式 Wiki + PageIndex + Skill/Deck Factory(与 OWF/语义检索互证) | 参考 |
+| [research/canvas-isolation.md](./research/canvas-isolation.md) | 画布与图谱/QQL/wikilink/搜索的隔离事实(刻意设计);入口隐藏决策 | 已落地参考 |
 | [open-questions.md](./open-questions.md) | 待拍板 | 维护中 |
 
 ## 一句话定位
