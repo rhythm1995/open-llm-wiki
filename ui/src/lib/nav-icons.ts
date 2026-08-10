@@ -12,6 +12,7 @@ import {
   At,
   BookOpen,
   BookmarkSimple,
+  Brain,
   Calendar,
   ChartLine,
   CheckSquare,
@@ -38,13 +39,13 @@ import {
  * - Source  原始材料库      → Database  蓝(信息源)
  * - Summary LLM 提炼的 TL;DR → Sparkle  紫(派生合成)
  * - Entity  具名实体         → At        青(具名引用 @)
- * - Concept 可被反驳的主张    → Lightbulb 黄(洞见/论断)
+ * - Concept 抽象思维/主张    → Brain     黄(思维/论断)
  */
 const CAIRN_TYPES: { key: string; icon: Icon; color: string }[] = [
   { key: "source", icon: Database, color: "text-blue" },
   { key: "summary", icon: Sparkle, color: "text-mauve" },
   { key: "entity", icon: At, color: "text-teal" },
-  { key: "concept", icon: Lightbulb, color: "text-yellow" },
+  { key: "concept", icon: Brain, color: "text-yellow" },
 ];
 
 /** 关键词 → phosphor 图标组件。数组顺序即优先级(长的 / 特异的放前面)。 */
