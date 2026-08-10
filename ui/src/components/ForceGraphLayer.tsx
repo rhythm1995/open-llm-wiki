@@ -14,6 +14,12 @@ import { forceCollide } from "d3-force-3d";
 import type { ForceParams, Pt } from "../lib/graph-layout";
 import type { LayoutMode } from "../lib/graph-modes";
 import {
+  clampCameraToContent,
+  contentBBox,
+  isViewportEmpty,
+  type CameraState,
+} from "../lib/graph-camera";
+import {
   colorWithAlpha,
   edgeColorResolved,
   graphAccentResolved,
@@ -86,11 +92,15 @@ export interface ForceGraphLayerProps {
   onBoxSelect: (ids: number[]) => void;
   onCameraTransform?: (t: CameraTransform) => void;
   onPositionsStable?: (pos: Map<number, Pt>) => void;
+  /** 视口是否完全看不到内容(父组件显示「回到图」)。 */
+  onViewportEmptyChange?: (empty: boolean) => void;
 }
 
 /** force-graph 内部节点(身份跨 reload 复用,保留 x/y)。 */
 interface FGNode {
   id: number;
+  /** path 稳定主键:聚焦裁切进出时用 path 找回坐标,避免回全图一坨。 */
+  path: string;
   title: string;
   color: string;
   r: number;
@@ -160,8 +170,13 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
   propsRef.current = props;
   const pointerRef = useRef({ x: 0, y: 0 });
 
-  /** id → 持久节点对象(保坐标)。 */
+  /** id → 持久节点对象(保坐标)。聚焦裁切时**不删除**,只是暂不喂给 graphData。 */
   const nodesMapRef = useRef<Map<number, FGNode>>(new Map());
+  /**
+   * path → 最后已知坐标。退出聚焦/换邻域时节点会「消失再出现」,
+   * 必须从这里恢复,绝不能当新节点钉在质心(一坨 + 落在聚焦区后方)。
+   */
+  const savedPosByPathRef = useRef<Map<string, Pt>>(new Map());
   const highlightNodes = useRef<Set<FGNode>>(new Set());
   const highlightLinks = useRef<Set<FGLink>>(new Set());
   /** 选中后锁定邻域高亮,hover 不抢。 */
@@ -175,6 +190,144 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
   const layoutFrozenRef = useRef(false);
   /** 节点 id 集合 + 边签名;仅结构变化才重跑力。 */
   const structureSigRef = useRef("");
+  const viewportEmptyRef = useRef(false);
+  /** 防止 clamp→onZoomEnd→clamp 反馈环。 */
+  const clampingRef = useRef(false);
+  /** content bbox 缓存(结构/布局变时失效)。 */
+  const cachedBBoxRef = useRef<ReturnType<typeof contentBBox>>(null);
+  const bboxDirtyRef = useRef(true);
+
+  const contentNodesForCamera = (): FGNode[] => {
+    const g = gRef.current;
+    if (!g) return [];
+    return g.graphData().nodes.filter(
+      (n) =>
+        !n.isMissing &&
+        n.x != null &&
+        n.y != null &&
+        !(n.x === 0 && n.y === 0),
+    );
+  };
+
+  const getContentBBox = () => {
+    if (!bboxDirtyRef.current && cachedBBoxRef.current) {
+      return cachedBBoxRef.current;
+    }
+    const box = contentBBox(contentNodesForCamera());
+    cachedBBoxRef.current = box;
+    bboxDirtyRef.current = false;
+    return box;
+  };
+
+  const invalidateBBox = () => {
+    bboxDirtyRef.current = true;
+  };
+
+  const readCam = (): CameraState | null => {
+    const g = gRef.current;
+    if (!g) return null;
+    const c = g.centerAt();
+    return { x: c.x, y: c.y, k: g.zoom() };
+  };
+
+  const applyCam = (cam: CameraState) => {
+    const g = gRef.current;
+    if (!g) return;
+    // 必须 0ms:带动画会连触发 onZoomEnd → 卡顿/反馈环
+    clampingRef.current = true;
+    g.centerAt(cam.x, cam.y, 0);
+    g.zoom(cam.k, 0);
+    // 下一帧再允许 onZoomEnd 处理
+    requestAnimationFrame(() => {
+      clampingRef.current = false;
+    });
+  };
+
+  /** 软边界:钳相机,不改节点坐标。仅松手时调用。 */
+  const clampCamera = () => {
+    if (clampingRef.current) return;
+    const g = gRef.current;
+    if (!g) return;
+    const cam = readCam();
+    if (!cam) return;
+    const box = getContentBBox();
+    if (!box) return;
+    const w = propsRef.current.width;
+    const h = propsRef.current.height;
+    if (w <= 0 || h <= 0) return;
+    const next = clampCameraToContent(cam, box, w, h, 0.45);
+    if (
+      Math.abs(next.x - cam.x) > 1 ||
+      Math.abs(next.y - cam.y) > 1 ||
+      Math.abs(next.k - cam.k) > 0.01
+    ) {
+      applyCam(next);
+    }
+    reportViewportEmpty();
+  };
+
+  /** 让当前可见内容进入视口(结构变化 / 重排结束 / 回到图)。 */
+  const ensureVisible = (ms = 350) => {
+    const g = gRef.current;
+    if (!g) return;
+    invalidateBBox();
+    const nodes = contentNodesForCamera();
+    if (nodes.length === 0) {
+      reportViewportEmpty();
+      return;
+    }
+    const prefer = (n: FGNode) =>
+      !n.isMissing &&
+      ((n.degree ?? 0) > 0 || !!n.isCurrent || !!n.isSelected);
+    const hasPrefer = nodes.some(prefer);
+    clampingRef.current = true;
+    g.zoomToFit(ms, PAD + 28, (n) =>
+      hasPrefer ? prefer(n) : !n.isMissing,
+    );
+    // fit 结束后软钳 + 恢复交互;延迟避开 zoom 动画中的 onZoomEnd 风暴
+    window.setTimeout(() => {
+      clampingRef.current = false;
+      invalidateBBox();
+      clampCamera();
+    }, Math.max(ms, 0) + 50);
+  };
+
+  const reportViewportEmpty = () => {
+    const g = gRef.current;
+    if (!g) return;
+    const cam = readCam();
+    if (!cam) return;
+    const box = getContentBBox();
+    const empty = isViewportEmpty(
+      cam,
+      box,
+      propsRef.current.width,
+      propsRef.current.height,
+    );
+    // 仅状态变化时通知 React — 避免每帧 setState 拖垮主线程
+    if (empty === viewportEmptyRef.current) return;
+    viewportEmptyRef.current = empty;
+    propsRef.current.onViewportEmptyChange?.(empty);
+  };
+
+  const rememberPos = (path: string, x: number, y: number) => {
+    if (!path || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    // 跳过 (0,0) 占位
+    if (x === 0 && y === 0) return;
+    savedPosByPathRef.current.set(path, { x, y });
+  };
+
+  const recallPos = (path: string, id: number): Pt | null => {
+    if (path) {
+      const p = savedPosByPathRef.current.get(path);
+      if (p) return p;
+    }
+    const o = nodesMapRef.current.get(id);
+    if (o && o.x != null && o.y != null && !(o.x === 0 && o.y === 0)) {
+      return { x: o.x, y: o.y };
+    }
+    return null;
+  };
 
   const structureSignature = (
     nodes: GraphNodeInput[],
@@ -191,15 +344,19 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
     return `${ids}#${es}`;
   };
 
-  /** 钉住当前坐标(停止后/每帧保冻结)。 */
+  /** 钉住当前坐标(停止后/每帧保冻结)+ 写入 path 记忆。 */
   const freezeAllPositions = () => {
     for (const n of nodesMapRef.current.values()) {
       if (n.x != null && n.y != null) {
         n.fx = n.x;
         n.fy = n.y;
+        rememberPos(n.path, n.x, n.y);
       }
     }
     layoutFrozenRef.current = true;
+    invalidateBBox();
+    // 冻结后停掉持续重绘:hover/点击仍会由 force-graph 交互触发帧
+    gRef.current?.autoPauseRedraw(true);
   };
 
   /** 解冻以便重排(仅 Recalculate / 力参 / 结构变化)。 */
@@ -210,6 +367,9 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       n.fx = undefined;
       n.fy = undefined;
     }
+    gRef.current?.autoPauseRedraw(false);
+    gRef.current?.resumeAnimation();
+    invalidateBBox();
   };
 
   const emitPositions = () => {
@@ -220,7 +380,10 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       stableTimer.current = null;
       const m = new Map<number, Pt>();
       for (const n of g.graphData().nodes) {
-        if (n.x != null && n.y != null) m.set(n.id, { x: n.x, y: n.y });
+        if (n.x != null && n.y != null) {
+          m.set(n.id, { x: n.x, y: n.y });
+          rememberPos(n.path, n.x, n.y);
+        }
       }
       propsRef.current.onPositionsStable?.(m);
     }, 400);
@@ -411,8 +574,16 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
     const structureChanged = sig !== structureSigRef.current;
     structureSigRef.current = sig;
 
+    // 暂离视野的节点:记住坐标,保留在 map 里(勿 delete → 退出聚焦才能归位)
     for (const id of [...map.keys()]) {
-      if (!nextIds.has(id)) map.delete(id);
+      if (!nextIds.has(id)) {
+        const parked = map.get(id)!;
+        if (parked.x != null && parked.y != null) {
+          rememberPos(parked.path, parked.x, parked.y);
+          parked.fx = parked.x;
+          parked.fy = parked.y;
+        }
+      }
     }
 
     const nodes: FGNode[] = [];
@@ -422,6 +593,7 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       if (!o) {
         o = {
           id: n.id,
+          path: n.path ?? "",
           title: n.title,
           color: nodeFill(n, cc, dark),
           r: Math.max(3, nodeSizeFromDegree(n.degree)),
@@ -429,6 +601,8 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
         };
         map.set(n.id, o);
       }
+      o.id = n.id;
+      o.path = n.path ?? o.path ?? "";
       o.title = n.title;
       o.degree = n.degree;
       o.color = nodeFill(n, cc, dark);
@@ -442,9 +616,16 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       o.isPinned = n.isPinned;
       o.isFocus = n.isFocus;
 
-      if (n.x != null && n.y != null && o.x == null) {
-        o.x = n.x;
-        o.y = n.y;
+      // 坐标恢复优先级:已有 o.x → path 记忆 → 父组件 warm → 邻居均值 → 质心
+      const recalled = recallPos(o.path, n.id);
+      if (o.x == null || o.y == null || (isNew && recalled)) {
+        if (recalled) {
+          o.x = recalled.x;
+          o.y = recalled.y;
+        } else if (n.x != null && n.y != null && !(n.x === 0 && n.y === 0)) {
+          o.x = n.x;
+          o.y = n.y;
+        }
       }
 
       if (propsRef.current.layoutMode !== "force") {
@@ -460,27 +641,51 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
         // 父级 pin
         o.fx = n.fx;
         o.fy = n.fy;
+        if (n.x != null) o.x = n.x;
+        if (n.y != null) o.y = n.y;
       } else if (layoutFrozenRef.current && !opts?.forceRelayout) {
-        // 已冻结:保持钉住;新节点放在现有质心附近并立刻钉住,不 reheat 整图
-        if (isNew) {
+        // 已冻结:有记忆/坐标则钉回原位;真·全新节点才靠邻居,绝不全体堆质心
+        if (o.x != null && o.y != null) {
+          o.fx = o.x;
+          o.fy = o.y;
+          rememberPos(o.path, o.x, o.y);
+        } else {
+          // 真新节点:邻居已可见坐标的均值
           let sx = 0;
           let sy = 0;
           let c = 0;
-          for (const p of map.values()) {
-            if (p.id === o.id) continue;
-            if (p.x != null && p.y != null) {
+          for (const l of src.links) {
+            const other =
+              l.source === n.id ? l.target : l.target === n.id ? l.source : null;
+            if (other == null) continue;
+            const p = map.get(other);
+            if (p && p.x != null && p.y != null) {
               sx += p.x;
               sy += p.y;
               c++;
             }
           }
-          o.x = (c ? sx / c : 0) + (Math.random() - 0.5) * 40;
-          o.y = (c ? sy / c : 0) + (Math.random() - 0.5) * 40;
+          if (c > 0) {
+            o.x = sx / c + (Math.random() - 0.5) * 24;
+            o.y = sy / c + (Math.random() - 0.5) * 24;
+          } else {
+            let cx = 0;
+            let cy = 0;
+            let k = 0;
+            for (const p of map.values()) {
+              if (p.id === o.id) continue;
+              if (p.x != null && p.y != null) {
+                cx += p.x;
+                cy += p.y;
+                k++;
+              }
+            }
+            o.x = (k ? cx / k : 0) + (Math.random() - 0.5) * 80;
+            o.y = (k ? cy / k : 0) + (Math.random() - 0.5) * 80;
+          }
           o.fx = o.x;
           o.fy = o.y;
-        } else if (o.x != null && o.y != null) {
-          o.fx = o.x;
-          o.fy = o.y;
+          if (o.path) rememberPos(o.path, o.x, o.y);
         }
       } else if (opts?.forceRelayout || structureChanged) {
         // 即将 reheat:用户 pin 保留,其余放开
@@ -510,24 +715,21 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       k: g.zoom(),
     };
     g.graphData({ nodes, links });
+    invalidateBBox();
     applyForces();
     if (layoutFrozenRef.current && !opts?.forceRelayout) {
+      clampingRef.current = true;
       g.centerAt(cam.x, cam.y, 0);
       g.zoom(cam.k, 0);
+      requestAnimationFrame(() => {
+        clampingRef.current = false;
+      });
     }
 
     if (propsRef.current.layoutMode !== "force") {
       layoutFrozenRef.current = true;
       g.cooldownTicks(0);
-      requestAnimationFrame(() =>
-        g.zoomToFit(
-          300,
-          PAD,
-          (nn) =>
-            !nn.isMissing &&
-            ((nn.degree ?? 0) > 0 || !!nn.isCurrent || !!nn.isSelected),
-        ),
-      );
+      requestAnimationFrame(() => ensureVisible(300));
       return;
     }
 
@@ -549,9 +751,15 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       return;
     }
 
-    // 已冻结:结构增删也不 reheat(新节点已钉在质心旁)
+    // 已冻结:结构增删也不 reheat(退出聚焦的节点已从 path 记忆归位)
     if (layoutFrozenRef.current) {
       freezeAllPositions();
+      // 聚焦进出 / scope 切换:统一 ensureVisible,避免停在空白
+      if (structureChanged && nodes.length > 0) {
+        requestAnimationFrame(() => ensureVisible(350));
+      } else {
+        reportViewportEmpty();
+      }
       return;
     }
 
@@ -621,11 +829,12 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       .linkDirectionalParticleWidth(0.9)
       .linkDirectionalParticleSpeed(0.004)
       .linkDirectionalParticleColor(() => graphAccentResolved())
+      // 仿真中持续画;收敛 freeze 后改 true(见 freezeAllPositions)
       .autoPauseRedraw(false)
       .cooldownTicks(cooldownTicks)
       .warmupTicks(80)
       .enableNodeDrag(true)
-      .minZoom(0.15)
+      .minZoom(0.08)
       .maxZoom(4)
       .onNodeClick((n, ev) => {
         const now = performance.now();
@@ -677,6 +886,7 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       .onNodeDragEnd((n) => {
         n.fx = n.x;
         n.fy = n.y;
+        if (n.x != null && n.y != null) rememberPos(n.path, n.x, n.y);
         propsRef.current.onNodeDragEnd(n.id, n.x ?? 0, n.y ?? 0, true);
         // 拖完继续冻住全图,避免整图跟着晃
         freezeAllPositions();
@@ -685,19 +895,21 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       .onEngineStop(() => {
         freezeAllPositions();
         emitPositions();
-        // 力收敛后再 fit:只框「有度/当前」的节点,避免孤立模板被斥力甩飞撑爆 bbox、主簇缩成一团。
+        // 力收敛:首次或重排后 ensureVisible
         if (!didFitAfterLayout.current && g.graphData().nodes.length > 0) {
           didFitAfterLayout.current = true;
-          g.zoomToFit(
-            450,
-            PAD + 28,
-            (n) =>
-              !n.isMissing &&
-              ((n.degree ?? 0) > 0 || !!n.isCurrent || !!n.isSelected),
-          );
+          ensureVisible(450);
+        } else {
+          clampCamera();
         }
       })
-      .onZoomEnd(() => emitCamera());
+      .onZoomEnd(() => {
+        // 动画/程序改相机时跳过,避免反馈环
+        if (clampingRef.current) return;
+        // 松手软边界:瞬时钳制,无动画
+        clampCamera();
+        emitCamera();
+      });
 
     applyForces();
     layoutFrozenRef.current = false;
@@ -709,6 +921,7 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       g._destructor();
       gRef.current = null;
       nodesMapRef.current.clear();
+      savedPosByPathRef.current.clear();
       didFitAfterLayout.current = false;
       layoutFrozenRef.current = false;
       structureSigRef.current = "";
@@ -784,7 +997,7 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
     if (!g) return;
     if (layoutMode === "force") {
       unfreezeForRelayout();
-      didFitAfterLayout.current = false;
+      didFitAfterLayout.current = false; // 停后 ensureVisible
       applyForces();
       g.cooldownTicks(Math.min(cooldownTicks, 100));
       g.d3AlphaDecay(0.06);
@@ -792,6 +1005,7 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
       g.d3ReheatSimulation();
     } else {
       syncGraphData({ forceRelayout: true });
+      requestAnimationFrame(() => ensureVisible(300));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forcesToken, layoutMode, forces, cooldownTicks]);
@@ -801,15 +1015,9 @@ export function ForceGraphLayer(props: ForceGraphLayerProps): React.ReactElement
   }, [width, height]);
 
   useEffect(() => {
-    const g = gRef.current;
-    if (!g) return;
-    g.zoomToFit(
-      350,
-      PAD + 28,
-      (n) =>
-        !n.isMissing &&
-        ((n.degree ?? 0) > 0 || !!n.isCurrent || !!n.isSelected),
-    );
+    if (fitToken === 0) return;
+    ensureVisible(350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitToken]);
 
   useEffect(() => {
