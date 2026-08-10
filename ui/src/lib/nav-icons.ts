@@ -9,6 +9,7 @@
  * 纯函数、无 IO、可单测。Nav.tsx 只消费 typeIcon / typeColor 两个导出。
  */
 import {
+  At,
   BookOpen,
   BookmarkSimple,
   Calendar,
@@ -17,6 +18,7 @@ import {
   ClipboardText,
   Code,
   Cube,
+  Database,
   Flask,
   FolderOpen,
   Gear,
@@ -24,9 +26,26 @@ import {
   MapPin,
   PenNib,
   ShootingStar,
+  Sparkle,
   User,
   type Icon,
 } from "@phosphor-icons/react";
+
+/**
+ * cairn 协议四个核心具名类型(Source / Summary / Entity / Concept)。
+ * 这些是固定词表,不是用户随手写的 id —— 用**精确匹配**(id === key),
+ * 优先级最高,各自配独立图标 + 配色,让 wiki 主干一眼可辨:
+ * - Source  原始材料库      → Database  蓝(信息源)
+ * - Summary LLM 提炼的 TL;DR → Sparkle  紫(派生合成)
+ * - Entity  具名实体         → At        青(具名引用 @)
+ * - Concept 可被反驳的主张    → Lightbulb 黄(洞见/论断)
+ */
+const CAIRN_TYPES: { key: string; icon: Icon; color: string }[] = [
+  { key: "source", icon: Database, color: "text-blue" },
+  { key: "summary", icon: Sparkle, color: "text-mauve" },
+  { key: "entity", icon: At, color: "text-teal" },
+  { key: "concept", icon: Lightbulb, color: "text-yellow" },
+];
 
 /** 关键词 → phosphor 图标组件。数组顺序即优先级(长的 / 特异的放前面)。 */
 const RULES: { keys: string[]; icon: Icon; color: string }[] = [
@@ -56,8 +75,8 @@ const RULES: { keys: string[]; icon: Icon; color: string }[] = [
   { keys: ["place", "location", "travel", "map", "spot"], icon: MapPin, color: "text-green" },
   // 模板 / 配置
   { keys: ["template", "config", "setting", "system"], icon: Gear, color: "text-overlay" },
-  // 实体 / 概念 / 卡片
-  { keys: ["card", "entity", "concept", "object", "item"], icon: Cube, color: "text-lavender" },
+  // 卡片 / 杂项对象(entity / concept 已由 CAIRN_TYPES 精确接管)
+  { keys: ["card", "object", "item"], icon: Cube, color: "text-lavender" },
   // 收藏 / 精品 / 重点
   { keys: ["star", "favorite", "highlight", "best"], icon: ShootingStar, color: "text-yellow" },
 ];
@@ -70,11 +89,13 @@ function norm(typeId: string | null | undefined): string {
 }
 
 /**
- * 按 type id 关键词匹配返回 phosphor 图标组件;未命中回退 `BookmarkSimple`。
- * 遍历 RULES,首个包含命中的胜出(RULES 顺序即优先级)。
+ * 按 type id 匹配返回 phosphor 图标组件;未命中回退 `BookmarkSimple`。
+ * 优先级:① cairn 核心类型精确匹配 → ② 关键词包含匹配(RULES)。
  */
 export function typeIcon(typeId: string): Icon {
   const id = norm(typeId);
+  const cairn = CAIRN_TYPES.find((r) => r.key === id);
+  if (cairn) return cairn.icon;
   for (const r of RULES) {
     if (r.keys.some((k) => id.includes(k))) return r.icon;
   }
@@ -82,11 +103,13 @@ export function typeIcon(typeId: string): Icon {
 }
 
 /**
- * 按 type id 关键词匹配返回 Tailwind 文字色类(如 "text-lavender");未命中回退
+ * 按 type id 匹配返回 Tailwind 文字色类(如 "text-lavender");未命中回退
  * "text-subtext"。配色与 typeIcon 同源,保证同一 type 图标与颜色一致。
  */
 export function typeColor(typeId: string): string {
   const id = norm(typeId);
+  const cairn = CAIRN_TYPES.find((r) => r.key === id);
+  if (cairn) return cairn.color;
   for (const r of RULES) {
     if (r.keys.some((k) => id.includes(k))) return r.color;
   }

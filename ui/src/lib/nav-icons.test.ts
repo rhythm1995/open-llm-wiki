@@ -1,16 +1,40 @@
 import { describe, it, expect } from "vitest";
 import {
+  At,
   BookOpen,
   BookmarkSimple,
   Calendar,
   CheckSquare,
   Code,
+  Database,
   Flask,
   FolderOpen,
   Lightbulb,
+  Sparkle,
   User,
 } from "@phosphor-icons/react";
 import { typeIcon, typeColor } from "./nav-icons";
+
+describe("nav-icons.typeIcon — cairn 核心类型(精确匹配)", () => {
+  it("Source / Summary / Entity / Concept 各有独立图标", () => {
+    expect(typeIcon("source")).toBe(Database);
+    expect(typeIcon("summary")).toBe(Sparkle);
+    expect(typeIcon("entity")).toBe(At);
+    expect(typeIcon("concept")).toBe(Lightbulb);
+  });
+
+  it("精确匹配大小写不敏感 + trim", () => {
+    expect(typeIcon("Source")).toBe(Database);
+    expect(typeIcon("  SUMMARY  ")).toBe(Sparkle);
+    expect(typeIcon("Entity")).toBe(At);
+  });
+
+  it("cairn 类型优先于关键词规则(concept 不被 card/object 的 Cube 吃掉)", () => {
+    // concept 精确命中 Lightbulb,而非旧 RULES 里 card/object 的 Cube。
+    expect(typeIcon("concept")).toBe(Lightbulb);
+    expect(typeIcon("object")).not.toBe(Lightbulb);
+  });
+});
 
 describe("nav-icons.typeIcon", () => {
   it("命中关键词返回对应图标", () => {
@@ -49,6 +73,13 @@ describe("nav-icons.typeIcon", () => {
 });
 
 describe("nav-icons.typeColor", () => {
+  it("cairn 核心类型各有独立配色", () => {
+    expect(typeColor("source")).toBe("text-blue");
+    expect(typeColor("summary")).toBe("text-mauve");
+    expect(typeColor("entity")).toBe("text-teal");
+    expect(typeColor("concept")).toBe("text-yellow");
+  });
+
   it("命中关键词返回对应 Tailwind 色类", () => {
     expect(typeColor("book")).toBe("text-lavender");
     expect(typeColor("person")).toBe("text-teal");
