@@ -15,6 +15,36 @@
 
 ---
 
+### 2026-08-10 Grok — 图相机:软边界 + 空视口回到图 + ensureVisible
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:1-2-3 相机层(不缩小世界坐标):
+  1. `graph-camera.ts` 纯函数:contentBBox / clampCamera / isViewportEmpty + 单测
+  2. 松手 pan/zoom 软钳到内容 bbox 扩张区 + minZoom 跟内容
+  3. 聚焦进出/scope/重排结束/适应视图 统一 `ensureVisible`
+  4. 视口全空时中央「回到图」按钮
+- **不做**:type-layer/timeline 去留(等用户看)
+- **验证**:typecheck ✓; 581 tests ✓; rebuild app
+- **下一步**:真机拖飞/聚焦验收
+
+### 2026-08-10 Grok — 退出聚焦后布局归位(path 坐标记忆)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:聚焦裁切会删节点,退出时当「新节点」钉质心 → 一坨且落在聚焦区后方。改为:park 节点不从 map 删;path→坐标记忆;回显优先 recall;真新节点才邻居均值;可见集变大时 zoomToFit。
+- **验证**:typecheck ✓;rebuild app
+- **下一步**:用户双击聚焦再空白退出验收
+
+### 2026-08-10 Grok — 图谱交互重做:视野两层 + 聚焦可退出
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:按第一性原理交互梳理落地:
+  1. 视野两层:scope 芯片(跟随当前/全库一键切换)+ focus 芯片(标题·跳数 + ×)
+  2. 退出聚焦:点空白 / Esc / 芯片 × / 右键「退出聚焦」(不改 scope)
+  3. 双击=右键=摘要卡 Target = 同一 `focusHere`
+  4. 文案统一「聚焦此处」;过滤有生效徽章;缩放角钮只留适应视图;范围从「更多」上提
+- **验证**:typecheck ✓
+- **下一步**:用户真机看;可选 rebuild app
+
 ### 2026-08-10 Grok — 修复点选后图甩到左上角(flyTo 用过期坐标)
 
 - **branch**: `release/v0.1.0`(未 commit)
