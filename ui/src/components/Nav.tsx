@@ -17,7 +17,6 @@
 import { useMemo, useState } from "react";
 import {
   Archive,
-  BookmarkSimple,
   CaretDown,
   CaretRight,
   Copy,
@@ -27,6 +26,8 @@ import {
   Funnel,
   Hash,
   Plus,
+  Question,
+  SquaresFour,
   Tray,
 } from "@phosphor-icons/react";
 import type { VaultEntry, VaultSnapshot } from "../lib/ipc";
@@ -352,15 +353,17 @@ export function Nav({
           <div className="my-2 border-t border-crust" />
 
           {/* ▼ TYPES:type 去重 + 计数;每个 type 按名挑图标 + 配色(见 nav-icons)。 */}
-          {sectionHeader("types", <BookmarkSimple size={12} />, t("nav.section.types"), types.length)}
+          {sectionHeader("types", <SquaresFour size={12} />, t("nav.section.types"), types.length)}
           {openSections.has("types") && (
             <div className="mb-1 mt-0.5 flex flex-col gap-0.5">
               {types.map(([id, count]) => {
-                const TypeIcon = typeIcon(id);
+                // 未分类(type 缺失)用专属 Question 图标,不跟随 typeIcon 的 BookmarkSimple 回退
+                const isUntyped = id === "";
+                const TypeIcon = isUntyped ? Question : typeIcon(id);
                 return itemRow(
                   { kind: "type", id },
-                  <TypeIcon size={13} className={typeColor(id)} weight="fill" />,
-                  id === "" ? t("nav.untyped") : id,
+                  <TypeIcon size={13} className={isUntyped ? "text-overlay" : typeColor(id)} weight="fill" />,
+                  isUntyped ? t("nav.untyped") : id,
                   isEditorView && sameSelection(navSelection, { kind: "type", id }),
                   count,
                 );
