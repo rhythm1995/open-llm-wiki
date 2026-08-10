@@ -1,5 +1,5 @@
 /**
- * SettingsPanel —— 应用偏好,按 tab 分组(通用/图谱/Agent/诊断)。
+ * SettingsPanel —— 应用偏好,按 tab 分组(通用 / Agent 记忆 / 诊断)。
  * 落盘键与 useTheme / useLocale / editMode / attachments 共用。
  */
 import { useEffect, useState } from "react";
@@ -8,7 +8,6 @@ import type { Locale } from "../lib/i18n";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
 import type { AppSettings } from "../lib/settings";
-import type { ForceParams } from "../lib/graph-layout";
 import type {
   AttachmentLayout,
   EditorLayoutMode,
@@ -25,7 +24,11 @@ import { AgentOnboardingSection } from "./AgentOnboardingSection";
 import { cn } from "../lib/cn";
 import { X } from "@phosphor-icons/react";
 
-type TabId = "general" | "graph" | "agent" | "diagnostics";
+export type SettingsTabId = "general" | "agent" | "diagnostics";
+
+/** 设置里的下拉:略大字号 + 更高触控高度,避免默认 native select 过扁。 */
+const selectCls =
+  "h-10 w-full rounded-md border border-crust bg-base px-3 text-[13px] leading-none text-text";
 
 interface Props {
   open: boolean;
@@ -35,6 +38,8 @@ interface Props {
   t: TFunc;
   /** 当前打开的 vault 根(「Agent 记忆接入」的默认记忆 vault)。 */
   vaultRoot?: string | null;
+  /** 打开时落在哪个 tab(记忆接入直达用 agent)。 */
+  initialTab?: SettingsTabId;
 }
 
 export function SettingsPanel({
@@ -44,25 +49,25 @@ export function SettingsPanel({
   onChange,
   t,
   vaultRoot = null,
+  initialTab = "general",
 }: Props) {
-  const [tab, setTab] = useState<TabId>("general");
+  const [tab, setTab] = useState<SettingsTabId>(initialTab);
   const [logStatus, setLogStatus] = useState<LogStatus | null>(null);
   const [exportPath, setExportPath] = useState<string | null>(null);
   const [exportErr, setExportErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setTab("general");
+    setTab(initialTab);
     void getLogStatus().then(setLogStatus);
     setExportPath(null);
     setExportErr(null);
-  }, [open]);
+  }, [open, initialTab]);
 
   if (!open) return null;
 
-  const tabs: { id: TabId; label: string }[] = [
+  const tabs: { id: SettingsTabId; label: string }[] = [
     { id: "general", label: t("settings.tab.general") },
-    { id: "graph", label: t("settings.tab.graph") },
     { id: "agent", label: t("settings.tab.agent") },
     { id: "diagnostics", label: t("settings.tab.diagnostics") },
   ];
@@ -132,9 +137,6 @@ export function SettingsPanel({
           {tab === "general" && (
             <GeneralTab settings={settings} onChange={onChange} t={t} />
           )}
-          {tab === "graph" && (
-            <GraphTab settings={settings} onChange={onChange} t={t} />
-          )}
           {tab === "agent" && (
             <AgentOnboardingSection vaultRoot={vaultRoot} t={t} />
           )}
@@ -169,9 +171,9 @@ function GeneralTab({
   return (
     <div className="space-y-3">
       <label className="block text-[12px] text-subtext">
-        <span className="mb-1 block text-overlay">{t("settings.theme")}</span>
+        <span className="mb-1.5 block text-overlay">{t("settings.theme")}</span>
         <select
-          className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+          className={selectCls}
           value={settings.theme}
           onChange={(e) => onChange({ theme: e.target.value as Theme })}
         >
@@ -181,9 +183,9 @@ function GeneralTab({
       </label>
 
       <label className="block text-[12px] text-subtext">
-        <span className="mb-1 block text-overlay">{t("settings.locale")}</span>
+        <span className="mb-1.5 block text-overlay">{t("settings.locale")}</span>
         <select
-          className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+          className={selectCls}
           value={settings.locale}
           onChange={(e) => onChange({ locale: e.target.value as Locale })}
         >
@@ -193,11 +195,11 @@ function GeneralTab({
       </label>
 
       <label className="block text-[12px] text-subtext">
-        <span className="mb-1 block text-overlay">
+        <span className="mb-1.5 block text-overlay">
           {t("settings.defaultEditMode")}
         </span>
         <select
-          className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+          className={selectCls}
           value={settings.defaultEditMode}
           onChange={(e) =>
             onChange({ defaultEditMode: e.target.value as EditMode })
@@ -229,11 +231,11 @@ function GeneralTab({
       </p>
 
       <label className="block text-[12px] text-subtext">
-        <span className="mb-1 block text-overlay">
+        <span className="mb-1.5 block text-overlay">
           {t("settings.attachmentLayout")}
         </span>
         <select
-          className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+          className={selectCls}
           value={settings.attachmentLayout}
           data-testid="settings-attachment-layout"
           onChange={(e) =>
@@ -261,11 +263,11 @@ function GeneralTab({
       </p>
 
       <label className="block text-[12px] text-subtext">
-        <span className="mb-1 block text-overlay">
+        <span className="mb-1.5 block text-overlay">
           {t("settings.editorLayout")}
         </span>
         <select
-          className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+          className={selectCls}
           value={settings.editorLayout}
           data-testid="settings-editor-layout"
           onChange={(e) =>
@@ -281,64 +283,6 @@ function GeneralTab({
       <p className="-mt-1 text-[11px] text-overlay">
         {t("settings.editorLayoutHint")}
       </p>
-    </div>
-  );
-}
-
-/* ───────────────────── Graph ───────────────────── */
-
-function GraphTab({
-  settings,
-  onChange,
-  t,
-}: {
-  settings: AppSettings;
-  onChange: (patch: Partial<AppSettings>) => void;
-  t: TFunc;
-}) {
-  const patchForces = (forces: ForceParams) => onChange({ graphForces: forces });
-  return (
-    <div>
-      <p className="mb-2 text-[11px] text-overlay">
-        {t("settings.graphForcesHint")}
-      </p>
-      <ForceSlider
-        label={t("settings.force.center")}
-        value={settings.graphForces.center}
-        onChange={(v) =>
-          patchForces({ ...settings.graphForces, center: v })
-        }
-      />
-      <ForceSlider
-        label={t("settings.force.repel")}
-        value={settings.graphForces.repel}
-        onChange={(v) =>
-          patchForces({ ...settings.graphForces, repel: v })
-        }
-      />
-      <ForceSlider
-        label={t("settings.force.linkStrength")}
-        value={settings.graphForces.linkStrength}
-        onChange={(v) =>
-          patchForces({ ...settings.graphForces, linkStrength: v })
-        }
-      />
-      <ForceSlider
-        label={t("settings.force.linkDistance")}
-        value={settings.graphForces.linkDistance}
-        onChange={(v) =>
-          patchForces({ ...settings.graphForces, linkDistance: v })
-        }
-      />
-      <button
-        type="button"
-        className="mt-1 w-full rounded border border-crust bg-base px-2 py-1 text-[11px] text-overlay hover:bg-surface"
-        onClick={() =>
-          patchForces({ center: 1, repel: 1, linkStrength: 1, linkDistance: 1 })
-        }
-      >
-        {t("settings.force.reset")}
-      </button>
     </div>
   );
 }
@@ -375,11 +319,11 @@ function DiagnosticsTab({
             {logStatus.sessionId ? ` · session ${logStatus.sessionId}` : ""}
           </p>
           <label className="mb-2 block text-[12px] text-subtext">
-            <span className="mb-1 block text-overlay">
+            <span className="mb-1.5 block text-overlay">
               {t("settings.logProfile")}
             </span>
             <select
-              className="w-full rounded border border-crust bg-base px-2 py-1.5 text-text"
+              className={selectCls}
               value={
                 logStatus.profile === "verbose" ||
                 logStatus.profile === "prod" ||
@@ -440,35 +384,5 @@ function DiagnosticsTab({
         <p className="text-[11px] text-overlay">{t("settings.diagnosticsMock")}</p>
       )}
     </div>
-  );
-}
-
-/** 力参数滑条:0–3,步进 0.1,默认 1。 */
-function ForceSlider({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <label className="mb-1.5 flex items-center gap-2 text-[12px] text-subtext">
-      <span className="w-24 shrink-0">{label}</span>
-      <input
-        type="range"
-        min={0}
-        max={3}
-        step={0.1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-[var(--color-blue)]"
-        aria-label={label}
-      />
-      <span className="w-8 text-right tabular-nums text-overlay">
-        {value.toFixed(1)}
-      </span>
-    </label>
   );
 }
