@@ -1,5 +1,5 @@
 /**
- * App —— OpenObsidian 主壳。
+ * App —— Open LLM Wiki 主壳。
  *
  * 三栏布局(参考 Obsidian):
  *   左:Sidebar(文件树)  中:主视图(编辑器/图谱/QQL/搜索)  右:Inspector(反链/属性)
@@ -29,6 +29,7 @@ import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { CenterToolbar } from "./components/CenterToolbar";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { HelpGuideDialog } from "./components/HelpGuideDialog";
 import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
@@ -48,7 +49,17 @@ import {
   sampleHelloManifest,
   type PluginCommand,
 } from "./lib/plugin-host";
-import { writeLastPath, readLastRoot, clearLastRoot } from "./lib/last-note";
+import {
+  writeLastPath,
+  readLastRoot,
+  forgetRecentRoot,
+} from "./lib/last-note";
+import { WelcomeEmpty } from "./components/WelcomeEmpty";
+import {
+  readWelcomeMgPlacement,
+  writeWelcomeMgPlacement,
+  type WelcomeMgPlacement,
+} from "./lib/welcome-mg-pref";
 import {
   EDIT_MODE_KEY,
   EDIT_MODE_MIGRATED_KEY,
@@ -87,7 +98,7 @@ const SheetView = lazy(() =>
 export default function App() {
   const { state, currentNode, backlinks, navInfo, actions } = useVault();
   // 默认落地编辑页:不再记忆上次主视图(用户要求每次进入都是编辑器,而非图谱)。
-  // 旧值 "openobs.view" 仍可能残留在 localStorage,直接忽略即可。
+  // 旧值 "open-llm-wiki.view" 仍可能残留在 localStorage,直接忽略即可。
   const [view, setView] = useState<MainView>("editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("commands");
@@ -103,6 +114,16 @@ export default function App() {
   /** 稳定句柄:FindBar 订阅此 state,避免 ref.current 在首渲为 null。 */
   const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 设置打开时默认 tab;记忆接入直达用 "agent"。 */
+  const [settingsTab, setSettingsTab] = useState<
+    "general" | "agent" | "diagnostics"
+  >("general");
+  const [helpOpen, setHelpOpen] = useState(false);
+  const openSettings = useCallback((tab: "general" | "agent" | "diagnostics" = "general") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  }, []);
+  const openAgentOnboard = useCallback(() => openSettings("agent"), [openSettings]);
   const [modeHint, setModeHint] = useState<string | null>(null);
   // 附件目录 / 布局 / 并排(B-ED-MEDIA / B-ED-READING)。
   const [attachmentsDir, setAttachmentsDir] = useState(() => {
@@ -186,27 +207,27 @@ export default function App() {
   );
   // 四区布局:三个非编辑器面板各自可隐藏,状态持久化。切换入口集中在 CenterToolbar
   // 右侧的 Xcode 式切换簇(面板边缘不放按钮)。编辑器常驻,不参与切换。
-  const [navOpen, setNavOpen] = usePersistentState("openobs.navOpen", true);
-  const [listOpen, setListOpen] = usePersistentState("openobs.listOpen", true);
+  const [navOpen, setNavOpen] = usePersistentState("open-llm-wiki.navOpen", true);
+  const [listOpen, setListOpen] = usePersistentState("open-llm-wiki.listOpen", true);
   const [propsOpen, setPropsOpen] = usePersistentState(
-    "openobs.propsOpen",
+    "open-llm-wiki.propsOpen",
     true,
   );
   // 栏宽拖拽(B-COL-RESIZE):各栏可拖拽调宽,持久化;最小/默认见 COL。
   const [navWidth, setNavWidth] = usePersistentState<number>(
-    "openobs.colW.nav",
+    "open-llm-wiki.colW.nav",
     COL.nav.default,
   );
   const [listWidth, setListWidth] = usePersistentState<number>(
-    "openobs.colW.list",
+    "open-llm-wiki.colW.list",
     COL.list.default,
   );
   const [rightWidth, setRightWidth] = usePersistentState<number>(
-    "openobs.colW.right",
+    "open-llm-wiki.colW.right",
     COL.right.default,
   );
-  // 图谱力参数(6A2):持久化;ForceGraphLayer 映射到 d3-force 时夹取,这里存原值即可。
-  const [forces, setForces] = usePersistentState<ForceParams>(
+  // 图谱力参数(6A2):持久化默认;设置里已不提供调参 UI,图谱视图直接用此值。
+  const [forces] = usePersistentState<ForceParams>(
     GRAPH_FORCES_KEY,
     DEFAULT_FORCES,
   );
@@ -229,7 +250,7 @@ export default function App() {
     const iframe = document.createElement("iframe");
     iframe.setAttribute("sandbox", "allow-scripts");
     iframe.style.display = "none";
-    iframe.title = "openobs-plugin-hello";
+    iframe.title = "open-llm-wiki-plugin-hello";
     document.body.appendChild(iframe);
     const onMsg = (ev: MessageEvent) => {
       if (ev.source !== iframe.contentWindow) return;
@@ -273,7 +294,7 @@ export default function App() {
   // 右栏 tab:inspector(仅 editor 非画布) | agent(任意视图)。doc 11 B-AGENT-RIGHTCOL-TABS。
   // key 加 .v2:旧版默认 agent,现已改为 inspector;新 key 读不到旧值 → 落回 inspector 默认。
   const [rightTab, setRightTab] = usePersistentState<"inspector" | "agent">(
-    "openobs.rightTab.v2",
+    "open-llm-wiki.rightTab.v2",
     "inspector",
   );
   const agentOpen = propsOpen && rightTab === "agent";
@@ -407,20 +428,39 @@ export default function App() {
     setView("editor");
   }, []);
 
-  // mock:打开种子 vault;Tauri:恢复上次打开的 vault(无则留空态,等用户点「打开」)。
+  /**
+   * 启动门闩:有 lastRoot 时先 pending,避免异步 openVault 完成前闪一下欢迎台/MG。
+   * - pending: 冷启动且正在恢复 vault
+   * - ready: 已有 root 或已确认无 vault 可显示欢迎台
+   */
+  const [vaultBootReady, setVaultBootReady] = useState(() => {
+    if (ipc.isMock()) return false;
+    return !readLastRoot();
+  });
+  const [mgPlacement, setMgPlacement] = useState<WelcomeMgPlacement>(() =>
+    readWelcomeMgPlacement(),
+  );
+
+  // mock:打开种子 vault;Tauri:恢复上次打开的 vault(无则留欢迎台,等用户点「打开」)。
   useEffect(() => {
     if (ipc.isMock()) {
-      void actions.openVault("/mock-vault");
+      void (async () => {
+        await actions.openVault("/mock-vault");
+        setVaultBootReady(true);
+      })();
       return;
     }
     const last = readLastRoot();
-    if (last) {
-      void (async () => {
-        // 目录已不存在等失败:清掉记录,下次走空态,不反复撞坏路径。
-        const ok = await actions.openVault(last);
-        if (!ok) clearLastRoot();
-      })();
+    if (!last) {
+      setVaultBootReady(true);
+      return;
     }
+    void (async () => {
+      // 目录已不存在等失败:清 last + 最近列表中该项,再放行欢迎台。
+      const ok = await actions.openVault(last);
+      if (!ok) forgetRecentRoot(last);
+      setVaultBootReady(true);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -528,7 +568,8 @@ export default function App() {
       toggleTheme,
       theme,
       toggleLocale,
-      openSettings: () => setSettingsOpen(true),
+      openSettings: () => openSettings("general"),
+      openAgentOnboard: () => openAgentOnboard(),
       toggleSplitLayout: () => {
         if (editModeRef.current !== "source") {
           persistEditMode("source");
@@ -603,6 +644,8 @@ export default function App() {
     setEditorLayout,
     openNewSheet,
     pluginCommands,
+    openSettings,
+    openAgentOnboard,
     t,
   ]);
 
@@ -815,6 +858,8 @@ export default function App() {
         onNewNote={openNewNote}
         onNewCanvas={openNewCanvas}
         onOpenVault={() => void actions.openPicker()}
+        showBrandLogo
+        onBrandLogoClick={() => setHelpOpen(true)}
       />
       {state.error && (
         <div className="flex items-center gap-2 border-b border-red/40 bg-red/10 px-3 py-1.5 text-[12px] text-red">
@@ -888,9 +933,39 @@ export default function App() {
           />
         )}
 
-        {/* 区 3:编辑器(常驻,不参与切换)。主视图内容(CenterToolbar 已提到全宽顶栏)。 */}
+        {/* 区 3:编辑器(常驻,不参与切换)。无 vault → 欢迎台;有 vault → 主视图。 */}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 min-w-0">
+            {!vaultBootReady ? (
+              <div
+                data-testid="vault-boot"
+                className="flex h-full items-center justify-center bg-base"
+                aria-busy="true"
+              >
+                <img
+                  src="/olw-mark.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 animate-pulse object-contain opacity-70"
+                  draggable={false}
+                />
+              </div>
+            ) : !state.root ? (
+              <WelcomeEmpty
+                t={t}
+                onOpenVault={() => void actions.openPicker()}
+                onOpenRoot={(root) => actions.openVault(root)}
+                onCreateSample={async () => {
+                  const path = await ipc.createSampleVault();
+                  const ok = await actions.openVault(path);
+                  return ok ? path : null;
+                }}
+                onMgPlacementChange={setMgPlacement}
+                onOpenAgentOnboard={openAgentOnboard}
+              />
+            ) : (
+              <>
             {view === "editor" && (
               <div className="flex h-full flex-col">
                 <TabBar
@@ -1082,6 +1157,8 @@ export default function App() {
               />
             )}
             {view === "git" && <GitPanel root={state.root} t={t} />}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1108,6 +1185,7 @@ export default function App() {
                 t={t}
                 getAiContext={actions.buildAiContextMd}
                 getContextCandidates={actions.contextCandidates}
+                onOpenMemoryOnboard={openAgentOnboard}
               />
             ) : (
               <Inspector
@@ -1158,9 +1236,23 @@ export default function App() {
         commandExtras={commandExtras}
       />
 
+      <HelpGuideDialog
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        t={t}
+        showRestoreMg={mgPlacement === "corner"}
+        onRestoreMg={() => {
+          writeWelcomeMgPlacement("hero");
+          setMgPlacement("hero");
+        }}
+        onOpenAgentOnboard={openAgentOnboard}
+        onOpenSettings={() => openSettings("general")}
+      />
+
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        initialTab={settingsTab}
         vaultRoot={state.root}
         settings={{
           theme,
@@ -1183,9 +1275,6 @@ export default function App() {
           }
           if (patch.editorLayout != null) {
             setEditorLayout(patch.editorLayout);
-          }
-          if (patch.graphForces != null) {
-            setForces(normalizeForces(patch.graphForces));
           }
         }}
         t={t}

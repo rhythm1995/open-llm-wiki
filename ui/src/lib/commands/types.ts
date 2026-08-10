@@ -23,6 +23,7 @@ export type CommandId =
   | "reveal"
   | "archive"
   | "settings"
+  | "agent-onboard"
   | "find"
   | "find-vault"
   | "quick-open"
@@ -79,6 +80,8 @@ export interface CommandDeps {
   hasOpenTab?: boolean;
   canReveal?: boolean;
   openSettings?: () => void;
+  /** 直达「设置 → Agent 记忆接入」(外部 MCP)。 */
+  openAgentOnboard?: () => void;
   toggleSplitLayout?: () => void;
   editorLayout?: "edit" | "split";
   /** 清理未引用附件(媒体索引 orphans → trash,需确认)。 */

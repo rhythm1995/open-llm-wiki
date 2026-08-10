@@ -38,7 +38,9 @@ export function StatusBar({
 
   return (
     <div className="flex items-center gap-3 border-t border-crust bg-mantle px-3 py-1 text-[11px] text-overlay">
-      {state.saveState === "saving" ? (
+      {!state.root ? (
+        <span data-testid="status-no-vault">{t("status.noVault")}</span>
+      ) : state.saveState === "saving" ? (
         <span className="flex items-center gap-1 text-yellow">
           <CircleNotch size={11} /> {t("status.saving")}
         </span>

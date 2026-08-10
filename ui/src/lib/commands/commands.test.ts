@@ -240,6 +240,7 @@ describe("menu id contract", () => {
     "archive",
     "close-tab",
     "settings",
+    "agent-onboard",
     "find",
     "find-vault",
     "mode-source",
@@ -271,6 +272,7 @@ describe("menu id contract", () => {
           revealCurrent: () => {},
           canReveal: true,
           openSettings: () => {},
+          openAgentOnboard: () => {},
         }),
       ),
     );

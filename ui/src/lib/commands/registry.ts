@@ -24,6 +24,7 @@ import {
   Image as ImageIcon,
   Translate,
   X,
+  PlugsConnected,
 } from "@phosphor-icons/react";
 import type { AppCommand, CommandDeps, CommandIcon } from "./types";
 
@@ -137,9 +138,31 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       category: "file",
       icon: Gear as CommandIcon,
       shortcut: "⌘,",
-      keywords: ["preferences", "设置"],
+      keywords: ["preferences", "设置", "settings"],
       inMenu: true,
       run: () => deps.openSettings!(),
+    });
+  }
+
+  if (deps.openAgentOnboard) {
+    cmds.push({
+      id: "agent-onboard",
+      label: t("palette.action.agentOnboard"),
+      category: "go",
+      icon: PlugsConnected as CommandIcon,
+      keywords: [
+        "mcp",
+        "agent",
+        "memory",
+        "记忆",
+        "接入",
+        "cursor",
+        "claude",
+        "codex",
+        "外部",
+      ],
+      inMenu: true,
+      run: () => deps.openAgentOnboard!(),
     });
   }
 

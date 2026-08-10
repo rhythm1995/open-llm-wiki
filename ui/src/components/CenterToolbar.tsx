@@ -70,6 +70,9 @@ interface Props {
   onNewNote: () => void;
   onNewCanvas: () => void;
   onOpenVault: () => void;
+  /** ⌘K 右侧品牌 logo;点击打开帮助手册。 */
+  showBrandLogo?: boolean;
+  onBrandLogoClick?: () => void;
 }
 
 const VIEWS: {
@@ -115,6 +118,8 @@ export function CenterToolbar({
   onNewNote,
   // onNewCanvas:画布入口暂隐(CANVAS_HIDDEN);Props 保留以维持接口稳定
   onOpenVault,
+  showBrandLogo = true,
+  onBrandLogoClick,
 }: Props) {
   const hasVault = vaultName !== null;
   // 最左侧可见列:决定交通灯拖拽区挂在哪个表头。
@@ -270,6 +275,27 @@ export function CenterToolbar({
                 ⌘K
               </button>
             </HoverPop>
+            {/* 品牌 logo:紧挨 ⌘K,不与右侧面板簇混排;点击打开帮助手册。 */}
+            {showBrandLogo && (
+              <HoverPop side="down" text={t("toolbar.brandLogoTip")}>
+                <button
+                  type="button"
+                  data-testid="toolbar-brand-logo"
+                  onClick={onBrandLogoClick}
+                  className="flex h-7 w-7 items-center justify-center rounded hover:bg-surface"
+                  aria-label={t("toolbar.brandLogoTip")}
+                >
+                  <img
+                    src="/olw-mark.png"
+                    alt=""
+                    width={18}
+                    height={18}
+                    className="h-[18px] w-[18px] object-contain"
+                    draggable={false}
+                  />
+                </button>
+              </HoverPop>
+            )}
 
             {/* 居中标签:绝对居中于编辑列,穿透拖拽。 */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -278,7 +304,7 @@ export function CenterToolbar({
               </span>
             </div>
 
-            {/* 右簇:Xcode 式面板切换 + 后退/前进(最右)。 */}
+            {/* 右簇:仅面板切换。 */}
             <div className="ml-auto flex items-center gap-0.5">
               {toggles.map((tg) => {
                 const Icon = tg.icon;
@@ -303,13 +329,35 @@ export function CenterToolbar({
             </div>
           </>
         ) : (
-          <button
-            onClick={onOpenVault}
-            className="ml-auto flex items-center gap-1.5 rounded bg-blue px-3 py-1 text-[12px] font-medium text-crust hover:opacity-90"
-          >
-            <FolderOpen size={14} weight="bold" />
-            {t("sidebar.openVault")}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {showBrandLogo && (
+              <HoverPop side="down" align="right" text={t("toolbar.brandLogoTip")}>
+                <button
+                  type="button"
+                  data-testid="toolbar-brand-logo"
+                  onClick={onBrandLogoClick}
+                  className="flex h-7 w-7 items-center justify-center rounded hover:bg-surface"
+                  aria-label={t("toolbar.brandLogoTip")}
+                >
+                  <img
+                    src="/olw-mark.png"
+                    alt=""
+                    width={18}
+                    height={18}
+                    className="h-[18px] w-[18px] object-contain"
+                    draggable={false}
+                  />
+                </button>
+              </HoverPop>
+            )}
+            <button
+              onClick={onOpenVault}
+              className="flex items-center gap-1.5 rounded bg-blue px-3 py-1 text-[12px] font-medium text-crust hover:opacity-90"
+            >
+              <FolderOpen size={14} weight="bold" />
+              {t("sidebar.openVault")}
+            </button>
+          </div>
         )}
       </div>
 

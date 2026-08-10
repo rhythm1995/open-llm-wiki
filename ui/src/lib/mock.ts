@@ -112,7 +112,7 @@ tags: [meta]
 
 # Index
 
-欢迎来到 OpenObsidian 的 mock vault(浏览器预览模式)。
+欢迎来到 Open LLM Wiki 的 mock vault(浏览器预览模式)。
 
 - 看 [[Zettelkasten]] 方法论
 - 看 [[Evergreen Notes]] 的对比
@@ -456,6 +456,17 @@ export async function handle<T>(
   switch (cmd) {
     case "pick_vault":
       return MOCK_ROOT as unknown as T;
+
+    case "create_sample_vault": {
+      // 灌入精简示例库(与 ui/sample-vault.ts 对齐);mock 共用内存 Map。
+      const { sampleVaultNotes, SAMPLE_VAULT_MOCK_ROOT } = await import(
+        "./sample-vault"
+      );
+      for (const n of sampleVaultNotes()) {
+        vault.set(n.path, n.content);
+      }
+      return SAMPLE_VAULT_MOCK_ROOT as unknown as T;
+    }
 
     case "list_vault": {
       const entries: VaultEntry[] = [];
