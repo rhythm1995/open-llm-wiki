@@ -11,9 +11,9 @@
 
 ## 1. TL;DR
 
-1. **溯源有事实标准,但可大幅简化。** W3C PROV(PROV-DM/PROV-O)用 **Entity–Activity–Agent** 三元 + `wasAttributedTo`/`wasDerivedFrom`/`wasGeneratedBy`/`used` 描述「东西由活动产出、活动归因于主体」[P1][P2]。落到笔记场景,这套模型可塌缩成**三个正交维度**:**谁写的**(producer:`human`/`agent`/`ingested`)、**从哪来**(origin:`source`/`url`,本仓库已有)、**多可信**(trust:`0–3`,可选)。OpenObsidian 的 frontmatter 目前只覆盖第二维,第一、三维空白。
+1. **溯源有事实标准,但可大幅简化。** W3C PROV(PROV-DM/PROV-O)用 **Entity–Activity–Agent** 三元 + `wasAttributedTo`/`wasDerivedFrom`/`wasGeneratedBy`/`used` 描述「东西由活动产出、活动归因于主体」[P1][P2]。落到笔记场景,这套模型可塌缩成**三个正交维度**:**谁写的**(producer:`human`/`agent`/`ingested`)、**从哪来**(origin:`source`/`url`,本仓库已有)、**多可信**(trust:`0–3`,可选)。Open LLM Wiki 的 frontmatter 目前只覆盖第二维,第一、三维空白。
 2. **`evidence_tier` ≠ 信任分级,两者必须分开。** `evidence_tier`(independent_research > … > opinion,见 `templates/wiki-starter/types/source.md`)答的是「**这份外部证据本身的质量**」——客观、贴在 Source 上;而 provenance/trust 答的是「**这段派生知识是谁产出的、我们该多信它**」——认识论归因,贴在 Summary/Entity/Concept 上。同一篇 `vendor_source` 可以喂出一篇被人复核过的高信任 Concept,也可以喂出一篇 agent 昨天刚生成、没人看过的低信任 Concept。**证据质量是输入,信任是结论,不能互相替代。**
-3. **记忆安全已把溯源标注列为防御必修课,不是远期问题。** OWASP 已把记忆投毒列为 **ASI06(Memory & Context Poisoning)**[S2];MINJA(NeurIPS 2025)经**纯查询接口**达成 >95% 注入成功率、平均 ASR ~77%(部分配置 >70%)[S1];Unit 42 实测注入可**持久 365 天**后静默外泄[S3]。防御栈 = **溯源标注(provenance tagging)+ 写入前校验(write-ahead validation)+ 信任加权检索(trust-weighted retrieval)+ 时间衰减(temporal decay)**,外加指令剥离、熔断器、用户确认[S4]。OpenObsidian 现只有链接侧「写入前校验」(`write_note` 返回 `broken_links`),其余三项无对应物。
+3. **记忆安全已把溯源标注列为防御必修课,不是远期问题。** OWASP 已把记忆投毒列为 **ASI06(Memory & Context Poisoning)**[S2];MINJA(NeurIPS 2025)经**纯查询接口**达成 >95% 注入成功率、平均 ASR ~77%(部分配置 >70%)[S1];Unit 42 实测注入可**持久 365 天**后静默外泄[S3]。防御栈 = **溯源标注(provenance tagging)+ 写入前校验(write-ahead validation)+ 信任加权检索(trust-weighted retrieval)+ 时间衰减(temporal decay)**,外加指令剥离、熔断器、用户确认[S4]。Open LLM Wiki 现只有链接侧「写入前校验」(`write_note` 返回 `broken_links`),其余三项无对应物。
 4. **基石结论(本地实测):QQL 已能直接读任意 frontmatter 字段,方案零 core 改动。** `core/src/query.rs` 的 `FieldRef::Key(k)` 分支经 `n.frontmatter.get(k)` 取任意键(字符串/数字/布尔/列表);`has <字段>`、`RENDER group_by(<字段>)`、`<字段> = / < "…"` 全部对任意键生效。已用临时 harness 实测 `provenance = "agent"`、`NOT has reviewed`、`group_by(provenance)` 均正确(§4.3)。这意味着「加字段 + 写查询」**不碰 core**,纯约定 + 模板。
 5. **推荐最小字段集(需人拍板)**:
    - `provenance: human | agent | ingested` —— 谁产出(核心);
@@ -69,9 +69,9 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 - **Agent**:「something that bears some form of responsibility for an activity taking place」——对活动负责的主体(**人、agent、组织**)。
 - 最小说明:**Generation** = 活动产出新实体;**Usage** = 活动开始使用实体;**Derivation** = 一实体转化为另一实体;**Attribution** = 「the ascribing of an entity to an agent」(把实体归因给主体)。核心关系键:`wasGeneratedBy` / `used` / `wasAttributedTo` / `wasDerivedFrom`。
 
-**映射到 OpenObsidian:**
+**映射到 Open LLM Wiki:**
 
-| PROV 概念 | OpenObsidian 对应 | 现状 |
+| PROV 概念 | Open LLM Wiki 对应 | 现状 |
 |---|---|---|
 | Entity | 一篇笔记(Source/Summary/Entity/Concept) | ✅ 已有 |
 | Activity:ingest | `type: Source` 摄取 + `derived_into` | ✅ 已有 |
@@ -80,7 +80,7 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 | **Agent** | **谁产出(人/agent/摄取)** | ❌ **缺** |
 | **Relation:`wasAttributedTo`** | **「这页归因于谁」** | ❌ **缺** |
 
-结论:PROV 三元里,OpenObsidian 的 Entity/Activity/Derivation 已被类型系统覆盖;**唯独 Agent 归因(`wasAttributedTo`)没有 frontmatter 落点**。这正是 `provenance:` 要补的那一格。
+结论:PROV 三元里,Open LLM Wiki 的 Entity/Activity/Derivation 已被类型系统覆盖;**唯独 Agent 归因(`wasAttributedTo`)没有 frontmatter 落点**。这正是 `provenance:` 要补的那一格。
 
 **三个正交维度(本报告的字段设计骨架):**
 
@@ -99,7 +99,7 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 
 **防御栈(Christian Schneider,persistent memory poisoning,一手)[S4]:**
 
-| 防御 | 原文要点 | OpenObsidian 现状 |
+| 防御 | 原文要点 | Open LLM Wiki 现状 |
 |---|---|---|
 | **Provenance tagging** | 「Every memory entry should record its source, creation time, session context, and initial trust score.」 | ❌ 无(本报告要补) |
 | **Write-ahead validation** | 「uses a separate, smaller model to evaluate proposed memory updates before they're committed」 | 🟡 仅链接侧(`broken_links`) |
@@ -111,7 +111,7 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 
 **时间衰减的启发——Zep/Graphiti 双时序:**
 - Graphiti 边带 **`valid_at`(事实在世界里何时为真)与 `invalid_at`(何时失效)**,另有摄取时间;新矛盾信息到来时**置 `invalid_at` 而非删除**,保留历史[T1][T2]。
-- 对 OpenObsidian 的启发:派生知识的「可信度随时间衰减」不该挂在 `created` 上(那只是诞生时刻),而该挂在 **`reviewed`(最近复审)** 上——一段知识只有被再次复审才「重新变新」;久未复审 = 静默走向失效。**`reviewed` 是本仓库版的 `valid_at` 锚点。**
+- 对 Open LLM Wiki 的启发:派生知识的「可信度随时间衰减」不该挂在 `created` 上(那只是诞生时刻),而该挂在 **`reviewed`(最近复审)** 上——一段知识只有被再次复审才「重新变新」;久未复审 = 静默走向失效。**`reviewed` 是本仓库版的 `valid_at` 锚点。**
 
 ### 3.3 代表做法对照表
 
@@ -126,12 +126,12 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 | **Zep / Graphiti**[T1][T2] | 边带摄取来源 | `valid_at`/`invalid_at` | — | 引擎强制(边失效) | 时序 KG |
 | **MediaWiki 类 wiki** | 编辑历史 = 产出者 | `last-reviewed` / review 工作流常见 | review state | 工作流约定 | 社区惯例 |
 | **Obsidian + Dataview** | 自由 frontmatter,**约定俗成** | `reviewed` / `last-reviewed` 见于社区模板(无官方文档,本次未核到一手) | 自定义 | 无 | 软元数据实践 |
-| **OpenObsidian 现状** | ❌ | ❌ | `evidence_tier`(证据质量,非信任) | 无 | 本报告补 |
+| **Open LLM Wiki 现状** | ❌ | ❌ | `evidence_tier`(证据质量,非信任) | 无 | 本报告补 |
 
 **三条横向观察(诚实标注:basic-memory / Claude Code 行本次一手核实;Letta 行为 survey §4.1 已核实转述;Dataview 行为社区惯例、官方文档本次未核到):**
-1. **没有主流系统把「产出者」做成硬性必填**——普遍是「约定 + 引擎能读到」的软模式。这与 OpenObsidian 的软类型原则(P4)天然一致,也印证**强制必填是反模式**。
+1. **没有主流系统把「产出者」做成硬性必填**——普遍是「约定 + 引擎能读到」的软模式。这与 Open LLM Wiki 的软类型原则(P4)天然一致,也印证**强制必填是反模式**。
 2. **复审日期(reviewed / last-reviewed)是 wiki 与笔记社区里最普遍、最轻量的「对抗漂移」约定**——它便宜、人可读、可聚合,是最值得先抄的一个。
-3. **Claude Code 用「两套文件」而非行内字段区分人机**(CLAUDE.md 人写 / MEMORY.md agent 写)[B2]——但 OpenObsidian 的人机页面在同一 vault 混居,「分文件」不适用,**行内 frontmatter 字段是唯一可行解**;且 Claude Code 对 agent 写入自动盖 `modified` 时间戳、对无 frontmatter 的文件**绝不补加**,证明写路径盖章工程上低成本、且「只补缺省不覆盖」是被验证过的纪律。
+3. **Claude Code 用「两套文件」而非行内字段区分人机**(CLAUDE.md 人写 / MEMORY.md agent 写)[B2]——但 Open LLM Wiki 的人机页面在同一 vault 混居,「分文件」不适用,**行内 frontmatter 字段是唯一可行解**;且 Claude Code 对 agent 写入自动盖 `modified` 时间戳、对无 frontmatter 的文件**绝不补加**,证明写路径盖章工程上低成本、且「只补缺省不覆盖」是被验证过的纪律。
 
 ### 3.4 失败模式(为什么字段不是越多越好)
 
@@ -142,7 +142,7 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 
 ---
 
-## 4. 与 OpenObsidian 的适配分析
+## 4. 与 Open LLM Wiki 的适配分析
 
 ### 4.1 软类型原则完全兼容
 
@@ -161,7 +161,7 @@ git 归因(doc 11 §4)与 provenance frontmatter **不是一回事、也不重�
 
 ### 4.3 QQL 字段访问能力(本地实测,非推断)
 
-**核实方法**:临时 cargo harness(path 依赖 `openobs-core`)构造带 `provenance`/`reviewed` 字段的 fixture,逐条跑候选查询。结果(全部通过):
+**核实方法**:临时 cargo harness(path 依赖 `open-llm-wiki-core`)构造带 `provenance`/`reviewed` 字段的 fixture,逐条跑候选查询。结果(全部通过):
 
 | 查询 | 结果 | 结论 |
 |---|---|---|
@@ -343,7 +343,7 @@ WHERE provenance = "agent" AND has reviewed SHOW title, reviewed SORT reviewed A
 | 期 | 内容 | 代码量 | 测试影响 |
 |---|---|---|---|
 | **L1 纯约定 + 模板** | `types/*` 加字段说明与示例;`health/` 加 4–5 条查询;docs/14 补 lint 段 | **零 Rust / 零 TS** | 新 QQL 模板进 `core/tests/wiki_health_qql.rs` 式锁(解析 + 语义) |
-| **L2 写入盖章 + 查询锁** | MCP `write_note` / ACP fs 回调 / app 保存按 §5.2 默认值补 `provenance`;健康查询落测试 | Rust(mcp + app 少量) | `cargo test -p openobs-mcp`(盖章单测)+ `wiki_health_qql.rs` 新查询 |
+| **L2 写入盖章 + 查询锁** | MCP `write_note` / ACP fs 回调 / app 保存按 §5.2 默认值补 `provenance`;健康查询落测试 | Rust(mcp + app 少量) | `cargo test -p open-llm-wiki-mcp`(盖章单测)+ `wiki_health_qql.rs` 新查询 |
 | **L3 UI 徽章 / 提示条**(可选) | Inspector 徽章 + 陈旧软提示 | TS(纯 ui) | `vitest`(ui);不碰 core/app |
 
 **关键**:L1 即完整可用(约定 + 模板 + 健康查询),**不依赖** L2/L3。若只批 L1,方案照样成立。
@@ -396,4 +396,4 @@ WHERE provenance = "agent" AND has reviewed SHOW title, reviewed SORT reviewed A
 - `templates/wiki-starter/`(types/ 五类型、health/ 五查询、index)
 - `docs/07-llm-wiki-architecture.md`(Health 即查询)、`docs/14-llm-wiki-workflow.md`(§3 consolidate/lint)、`docs/03-data-model.md`(软类型)、`docs/11-in-app-agent-roadmap.md` §4(git 归因)、`mcp/src/main.rs` + `mcp/README.md`(`write_note`)、`docs/open-questions.md` P4、[agent-memory-survey](./agent-memory-survey.md) §6.6/§7.2/§7.3
 
-**调研方法与局限**:WebSearch/WebFetch 多路检索;PROV/MINJA/OWASP/Zep/Schneider/basic-memory/Claude Code memory 均为一手抓取核实。遗留二手项:Letta 行内归因细节沿用 survey §4.1 已核实转述;Obsidian Dataview 的 `reviewed` 属社区惯例、无官方文档(本次抓取其文档页 404,如实标注于 §3.3)。所有 QQL 结论为本地 `openobs-core` 实测,非推断。
+**调研方法与局限**:WebSearch/WebFetch 多路检索;PROV/MINJA/OWASP/Zep/Schneider/basic-memory/Claude Code memory 均为一手抓取核实。遗留二手项:Letta 行内归因细节沿用 survey §4.1 已核实转述;Obsidian Dataview 的 `reviewed` 属社区惯例、无官方文档(本次抓取其文档页 404,如实标注于 §3.3)。所有 QQL 结论为本地 `open-llm-wiki-core` 实测,非推断。

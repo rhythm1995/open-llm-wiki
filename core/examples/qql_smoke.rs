@@ -1,5 +1,5 @@
 //! QQL smoke: real VaultIndex::query against multi-note fixture; run logic twice for consistency.
-use openobs_core::{parse_query, ResultSet, VaultIndex};
+use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
 
 fn fixture() -> VaultIndex {
     VaultIndex::build(vec![

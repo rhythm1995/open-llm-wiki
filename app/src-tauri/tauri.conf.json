@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenObsidian",
+  "productName": "Open LLM Wiki",
   "version": "0.1.0",
-  "identifier": "dev.openobsidian.desktop",
+  "identifier": "dev.openllmwiki.desktop",
   "build": {
     "frontendDist": "../../ui/dist",
     "devUrl": "http://localhost:5173",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OpenObsidian",
+        "title": "Open LLM Wiki",
         "width": 1400,
         "height": 900,
         "minWidth": 720,
@@ -37,10 +37,10 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
-    "publisher": "OpenObsidian",
-    "copyright": "© OpenObsidian contributors, MIT (see THIRD_PARTY_NOTICES)",
+    "publisher": "Open LLM Wiki",
+    "copyright": "© Open LLM Wiki contributors, Apache-2.0 (see THIRD_PARTY_NOTICES)",
     "shortDescription": "Local-first, file-as-truth knowledge base",
-    "longDescription": "OpenObsidian — a local-first, MIT-licensed knowledge base where your plain markdown files are the single source of truth. Edit in a dual-mode editor (CodeMirror source + BlockNote WYSIWYG), navigate a Cytoscape graph of wikilinks and frontmatter relations, sketch on an Excalidraw canvas (MIT), and manage tabular data in a Sheet view — all on your own machine, no account or cloud sync required.",
+    "longDescription": "Open LLM Wiki — a local-first, Apache-2.0-licensed knowledge base where your plain markdown files are the single source of truth. Edit in a dual-mode editor (CodeMirror source + BlockNote WYSIWYG), navigate a Cytoscape graph of wikilinks and frontmatter relations, sketch on an Excalidraw canvas (MIT), and manage tabular data in a Sheet view — all on your own machine, no account or cloud sync required.",
     "resources": {
       "../../LICENSE": ".",
       "../../THIRD_PARTY_NOTICES.md": ".",

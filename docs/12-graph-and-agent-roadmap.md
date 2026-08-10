@@ -30,7 +30,7 @@
 | 优先级 | 理由 |
 |---|---|
 | **先图（6A）** | 差异化 #1 已强在引擎，弱在「像 Obsidian 一样好调、好记住」；人侧体验立刻可感，且不阻塞 agent |
-| **后 Agent（6B）** | `openobs-mcp` v1 已有 6 tools（见下）；缺的是 **图健康 API + 读/写闭环**——inkeep 验证过这是 agent-native 的关键 |
+| **后 Agent（6B）** | `open-llm-wiki-mcp` v1 已有 6 tools（见下）；缺的是 **图健康 API + 读/写闭环**——inkeep 验证过这是 agent-native 的关键 |
 | **再 wiki（6D）** | 方法论脚手架 + 与 Health 文档交叉；引擎能力多已有 |
 | **语义更后（6C）** | 依赖 embedding 策略；且 **core `EdgeKind` schema 变更**（见 §4）；显式链接健康零模型即可先做 |
 | **QQL 保留** | 两参考项目都没有等价物；Health 层继续用 QQL，不把向量当主索引 |
@@ -77,7 +77,7 @@
   2. **path-stable 键**（与 `graph-model` 一致；过滤变更只恢复仍可见节点）
   3. merge / drop-orphan keys 纯函数
 - **集成风险**:落盘恢复必须与现有暖启动、top-K 截断、结构签名 gate **同一套坐标源**，避免双写抖动。
-- **存储约定（新）**:vault 内 **`.openobsidian/graph-layout.json`**——本库此前无统一 per-vault 配置目录（`.trash/` 已废、由 git 取代）；**本项建立该约定**，localStorage 仅无 vault / mock 回退。
+- **存储约定（新）**:vault 内 **`.open-llm-wiki/graph-layout.json`**——本库此前无统一 per-vault 配置目录（`.trash/` 已废、由 git 取代）；**本项建立该约定**，localStorage 仅无 vault / mock 回退。
 - **Git 策略**:见 [open-questions P6-4 / P6-7](./open-questions.md)。**【默认】文件可进 vault，但默认 gitignore（或写入不触发结构自动 commit）**——避免每次拖拽/reheat 污染 log；用户可手动 un-ignore 共享布局。
 - **测试**:serialize/merge/drop-orphan；与暖启动合并语义单测；mock vault 往返。
 
@@ -121,7 +121,7 @@
 
 ### 6B1 MCP `links` — `B-MCP-LINKS`
 
-扩展 `openobs-mcp`（stdio，复用 core）:
+扩展 `open-llm-wiki-mcp`（stdio，复用 core）:
 
 | kind | 语义 |
 |---|---|
@@ -155,7 +155,7 @@
 
 ### 6B5 MCP 配置样例 — `B-MCP-CONFIG`
 
-- `docs/` 或 `mcp/README`：Claude Desktop / Cursor 配置片段；`OPENOBS_VAULT` 说明。  
+- `docs/` 或 `mcp/README`：Claude Desktop / Cursor 配置片段；`OPEN_LLM_WIKI_VAULT` 说明。  
 - **不做** inkeep 式 skills marketplace / 全 harness 注入 CLI。
 
 ### Phase 6B 验收
@@ -163,7 +163,7 @@
 - [ ] agent 用 `links(["dead","orphans","hubs"])` 一次拿到图健康摘要  
 - [ ] `read_note` 含邻接；`write_note` 响应含 `broken_links`  
 - [ ] UI Orphans/Hubs 可操作  
-- [ ] `cargo test -p openobs-core` + mcp 集成测 + UI 相关 vitest  
+- [ ] `cargo test -p open-llm-wiki-core` + mcp 集成测 + UI 相关 vitest  
 
 ---
 

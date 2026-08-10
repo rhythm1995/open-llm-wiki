@@ -1,7 +1,7 @@
 //! 本地 agent 探测与接线(B-MCP-ONBOARD)。
 //!
 //! CLI 三入口(见 [`USAGE`]):
-//! - [`run_setup`] —— 探测本地 agent,把 `openobsidian` 条目写进各家 MCP 配置;
+//! - [`run_setup`] —— 探测本地 agent,把 `open-llm-wiki` 条目写进各家 MCP 配置;
 //! - [`run_doctor`] —— 诊断接线健康;
 //! - [`run_init`] —— 播种 wiki-starter 模板建 vault。
 //!
@@ -10,7 +10,7 @@
 //!
 //! # 安全规则(写别人 app 的配置文件)
 //!
-//! 1. 每次真写前备份 `<file>.openobsidian.bak`;
+//! 1. 每次真写前备份 `<file>.open-llm-wiki.bak`;
 //! 2. 同目录 tmp + `fs::rename` 原子写——中途崩溃不会截断用户文件;
 //! 3. 解析不了的文件(如带注释的 JSONC)绝不触碰——报错并给手动 snippet;
 //! 4. 只动 user-level 全局配置,绝不碰项目级配置(`.mcp.json` 等);
@@ -30,12 +30,12 @@ use std::process::Command;
 use serde_json::{json, Map, Value};
 
 /// 写进各 agent 配置的 MCP 条目键名。
-pub const ENTRY_KEY: &str = "openobsidian";
+pub const ENTRY_KEY: &str = "open-llm-wiki";
 /// 未指定 vault 时的默认名(home 下)。
-pub const DEFAULT_VAULT_NAME: &str = "OpenObsidian-Memory";
+pub const DEFAULT_VAULT_NAME: &str = "Open LLM Wiki-Memory";
 
-const BACKUP_SUFFIX: &str = ".openobsidian.bak";
-const TMP_SUFFIX: &str = ".openobsidian.tmp";
+const BACKUP_SUFFIX: &str = ".open-llm-wiki.bak";
+const TMP_SUFFIX: &str = ".open-llm-wiki.tmp";
 
 // ── 位置与环境 ─────────────────────────────────────────────────────────────
 
@@ -640,7 +640,7 @@ pub fn remove_codex_entry(path: &Path, dry_run: bool) -> Result<WriteOutcome, St
 
 // ── claude-code 官方 CLI 链 ─────────────────────────────────────────────────
 
-/// `claude mcp add-json openobsidian <json> -s user` —— 让 Claude Code 自己写
+/// `claude mcp add-json open-llm-wiki <json> -s user` —— 让 Claude Code 自己写
 /// 它的 `~/.claude.json`(多 MB 活体状态文件),避免我们 read-modify-write 的并发窗口。
 fn claude_cli_add(entry: &McpEntry) -> Result<String, String> {
     let payload = serde_json::to_string(&render_json_entry(entry)).map_err(|e| e.to_string())?;
@@ -715,7 +715,7 @@ pub fn wire_agent(
     })
 }
 
-/// 拆线单个 agent(只删 `openobsidian` 条目)。
+/// 拆线单个 agent(只删 `open-llm-wiki` 条目)。
 pub fn unwire_agent(spec: &AgentSpec, home: &Path, dry_run: bool) -> Result<WriteOutcome, String> {
     Ok(match &spec.config {
         ConfigTarget::Manual => {
@@ -944,7 +944,7 @@ pub fn run_checks(vault: &Path, home: &Path, exe: &Path) -> Vec<Check> {
         }
         Ok(_) => checks.push(fail_check(
             "notes",
-            "vault has no .md notes; run `openobs-mcp init <vault> --force` to seed the scaffold"
+            "vault has no .md notes; run `open-llm-wiki-mcp init <vault> --force` to seed the scaffold"
                 .to_string(),
         )),
         Err(e) => checks.push(fail_check("notes", e)),
@@ -975,7 +975,7 @@ pub fn run_checks(vault: &Path, home: &Path, exe: &Path) -> Vec<Check> {
     } else {
         checks.push(warn_check(
             "scaffold",
-            "types/ missing; run `openobs-mcp init <vault> --force` to seed the scaffold"
+            "types/ missing; run `open-llm-wiki-mcp init <vault> --force` to seed the scaffold"
                 .to_string(),
         ));
     }
@@ -1063,7 +1063,7 @@ fn frontmatter_has_owf1(content: &str) -> bool {
     })
 }
 
-/// agent 配置里已有的 `openobsidian` 条目(doctor 与桌面 app UI 展示用)。
+/// agent 配置里已有的 `open-llm-wiki` 条目(doctor 与桌面 app UI 展示用)。
 #[derive(Debug, Clone)]
 pub struct WiredEntry {
     pub command: PathBuf,
@@ -1095,7 +1095,7 @@ fn wired_from_toml_item(item: &toml_edit::Item) -> Option<WiredEntry> {
     })
 }
 
-/// 读指定 agent 配置文件中已接线的 `openobsidian` 条目(桌面 app UI 展示「已接入」用)。
+/// 读指定 agent 配置文件中已接线的 `open-llm-wiki` 条目(桌面 app UI 展示「已接入」用)。
 ///
 /// Ok(None) = 无配置文件或未接线;Err = 配置文件存在但不可读/不可解析。
 pub fn read_agent_entry(spec: &AgentSpec, home: &Path) -> Result<Option<WiredEntry>, String> {
@@ -1153,27 +1153,27 @@ fn read_wired_entry(spec: &AgentSpec, path: &Path) -> Result<Option<WiredEntry>,
 // ── 编排(CLI 入口;app UI 直接调上面的函数)────────────────────────────────
 
 pub const USAGE: &str = "\
-openobs-mcp — OpenObsidian MCP server + agent onboarding
+open-llm-wiki-mcp — Open LLM Wiki MCP server + agent onboarding
 
 Serve (unchanged behavior):
-  openobs-mcp                    serve; vault = $OPENOBS_VAULT or current dir
-  openobs-mcp <path>             serve with vault = <path>
-  openobs-mcp serve [<path>]     explicit serve (escape hatch for vault dirs named
+  open-llm-wiki-mcp                    serve; vault = $OPEN_LLM_WIKI_VAULT or current dir
+  open-llm-wiki-mcp <path>             serve with vault = <path>
+  open-llm-wiki-mcp serve [<path>]     explicit serve (escape hatch for vault dirs named
                                  like a subcommand, e.g. `serve ./setup`)
 
 Onboarding:
-  openobs-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
+  open-llm-wiki-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
       Detect local agents and register this server in their MCP configs.
-      --vault P   vault to expose (default: $OPENOBS_VAULT or ~/OpenObsidian-Memory)
+      --vault P   vault to expose (default: $OPEN_LLM_WIKI_VAULT or ~/Open LLM Wiki-Memory)
       --agent ID  only act on these agents (repeatable); default: all detected
       --yes       never prompt (required when stdin is not a terminal)
       --dry-run   print the plan without writing anything
       --remove    unregister instead of register
-  openobs-mcp doctor [--vault P]
+  open-llm-wiki-mcp doctor [--vault P]
       Diagnose wiring health (exit 1 on failure).
-  openobs-mcp init <dir> [--force]
+  open-llm-wiki-mcp init <dir> [--force]
       Seed the wiki-starter template into <dir> (--force merges, never overwrites).
-  openobs-mcp help | --help | -h
+  open-llm-wiki-mcp help | --help | -h
 
 Agent ids: claude-code, claude-desktop, cursor, codex, windsurf, zed, grok (manual)
 ";
@@ -1181,10 +1181,10 @@ Agent ids: claude-code, claude-desktop, cursor, codex, windsurf, zed, grok (manu
 /// 给用户粘贴进 agent 指引文件(CLAUDE.md / AGENTS.md 等)的文本。
 /// **只打印,绝不自动写入任何用户文件。**
 pub const GUIDANCE_SNIPPET: &str = "\
-## OpenObsidian memory (paste into your agent guidance file)
+## Open LLM Wiki memory (paste into your agent guidance file)
 
-This machine has an OpenObsidian vault wired as long-term memory via MCP
-(server name: openobsidian). Treat it as an LLM-wiki:
+This machine has an Open LLM Wiki vault wired as long-term memory via MCP
+(server name: open-llm-wiki). Treat it as an LLM-wiki:
 - Orient with vault_info / list_notes; find pages via search_notes or run_qql.
 - read_note before editing — it returns a graph brief (backlinks / forward / dead links).
 - write_note audits broken links right after writing; fix what it reports.
@@ -1227,7 +1227,7 @@ fn parse_setup_opts(args: &[String]) -> Result<SetupOpts, String> {
             "--yes" | "-y" => o.yes = true,
             "--dry-run" => o.dry_run = true,
             "--remove" => o.remove = true,
-            other => return Err(format!("unknown option: {other} (see `openobs-mcp help`)")),
+            other => return Err(format!("unknown option: {other} (see `open-llm-wiki-mcp help`)")),
         }
         i += 1;
     }
@@ -1258,7 +1258,7 @@ fn confirm(yes: bool, question: &str) -> Result<(), String> {
 fn resolve_setup_vault(opts: &SetupOpts, home: &Path) -> Result<PathBuf, String> {
     let vault = if let Some(v) = &opts.vault {
         v.clone()
-    } else if let Ok(v) = env::var("OPENOBS_VAULT") {
+    } else if let Ok(v) = env::var("OPEN_LLM_WIKI_VAULT") {
         PathBuf::from(v)
     } else {
         home.join(DEFAULT_VAULT_NAME)
@@ -1298,7 +1298,7 @@ pub fn run_setup(args: &[String]) -> Result<(), String> {
     let exe_str = exe.to_string_lossy();
     if exe_str.contains("/target/debug/") || exe_str.contains("\\target\\debug\\") {
         println!(
-            "note: running a debug build ({}); consider `cargo build -p openobs-mcp --release` and re-running setup.",
+            "note: running a debug build ({}); consider `cargo build -p open-llm-wiki-mcp --release` and re-running setup.",
             exe.display()
         );
     }
@@ -1406,7 +1406,7 @@ pub fn run_doctor(args: &[String]) -> Result<(), String> {
                     args.get(i).ok_or("--vault needs a value")?,
                 ));
             }
-            other => return Err(format!("unknown option: {other} (see `openobs-mcp help`)")),
+            other => return Err(format!("unknown option: {other} (see `open-llm-wiki-mcp help`)")),
         }
         i += 1;
     }
@@ -1414,10 +1414,10 @@ pub fn run_doctor(args: &[String]) -> Result<(), String> {
     let exe = self_exe()?;
     let vault = absolutize(
         &vault
-            .or_else(|| env::var("OPENOBS_VAULT").ok().map(PathBuf::from))
+            .or_else(|| env::var("OPEN_LLM_WIKI_VAULT").ok().map(PathBuf::from))
             .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from("."))),
     );
-    println!("openobs-mcp doctor");
+    println!("open-llm-wiki-mcp doctor");
     println!("  binary: {}", exe.display());
     println!("  vault:  {}", vault.display());
     let checks = run_checks(&vault, &home, &exe);
@@ -1449,7 +1449,7 @@ pub fn run_init(args: &[String]) -> Result<(), String> {
             "--force" => force = true,
             other => {
                 if other.starts_with('-') {
-                    return Err(format!("unknown option: {other} (see `openobs-mcp help`)"));
+                    return Err(format!("unknown option: {other} (see `open-llm-wiki-mcp help`)"));
                 }
                 if dir.is_some() {
                     return Err("init takes exactly one directory argument".to_string());
@@ -1459,7 +1459,7 @@ pub fn run_init(args: &[String]) -> Result<(), String> {
         }
         i += 1;
     }
-    let dir = dir.ok_or("usage: openobs-mcp init <dir> [--force]")?;
+    let dir = dir.ok_or("usage: open-llm-wiki-mcp init <dir> [--force]")?;
     let report = seed_vault(&dir, force)?;
     println!(
         "seeded {} files into {}",
@@ -1486,7 +1486,7 @@ mod tests {
 
     fn entry() -> McpEntry {
         McpEntry {
-            command: PathBuf::from("/bin/openobs-mcp"),
+            command: PathBuf::from("/bin/open-llm-wiki-mcp"),
             vault: PathBuf::from("/v"),
         }
     }
@@ -1516,7 +1516,7 @@ mod tests {
             }
         }
         assert!(matches!(spec_by_id("grok").config, ConfigTarget::Manual));
-        assert_eq!(ENTRY_KEY, "openobsidian");
+        assert_eq!(ENTRY_KEY, "open-llm-wiki");
     }
 
     #[test]
@@ -1565,7 +1565,7 @@ mod tests {
             );
         }
         // 二进制探测只测负向(用一个绝不存在的名字)。
-        assert!(binary_probe("openobs-definitely-not-installed-xyz").is_none());
+        assert!(binary_probe("open-llm-wiki-definitely-not-installed-xyz").is_none());
     }
 
     // ── JSON 写入器 ─────────────────────────────────────────────────────────
@@ -1581,8 +1581,8 @@ mod tests {
             other => panic!("expected Written, got {other:?}"),
         }
         let doc: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
-        assert_eq!(doc["mcpServers"]["openobsidian"]["command"], "/bin/openobs-mcp");
-        assert_eq!(doc["mcpServers"]["openobsidian"]["args"][0], "/v");
+        assert_eq!(doc["mcpServers"]["open-llm-wiki"]["command"], "/bin/open-llm-wiki-mcp");
+        assert_eq!(doc["mcpServers"]["open-llm-wiki"]["args"][0], "/v");
     }
 
     #[test]
@@ -1599,7 +1599,7 @@ mod tests {
         let keys: Vec<&String> = doc.as_object().unwrap().keys().collect();
         assert_eq!(keys, ["zebra", "alpha", "mcpServers"]);
         assert_eq!(doc["mcpServers"]["other"]["command"], "o");
-        assert_eq!(doc["mcpServers"]["openobsidian"]["command"], "/bin/openobs-mcp");
+        assert_eq!(doc["mcpServers"]["open-llm-wiki"]["command"], "/bin/open-llm-wiki-mcp");
     }
 
     #[test]
@@ -1611,7 +1611,7 @@ mod tests {
         e2.vault = PathBuf::from("/v2");
         install_json_entry(&cfg, "mcpServers", render_json_entry(&e2), false).unwrap();
         let doc: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
-        assert_eq!(doc["mcpServers"]["openobsidian"]["args"][0], "/v2");
+        assert_eq!(doc["mcpServers"]["open-llm-wiki"]["args"][0], "/v2");
     }
 
     #[test]
@@ -1643,7 +1643,7 @@ mod tests {
         let out = remove_json_entry(&cfg, "mcpServers", false).unwrap();
         assert!(matches!(out, WriteOutcome::Written { .. }));
         let doc: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
-        assert!(doc["mcpServers"].get("openobsidian").is_none());
+        assert!(doc["mcpServers"].get("open-llm-wiki").is_none());
         assert_eq!(doc["mcpServers"]["other"]["command"], "o");
         // 再次 remove:目标已不在 → Unchanged,不报错。
         let again = remove_json_entry(&cfg, "mcpServers", false).unwrap();
@@ -1673,21 +1673,21 @@ mod tests {
         let cfg = dir.path().join("settings.json");
         fs::write(
             &cfg,
-            r#"{"theme":"dark","context_servers":{"openobsidian":{"command":"/old","args":["/oldv"],"settings":{"custom":true}}}}"#,
+            r#"{"theme":"dark","context_servers":{"open-llm-wiki":{"command":"/old","args":["/oldv"],"settings":{"custom":true}}}}"#,
         )
         .unwrap();
         install_json_entry(&cfg, "context_servers", render_zed_entry(&entry()), false).unwrap();
         let doc: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
         assert_eq!(doc["theme"], "dark");
-        let e = &doc["context_servers"]["openobsidian"];
-        assert_eq!(e["command"], "/bin/openobs-mcp");
+        let e = &doc["context_servers"]["open-llm-wiki"];
+        assert_eq!(e["command"], "/bin/open-llm-wiki-mcp");
         assert_eq!(e["settings"]["custom"], true, "替换时不得覆盖已有 settings");
 
         // 全新条目:settings = {}。
         let cfg2 = dir.path().join("s2.json");
         install_json_entry(&cfg2, "context_servers", render_zed_entry(&entry()), false).unwrap();
         let doc2: Value = serde_json::from_str(&fs::read_to_string(&cfg2).unwrap()).unwrap();
-        assert_eq!(doc2["context_servers"]["openobsidian"]["settings"], json!({}));
+        assert_eq!(doc2["context_servers"]["open-llm-wiki"]["settings"], json!({}));
     }
 
     // ── Codex TOML ─────────────────────────────────────────────────────────
@@ -1698,8 +1698,8 @@ mod tests {
         let cfg = dir.path().join("config.toml");
         install_codex_entry(&cfg, &entry(), false).unwrap();
         let raw = fs::read_to_string(&cfg).unwrap();
-        assert!(raw.contains("[mcp_servers.openobsidian]"));
-        assert!(raw.contains("command = \"/bin/openobs-mcp\""));
+        assert!(raw.contains("[mcp_servers.open-llm-wiki]"));
+        assert!(raw.contains("command = \"/bin/open-llm-wiki-mcp\""));
         assert!(raw.contains("args = [\"/v\"]"));
     }
 
@@ -1715,7 +1715,7 @@ mod tests {
         assert!(raw.contains("[mcp_servers.other]"));
         assert!(raw.contains("command = \"other-bin\""));
         assert!(raw.contains("[model_providers.x]"));
-        assert!(raw.contains("[mcp_servers.openobsidian]"));
+        assert!(raw.contains("[mcp_servers.open-llm-wiki]"));
 
         // 幂等替换:改 vault,其他不动。
         let mut e2 = entry();
@@ -1733,7 +1733,7 @@ mod tests {
         install_codex_entry(&cfg, &entry(), false).unwrap();
         let out = remove_codex_entry(&cfg, false).unwrap();
         assert!(matches!(out, WriteOutcome::Written { .. }));
-        assert!(!fs::read_to_string(&cfg).unwrap().contains("openobsidian"));
+        assert!(!fs::read_to_string(&cfg).unwrap().contains("open-llm-wiki"));
         let again = remove_codex_entry(&cfg, false).unwrap();
         assert!(matches!(again, WriteOutcome::Unchanged(_)));
     }
@@ -1758,7 +1758,7 @@ mod tests {
         let cfg = home.path().join(".cursor/mcp.json");
         assert!(cfg.is_file());
         let doc: Value = serde_json::from_str(&fs::read_to_string(&cfg).unwrap()).unwrap();
-        assert_eq!(doc["mcpServers"]["openobsidian"]["command"], "/bin/openobs-mcp");
+        assert_eq!(doc["mcpServers"]["open-llm-wiki"]["command"], "/bin/open-llm-wiki-mcp");
     }
 
     #[test]
@@ -1766,7 +1766,7 @@ mod tests {
         let e = wire_agent(spec_by_id("grok"), Path::new("/nonexistent"), &entry(), false)
             .unwrap_err();
         assert!(e.contains("mcpServers"), "snippet 应含 JSON 形态: {e}");
-        assert!(e.contains("/bin/openobs-mcp"));
+        assert!(e.contains("/bin/open-llm-wiki-mcp"));
     }
 
     #[test]
@@ -1778,7 +1778,7 @@ mod tests {
         let doc: Value =
             serde_json::from_str(&fs::read_to_string(home.path().join(".cursor/mcp.json")).unwrap())
                 .unwrap();
-        assert!(doc["mcpServers"].get("openobsidian").is_none());
+        assert!(doc["mcpServers"].get("open-llm-wiki").is_none());
     }
 
     // ── 播种 ────────────────────────────────────────────────────────────────
@@ -1862,7 +1862,7 @@ mod tests {
         let dir = tempdir();
         let home = dir.path().join("home");
         let vault = dir.path().join("vault");
-        let exe = dir.path().join("openobs-mcp");
+        let exe = dir.path().join("open-llm-wiki-mcp");
         fs::create_dir_all(&home).unwrap();
         fs::write(&exe, "").unwrap();
         seed_vault(&vault, false).unwrap();
@@ -1898,7 +1898,7 @@ mod tests {
     fn doctor_flags_stale_command_and_vault_mismatch() {
         let (_d, home, vault, exe) = doctor_fixture();
         // stale command:配置指向另一个存在的二进制。
-        let stale = home.join("old-openobs-mcp");
+        let stale = home.join("old-open-llm-wiki-mcp");
         fs::write(&stale, "").unwrap();
         wire_cursor_at(
             &home,
@@ -1948,15 +1948,15 @@ mod tests {
     #[test]
     fn render_snippet_contains_absolute_paths() {
         let e = McpEntry {
-            command: PathBuf::from("/abs/openobs-mcp"),
+            command: PathBuf::from("/abs/open-llm-wiki-mcp"),
             vault: PathBuf::from("/abs/vault"),
         };
         let s = render_snippet(spec_by_id("cursor"), &e);
-        assert!(s.contains("/abs/openobs-mcp"));
+        assert!(s.contains("/abs/open-llm-wiki-mcp"));
         assert!(s.contains("/abs/vault"));
         assert!(s.contains(ENTRY_KEY));
         let codex = render_snippet(spec_by_id("codex"), &e);
-        assert!(codex.contains("[mcp_servers.openobsidian]"));
+        assert!(codex.contains("[mcp_servers.open-llm-wiki]"));
     }
 
     #[test]

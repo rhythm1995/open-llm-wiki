@@ -2,7 +2,7 @@
 
 把一个空 vault 变成一台**可查询的知识复利引擎**:Raw(不可变源)→ Wiki(派生知识)→ Schema(类型契约)→ Navigation(索引)→ Health(度量反馈)。五层全靠 `type:` 软类型 + `[[wikilink]]` 关系边 + QQL 实时聚合,**不靠文件夹**。
 
-> 这是 OpenObsidian 自带的方法论脚手架(MIT,原创)。它定义「怎么用类型和关系组织知识」,不绑定任何特定笔记格式。完整工作流见 [docs/14-llm-wiki-workflow.md](../../docs/14-llm-wiki-workflow.md)。
+> 这是 Open LLM Wiki 自带的方法论脚手架(MIT,原创)。它定义「怎么用类型和关系组织知识」,不绑定任何特定笔记格式。完整工作流见 [docs/14-llm-wiki-workflow.md](../../docs/14-llm-wiki-workflow.md)。
 
 ## 怎么用
 

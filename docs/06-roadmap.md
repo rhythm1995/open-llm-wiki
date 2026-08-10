@@ -26,7 +26,7 @@
 - ✅ proptest 属性测试(解析器防 panic + 不变量)。
 - ✅ 98 tests / clippy --all-targets clean / fmt clean。
 
-> OpenObsidian 的"大脑"已存在并可独立验证——`cargo run --example demo` 即可看全链路。未来 MCP server / CLI 直接复用 `openobs-core`。
+> Open LLM Wiki 的"大脑"已存在并可独立验证——`cargo run --example demo` 即可看全链路。未来 MCP server / CLI 直接复用 `open-llm-wiki-core`。
 
 ### Phase 2 — 最小可用 UI ✅(本次完成)
 
@@ -91,7 +91,7 @@ Tauri 2 外壳 + React 19:
 ### Phase 5+ 续三(本会话,v1 范围之外)✅ → 画布已换引擎
 
 - ✅ **F-CANVAS(初版 tldraw → 现 Excalidraw MIT)**:无限画布;`.canvas` 文件即真相。**孤立白板**:与图谱/QQL/wikilink/搜索完全解耦,不参与关联网络;「新建」入口默认隐藏(底层保留,已有 `.canvas` 仍可编辑)。详见 [research/canvas-isolation](./research/canvas-isolation.md)。
-  - **现引擎**:`@excalidraw/excalidraw`(MIT)。磁盘 schema:`{ openobsidianCanvas:1, engine:"excalidraw", elements, appState, files }`(`canvas.ts` 纯逻辑 + 单测)。
+  - **现引擎**:`@excalidraw/excalidraw`(MIT)。磁盘 schema:`{ openLlmWikiCanvas:1, engine:"excalidraw", elements, appState, files }`(`canvas.ts` 纯逻辑 + 单测)。
   - **懒加载**:`CanvasView` 独立 chunk;App `key={path}` 防载入回写回环。
   - **旧 tldraw 文件**:识别为 legacy 只读提示,不自动迁移。
   - **索引隔离(刻意设计)**:`build_index` 只取 `.md`;`list_vault` 放行 `.canvas`。画布 JSON 不被 frontmatter / wikilink 解析器扫描,避免污染图谱。
@@ -171,9 +171,9 @@ Tauri 2 外壳 + React 19:
 2. 项目骨架 + MIT LICENSE + 测试基建。✅(首轮)
 3. `core` 内核全量 TDD 实现(parse/index/graph/query/qql/search/vault)+ demo 二进制 + proptest。✅
    - 98 tests / clippy --all-targets clean / fmt clean。
-   - `cargo run -p openobs-core --example demo` 端到端可跑。
-4. Tauri 2 桌面壳(`app/src-tauri`,10 个命令,包 `openobs-core`)。✅(本轮)
-   - `cargo build -p openobs-app` / clippy clean。
+   - `cargo run -p open-llm-wiki-core --example demo` 端到端可跑。
+4. Tauri 2 桌面壳(`app/src-tauri`,10 个命令,包 `open-llm-wiki-core`)。✅(本轮)
+   - `cargo build -p open-llm-wiki-app` / clippy clean。
 5. React 19 前端(`ui/`):三栏布局 + 图谱(过滤/缩放)+ QQL(聚合)+ 搜索 + 命令面板 + 多标签 + 属性编辑 + 状态 chip + wikilink 跳转/补全 + 浏览器 mock。✅(本轮)
    - `pnpm --dir ui build` 通过;tsc --noEmit clean;**114 项 vitest 单测**(frontmatter / graph-filter / tabs / wikilink / trash / template / theme / outline / mock-search / render 纯逻辑)。
 6. Phase 5+ v2 增量(F-TRASH / F-TEMPLATES / F-THEMES / F-TABS 拖拽 / F-OUTLINE / F-READING / mock 检索 / ⌘S)。✅(本次会话)

@@ -2430,13 +2430,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "openobs-app"
+name = "open-llm-wiki-app"
 version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
  "notify",
- "openobs-core",
- "openobs-mcp",
+ "open-llm-wiki-core",
+ "open-llm-wiki-mcp",
  "rusqlite",
  "serde",
  "serde_json",
@@ -2450,7 +2450,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "openobs-core"
+name = "open-llm-wiki-core"
 version = "0.1.0"
 dependencies = [
  "proptest",
@@ -2460,10 +2460,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "openobs-mcp"
+name = "open-llm-wiki-mcp"
 version = "0.1.0"
 dependencies = [
- "openobs-core",
+ "open-llm-wiki-core",
  "serde",
  "serde_json",
  "tempfile",

@@ -6,7 +6,7 @@
 
 ---
 
-Please run **ingest** on this Source per OpenObsidian LLM Wiki workflow (`docs/14-llm-wiki-workflow.md` §1).
+Please run **ingest** on this Source per Open LLM Wiki workflow (`docs/14-llm-wiki-workflow.md` §1).
 
 **Source path:** `<SOURCE_PATH>`
 

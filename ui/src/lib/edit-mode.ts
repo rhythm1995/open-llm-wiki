@@ -8,8 +8,8 @@
 
 export type EditMode = "source" | "wysiwyg";
 
-export const EDIT_MODE_KEY = "openobs.editMode";
-export const EDIT_MODE_MIGRATED_KEY = "openobs.editMode.migratedV2";
+export const EDIT_MODE_KEY = "open-llm-wiki.editMode";
+export const EDIT_MODE_MIGRATED_KEY = "open-llm-wiki.editMode.migratedV2";
 
 /** 原始存储值 → 合法模式。非 "wysiwyg" 一律 source(含 edit/read/null 等旧值)。 */
 export function normalizeEditMode(raw: unknown): EditMode {

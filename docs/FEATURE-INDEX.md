@@ -35,7 +35,7 @@
 | `attachment_exists` / `list_attachments` / data URL 读图 | — | `app` IPC + `ipc.ts` |
 | 阅读侧相对路径 img 改写 | B-ED-MEDIA | `ReadingPane.tsx`,`rewriteHtmlImageSrcs` |
 | 本笔记附件(Inspector) | B-ED-MEDIA-INDEX | `Inspector.tsx` tab media |
-| 孤儿清理 → `.openobsidian/media-trash/` | B-ED-MEDIA-GC | ⌘K `clean-orphan-media`,`trash_attachments` |
+| 孤儿清理 → `.open-llm-wiki/media-trash/` | B-ED-MEDIA-GC | ⌘K `clean-orphan-media`,`trash_attachments` |
 | 并排阅读 | B-ED-READING | `editorLayout` + `ReadingPane` |
 | Wiki 嵌入图 `![[img]]` 阅读渲染 + 短名解析 | B-ED-MEDIA-WIKI | `render.ts` wikiImageEmbed*;`ReadingPane` |
 | 迁笔记受限搬图(同目录 / stem 桶,refcount==1) | B-ED-MEDIA-MOVE | `core/media.rs` plan+rewrite;`rename_note` |
@@ -61,7 +61,7 @@
 |---|---|---|
 | force-graph Canvas 渲染 + d3-force / preset | Phase6 栈 | `GraphView.tsx`,`ForceGraphLayer.tsx` |
 | 过滤 / 健康 / 分层 / 时间轴 | B-GRAPH-* | `graph-*.ts` |
-| 布局落盘 `.openobsidian/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
+| 布局落盘 `.open-llm-wiki/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
 | 规划(未完项) | §I | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) |
 
 ## 导航 / 命令 / 设置
@@ -118,7 +118,7 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 客户端文件日志(NDJSON + profile)+ 导出 bundle | B-LOG-BUS / UI / IPC-SPANS | `app/src-tauri/src/logging.rs`,`ui/src/lib/logger.ts` |
-| TCP 日志端口(`OPENOBS_LOG_PORT`,`nc` 实时看 NDJSON;默认关) | B-LOG-PORT | `logging.rs` PortSink |
+| TCP 日志端口(`OPEN_LLM_WIKI_LOG_PORT`,`nc` 实时看 NDJSON;默认关) | B-LOG-PORT | `logging.rs` PortSink |
 | 规格 | — | [13-client-logging.md](./13-client-logging.md) |
 
 ## 架构总览

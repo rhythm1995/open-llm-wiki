@@ -1,5 +1,5 @@
 {
-  "name": "openobsidian",
+  "name": "open-llm-wiki",
   "version": "0.1.0",
   "private": true,
   "description": "Local-first, file-as-truth knowledge base (Tauri 2 + Rust core + React). Root scripts only; the frontend lives in ui/.",
@@ -7,5 +7,5 @@
     "tauri": "ui/node_modules/.bin/tauri",
     "build:app": "bash scripts/build-app.sh"
   },
-  "license": "MIT"
+  "license": "Apache-2.0"
 }

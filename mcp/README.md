@@ -1,6 +1,6 @@
-# openobs-mcp
+# open-llm-wiki-mcp
 
-A stdio [Model Context Protocol](https://modelcontextprotocol.io) server that lets an AI agent read, write, and reason over an OpenObsidian vault — including its **note graph** (wikilinks + frontmatter relations).
+A stdio [Model Context Protocol](https://modelcontextprotocol.io) server that lets an AI agent read, write, and reason over an Open LLM Wiki vault — including its **note graph** (wikilinks + frontmatter relations).
 
 - Transport: stdin/stdout JSON-RPC 2.0 (Content-Length framing **and** NDJSON both accepted).
 - Stateless per call: each tool invocation rebuilds the in-memory index from disk, so it always reflects the current vault.
@@ -9,24 +9,24 @@ A stdio [Model Context Protocol](https://modelcontextprotocol.io) server that le
 ## Build
 
 ```bash
-cargo build -p openobs-mcp        # release: cargo build -p openobs-mcp --release
+cargo build -p open-llm-wiki-mcp        # release: cargo build -p open-llm-wiki-mcp --release
 ```
 
-The binary is `openobs-mcp`. It resolves the vault root from (in order): the first CLI arg, the `OPENOBS_VAULT` env var, or the current directory.
+The binary is `open-llm-wiki-mcp`. It resolves the vault root from (in order): the first CLI arg, the `OPEN_LLM_WIKI_VAULT` env var, or the current directory.
 
 ## Agent onboarding
 
-`openobs-mcp` can wire itself into your locally installed agents:
+`open-llm-wiki-mcp` can wire itself into your locally installed agents:
 
 ```bash
-openobs-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
-openobs-mcp doctor [--vault P]
-openobs-mcp init <dir> [--force]
-openobs-mcp help
+open-llm-wiki-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
+open-llm-wiki-mcp doctor [--vault P]
+open-llm-wiki-mcp init <dir> [--force]
+open-llm-wiki-mcp help
 ```
 
-- `setup` detects which agents are installed (PATH binary ∨ config file ∨ macOS app bundle) and registers an `openobsidian` entry (`command` = this binary, `args` = vault path) in each agent's **user-level** MCP config. If the vault does not exist yet it is seeded from the bundled wiki-starter template (23 files) after confirmation.
-  - `--vault P` — vault to expose (default: `$OPENOBS_VAULT`, else `~/OpenObsidian-Memory`)
+- `setup` detects which agents are installed (PATH binary ∨ config file ∨ macOS app bundle) and registers an `open-llm-wiki` entry (`command` = this binary, `args` = vault path) in each agent's **user-level** MCP config. If the vault does not exist yet it is seeded from the bundled wiki-starter template (23 files) after confirmation.
+  - `--vault P` — vault to expose (default: `$OPEN_LLM_WIKI_VAULT`, else `~/Open LLM Wiki-Memory`)
   - `--agent ID` — only act on these agents (repeatable); default: every detected one
   - `--yes` — never prompt (required when stdin is not a terminal, e.g. in CI)
   - `--dry-run` — print the plan without writing anything
@@ -38,7 +38,7 @@ Agent ids: `claude-code`, `claude-desktop`, `cursor`, `codex`, `windsurf`, `zed`
 
 Safety (writing other apps' config files):
 
-1. `.openobsidian.bak` backup before every real write;
+1. `.open-llm-wiki.bak` backup before every real write;
 2. atomic write (same-directory temp file + rename);
 3. files that cannot be parsed (e.g. JSONC with comments) are **never touched** — you get a manual snippet instead;
 4. only user-level global configs are modified — never project-level (`.mcp.json`, `.claude/settings.json`);
@@ -58,7 +58,7 @@ Windows registry entries compile but are untested this round; the Linux Claude D
 | `write_note` | `path`, `content` | `{ path, broken_links[], orphan_hint }` — audited against the rebuilt graph right after writing. |
 | `links` | `kind`, `path?`, `mode?`, `limit?` | One key per requested `kind` (see below). |
 | `search_notes` | `query` | Full-text AND hits over titles/bodies, scored. |
-| `run_qql` | `qql` | OpenObsidian Query Language result (list / count / table / groups). |
+| `run_qql` | `qql` | Open LLM Wiki Query Language result (list / count / table / groups). |
 | `vault_info` | — | `{ root, notes }`. |
 | `lint_vault` | — | `{ summary, findings[], duplicate_names[] }` — L1 structural lint (see below). |
 
@@ -97,17 +97,17 @@ Each finding carries `kind`, `hint`, `subject { path, title }` and `other { path
 
 ## Client configuration (manual fallback)
 
-`setup` writes these for you; the snippets below are the fallback when a config file cannot be auto-edited (e.g. JSONC with comments). Use absolute paths; if you pass the vault as an arg **and** set `OPENOBS_VAULT`, the arg wins.
+`setup` writes these for you; the snippets below are the fallback when a config file cannot be auto-edited (e.g. JSONC with comments). Use absolute paths; if you pass the vault as an arg **and** set `OPEN_LLM_WIKI_VAULT`, the arg wins.
 
 ### Claude Code — `~/.claude.json` (user scope)
 
-Prefer the official CLI: `claude mcp add-json openobsidian '{"command":"/abs/openobs-mcp","args":["/abs/vault"]}' -s user`
+Prefer the official CLI: `claude mcp add-json open-llm-wiki '{"command":"/abs/open-llm-wiki-mcp","args":["/abs/vault"]}' -s user`
 
 ```jsonc
 {
   "mcpServers": {
-    "openobsidian": {
-      "command": "/absolute/path/to/openobs-mcp",
+    "open-llm-wiki": {
+      "command": "/absolute/path/to/open-llm-wiki-mcp",
       "args": ["/absolute/path/to/your/vault"]
     }
   }
@@ -123,8 +123,8 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 ```jsonc
 {
   "mcpServers": {
-    "openobsidian": {
-      "command": "/absolute/path/to/openobs-mcp",
+    "open-llm-wiki": {
+      "command": "/absolute/path/to/open-llm-wiki-mcp",
       "args": ["/absolute/path/to/your/vault"]
     }
   }
@@ -134,8 +134,8 @@ macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` · Wind
 ### Codex CLI — `~/.codex/config.toml`
 
 ```toml
-[mcp_servers.openobsidian]
-command = "/absolute/path/to/openobs-mcp"
+[mcp_servers.open-llm-wiki]
+command = "/absolute/path/to/open-llm-wiki-mcp"
 args = ["/absolute/path/to/your/vault"]
 ```
 
@@ -144,8 +144,8 @@ args = ["/absolute/path/to/your/vault"]
 ```jsonc
 {
   "context_servers": {
-    "openobsidian": {
-      "command": "/absolute/path/to/openobs-mcp",
+    "open-llm-wiki": {
+      "command": "/absolute/path/to/open-llm-wiki-mcp",
       "args": ["/absolute/path/to/your/vault"],
       "settings": {}
     }
@@ -155,10 +155,10 @@ args = ["/absolute/path/to/your/vault"]
 
 ### Grok CLI / others (manual)
 
-No auto-wire surface is known; add the server in whatever MCP config mechanism the tool provides (the JSON shape above), or run `openobs-mcp setup` and copy the printed snippet.
+No auto-wire surface is known; add the server in whatever MCP config mechanism the tool provides (the JSON shape above), or run `open-llm-wiki-mcp setup` and copy the printed snippet.
 
 ## Notes
 
-- Hidden paths (any segment starting with `.`, e.g. `.git`, `.openobsidian`, `.trash`) are excluded from `list_notes` and the index — the same rule the desktop app uses.
+- Hidden paths (any segment starting with `.`, e.g. `.git`, `.open-llm-wiki`, `.trash`) are excluded from `list_notes` and the index — the same rule the desktop app uses.
 - `write_note` creates parent directories as needed; relative paths only (`..` is rejected).
 - Output framing is sent with **both** a `Content-Length` header and a trailing newline, so strict-header clients and line-based clients both work.

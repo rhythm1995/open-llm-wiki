@@ -11,7 +11,7 @@
 
 1. **维持默认关。触发条件(三选一即重估)**:① vault 笔记数持续 > ~1,000(`vault_info.notes` 可测);② 单次 agent 查询稳定需要载入 > 5–6 篇笔记才能回答;③ 词法检索空结果/低质结果成为可感知的日常摩擦(代理指标见 §3.1)。阈值来自上游调研 §6.4(MindStudio 决策框架 + 成本交叉点:~3K token 的 wiki 比 RAG 便宜,~30K 反超)。
 2. **触发后推荐组合(需人拍板)**:`fastembed-rs`(Apache-2.0 ✅,基于 ort/ONNX Runtime)+ `BAAI/bge-small-zh-v1.5`(MIT ✅,512 维,中文主场)作第一刀;双语/跨语言需求上来后再评估 `bge-m3`(MIT ✅,1024 维 ⚠️,体积 ~10 倍)。备选:UI 侧 transformers.js(Apache-2.0 ✅)免 Rust 打包面,代价是 WKWebView 性能与内存。
-3. **向量层不进 core**。core 的铁律是纯逻辑 IO-free(`core/src/lib.rs`:不碰文件系统/网络/时间),而向量索引的运行时绑定、模型下载/加载、磁盘持久化全是 IO。论证与落点方案见 §4:独立 crate(`openobs-semantic` 或 app 内模块),与 core 仅通过「`&[Note]` 进、`(path, score)` 出」的窄接口并列,不动 `VaultIndex`/`EdgeKind`/QQL。
+3. **向量层不进 core**。core 的铁律是纯逻辑 IO-free(`core/src/lib.rs`:不碰文件系统/网络/时间),而向量索引的运行时绑定、模型下载/加载、磁盘持久化全是 IO。论证与落点方案见 §4:独立 crate(`open-llm-wiki-semantic` 或 app 内模块),与 core 仅通过「`&[Note]` 进、`(path, score)` 出」的窄接口并列,不动 `VaultIndex`/`EdgeKind`/QQL。
 4. **P6-8 语义边级联问题的立场**:检索向量与图谱语义边是两件事,可解耦——S1/S2(检索)完全不碰 core;只有 S3(语义边进图谱,可选)才触发 P6-8 评审,届时倾向 doc 12 §4 已记录的两选项之一(进 core EdgeKind 级联 vs 仅前端缓存层),本调研不替它拍板。
 5. **中文支持是硬需求,vault 中英混合**。纯英文模型(all-MiniLM-L6-v2)不作候选,只作体积基线;候选表(§3.3)以中文/双语模型为主。许可逐个核到 model card(HF 官方 API,2026-08-06):**jina-embeddings-v3 权重为 CC-BY-NC-4.0(非商用)✅ 已证实——许可红线,明确排除**(jina-v2-base-zh 实为 Apache-2.0,可用但偏旧,见 §3.3)。
 6. **模型权重不随包分发**。默认策略是「按需下载 + 本地缓存 + 可用户自备」(fastembed-rs 原生支持缓存目录与 HF 镜像端点),保住「默认纯 MIT 分发、不加重分发体积」的红线;模型文件不进 CI、不进 git。
@@ -105,7 +105,7 @@
 
 ---
 
-## 4. 与 OpenObsidian 的适配分析
+## 4. 与 Open LLM Wiki 的适配分析
 
 ### 4.1 向量进 core 的侵入面 vs 外挂索引层
 
@@ -117,7 +117,7 @@
 
 **结论:向量层不进 core**。若未来有纯算法部分(如 RRF 融合、余弦相似度)想共享,以纯函数小模块进 core 无 IO 障碍(类比 `search.rs` 的形态),但**运行时与索引持久化不进**。
 
-**落点**(推荐,需人拍板):新 crate `openobs-semantic`(或先作 `app/src-tauri` 内模块 + feature gate),职责:模型加载、embedding 计算、向量索引读写、混合排序。它消费 core 的 `Note`(或由 app 传入 `(path, title, body)`),输出 `Vec<(path, f32 score)>`,与 `SearchIndex` **并列**而非内嵌。
+**落点**(推荐,需人拍板):新 crate `open-llm-wiki-semantic`(或先作 `app/src-tauri` 内模块 + feature gate),职责:模型加载、embedding 计算、向量索引读写、混合排序。它消费 core 的 `Note`(或由 app 传入 `(path, title, body)`),输出 `Vec<(path, f32 score)>`,与 `SearchIndex` **并列**而非内嵌。
 
 ### 4.2 P6-8 语义边级联问题的立场
 
@@ -146,13 +146,13 @@ P6-8 问的是「语义边是否进 core `EdgeKind`」,级联面(doc 12 §4):gra
 |---|---|---|---|
 | D1 | 运行时落点 | fastembed-rs(ort 底座)/ 裸 ort / candle / transformers.js(UI 侧)/ Ollama 外挂 | fastembed-rs:最短路径、内置中文模型、缓存/镜像现成 |
 | D2 | 模型 | bge-small-zh-v1.5 / bge-m3 / multilingual-e5-small / Qwen3-Embedding-0.6B | bge-small-zh-v1.5 首刀;bge-m3 二期 |
-| D3 | 索引位置 | vault 内 `.openobsidian/`(P6-4 已建约定)/ app data | `.openobsidian/`:跟 vault 走、gitignore 默认(对齐 P6-7 布局文件先例)、换机即带 |
+| D3 | 索引位置 | vault 内 `.open-llm-wiki/`(P6-4 已建约定)/ app data | `.open-llm-wiki/`:跟 vault 走、gitignore 默认(对齐 P6-7 布局文件先例)、换机即带 |
 | D4 | 是否进 core | 进 VaultIndex/EdgeKind / 外挂并列层 | 外挂(§4.1 论证);QQL 不碰 |
 | D5 | 混合策略 | 纯向量 / RRF 混合 / 词法优先向量可选 | RRF 混合(MCP/UI 可 mode 切回纯词法) |
 
 ### 5.1 推荐路径(组合 + 备选 + 理由)
 
-**推荐**:fastembed-rs + bge-small-zh-v1.5 + 独立 crate(`openobs-semantic`,feature gate)+ 向量索引存 `.openobsidian/embeddings.bin`(示意)+ MCP `search_notes` 加 `mode` 参数(`lexical` | `semantic` | `hybrid`,默认 **lexical 直到用户显式开启**)+ RRF 混合 + 模型按需下载(用户首次开启语义检索时触发,带大小/许可提示)。
+**推荐**:fastembed-rs + bge-small-zh-v1.5 + 独立 crate(`open-llm-wiki-semantic`,feature gate)+ 向量索引存 `.open-llm-wiki/embeddings.bin`(示意)+ MCP `search_notes` 加 `mode` 参数(`lexical` | `semantic` | `hybrid`,默认 **lexical 直到用户显式开启**)+ RRF 混合 + 模型按需下载(用户首次开启语义检索时触发,带大小/许可提示)。
 
 理由:许可全绿(Apache-2.0 + MIT 权重)、中文硬需求满足、工程量集中在打包而非算法、与 core/MCP/QQL 现有面正交、默认分发体积不变(模型不进包)。
 
@@ -163,14 +163,14 @@ P6-8 问的是「语义边是否进 core `EdgeKind`」,级联面(doc 12 §4):gra
 ### 5.2 分期(S0 spike 是关键闸口)
 
 - **S0 · spike(1–2 天,验证三件事)**:① fastembed-rs 在 Tauri 构建里跑通单篇 embedding,实测 dylib 体积、构建期行为、macOS 签名/universal 影响;② bge-small-zh-v1.5 对 2–3 篇真实 vault 笔记算相似度,人工看中文质量;③ 实测单篇延迟。**任一不过即止,成本封顶**。附带产出:P6-5 的「先 mock 向量只做 UI」若单独成立,可用随机/哈希假向量验 UI,与 S0 正交。
-- **S1 · 离线索引 + MCP 检索面**:独立 crate + `.openobsidian/` 索引文件 + 全量/增量索引命令 + `search_notes` mode 参数(默认 lexical)。agent 先用上,UI 不动。
+- **S1 · 离线索引 + MCP 检索面**:独立 crate + `.open-llm-wiki/` 索引文件 + 全量/增量索引命令 + `search_notes` mode 参数(默认 lexical)。agent 先用上,UI 不动。
 - **S2 · UI 面 + 混合排序**:全库搜索接入 hybrid(RRF)+ 设置面板开关(含模型下载提示、许可说明)+ 索引状态可视化(条数/陈旧度)。
 - **S3 ·(可选)语义边喂图谱**:接 P6-8 评审;相似度 top-k 边 → 建议链接 UX(doc 12 §6C2 已设计 Accept/Dismiss)或前端缓存层。**不进 core 默认**。
 
 ### 5.3 数据与接口示意(非承诺)
 
 ```
-.openobsidian/
+.open-llm-wiki/
   graph-layout.json      # 已有(P6-4)
   semantic-index.bin     # 新增示意:magic + model_id + dim + {path, mtime, f32[dim]}*
                          # gitignore 默认(对齐 P6-7 先例);模型 id 不符即重建
@@ -179,7 +179,7 @@ P6-8 问的是「语义边是否进 core `EdgeKind`」,级联面(doc 12 §4):gra
 ```rust
 // app/src-tauri 新增命令(示意;须注册进 generate_handler!)
 index_semantic(root, force?) -> {indexed, skipped, ms}
-// openobs-semantic(示意)
+// open-llm-wiki-semantic(示意)
 fn embed_batch(runtime, model, &[Note]) -> Vec<(String /*path*/, Vec<f32>)>;
 fn hybrid(lexical: &[(NodeId, f64)], vector: &[(String, f32)], k: usize) -> Vec<(String, f64)>; // RRF
 ```
@@ -206,7 +206,7 @@ fn hybrid(lexical: &[(NodeId, f64)], vector: &[(String, f32)], k: usize) -> Vec<
 ### 5.5 测试与 CI
 
 - **core 保持 IO-free**:不新增 core 测试面;若 RRF/余弦进 core,照 `search.rs` 形态补单测 + proptest(融合结果集性质:去重、k 截断、分数单调)。
-- **openobs-semantic / app 层**:模型不进 CI(体积 + 下载不稳)。测法:① 纯逻辑部分(索引序列化/增量 merge/RRF)用**固定假向量**单测——与模型无关,CI 常绿;② 真模型冒烟测试 feature-gated,本地/S0 手动跑;③ MCP 集成测延续 `mcp/src/main.rs` 现有 fixture 风格(mode=lexical 路径常绿,semantic 路径在 CI 断言 graceful 降级)。
+- **open-llm-wiki-semantic / app 层**:模型不进 CI(体积 + 下载不稳)。测法:① 纯逻辑部分(索引序列化/增量 merge/RRF)用**固定假向量**单测——与模型无关,CI 常绿;② 真模型冒烟测试 feature-gated,本地/S0 手动跑;③ MCP 集成测延续 `mcp/src/main.rs` 现有 fixture 风格(mode=lexical 路径常绿,semantic 路径在 CI 断言 graceful 降级)。
 - **CI 三 job 零变更**:core-and-ui / app / e2e 均不引入模型文件与 ORT 依赖(feature 默认 off)。
 
 ### 5.6 新增依赖与许可登记(触发时)

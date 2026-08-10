@@ -41,7 +41,7 @@ fn db_path(app: &AppHandle, root: &str) -> PathBuf {
     let base = app
         .path()
         .app_data_dir()
-        .unwrap_or_else(|_| std::env::temp_dir().join("openobsidian"));
+        .unwrap_or_else(|_| std::env::temp_dir().join("open-llm-wiki"));
     // FNV-1a-ish:稳定、无依赖、足够区分 vault。
     let mut h: u64 = 0xcbf29ce484222325;
     for b in root.bytes() {
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn threads_messages_roundtrip_and_cascade() {
         let dir = std::env::temp_dir().join(format!(
-            "openobs-transcript-threads-{}",
+            "open-llm-wiki-transcript-threads-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);

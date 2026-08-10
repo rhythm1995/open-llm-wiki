@@ -6,7 +6,7 @@
 
 ## 一句话结论
 
-画布在 OpenObsidian 里是一个 **「独立的白板工具,只是恰好存在 vault 里」**。它和图谱 /
+画布在 Open LLM Wiki 里是一个 **「独立的白板工具,只是恰好存在 vault 里」**。它和图谱 /
 wikilink / QQL / 索引 / 全文搜索 **完全没打通**;这是代码里**显式的设计决策**,不是疏漏。
 
 ## 隔离墙的代码证据
@@ -28,7 +28,7 @@ wikilink / QQL / 索引 / 全文搜索 **完全没打通**;这是代码里**显�
 
 ### 2. 画布内容里的 `[[wikilink]]` 不被解析
 
-- 画布 schema 是 `{ openobsidianCanvas, engine, elements, appState, files }` 的 JSON(`ui/src/lib/canvas.ts`),
+- 画布 schema 是 `{ openLlmWikiCanvas, engine, elements, appState, files }` 的 JSON(`ui/src/lib/canvas.ts`),
   文本以 `text` 元素的形式藏在 `elements` 数组里。
 - wikilink 解析器 `extract_wikilinks`(`core/src/parse.rs`)只被两条路径调用:
   1. `parse_note` 的 body —— `parse_note` 只在 `VaultIndex::build` 里对 `entries`(只含 `.md`)调用;
@@ -73,7 +73,7 @@ wikilink / QQL / 索引 / 全文搜索 **完全没打通**;这是代码里**显�
 
 - **JSON 污染图谱**:Excalidraw 的 elements 是结构化 JSON,若被 frontmatter / wikilink 解析器扫描,
   会把 JSON 里的键名、属性值误当 wikilink / tag,产生大量噪声边和虚假节点。代码多处注释明确此理由。
-- **画布的定位**:它是「自由手绘思考的白板」,不是结构化知识。OpenObsidian 的核心价值主张是
+- **画布的定位**:它是「自由手绘思考的白板」,不是结构化知识。Open LLM Wiki 的核心价值主张是
   「图谱可视化 + QQL 实时聚合 + wikilink 知识网络」;画布解决的是另一类问题(随便画画、脑图),
   任何白板工具(Excalidraw 本身、tldraw、Miro……)都能做,不依赖本 app 的图谱/QQL 体系。
 - 优先级:docs/04 明确标 F-CANVAS 为 **P3**(非核心);P0–P2 是图谱 / QQL / 索引。

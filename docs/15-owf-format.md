@@ -1,4 +1,4 @@
-# OWF-1:OpenObsidian Wiki Format v1(已生效 · 档 1 范围)
+# OWF-1:Open LLM Wiki Wiki Format v1(已生效 · 档 1 范围)
 
 > **状态:✅ 已转正**(2026-08-09 人批准,**档 1** 范围)。
 > 档 1 = **装订现状 + 钉版本**:零新词汇、零新字段、零行为改变。本文档不引入任何新机制——它把已经存在的约定写成单一契约,并给 vault 一个格式版本号。
@@ -11,7 +11,7 @@
 1. **反漂移**:约定此前散在 [docs/14](./14-llm-wiki-workflow.md) + `templates/wiki-starter/` + core 行为三处,已两次实证会漂移(README 工具数 6→7→8 两次追修)。格式变更从此必须显式 bump 版本 + 迁移说明。
 2. **vault 自描述**:vault 靠 index.md 里一行 `format: owf/1` 自证格式版本——冷启动 agent 不依赖本 repo 文档也能读懂契约。
 3. **宽容从偶然变承诺**:core 今天天然容忍未知 type/字段;本规范把它升为**测试锁住的保证**(§6,[`core/tests/owf_conformance.rs`](../core/tests/owf_conformance.rs))。
-4. **词汇线归属**(背景):`Source/Summary/Concept/Entity + Active/Contested/Superseded + contradicts` 这条线谱系为 Karpathy LLM Wiki gist → 维护者 kb 库的 cairn 约定 → OpenObsidian;上游(refactoringhq)已转向 Portent(另一条线),公开世界无正统归属。本规范是它的家。对照调研:zosmaai/pi-llm-wiki 的 OKF v0.2(映射见 §8)。
+4. **词汇线归属**(背景):`Source/Summary/Concept/Entity + Active/Contested/Superseded + contradicts` 这条线谱系为 Karpathy LLM Wiki gist → 维护者 kb 库的 cairn 约定 → Open LLM Wiki;上游(refactoringhq)已转向 Portent(另一条线),公开世界无正统归属。本规范是它的家。对照调研:zosmaai/pi-llm-wiki 的 OKF v0.2(映射见 §8)。
 
 ## 2. 范围声明(档 1 边界)
 

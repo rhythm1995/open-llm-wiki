@@ -1,14 +1,14 @@
 [package]
-name = "openobs-app"
+name = "open-llm-wiki-app"
 version = "0.1.0"
-description = "OpenObsidian desktop app — Tauri shell over openobs-core"
-authors = ["OpenObsidian contributors"]
-license = "MIT"
+description = "Open LLM Wiki desktop app — Tauri shell over open-llm-wiki-core"
+authors = ["Open LLM Wiki contributors"]
+license = "Apache-2.0"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "openobs_app_lib"
+name = "open_llm_wiki_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -22,9 +22,9 @@ serde_json = "1"
 walkdir = "2"
 notify = "6"
 # 纯逻辑大脑:path 依赖同 workspace 的 core。
-openobs-core = { path = "../../core" }
+open-llm-wiki-core = { path = "../../core" }
 # Agent 记忆接入(B-MCP-ONBOARD):Settings 面板复用 mcp 侧的探测/接线/播种逻辑(lib 面)。
-openobs-mcp = { path = "../../mcp" }
+open-llm-wiki-mcp = { path = "../../mcp" }
 # 应用内 Agent(ACP 托管,doc 11 / Phase 7)。
 agent-client-protocol = "2.0.0"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros", "time", "io-util", "process"] }

@@ -1,10 +1,10 @@
-# AGENTS.md — OpenObsidian
+# AGENTS.md — Open LLM Wiki
 
 本文件是**任何编码 agent 在本仓库工作的单一事实来源**(Claude Code 经 `CLAUDE.md` 读它;Codex / Cursor / Grok 直接读它;人类也读它)。保持 agent-neutral。
 
 ## 项目一句话
 
-本地优先、文件即真相、MIT 许可的知识管理 app;**原创实现**,补齐 Obsidian 最被需要的两件事:图谱可视化 与 QQL 实时聚合查询。
+本地优先、文件即真相、Apache 2.0 许可的知识管理 app;**原创实现**,补齐 Obsidian 最被需要的两件事:图谱可视化 与 QQL 实时聚合查询。
 
 ## 架构
 
@@ -25,9 +25,9 @@ core (Rust:解析 / 图谱 / QQL 求值 / 检索 —— 纯逻辑,IO-free,TDD)
 
 ```bash
 # Rust core / app
-cargo test  -p openobs-core                               # 纯逻辑测试
+cargo test  -p open-llm-wiki-core                               # 纯逻辑测试
 cargo clippy --manifest-path Cargo.toml --workspace --all-targets
-cargo test  -p openobs-app                                # 含 git_tests,需系统 git
+cargo test  -p open-llm-wiki-app                                # 含 git_tests,需系统 git
 
 # 前端(都在 ui/ 下,从仓库根用 pnpm --dir ui 跑)
 pnpm --dir ui dev            # 浏览器 mock 模式 → http://localhost:5173
@@ -44,7 +44,7 @@ ui/node_modules/.bin/tauri build
 
 ## CI 门(必须全绿)
 
-`.github/workflows/ci.yml` 三 job:① **core-and-ui**:`cargo test -p openobs-core` + `pnpm --dir ui typecheck` + `pnpm --dir ui test:cov`;② **app**:`pnpm --dir ui build` + `cargo test -p openobs-app`;③ **e2e**:playwright。**无 biome / lint / format 门**——别花时间补这些。本地收工前至少跑:typecheck + test:cov + e2e + 涉及到的 `cargo test -p`。
+`.github/workflows/ci.yml` 三 job:① **core-and-ui**:`cargo test -p open-llm-wiki-core` + `pnpm --dir ui typecheck` + `pnpm --dir ui test:cov`;② **app**:`pnpm --dir ui build` + `cargo test -p open-llm-wiki-app`;③ **e2e**:playwright。**无 biome / lint / format 门**——别花时间补这些。本地收工前至少跑:typecheck + test:cov + e2e + 涉及到的 `cargo test -p`。
 
 ## 提交规范
 
@@ -55,7 +55,7 @@ ui/node_modules/.bin/tauri build
 
 ## 许可红线(最重要)
 
-- **绝不逐字或近似逐字复制任何 GPL/AGPL 等 copyleft 源码(哪怕单行)**。逐字复制的那部分仍受原许可约束,会让"MIT"落空。只参考公开的架构 / 数据流 / 算法思路与功能概念(多为不可版权的思想/方法);具体源码、组件实现、视觉表达一律自写。本项目是原创、独立的 MIT 实现。Obsidian 仅作公开功能对照,同样不复制其源码。
+- **绝不逐字或近似逐字复制任何 GPL/AGPL 等 copyleft 源码(哪怕单行)**。逐字复制的那部分仍受原许可约束,会让"Apache 2.0"落空。只参考公开的架构 / 数据流 / 算法思路与功能概念(多为不可版权的思想/方法);具体源码、组件实现、视觉表达一律自写。本项目是原创、独立的 Apache-2.0 实现。Obsidian 仅作公开功能对照,同样不复制其源码。
 - 新增依赖:登记进 `THIRD_PARTY_NOTICES.md`;不得引入 GPL/AGPL 直染依赖;上线前 `cargo license` / `pnpm licenses list` 复核。
 
 ## 多 agent 协作

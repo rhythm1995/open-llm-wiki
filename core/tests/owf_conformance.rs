@@ -4,7 +4,7 @@
 //! 「规范承诺」:改解析/索引若破坏了未知 type/字段宽容或缺省宽容,会被这里挡下。
 //! 回滚档 1 = 删本文件即可,core 行为不受影响(见 docs/15 §9.3)。
 
-use openobs_core::{enrich, frontmatter_str, parse_note, type_of, VaultIndex};
+use open_llm_wiki_core::{enrich, frontmatter_str, parse_note, type_of, VaultIndex};
 
 /// 环 3 自由区:未知 type 合法——解析、索引全链路不报错、不丢弃。
 #[test]

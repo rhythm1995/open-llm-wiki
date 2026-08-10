@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(原创、独立的实现)。本文件
+Open LLM Wiki 本身的代码以 [Apache-2.0](./LICENSE) 许可(原创、独立的实现)。本文件
 诚实记录所有**直接依赖**及其许可。**默认分发无 source-available 生产限制** ——
 可本地与托管部署(仍须遵守各依赖自身的 OSI 条款,如 MPL 文件级 copyleft)。
 
@@ -32,7 +32,7 @@ GPL/AGPL 直染依赖(本项目严禁引入任何 copyleft 源码 —— 见 [RE
 
 ## 商用 / 托管部署
 
-OpenObsidian **默认以 MIT 分发**,画布使用 Excalidraw(MIT),**不**再捆绑
+Open LLM Wiki **默认以 MIT 分发**,画布使用 Excalidraw(MIT),**不**再捆绑
 tldraw。因此:**本地单机与作为托管 web 服务对公众部署**均不因画布引擎触发
 额外商用许可(仍须遵守 MIT 与其它依赖条款,如 BlockNote MPL-2.0)。
 

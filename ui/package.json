@@ -1,9 +1,10 @@
 {
-  "name": "openobs-ui",
+  "name": "open-llm-wiki-ui",
   "private": true,
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
-  "description": "OpenObsidian 前端 —— Tauri 桌面壳内的 React UI(浏览器 + mock 也可独立开发)。",
+  "description": "Open LLM Wiki 前端 —— Tauri 桌面壳内的 React UI(浏览器 + mock 也可独立开发)。",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -241,7 +241,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
   );
 
   // ── 6A1 坐标落盘 ────────────────────────────────────────────────────────
-  // 读:root 变化时读一次 `.openobsidian/graph-layout.json`,合流进 warmPositionsRef。
+  // 读:root 变化时读一次 `.open-llm-wiki/graph-layout.json`,合流进 warmPositionsRef。
   // loadedRef 在完成前为 false,阻止 save effect 把空布局写回覆盖。
   const loadedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

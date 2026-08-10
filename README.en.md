@@ -1,6 +1,6 @@
-# OpenObsidian
+# Open LLM Wiki
 
-A local-first, file-as-truth, MIT-licensed knowledge-base desktop app — your plain Markdown files are the only source of truth. A dual-mode editor, a Cytoscape graph, an Excalidraw canvas, and a Sheet view, plus git and a built-in MCP server, all on your own machine. No account, no cloud sync.
+A local-first, file-as-truth, Apache-2.0-licensed knowledge-base desktop app — your plain Markdown files are the only source of truth. A dual-mode editor, a Cytoscape graph, an Excalidraw canvas, and a Sheet view, plus git and a built-in MCP server, all on your own machine. No account, no cloud sync.
 
 <!-- README-I18N:START -->
 
@@ -29,11 +29,11 @@ A local-first, file-as-truth, MIT-licensed knowledge-base desktop app — your p
 ### Option A — Build from source (works today)
 
 ```bash
-git clone https://github.com/rhythm1995/OpenObsidian.git
-cd OpenObsidian
+git clone https://github.com/rhythm1995/Open LLM Wiki.git
+cd Open LLM Wiki
 pnpm install --dir ui
-pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/OpenObsidian.app
-open target/release/bundle/macos/OpenObsidian.app
+pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/Open LLM Wiki.app
+open target/release/bundle/macos/Open LLM Wiki.app
 ```
 
 Browser dev preview (live reload, in-memory mock backend, no Rust compile needed):
@@ -52,13 +52,13 @@ ui/node_modules/.bin/tauri dev
 
 ### Option B — Download a prebuilt app (once published)
 
-Grab `OpenObsidian.app` from [Releases](https://github.com/rhythm1995/OpenObsidian/releases):
+Grab `Open LLM Wiki.app` from [Releases](https://github.com/rhythm1995/Open LLM Wiki/releases):
 
 - **macOS:** move it to `/Applications`; choose *Replace* if one exists. Builds are **unsigned**, so the first launch is blocked by Gatekeeper — *System Settings → Privacy & Security → Open Anyway*, or:
   ```bash
-  xattr -cr /Applications/OpenObsidian.app
+  xattr -cr /Applications/Open LLM Wiki.app
   ```
-  Requires macOS 10.15+. The bundle ID is fixed at `dev.openobsidian.desktop` — **replace the old version**, don't keep multiple "OpenObsidian" side by side. Local preferences (localStorage / config) **survive replacing the .app**.
+  Requires macOS 10.15+. The bundle ID is fixed at `dev.openllmwiki.desktop` — **replace the old version**, don't keep multiple "Open LLM Wiki" side by side. Local preferences (localStorage / config) **survive replacing the .app**.
 
 ## Configuration
 
@@ -99,7 +99,7 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 
 ## Contributing
 
-This is an **original, independent implementation**, MIT-licensed. **Red line: never introduce GPL/AGPL or other copyleft source into this repository (verbatim or near-verbatim)** — doing so would void the MIT license. We only reference public ideas, architecture, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
+This is an **original, independent implementation**, Apache-2.0-licensed. **Red line: never introduce GPL/AGPL or other copyleft source into this repository (verbatim or near-verbatim)** — doing so would void the Apache-2.0 license. We only reference public ideas, architecture, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
 
 - Done features: [docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - Roadmap / backlog: [docs/backlog.md](./docs/backlog.md)
@@ -114,4 +114,4 @@ This is an **original, independent implementation**, MIT-licensed. **Red line: n
 
 ## License
 
-[MIT](./LICENSE). See [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md) for dependencies. Canvas uses [Excalidraw](https://github.com/excalidraw/excalidraw) (MIT); BlockNote is MPL-2.0.
+[Apache-2.0](./LICENSE). See [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md) for dependencies. Canvas uses [Excalidraw](https://github.com/excalidraw/excalidraw) (MIT); BlockNote is MPL-2.0.

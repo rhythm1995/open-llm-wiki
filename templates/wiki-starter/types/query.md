@@ -6,7 +6,7 @@ status: Active
 # Query
 
 **Health 层 · 存成笔记的查询。** 一条 QQL 本身就是一篇 `type: Query` 的笔记——
-这就是 OpenObsidian 的核心洞察:**不存 Health 快照,存「能算出 Health 的查询」**。
+这就是 Open LLM Wiki 的核心洞察:**不存 Health 快照,存「能算出 Health 的查询」**。
 查询是笔记,所以能被 `[[link]]`、被别的查询再聚合,自举进图谱。
 
 ## 字段

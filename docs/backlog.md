@@ -142,7 +142,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ✅ | `read/save_graph_layout` IPC + GraphView 读写 `.openobsidian/graph-layout.json`;写盘不走结构自动 commit(P6-7) |
+| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ✅ | `read/save_graph_layout` IPC + GraphView 读写 `.open-llm-wiki/graph-layout.json`;写盘不走结构自动 commit(P6-7) |
 | B-GRAPH-FORCES | 力参数 + Recalculate | 🟡 | ⏳ | center/repel/link/distance;Reset 默认 |
 | B-GRAPH-SETTINGS-UI | 图设置分组面板 | 🟡 | ⏳ | Filters / Display / Text / Forces |
 | B-GRAPH-HIDE-UNRESOLVED | 隐藏悬空/phantom | 🟢 | ⏳ | ghost 边一键 hide |
@@ -191,7 +191,7 @@
 |---|---|---|---|---|
 | B-LOG-BUS | LogBus + Filter + File/Stderr + panic hook | 🟡 | ✅ | L1:`logging.rs`;NDJSON;dev/verbose/prod;panic hook |
 | B-LOG-UI | 设置:profile / 打开日志目录 / 导出 | 🟡 | ✅ | profile+打开目录+`log_export_bundle` 单文件 txt(非 zip) |
-| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ✅ | app 做 server(127.0.0.1),`nc 127.0.0.1 <port>` 实时看 NDJSON 流;默认关,仅 env 开;接入 `init`/`emit_raw` |
+| B-LOG-PORT | TCP PortSink(`OPEN_LLM_WIKI_LOG_PORT`) | 🟢 | ✅ | app 做 server(127.0.0.1),`nc 127.0.0.1 <port>` 实时看 NDJSON 流;默认关,仅 env 开;接入 `init`/`emit_raw` |
 | B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | ✅ | index/write/pick_vault + **git 集中**(`run_git` 一处覆盖 status/log/commit/pull/push/init/restore/自动提交;成功 debug、失败 error 含 cmd+code+stderr) |
 
 ## K. 应用内侧栏 Agent(ACP 托管,见 [11](./11-in-app-agent-roadmap.md))

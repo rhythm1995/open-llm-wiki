@@ -62,7 +62,7 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 
 ## 评估后不做:core+mcp 抽独立通用库(2026-08-06)
 
-曾评估把「人机共用记忆系统」(core 引擎 + MCP server + wiki-starter 方法论)拆成**独立项目/项目无关通用库**。**探查结论:技术可行、接缝干净**——`core` 已是 IO-free 独立 crate(依赖仅 serde + serde_yaml,特有残留只有 lint 的 LLM Wiki 本体字面量、media 的 `tauri:`/`asset:` scheme、命名);`mcp` 结构上已独立(单二进制、自带 walker、零 Tauri 耦合,唯一系带是 `path = "../core"` + 品牌命名);templates/docs 14 无代码引用可整体搬。**人拍板:不做**——记忆系统继续作为 OpenObsidian 内置模块演化。若未来重启,上述探查事实可直接复用(mcp 去品牌化 + 换依赖源即可 standalone)。
+曾评估把「人机共用记忆系统」(core 引擎 + MCP server + wiki-starter 方法论)拆成**独立项目/项目无关通用库**。**探查结论:技术可行、接缝干净**——`core` 已是 IO-free 独立 crate(依赖仅 serde + serde_yaml,特有残留只有 lint 的 LLM Wiki 本体字面量、media 的 `tauri:`/`asset:` scheme、命名);`mcp` 结构上已独立(单二进制、自带 walker、零 Tauri 耦合,唯一系带是 `path = "../core"` + 品牌命名);templates/docs 14 无代码引用可整体搬。**人拍板:不做**——记忆系统继续作为 Open LLM Wiki 内置模块演化。若未来重启,上述探查事实可直接复用(mcp 去品牌化 + 换依赖源即可 standalone)。
 
 ---
 

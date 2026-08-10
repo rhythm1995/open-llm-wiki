@@ -106,7 +106,7 @@ interface LogEvent {
 |---|---|---|---|
 | **StderrSink** | on（info+） | off 或 error+ | 兼容现 `diag_log` |
 | **FileSink** | **on，debug/trace 全开** | **on，仅 error+fatal**（或 warn+） | 滚动文件，见 §4 |
-| **PortSink** | 可选 `OPENOBS_LOG_PORT=9876` | **默认 off** | TCP 行协议 NDJSON |
+| **PortSink** | 可选 `OPEN_LLM_WIKI_LOG_PORT=9876` | **默认 off** | TCP 行协议 NDJSON |
 | **MemoryRingSink**（可选） | 最近 200 条 error | 同左 | 崩溃瞬间 flush 到文件 |
 
 **「一键日常不记、只记崩溃和 error」** = 切换 **全局 Profile**（不是删代码）：
@@ -120,7 +120,7 @@ interface LogEvent {
 
 设置入口建议：
 
-- 环境变量：`OPENOBS_LOG_PROFILE=dev|verbose|prod`
+- 环境变量：`OPEN_LLM_WIKI_LOG_PROFILE=dev|verbose|prod`
 - 应用设置页：**诊断 → 日志详细程度** + **「导出日志…」** + **「打开日志文件夹」**
 - 调试会话：设置里 **「开启详细日志直到下次启动」** → 写 `verbose` 到本地 config，重启生效（避免热切换漏掉启动段）
 
@@ -130,17 +130,17 @@ interface LogEvent {
 
 ### 4.1 路径（推荐）
 
-| 平台 | 目录（bundle id = `dev.openobsidian.desktop`） |
+| 平台 | 目录（bundle id = `dev.openllmwiki.desktop`） |
 |---|---|
-| macOS | `~/Library/Logs/dev.openobsidian.desktop/` |
-| Linux | `~/.local/share/dev.openobsidian.desktop/logs/`（或 XDG） |
-| Windows | `%LOCALAPPDATA%\dev.openobsidian.desktop\logs\` |
+| macOS | `~/Library/Logs/dev.openllmwiki.desktop/` |
+| Linux | `~/.local/share/dev.openllmwiki.desktop/logs/`（或 XDG） |
+| Windows | `%LOCALAPPDATA%\dev.openllmwiki.desktop\logs\` |
 
 文件名示例：
 
 ```text
-openobs-2026-08-02.log          # 当日滚动
-openobs-2026-08-02.error.log    # 可选：error 单独一份，反馈时优先交这个
+open-llm-wiki-2026-08-02.log          # 当日滚动
+open-llm-wiki-2026-08-02.error.log    # 可选：error 单独一份，反馈时优先交这个
 ```
 
 实现可用：
@@ -176,7 +176,7 @@ openobs-2026-08-02.error.log    # 可选：error 单独一份，反馈时优先�
 
 ### 5.1 协议（简单）
 
-- 启动时若 `OPENOBS_LOG_PORT=9876`（或设置「调试端口」）：
+- 启动时若 `OPEN_LLM_WIKI_LOG_PORT=9876`（或设置「调试端口」）：
   - 本机 **`127.0.0.1` only** 绑定 TCP；
   - 每条通过 Filter 后的事件写一行 NDJSON + `\n`；
   - 多客户端可 fan-out（或仅最后一个连接）。
@@ -185,7 +185,7 @@ openobs-2026-08-02.error.log    # 可选：error 单独一份，反馈时优先�
 
 ```bash
 # 终端 A：启动 app 带端口
-OPENOBS_LOG_PORT=9876 OPENOBS_LOG_PROFILE=dev ui/node_modules/.bin/tauri dev
+OPEN_LLM_WIKI_LOG_PORT=9876 OPEN_LLM_WIKI_LOG_PROFILE=dev ui/node_modules/.bin/tauri dev
 
 # 终端 B：实时看日志
 nc -l 9876   # 视实现是 server 还是 client；推荐 app 做 server，client 连入
@@ -255,8 +255,8 @@ std::panic::set_hook(...); // 写 fatal 到 FileSink + stderr
 
 ```bash
 # macOS 本机直接读（同一台机器开发时）
-ls ~/Library/Logs/dev.openobsidian.desktop/
-rg -n 'error|fatal|index_vault' ~/Library/Logs/dev.openobsidian.desktop/openobs-*.log
+ls ~/Library/Logs/dev.openllmwiki.desktop/
+rg -n 'error|fatal|index_vault' ~/Library/Logs/dev.openllmwiki.desktop/open-llm-wiki-*.log
 
 # 或用户发来 export.zip 解压后同法
 ```
@@ -269,8 +269,8 @@ Agent 排查时：**优先 `*.error.log` + 对应 session 前后 2 分钟的 inf
 
 ### 7.3 开发期日常
 
-- `tauri dev` 默认 `OPENOBS_LOG_PROFILE=dev`（或 debug_assertions 自动 dev）  
-- 文件 + stderr 双开；需要时再 `OPENOBS_LOG_PORT`  
+- `tauri dev` 默认 `OPEN_LLM_WIKI_LOG_PROFILE=dev`（或 debug_assertions 自动 dev）  
+- 文件 + stderr 双开；需要时再 `OPEN_LLM_WIKI_LOG_PORT`  
 - CI **不**依赖日志内容断言；单测测 Filter/序列化纯逻辑  
 
 ---
@@ -298,13 +298,13 @@ Agent 排查时：**优先 `*.error.log` + 对应 session 前后 2 分钟的 inf
 - [x] panic hook → fatal 文件  
 - [x] 扩展 `diag_log` / 新 `log_write`；JS 桥 error/warn 进文件  
 - [x] `log_get_dir` / `log_open_dir` + 设置页「打开日志目录」+ profile 热切换  
-- [x] debug build 默认 profile=`dev`；release 默认 `prod`（`OPENOBS_LOG_PROFILE` 可覆盖）  
+- [x] debug build 默认 profile=`dev`；release 默认 `prod`（`OPEN_LLM_WIKI_LOG_PROFILE` 可覆盖）  
 - [x] 纯函数：序列化 NDJSON、prune 策略单测  
 
 
 ### Phase L2 — 开发体验
 
-- [ ] PortSink + `OPENOBS_LOG_PORT`  
+- [ ] PortSink + `OPEN_LLM_WIKI_LOG_PORT`  
 - [x] `log_export_bundle`（合并近期 `.log` → 单 txt；设置页「导出诊断日志」）  
 - [x] 设置页 profile 三档（进程内热切换）  
 - [x] 关键 IPC 路径 info 打点（index / write / open vault）  
@@ -344,7 +344,7 @@ Agent 排查时：**优先 `*.error.log` + 对应 session 前后 2 分钟的 inf
 
 | 你的期望 | 方案对应 |
 |---|---|
-| 测试时端口拿日志 | **PortSink** + `OPENOBS_LOG_PORT`（L2） |
+| 测试时端口拿日志 | **PortSink** + `OPEN_LLM_WIKI_LOG_PORT`（L2） |
 | 详细写入文件 | **FileSink** + NDJSON + rotation（L1） |
 | 先很细、上线裁剪 | **Profile** dev/verbose vs prod |
 | 中间件、一键只记 error | **Filter + Sink 链**；prod 只过 error/fatal |

@@ -26,7 +26,7 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 
 #### 诊断
 
-- **TCP 日志端口**:`OPENOBS_LOG_PORT=<port>` 在 127.0.0.1 起 PortSink,`nc` 实时看 NDJSON 流(默认关)。
+- **TCP 日志端口**:`OPEN_LLM_WIKI_LOG_PORT=<port>` 在 127.0.0.1 起 PortSink,`nc` 实时看 NDJSON 流(默认关)。
 - 日志按 target 级别 override(must-debug targets)。
 
 #### 构建
@@ -87,7 +87,7 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 ### ⚠️ 已知限制
 
 - **图谱打磨推迟**：本期不做布局坐标落盘序列化、力参数面板、最短路径高亮、隐藏悬空节点、图健康 UI 增强（整期转远期）。图谱主路径可用，但未达商业级精致。
-- **未签名 / 未公证**：macOS 构建未签名（凭证门），首次运行被 Gatekeeper 拦截 —— 右键「打开」，或终端执行 `xattr -dr com.apple.quarantine /path/to/OpenObsidian.app`。需 macOS 10.15+。
+- **未签名 / 未公证**：macOS 构建未签名（凭证门），首次运行被 Gatekeeper 拦截 —— 右键「打开」，或终端执行 `xattr -dr com.apple.quarantine /path/to/Open LLM Wiki.app`。需 macOS 10.15+。
 - **无自动更新**（凭证门）。
 - **QQL 用户面已移除**：仅保留 Rust core + MCP `run_qql`（程序化 / agent 用），无 GUI 查询界面。
 - **插件系统**：宿主保留，v1 不做插件商店 / vault 扫描 / 签名。

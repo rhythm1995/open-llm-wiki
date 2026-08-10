@@ -1,6 +1,6 @@
 # 14 — LLM Wiki 工作流(ingest → research → consolidate)
 
-> 本文是 **agent 操作手册**:怎么用 OpenObsidian 的类型 + 关系 + QQL + MCP 工具,把一个 vault 跑成一台
+> 本文是 **agent 操作手册**:怎么用 Open LLM Wiki 的类型 + 关系 + QQL + MCP 工具,把一个 vault 跑成一台
 > 「知识复利引擎」。人类也能照着做。配套脚手架见 [`templates/wiki-starter/`](../templates/wiki-starter/),
 > 双视角总览见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 >

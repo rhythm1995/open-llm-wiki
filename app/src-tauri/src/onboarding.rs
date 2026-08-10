@@ -1,15 +1,15 @@
-//! Agent 记忆接入(B-MCP-ONBOARD 桌面侧)—— `openobs_mcp::onboard` 的薄胶水。
+//! Agent 记忆接入(B-MCP-ONBOARD 桌面侧)—— `open_llm_wiki_mcp::onboard` 的薄胶水。
 //!
-//! CLI(`openobs-mcp setup/doctor/init`)与这组命令共享同一套逻辑,UI 只是表单。
+//! CLI(`open-llm-wiki-mcp setup/doctor/init`)与这组命令共享同一套逻辑,UI 只是表单。
 //! 所有写操作走 onboard 的安全护栏(备份 / 原子写 / 拒碰不可解析文件);
 //! 本模块不复制任何接线逻辑。
 //!
-//! app 进程 ≠ openobs-mcp 进程:MCP 条目的 `command` 需要 mcp 二进制路径,
+//! app 进程 ≠ open-llm-wiki-mcp 进程:MCP 条目的 `command` 需要 mcp 二进制路径,
 //! 由 [`resolve_mcp_binary_from`] 定位(当前 exe 同目录 → PATH → UI 手选)。
 
 use std::path::{Path, PathBuf};
 
-use openobs_mcp::onboard;
+use open_llm_wiki_mcp::onboard;
 use serde::Serialize;
 
 /// UI 面板里的 agent 行。
@@ -36,7 +36,7 @@ pub struct AgentRow {
 #[derive(Serialize)]
 pub struct ScanOut {
     pub home: String,
-    /// 自动解析到的 openobs-mcp 二进制路径;null = 需用户手选。
+    /// 自动解析到的 open-llm-wiki-mcp 二进制路径;null = 需用户手选。
     pub resolved_binary: Option<String>,
     pub agents: Vec<AgentRow>,
     /// 可粘贴进 agent 指引文件的引导文本(UI 提供复制按钮,绝不自动写入)。
@@ -85,19 +85,29 @@ pub fn onboard_scan() -> Result<ScanOut, String> {
     })
 }
 
-/// 定位 openobs-mcp 二进制(纯函数,`app_exe` 注入以便测试):
-/// 1. 当前 exe 的同目录(workspace 里 target/{debug,release} 两个二进制并排);
-/// 2. PATH 上的 `openobs-mcp`(`which`);
-/// 3. 都没有 → None,UI 走手选。
+/// 定位 open-llm-wiki-mcp 二进制(纯函数,`app_exe` 注入以便测试):
+/// 1. 当前 exe 的同目录(dev: target/release 并排; 打包: Contents/MacOS 嵌入);
+/// 2. macOS .app 的 Contents/Resources/;
+/// 3. PATH 上的 `open-llm-wiki-mcp`(`which`);
+/// 4. 都没有 → None,UI 可引导用户或手选。
 pub fn resolve_mcp_binary_from(app_exe: &Path) -> Option<PathBuf> {
     let exe = app_exe.canonicalize().unwrap_or_else(|_| app_exe.to_path_buf());
     if let Some(dir) = exe.parent() {
-        let candidate = dir.join("openobs-mcp");
-        if candidate.is_file() {
-            return Some(candidate);
+        let sibling = dir.join("open-llm-wiki-mcp");
+        if sibling.is_file() {
+            return Some(sibling);
+        }
+        // …/Foo.app/Contents/MacOS/app → …/Foo.app/Contents/Resources/open-llm-wiki-mcp
+        if dir.file_name().and_then(|s| s.to_str()) == Some("MacOS") {
+            if let Some(contents) = dir.parent() {
+                let res = contents.join("Resources").join("open-llm-wiki-mcp");
+                if res.is_file() {
+                    return Some(res);
+                }
+            }
         }
     }
-    which::which("openobs-mcp").ok()
+    which::which("open-llm-wiki-mcp").ok()
 }
 
 fn resolve_mcp_binary() -> Option<PathBuf> {
@@ -128,7 +138,7 @@ fn to_action_result(id: &str, res: Result<String, String>) -> AgentActionResult 
     }
 }
 
-/// 把 openobs-mcp 接入所选 agent(写各家 MCP 配置;护栏在 onboard)。
+/// 把 open-llm-wiki-mcp 接入所选 agent(写各家 MCP 配置;护栏在 onboard)。
 /// `dry_run=true` 只报告将执行的操作,不落盘。
 #[tauri::command]
 pub fn onboard_apply(
@@ -138,7 +148,7 @@ pub fn onboard_apply(
     dry_run: Option<bool>,
 ) -> Result<Vec<AgentActionResult>, String> {
     if binary.trim().is_empty() {
-        return Err("openobs-mcp binary path is required".into());
+        return Err("open-llm-wiki-mcp binary path is required".into());
     }
     if vault.trim().is_empty() {
         return Err("vault path is required".into());
@@ -160,7 +170,7 @@ pub fn onboard_apply(
     Ok(out)
 }
 
-/// 拆线:只删各家配置里的 `openobsidian` 条目。
+/// 拆线:只删各家配置里的 `open-llm-wiki` 条目。
 #[tauri::command]
 pub fn onboard_remove(agent_ids: Vec<String>) -> Result<Vec<AgentActionResult>, String> {
     let home = onboard::home_dir()?;
@@ -183,7 +193,7 @@ pub struct OnboardCheck {
     pub detail: String,
 }
 
-/// 接线健康诊断(与 `openobs-mcp doctor` 同一份 [`onboard::run_checks`])。
+/// 接线健康诊断(与 `open-llm-wiki-mcp doctor` 同一份 [`onboard::run_checks`])。
 #[tauri::command]
 pub fn onboard_doctor(vault: String, binary: Option<String>) -> Result<Vec<OnboardCheck>, String> {
     let home = onboard::home_dir()?;
@@ -191,7 +201,7 @@ pub fn onboard_doctor(vault: String, binary: Option<String>) -> Result<Vec<Onboa
         .filter(|b| !b.trim().is_empty())
         .map(PathBuf::from)
         .or_else(resolve_mcp_binary)
-        .ok_or_else(|| "cannot locate openobs-mcp binary".to_string())?;
+        .ok_or_else(|| "cannot locate open-llm-wiki-mcp binary".to_string())?;
     Ok(onboard::run_checks(&PathBuf::from(vault), &home, &exe)
         .into_iter()
         .map(|c| OnboardCheck {
@@ -212,7 +222,7 @@ pub struct SeedReportOut {
     pub skipped: Vec<String>,
 }
 
-/// 播种 wiki-starter 模板(与 `openobs-mcp init` 同一份 [`onboard::seed_vault`])。
+/// 播种 wiki-starter 模板(与 `open-llm-wiki-mcp init` 同一份 [`onboard::seed_vault`])。
 /// `force=true` 合并非空目录但永不覆盖已有文件。
 #[tauri::command]
 pub fn onboard_init(dir: String, force: Option<bool>) -> Result<SeedReportOut, String> {
@@ -229,13 +239,13 @@ pub fn onboard_guidance() -> String {
     onboard::GUIDANCE_SNIPPET.to_string()
 }
 
-/// 重新解析 openobs-mcp 二进制(UI「重新检测」按钮)。
+/// 重新解析 open-llm-wiki-mcp 二进制(UI「重新检测」按钮)。
 #[tauri::command]
 pub fn onboard_resolve_binary() -> Option<String> {
     resolve_mcp_binary().map(|p| p.to_string_lossy().into_owned())
 }
 
-/// 手动选择 openobs-mcp 二进制(系统文件对话框)。
+/// 手动选择 open-llm-wiki-mcp 二进制(系统文件对话框)。
 #[tauri::command]
 pub async fn onboard_pick_binary(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
@@ -249,15 +259,15 @@ pub async fn onboard_pick_binary(app: tauri::AppHandle) -> Result<Option<String>
 mod tests {
     use super::*;
 
-    /// 同目录优先:fake app exe 旁放一个 openobs-mcp → 命中同目录。
+    /// 同目录优先:fake app exe 旁放一个 open-llm-wiki-mcp → 命中同目录。
     #[test]
     fn resolve_binary_prefers_sibling_of_app_exe() {
         let dir = tempfile::TempDir::new().unwrap();
-        let app_exe = dir.path().join("openobs-app");
+        let app_exe = dir.path().join("open-llm-wiki-app");
         std::fs::write(&app_exe, "").unwrap();
-        std::fs::write(dir.path().join("openobs-mcp"), "").unwrap();
+        std::fs::write(dir.path().join("open-llm-wiki-mcp"), "").unwrap();
         let got = resolve_mcp_binary_from(&app_exe).expect("sibling should win");
-        assert!(got.ends_with("openobs-mcp"), "got: {got:?}");
+        assert!(got.ends_with("open-llm-wiki-mcp"), "got: {got:?}");
         assert_eq!(
             got.parent().unwrap(),
             dir.path().canonicalize().unwrap(),

@@ -89,7 +89,7 @@ describe("parsePluginMessage", () => {
 describe("paths", () => {
   it("entry path", () => {
     expect(pluginEntryPath("hello", "main.js")).toBe(
-      ".openobs/plugins/hello/main.js",
+      ".open-llm-wiki/plugins/hello/main.js",
     );
   });
 });

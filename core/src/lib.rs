@@ -1,4 +1,4 @@
-//! openobs-core —— OpenObsidian 的纯逻辑内核。
+//! open-llm-wiki-core —— Open LLM Wiki 的纯逻辑内核。
 //!
 //! 全部 IO-free、纯函数、穷尽单测。设计见 `docs/02-architecture.md` 与 `docs/03-data-model.md`。
 //! 分层铁律:本 crate 不碰文件系统、不碰网络、不碰时间。所有副作用在 `app` 层。

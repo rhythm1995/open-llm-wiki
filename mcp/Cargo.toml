@@ -1,22 +1,22 @@
 [package]
-name = "openobs-mcp"
+name = "open-llm-wiki-mcp"
 version = "0.1.0"
-description = "OpenObsidian MCP server — stdio tools over openobs-core + vault fs"
-authors = ["OpenObsidian contributors"]
-license = "MIT"
+description = "Open LLM Wiki MCP server — stdio tools over open-llm-wiki-core + vault fs"
+authors = ["Open LLM Wiki contributors"]
+license = "Apache-2.0"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "openobs_mcp"
+name = "open_llm_wiki_mcp"
 path = "src/lib.rs"
 
 [[bin]]
-name = "openobs-mcp"
+name = "open-llm-wiki-mcp"
 path = "src/main.rs"
 
 [dependencies]
-openobs-core = { path = "../core" }
+open-llm-wiki-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }
 # preserve_order:upsert agent 配置(如 ~/.claude.json 这类多 MB 活体状态文件)
 # 时不得重排用户键序——解析→插键→序列化保持原顺序。

@@ -1,6 +1,6 @@
-# OpenObsidian
+# Open LLM Wiki
 
-本地优先、文件即真相、MIT 许可的知识管理桌面应用 —— 你的纯 Markdown 文件是唯一真相。双模编辑器、Cytoscape 图谱、Excalidraw 画布、Sheet 表格,集成 git 与内置 MCP server,全部跑在你自己的机器上,无需账号、无云同步。
+本地优先、文件即真相、Apache 2.0 许可的知识管理桌面应用 —— 你的纯 Markdown 文件是唯一真相。双模编辑器、Cytoscape 图谱、Excalidraw 画布、Sheet 表格,集成 git 与内置 MCP server,全部跑在你自己的机器上,无需账号、无云同步。
 
 <!-- README-I18N:START -->
 
@@ -29,11 +29,11 @@
 ### 方式 A —— 从源码构建(当前可用)
 
 ```bash
-git clone https://github.com/rhythm1995/OpenObsidian.git
-cd OpenObsidian
+git clone https://github.com/rhythm1995/Open LLM Wiki.git
+cd Open LLM Wiki
 pnpm install --dir ui
-pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/OpenObsidian.app
-open target/release/bundle/macos/OpenObsidian.app
+pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/Open LLM Wiki.app
+open target/release/bundle/macos/Open LLM Wiki.app
 ```
 
 浏览器开发预览(实时重载,内存 mock 后端,无需编译 Rust):
@@ -52,13 +52,13 @@ ui/node_modules/.bin/tauri dev
 
 ### 方式 B —— 下载预编译版(发布后)
 
-发布后从 [Releases](https://github.com/rhythm1995/OpenObsidian/releases) 取 `OpenObsidian.app`:
+发布后从 [Releases](https://github.com/rhythm1995/Open LLM Wiki/releases) 取 `Open LLM Wiki.app`:
 
 - **macOS**:拖入 `/Applications`;若已存在选「替换」。构建**未签名**,首次运行被 Gatekeeper 拦 —— 系统设置 → 隐私与安全性 → 仍要打开,或:
   ```bash
-  xattr -cr /Applications/OpenObsidian.app
+  xattr -cr /Applications/Open LLM Wiki.app
   ```
-  需 macOS 10.15+。Bundle ID 固定为 `dev.openobsidian.desktop`,**请直接替换旧版**,勿并排留存多个「OpenObsidian」。本地偏好(localStorage / 配置)**替换 .app 不会被清**。
+  需 macOS 10.15+。Bundle ID 固定为 `dev.openllmwiki.desktop`,**请直接替换旧版**,勿并排留存多个「Open LLM Wiki」。本地偏好(localStorage / 配置)**替换 .app 不会被清**。
 
 ## 配置
 
@@ -99,7 +99,7 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 ## 贡献
 
-本项目是**原创、独立的实现**,MIT 许可。**红线:绝不把 GPL/AGPL 等 copyleft 源码(逐字或近似逐字)引入本仓库**——那会让「MIT 许可」落空。只参考公开的思想、架构与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
+本项目是**原创、独立的实现**,Apache 2.0 许可。**红线:绝不把 GPL/AGPL 等 copyleft 源码(逐字或近似逐字)引入本仓库**——那会让「Apache 2.0 许可」落空。只参考公开的思想、架构与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
 
 - 已做功能:[docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - 路线图 / 待办:[docs/backlog.md](./docs/backlog.md)
@@ -114,4 +114,4 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 ## 许可
 
-[MIT](./LICENSE)。依赖清单见 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md)。画布用 [Excalidraw](https://github.com/excalidraw/excalidraw)(MIT);BlockNote 为 MPL-2.0。
+[Apache-2.0](./LICENSE)。依赖清单见 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md)。画布用 [Excalidraw](https://github.com/excalidraw/excalidraw)(MIT);BlockNote 为 MPL-2.0。

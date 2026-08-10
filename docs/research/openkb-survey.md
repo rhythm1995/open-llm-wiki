@@ -16,7 +16,7 @@
 5. **旗舰产出是 Skill Factory**:`openkb skill new <name> "<intent>"` 把 Wiki 蒸馏为可分发的 Anthropic `SKILL.md`（Claude Code / Codex / Gemini CLI 原生可装），“丢进一本书，产出一个数字专家”。Deck（单文件 HTML 演示）与 Visualize（自包含知识图谱）复用同一 `Generator` 抽象。
 6. **工程亮点**:`openkb/locks.py` + `openkb/mutation.py`（staging + snapshot + `track_new()` 精确 blob 追踪）的 crash-safe 原子写入；`openkb/config.py` 集中的 `entity_types/extra_headers/timeout/litellm:*` 校验与进程级注入；AGPL 洁癖之外的 **精确 pin 依赖**（供应链安全）；`<800 行` 模块纪律（`tests/test_file_size.py` 门）。
 7. **代价**:每新增一文档触发 N+M 次 LLM 调用（summary + concepts plan + 并发重写多页），冷启动成本高；概念抽取/去重/交叉链接全靠 prompt，漂移需 `lint --fix` 修；长文仅支持 PDF，非 PDF 长文、嵌套目录、海量库分层索引、DB 引擎均在 roadmap 未实现。
-8. **对 OpenObsidian 的启示**:OpenObsidian 的 Tauri 薄壳 + Rust core（解析/图谱/QQL，IO-free）+ React 前端与 OpenKB 的 CLI 编译器**互补而非竞争**。可借鉴项集中在契约与健壮性（OKF frontmatter、实体抽取、增量物化思想、原子写入），**不建议**将 `pageindex/litellm/openai-agents` 重依赖引入 `core`。
+8. **对 Open LLM Wiki 的启示**:Open LLM Wiki 的 Tauri 薄壳 + Rust core（解析/图谱/QQL，IO-free）+ React 前端与 OpenKB 的 CLI 编译器**互补而非竞争**。可借鉴项集中在契约与健壮性（OKF frontmatter、实体抽取、增量物化思想、原子写入），**不建议**将 `pageindex/litellm/openai-agents` 重依赖引入 `core`。
 
 ---
 
@@ -76,7 +76,7 @@ PDF/Word/PPT/Excel/HTML/MD/URL ─┬─ markitdown(短) ─┐                 
 - **Layer 1 Wiki Foundation** — 编译与维护（`init / add / list / status / watch / lint / remove / recompile / feedback`）
 - **Layer 2 Generators** — 消费 Wiki 产生价值（`query / chat / skill / deck / visualize`）
 
-`wiki/` 是唯一真相（plain Markdown + wikilink），生成器只读它——这与 OpenObsidian “文件即真相”的 vault 定位同构。
+`wiki/` 是唯一真相（plain Markdown + wikilink），生成器只读它——这与 Open LLM Wiki “文件即真相”的 vault 定位同构。
 
 ### 3.2 短 vs 长文档分流（`pageindex_threshold: 20`）
 
@@ -160,7 +160,7 @@ Step5 代码侧: 给 related 页追加 See also: [[summaries/doc]]，更新 inde
 
 ### 4.5 可视化 `openkb/visualize.py` + `templates/graph.html`
 
-`build_graph()` 扫 `PAGE_CONTENT_DIRS` 抽 `[[wikilink]]` 构有向图（去重、去自环，`_normalize_target` 归一），`render_html()` 注入 `__GRAPH_DATA__` 到单文件自包含 HTML（3D/思维导图/放射视图），输出 `output/visualize/graph.html`。与 OpenObsidian 的 `GraphView`（`force-graph` + d3-force）形成对照——两者皆为 wikilink 图，但 OpenKB 为**离线静态产物**，OpenObsidian 为**交互式实时视图**。
+`build_graph()` 扫 `PAGE_CONTENT_DIRS` 抽 `[[wikilink]]` 构有向图（去重、去自环，`_normalize_target` 归一），`render_html()` 注入 `__GRAPH_DATA__` 到单文件自包含 HTML（3D/思维导图/放射视图），输出 `output/visualize/graph.html`。与 Open LLM Wiki 的 `GraphView`（`force-graph` + d3-force）形成对照——两者皆为 wikilink 图，但 OpenKB 为**离线静态产物**，Open LLM Wiki 为**交互式实时视图**。
 
 ### 4.6 工程健壮性
 
@@ -206,7 +206,7 @@ openai-agents==0.17.3               # Agent 框架
 click / watchdog / pyyaml / python-dotenv / json-repair / prompt_toolkit / rich / portalocker
 ```
 
-依赖全部**精确 pin**（`pyproject.toml` 注释明示供应链安全考量，`litellm` 曾有投毒事件），升级需审计。`THIRD_PARTY_NOTICES` 登记义务与 OpenObsidian 同。
+依赖全部**精确 pin**（`pyproject.toml` 注释明示供应链安全考量，`litellm` 曾有投毒事件），升级需审计。`THIRD_PARTY_NOTICES` 登记义务与 Open LLM Wiki 同。
 
 ---
 
@@ -235,11 +235,11 @@ click / watchdog / pyyaml / python-dotenv / json-repair / prompt_toolkit / rich 
 
 ---
 
-## 8. 对照 OpenObsidian: 差距 / 启示 / 可借鉴点
+## 8. 对照 Open LLM Wiki: 差距 / 启示 / 可借鉴点
 
 ### 8.1 架构对照
 
-| 维度 | OpenKB | OpenObsidian |
+| 维度 | OpenKB | Open LLM Wiki |
 |---|---|---|
 | 形态 | CLI 编译器 | Tauri 2 桌面 app（Rust core + React 前端） |
 | 真相源 | `wiki/` Markdown + wikilink | vault 文件 + git 版本真相 |
@@ -248,7 +248,7 @@ click / watchdog / pyyaml / python-dotenv / json-repair / prompt_toolkit / rich 
 | 检索 | 结构 + LLM 推理 | 词法 + 结构 + QQL（P6-5 默认关向量） |
 | 产出 | Skill / Deck / 图谱静态 HTML | 交互式 GraphView / 实时查询面板 |
 
-两者**互补而非竞争**：OpenKB 负责重型编译与分发，OpenObsidian 负责轻量可视化与实时查询；`wiki/` 可直接作为 OpenObsidian 的 vault 打开，零迁移成本。
+两者**互补而非竞争**：OpenKB 负责重型编译与分发，Open LLM Wiki 负责轻量可视化与实时查询；`wiki/` 可直接作为 Open LLM Wiki 的 vault 打开，零迁移成本。
 
 ### 8.2 可借鉴（按收益/成本排序）
 
@@ -264,7 +264,7 @@ click / watchdog / pyyaml / python-dotenv / json-repair / prompt_toolkit / rich 
 ### 8.3 不建议直接引入
 
 - `pageindex / litellm / openai-agents` 重依赖会污染 `core` 的 IO-free 纯函数定位；如需长文检索，建议在 `app` 层可选集成（feature gate），而非进 `core`。
-- `markitdown/trafilatura` 的文档转换能力与 OpenObsidian 的 vault 场景重叠度低，暂无引入必要。
+- `markitdown/trafilatura` 的文档转换能力与 Open LLM Wiki 的 vault 场景重叠度低，暂无引入必要。
 
 ---
 
@@ -274,18 +274,18 @@ click / watchdog / pyyaml / python-dotenv / json-repair / prompt_toolkit / rich 
 
 **约定层**（成本最低）:
 
-- 将 OKF `type/description/sources` 契约与 OWF-1 `format: owf/1` 声明对齐，使 OpenKB 产出的 Wiki 可被 OpenObsidian 无改动打开；反之亦然。
-- `entity_types` 可配机制可作为 OpenObsidian `templates/wiki-starter` 的实体类型扩展参考。
+- 将 OKF `type/description/sources` 契约与 OWF-1 `format: owf/1` 声明对齐，使 OpenKB 产出的 Wiki 可被 Open LLM Wiki 无改动打开；反之亦然。
+- `entity_types` 可配机制可作为 Open LLM Wiki `templates/wiki-starter` 的实体类型扩展参考。
 
 **工具层**:
 
-- `lint` 的图结构检查（dead/orphans/hubs/suggest）与 OpenObsidian `B-WIKI-LINT-CORE`（`core/src/lint.rs` 四条启发式）互补——前者检链接完整性，后者检语义一致性（`contradicts↔Contested` 等），可互为补充。
-- `watch raw/ → auto-compile` 的 `watchdog` 模式可作为 OpenObsidian `watcher`（`vault-watch.ts`）的参考实现。
+- `lint` 的图结构检查（dead/orphans/hubs/suggest）与 Open LLM Wiki `B-WIKI-LINT-CORE`（`core/src/lint.rs` 四条启发式）互补——前者检链接完整性，后者检语义一致性（`contradicts↔Contested` 等），可互为补充。
+- `watch raw/ → auto-compile` 的 `watchdog` 模式可作为 Open LLM Wiki `watcher`（`vault-watch.ts`）的参考实现。
 
 **工作流层**:
 
-- “Query → 回填”（好答案归档为 `explorations/`）与 OpenObsidian `docs/14` 的 Ingest/Research/Consolidate 飞轮同构，缺的只是工作流文档（`B-WIKI-AGENT-DOC`）。
-- “对话 → vault 蒸馏”管道（Letta sleep-time / A-MEM Memory Evolution）在 OpenKB 中体现为 `entities/concepts` 的增量更新，在 OpenObsidian 中对应 [conversation-to-vault-distillation.md](./conversation-to-vault-distillation.md) 的显式管道——两者可互相印证固化时机设计。
+- “Query → 回填”（好答案归档为 `explorations/`）与 Open LLM Wiki `docs/14` 的 Ingest/Research/Consolidate 飞轮同构，缺的只是工作流文档（`B-WIKI-AGENT-DOC`）。
+- “对话 → vault 蒸馏”管道（Letta sleep-time / A-MEM Memory Evolution）在 OpenKB 中体现为 `entities/concepts` 的增量更新，在 Open LLM Wiki 中对应 [conversation-to-vault-distillation.md](./conversation-to-vault-distillation.md) 的显式管道——两者可互相印证固化时机设计。
 
 **检索层**（远期、条件触发）:
 

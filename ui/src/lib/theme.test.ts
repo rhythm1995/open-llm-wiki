@@ -34,7 +34,7 @@ describe("theme logic", () => {
 
   describe("THEME_STORAGE_KEY", () => {
     it("是稳定的存储键名", () => {
-      expect(THEME_STORAGE_KEY).toBe("openobs.theme");
+      expect(THEME_STORAGE_KEY).toBe("open-llm-wiki.theme");
     });
   });
 });

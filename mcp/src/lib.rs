@@ -1,4 +1,4 @@
-//! openobs-mcp 库面。
+//! open-llm-wiki-mcp 库面。
 //!
 //! - [`list_md`]:vault `.md` 枚举(与桌面 app 同一条隐藏规则),服务器与 onboarding 共用;
 //! - [`onboard`]:本地 agent 探测与接线(B-MCP-ONBOARD)。CLI 子命令(setup / doctor / init)
@@ -11,7 +11,7 @@ pub mod onboard;
 
 /// 枚举 vault 下 `.md` 文件的相对路径(排序后)。
 ///
-/// 跳过任何含 `.` 开头分量的路径(`.git` / `.openobsidian` / `.trash` 等)——
+/// 跳过任何含 `.` 开头分量的路径(`.git` / `.open-llm-wiki` / `.trash` 等)——
 /// 与桌面 app 的隐藏规则一致。
 pub fn list_md(root: &Path) -> Result<Vec<String>, String> {
     if !root.is_dir() {

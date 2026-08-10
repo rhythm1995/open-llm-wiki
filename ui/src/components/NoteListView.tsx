@@ -165,7 +165,7 @@ export function NoteListView({
                 <button
                   draggable
                   onDragStart={(e) => {
-                    e.dataTransfer.setData("application/x-openobs-note", n.path);
+                    e.dataTransfer.setData("application/x-open-llm-wiki-note", n.path);
                     e.dataTransfer.setData("text/plain", n.path);
                     e.dataTransfer.effectAllowed = "move";
                   }}

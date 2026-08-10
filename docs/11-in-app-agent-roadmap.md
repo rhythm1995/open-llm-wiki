@@ -10,7 +10,7 @@
 > |---|---|---|---|
 > | [inkeep/open-knowledge](https://github.com/inkeep/open-knowledge) | **GPL-3.0** | Agent 面**概念与 UX 心智**:线程模型、权限三档、活动面板、增量折叠渲染、移交语义 | **任何源码 / TS / React / CSS / 注释零拷贝**;不跟 TipTap/Yjs/Orama 主栈 |
 > | ACP 协议规范 + `agent-client-protocol` Rust SDK | Apache-2.0(实现前以 crates.io / 上游为准复核) | 协议契约、Rust client trait | —(合法依赖) |
-> | Agent CLI 们(claude / codex / cursor / gemini / opencode …) | 各自 | 用户**自装自配**,经 ACP 接入 | **绝不进入 OpenObsidian 分发物**;我们不分发、不打包任何 agent |
+> | Agent CLI 们(claude / codex / cursor / gemini / opencode …) | 各自 | 用户**自装自配**,经 ACP 接入 | **绝不进入 Open LLM Wiki 分发物**;我们不分发、不打包任何 agent |
 >
 > 一句话:**协议层可依赖,GPL 项目只取概念,agent 二进制不随包。**
 
@@ -27,8 +27,8 @@
 
 | | 外部 agent(doc 12 §6B) | 应用内 agent(本文) |
 |---|---|---|
-| 方向 | OpenObsidian = **MCP server**,被动等连 | OpenObsidian = **ACP client**,主动拉起 agent 子进程 |
-| 宿主 | Claude Desktop / Cursor / 任意 MCP 客户端 | OpenObsidian 自己的侧栏 |
+| 方向 | Open LLM Wiki = **MCP server**,被动等连 | Open LLM Wiki = **ACP client**,主动拉起 agent 子进程 |
+| 宿主 | Claude Desktop / Cursor / 任意 MCP 客户端 | Open LLM Wiki 自己的侧栏 |
 | 上下文 | 客户端自带,我们只给工具 | 我们要管对话、转录、移交 |
 | 当前状态 | MCP 已落地(7 工具:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`;README/backlog 口径仍写 6,见 §9.8) | **完全空白**——这是要补的差距 |
 
@@ -172,7 +172,7 @@ inkeep 的活动面板有两层,我们只取其**可移植**的那层:
 - **增量折叠 + copy-on-write 渲染模型**:流式输出时,已渲染的稳定段落不重绘,只追加增量——避免长对话卡顿。这是渲染策略,不是协议。
 - **permissive-mode 琥珀点**:宽松权限模式开启时,UI 给一个常驻视觉提示(琥珀色点),让人意识到「现在 agent 写东西不问你了」。
 - **handoff dispatcher**:N 个入口(命令面板 / Composer 斜杠 / picker / 活动条)× M 个目标(各 agent)的组合,统一走一个 dispatcher,避免散落实现。对应 §2.4 的「移交」动作。
-- **高危操作始终门控(2026-08-04 重映射)**:inkeep 的五类(delete / move / share_link / install / import)是它自家表面,开工时须映射到 OpenObsidian——至少 **笔记删除、重命名/移动、破坏性覆盖** 恒门控,无论权限模式多宽松。**点破存在理由**:vault 内容会进 agent 上下文,即 **不可信输入**——恶意笔记诱导 agent 写/删(prompt injection)是真实攻击面,这些门控就是为它存在的。
+- **高危操作始终门控(2026-08-04 重映射)**:inkeep 的五类(delete / move / share_link / install / import)是它自家表面,开工时须映射到 Open LLM Wiki——至少 **笔记删除、重命名/移动、破坏性覆盖** 恒门控,无论权限模式多宽松。**点破存在理由**:vault 内容会进 agent 上下文,即 **不可信输入**——恶意笔记诱导 agent 写/删(prompt injection)是真实攻击面,这些门控就是为它存在的。
 
 ---
 
@@ -250,7 +250,7 @@ Phase 7 已完工:第一版 **Tier 1 + 完整 Tier 2** 全部落代码、自测�
 - **Model C 跨 agent 移交(B-AGENT-CTX-MODELC)**:线程绑 agent 骨干;picker 切 agent = 新线程;显式「移交」把当前线程归一化(`normalizeForHandoff`:留 user/agent 文本 + vault 上下文,工具压一行,丢 thinking/permission)为新 agent 新线程的首条 user 消息,不伪造跨 agent assistant 历史。
 - **转录持久化(B-AGENT-TRANSCRIPT 完整)**:`app/src-tauri/src/transcript.rs` + SQLite(bundled),**threads 表 + messages + raw_blob + WAL**;每 vault 一 db 落 app data 目录(不进 vault/git);挂载回放最近线程 + user/agent/tool/error 边界落库。
 - **权限三档(B-AGENT-PERM 完整)**:正常模式逐次 approve/deny;**宽松模式**(permissive)非高危自动放行 + 头部琥珀点常驻提示;**高危操作**(删除/重命名/移动/破坏性覆盖,启发式)恒门控,无论模式。
-- **git 归因活动面板(B-AGENT-GIT-ATTR,Tier 1 + 完整)**:`app/src-tauri/src/git_attr.rs` + `ui/src/components/AgentActivity.tsx`。turn 前后各打一次快照进 `refs/agents/<id>`(**不动 HEAD**、临时 index 不污染用户暂存区);**影子仓库**(非 git vault → `<vault>/.openobsidian/agent-shadow.git`,vault 零 `.git` 污染);活动面板列 post-turn 写入、看 diff、**采纳(只提交该轮文件入 HEAD,不带走用户暂存的其它改动)/ 撤销(`git apply --reverse` 回工作树)**。
+- **git 归因活动面板(B-AGENT-GIT-ATTR,Tier 1 + 完整)**:`app/src-tauri/src/git_attr.rs` + `ui/src/components/AgentActivity.tsx`。turn 前后各打一次快照进 `refs/agents/<id>`(**不动 HEAD**、临时 index 不污染用户暂存区);**影子仓库**(非 git vault → `<vault>/.open-llm-wiki/agent-shadow.git`,vault 零 `.git` 污染);活动面板列 post-turn 写入、看 diff、**采纳(只提交该轮文件入 HEAD,不带走用户暂存的其它改动)/ 撤销(`git apply --reverse` 回工作树)**。
 - **区4 tab 化 + 通用栏宽拖拽(B-AGENT-RIGHTCOL-TABS / B-COL-RESIZE)**:Inspector \| Agent tab;三栏可拖拽调宽并持久化。
 
 ### 完工复核 · 补齐的 9 项(2026-08-04)

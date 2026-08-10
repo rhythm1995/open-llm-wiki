@@ -9,7 +9,7 @@
 | 层 | 实际选型 | 为什么 |
 |---|---|---|
 | 桌面外壳 | **Tauri 2.5+**(`@tauri-apps/api`/`cli`/`plugin-dialog`) | 比 Electron 轻 10x+,Rust 后端,原生文件/性能。Obsidian 用 Electron;用 Tauri 是结构性差异。 |
-| 后端 / 核心 | **Rust**(`openobs-core` crate) | 性能关键路径(解析、图谱、查询)放这。纯逻辑、IO-free、全测试,TDD 心脏。 |
+| 后端 / 核心 | **Rust**(`open-llm-wiki-core` crate) | 性能关键路径(解析、图谱、查询)放这。纯逻辑、IO-free、全测试,TDD 心脏。 |
 | 前端 | **React 19.1 + TypeScript 5.9 + Vite 7** | 生态成熟、类型安全。 |
 | 样式 | **Tailwind CSS 4**(`@tailwindcss/vite`)+ 语义令牌 | 原子化样式;主题靠 `@theme` 的 CSS 变量切换,组件只引用令牌。 |
 | UI 组件 | **少量 Radix**(dialog / dropdown-menu / tabs / tooltip)+ **shadcn 模式**(cva/clsx/tailwind-merge)+ **Phosphor icons** | 无障碍的交互组件用 Radix;展示型组件自实现,降依赖体积。 |
@@ -25,7 +25,7 @@
 ## 仓库布局(Cargo workspace + 前端)
 
 ```
-OpenObsidian/
+Open LLM Wiki/
 ├── Cargo.toml            ← workspace 根:members = [core, app/src-tauri]
 ├── core/                 ← Rust crate:纯逻辑(解析/图谱/查询/检索),IO-free,TDD 心脏
 │   └── src/{lib,parse,index,graph,qql,query,search,vault}.rs

@@ -1,7 +1,7 @@
-//! openobs-app —— Tauri 桌面壳。
+//! open-llm-wiki-app —— Tauri 桌面壳。
 //!
 //! 薄薄的 IO 层:把文件系统读写 + 目录选择暴露成 Tauri 命令,真正的逻辑(解析/图谱/查询/检索)
-//! 全部委托给 `openobs-core`。前端通过 `@tauri-apps/api` 的 invoke 调用这些命令。
+//! 全部委托给 `open-llm-wiki-core`。前端通过 `@tauri-apps/api` 的 invoke 调用这些命令。
 //!
 //! 设计原则:命令函数只做 IO 与 core 之间的胶水,不写业务逻辑。
 
@@ -20,7 +20,7 @@ use std::thread;
 use std::time::Duration;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use openobs_core::{
+use open_llm_wiki_core::{
     apply_entry_deltas, frontmatter_str, lint_all, parse_query, tags as note_tags, type_of,
     EdgeKind, LintReport, ResultSet, Target, VaultIndex,
 };
@@ -155,7 +155,7 @@ struct LiveVault {
     /// 相对 path → 正文(.md only)。
     entries: BTreeMap<String, String>,
     index: VaultIndex,
-    media: openobs_core::MediaIndex,
+    media: open_llm_wiki_core::MediaIndex,
 }
 
 struct LiveVaultState(Mutex<Option<LiveVault>>);
@@ -176,9 +176,9 @@ fn normalize_rel(path: &str) -> String {
 }
 
 /// 磁盘图片 → MediaMeta(仅图片扩展名;点目录已由 walk filter 排除)。
-fn media_meta_from_path(root: &Path, abs: &Path) -> Option<openobs_core::MediaMeta> {
+fn media_meta_from_path(root: &Path, abs: &Path) -> Option<open_llm_wiki_core::MediaMeta> {
     let rel = normalize_rel(&abs.strip_prefix(root).unwrap_or(abs).to_string_lossy());
-    if rel.is_empty() || !openobs_core::is_image_path(&rel) {
+    if rel.is_empty() || !open_llm_wiki_core::is_image_path(&rel) {
         return None;
     }
     let meta = fs::metadata(abs).ok()?;
@@ -188,9 +188,9 @@ fn media_meta_from_path(root: &Path, abs: &Path) -> Option<openobs_core::MediaMe
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    Some(openobs_core::MediaMeta {
+    Some(open_llm_wiki_core::MediaMeta {
         path: rel.clone(),
-        kind: openobs_core::kind_from_path(&rel),
+        kind: open_llm_wiki_core::kind_from_path(&rel),
         bytes: meta.len(),
         mtime_ms,
     })
@@ -203,8 +203,8 @@ fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
         return Err(format!("不是目录:{root}"));
     }
     let mut entries: BTreeMap<String, String> = BTreeMap::new();
-    let mut media_files: Vec<openobs_core::MediaMeta> = Vec::new();
-    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian、.openobsidian 等)。
+    let mut media_files: Vec<open_llm_wiki_core::MediaMeta> = Vec::new();
+    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian、.open-llm-wiki 等)。
     for entry in WalkDir::new(root_path)
         .min_depth(1)
         .into_iter()
@@ -228,7 +228,7 @@ fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
         }
     }
     let index = VaultIndex::build_from_map(&entries);
-    let media = openobs_core::MediaIndex::build(
+    let media = open_llm_wiki_core::MediaIndex::build(
         media_files,
         entries
             .iter()
@@ -276,7 +276,7 @@ fn live_apply(
 /// 登记/刷新单张磁盘图片进 media files 表。
 fn live_media_upsert_file(live: &mut LiveVault, root: &str, rel: &str) {
     let rel = normalize_rel(rel);
-    if !openobs_core::is_image_path(&rel) {
+    if !open_llm_wiki_core::is_image_path(&rel) {
         return;
     }
     let Ok(full) = resolve_under(root, &rel) else {
@@ -466,10 +466,10 @@ fn write_note(
 
 /// 读取图谱布局快照(B-GRAPH-POS-PERSIST)。
 /// 文件缺失 → `Ok(None)`(首次启动 / 未落盘)。其余 IO 错误透传。
-/// 路径固定为 `<root>/.openobsidian/graph-layout.json`(默认 gitignore,见 P6-7)。
+/// 路径固定为 `<root>/.open-llm-wiki/graph-layout.json`(默认 gitignore,见 P6-7)。
 #[tauri::command]
 fn read_graph_layout(root: String) -> Result<Option<String>, String> {
-    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    let full = resolve_under(&root, ".open-llm-wiki/graph-layout.json")?;
     match fs::read_to_string(&full) {
         Ok(s) => Ok(Some(s)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -477,10 +477,10 @@ fn read_graph_layout(root: String) -> Result<Option<String>, String> {
     }
 }
 
-/// 写入图谱布局快照(自动创建 `.openobsidian/` 目录)。
+/// 写入图谱布局快照(自动创建 `.open-llm-wiki/` 目录)。
 #[tauri::command]
 fn save_graph_layout(root: String, json: String) -> Result<(), String> {
-    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    let full = resolve_under(&root, ".open-llm-wiki/graph-layout.json")?;
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
@@ -607,10 +607,10 @@ struct MediaSnapshot {
     missing: Vec<String>,
 }
 
-fn media_meta_out(ix: &openobs_core::MediaIndex, m: &openobs_core::MediaMeta) -> MediaMetaOut {
+fn media_meta_out(ix: &open_llm_wiki_core::MediaIndex, m: &open_llm_wiki_core::MediaMeta) -> MediaMetaOut {
     let kind = match m.kind {
-        openobs_core::MediaKind::Image => "image",
-        openobs_core::MediaKind::Other => "other",
+        open_llm_wiki_core::MediaKind::Image => "image",
+        open_llm_wiki_core::MediaKind::Other => "other",
     };
     MediaMetaOut {
         path: m.path.clone(),
@@ -694,7 +694,7 @@ fn media_used_by(
     Ok(live.media.used_by(&path))
 }
 
-/// 将附件移入 `.openobsidian/media-trash/`(可还原目录树),并更新 media files 表。
+/// 将附件移入 `.open-llm-wiki/media-trash/`(可还原目录树),并更新 media files 表。
 /// **不**在 delete_note 时自动调用——需 UI 确认后调用。
 #[tauri::command]
 fn trash_attachments(
@@ -720,7 +720,7 @@ fn trash_attachments(
             }
             continue;
         }
-        let trash_rel = format!(".openobsidian/media-trash/{rel}");
+        let trash_rel = format!(".open-llm-wiki/media-trash/{rel}");
         let dst = resolve_under(&root, &trash_rel)?;
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent).map_err(err)?;
@@ -933,7 +933,7 @@ fn rename_note(
                                 .map(|m| m.path)
                                 .collect();
                             // media_of 已因 entries 移除? by_note 仍 keyed by from_n until apply
-                            let moves = openobs_core::plan_media_moves_on_note_rename(
+                            let moves = open_llm_wiki_core::plan_media_moves_on_note_rename(
                                 &from_n,
                                 &to_n,
                                 media_list,
@@ -942,7 +942,7 @@ fn rename_note(
                             let mut new_body = body;
                             if !moves.is_empty() {
                                 new_body =
-                                    openobs_core::rewrite_media_paths_in_body(&new_body, &moves);
+                                    open_llm_wiki_core::rewrite_media_paths_in_body(&new_body, &moves);
                                 for m in &moves {
                                     let msrc = resolve_under(&root, &m.from)?;
                                     let mdst = resolve_under(&root, &m.to)?;
@@ -1178,6 +1178,137 @@ async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
         },
         path.as_ref()
             .map(|p| serde_json::json!({ "path": p })),
+    );
+    Ok(path)
+}
+
+/// 用户 Documents 目录(无 crate 依赖;HOME/USERPROFILE + Documents)。
+fn documents_dir() -> Result<std::path::PathBuf, String> {
+    if let Ok(d) = std::env::var("OPEN_LLM_WIKI_DOCUMENTS") {
+        // 测试 / 可控环境可覆盖落盘位置。
+        return Ok(std::path::PathBuf::from(d));
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(p) = std::env::var("USERPROFILE") {
+            return Ok(std::path::PathBuf::from(p).join("Documents"));
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return Ok(std::path::PathBuf::from(home).join("Documents"));
+        }
+    }
+    Err("cannot resolve Documents directory".into())
+}
+
+/// 首次启动示例库种子文件(与 ui `sample-vault.ts` 对齐,双语欢迎向)。
+fn sample_vault_seed_files() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (
+            "Welcome.md",
+            r#"---
+type: Note
+tags: [meta]
+---
+
+# Welcome
+
+这是 **Open LLM Wiki** 的示例知识库。
+
+- 本地优先:文件即真相,目录就是 Vault
+- 用 `[[wikilink]]` 连接笔记,打开 **图谱** 看网络
+- 从左侧列表选笔记,或新建一篇开始
+
+从这里开始:
+
+- 概念 [[Local First]]
+- 概念 [[Knowledge Graph]]
+- 来源 [[Example Source]]
+"#,
+        ),
+        (
+            "concepts/local-first.md",
+            r#"---
+type: Concept
+status: Active
+tags: [method]
+---
+
+# Local First
+
+数据留在你自己的磁盘上,而不是关进别人的云。
+
+Open LLM Wiki 把任意 Markdown 文件夹当作 Vault——可同步、可 git、可备份。
+
+相关:[[Knowledge Graph]] · [[Welcome]]
+"#,
+        ),
+        (
+            "concepts/knowledge-graph.md",
+            r#"---
+type: Concept
+status: Active
+tags: [method]
+---
+
+# Knowledge Graph
+
+笔记之间的链接构成一张图:节点是页面,边是 wikilink 与 frontmatter 关系。
+
+试试顶栏 **图谱**,双击节点打开笔记。
+
+相关:[[Local First]] · [[Example Source]] · [[Welcome]]
+"#,
+        ),
+        (
+            "sources/example-source.md",
+            r#"---
+type: Source
+evidence_tier: analysis
+tags: [example]
+---
+
+# Example Source
+
+示例「来源」页:记录你读过的文章、论文或对话,再蒸馏进 Concept / Entity。
+
+被 [[Knowledge Graph]] 与 [[Welcome]] 引用。
+"#,
+        ),
+    ]
+}
+
+/// 在 Documents 下创建「Open LLM Wiki Demo」示例 vault(重名则加序号),返回绝对路径。
+#[tauri::command]
+fn create_sample_vault() -> Result<String, String> {
+    let docs = documents_dir()?;
+    fs::create_dir_all(&docs).map_err(err)?;
+    let base = "Open LLM Wiki Demo";
+    let mut root = docs.join(base);
+    let mut n = 2u32;
+    while root.exists() {
+        root = docs.join(format!("{base} {n}"));
+        n += 1;
+        if n > 100 {
+            return Err("too many sample vaults already exist".into());
+        }
+    }
+    fs::create_dir_all(&root).map_err(err)?;
+    for (rel, content) in sample_vault_seed_files() {
+        let full = root.join(rel);
+        if let Some(parent) = full.parent() {
+            fs::create_dir_all(parent).map_err(err)?;
+        }
+        fs::write(&full, content).map_err(err)?;
+    }
+    let path = root.to_string_lossy().to_string();
+    logging::emit(
+        logging::LogLevel::Info,
+        "ipc.create_sample_vault",
+        "created",
+        Some(serde_json::json!({ "path": &path })),
     );
     Ok(path)
 }
@@ -1576,11 +1707,11 @@ pub fn run() {
             // B-AGENT-PATHFIX:GUI 启动 PATH 极简,先并回用户登录 PATH + 常见目录,
             // 否则 agent_list 检测 / AcpAgent spawn 都会失败。
             acp::augment_path();
-            // L1 客户端日志:AppLog 目录 + profile(env OPENOBS_LOG_PROFILE / debug→dev / release→prod)。
+            // L1 客户端日志:AppLog 目录 + profile(env OPEN_LLM_WIKI_LOG_PROFILE / debug→dev / release→prod)。
             let log_dir = app
                 .path()
                 .app_log_dir()
-                .unwrap_or_else(|_| std::env::temp_dir().join("openobsidian-logs"));
+                .unwrap_or_else(|_| std::env::temp_dir().join("open-llm-wiki-logs"));
             let profile = logging::resolve_profile_from_env();
             logging::init(log_dir, profile);
             logging::install_panic_hook();
@@ -1704,6 +1835,7 @@ pub fn run() {
             search_notes,
             lint_vault,
             pick_vault,
+            create_sample_vault,
             reveal_in_finder,
             diag_log,
             log_write,
@@ -1761,11 +1893,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_base64, is_md_rel, live_apply, load_live_from_disk, normalize_rel, path_should_emit,
-        preview_of, strip_data_url_base64, LiveVault,
+        create_sample_vault, decode_base64, is_md_rel, live_apply, load_live_from_disk,
+        normalize_rel, path_should_emit, preview_of, strip_data_url_base64, LiveVault,
     };
-    use openobs_core::{parse_query, ResultSet, VaultIndex};
+    use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
     use std::collections::BTreeMap;
+    use std::fs;
+
+    #[test]
+    fn create_sample_vault_writes_welcome() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        // SAFETY: test-only env for documents_dir override; single-threaded test process.
+        unsafe {
+            std::env::set_var("OPEN_LLM_WIKI_DOCUMENTS", tmp.path());
+        }
+        let path = create_sample_vault().expect("create sample");
+        let welcome = std::path::Path::new(&path).join("Welcome.md");
+        assert!(welcome.is_file(), "Welcome.md should exist at {path}");
+        let body = fs::read_to_string(&welcome).unwrap();
+        assert!(body.contains("Open LLM Wiki"));
+        assert!(body.contains("[[Local First]]"));
+        // second call gets a numbered folder
+        let path2 = create_sample_vault().expect("create sample 2");
+        assert_ne!(path, path2);
+        unsafe {
+            std::env::remove_var("OPEN_LLM_WIKI_DOCUMENTS");
+        }
+    }
 
     #[test]
     fn normalize_and_md_helpers() {
@@ -1842,7 +1996,7 @@ mod tests {
             root: "/tmp/v".into(),
             entries: BTreeMap::new(),
             index: VaultIndex::build(vec![]),
-            media: openobs_core::MediaIndex::new(),
+            media: open_llm_wiki_core::MediaIndex::new(),
         };
         live_apply(
             &mut live,
@@ -1884,7 +2038,7 @@ mod tests {
             root: "/tmp/v".into(),
             entries: BTreeMap::new(),
             index: VaultIndex::build(vec![]),
-            media: openobs_core::MediaIndex::new(),
+            media: open_llm_wiki_core::MediaIndex::new(),
         };
         live_apply(
             &mut live,
@@ -1902,7 +2056,7 @@ mod tests {
                 ),
             ],
         );
-        let report = openobs_core::lint_all(live.index.graph());
+        let report = open_llm_wiki_core::lint_all(live.index.graph());
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].subject.path, "a.md");
         assert_eq!(report.findings[0].other.as_ref().unwrap().path, "b.md");
@@ -1945,7 +2099,7 @@ mod git_tests {
         let root = dir.path().to_str().unwrap();
         // 先 init(空目录无内容可提交,失败被 git_init 静默吞掉),再设本地身份。
         git_init(root.to_string()).unwrap();
-        run_git(root, &["config", "user.email", "test@openobs.dev"]).unwrap();
+        run_git(root, &["config", "user.email", "test@openllmwiki.dev"]).unwrap();
         run_git(root, &["config", "user.name", "Test"]).unwrap();
         run_git(root, &["config", "commit.gpgsign", "false"]).unwrap();
         dir

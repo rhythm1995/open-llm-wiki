@@ -20,7 +20,7 @@
 - **渲染**:**Cytoscape.js**(懒加载 `CytoscapeLayer`)。力导向模式用内置 **cose** 布局;type 层 / 时间轴为 **preset** 坐标(`graph-modes`)。样式/簇色/环态在 `graph-style` / `graph-cluster`(纯逻辑可测)。大图 **top-K 按度数截断**(约 2000)。**已退役**:sigma/graphology WebGL、Worker FR、Barnes-Hut、LOD 网格簇、SVG 主路径。
 - **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停邻域高亮、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
 - **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 隐藏 unresolved / 文本 query / 深度 hops。
-- **实时**:LiveVault 路径级 delta + watcher;`structureSignature` 结构 gate;坐标可落盘(`.openobsidian/graph-layout.json`,默认 gitignore)。
+- **实时**:LiveVault 路径级 delta + watcher;`structureSignature` 结构 gate;坐标可落盘(`.open-llm-wiki/graph-layout.json`,默认 gitignore)。
 - **布局**:
   - ✅ 力导向(默认,cose + 力参数滑条)。
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。

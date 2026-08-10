@@ -80,7 +80,7 @@ interface Props {
   t: TFunc;
 }
 
-const NOTE_DRAG_MIME = "application/x-openobs-note";
+const NOTE_DRAG_MIME = "application/x-open-llm-wiki-note";
 
 export function Nav({
   entries,

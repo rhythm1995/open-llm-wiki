@@ -2,8 +2,8 @@ name: CI
 
 # 持续集成:每次 push / PR 跑核心逻辑测试 + 类型检查 + UI 测试 + App 集成测试。
 # 分两个 job 节省成本与失败隔离:
-#   core-and-ui —— 跑在便宜的 ubuntu 上(openobs-core 纯逻辑无系统依赖 + UI 纯 node)。
-#   app         —— 跑在 macOS 上(openobs-app 编译 tauri,需 webkit;git_tests 依赖系统 git)。
+#   core-and-ui —— 跑在便宜的 ubuntu 上(open-llm-wiki-core 纯逻辑无系统依赖 + UI 纯 node)。
+#   app         —— 跑在 macOS 上(open-llm-wiki-app 编译 tauri,需 webkit;git_tests 依赖系统 git)。
 
 on:
   push:
@@ -35,11 +35,11 @@ jobs:
       - name: Install frontend deps
         run: pnpm --dir ui install --frozen-lockfile
 
-      - name: Core logic tests (openobs-core)
-        run: cargo test -p openobs-core
+      - name: Core logic tests (open-llm-wiki-core)
+        run: cargo test -p open-llm-wiki-core
 
-      - name: MCP server tests (openobs-mcp)
-        run: cargo test -p openobs-mcp
+      - name: MCP server tests (open-llm-wiki-mcp)
+        run: cargo test -p open-llm-wiki-mcp
 
       - name: UI typecheck
         run: pnpm --dir ui typecheck
@@ -48,7 +48,7 @@ jobs:
         run: pnpm --dir ui test:cov
 
   app:
-    # openobs-app 编译 tauri 2:macOS 无需额外系统包(webkit 随 Xcode toolchain 提供),
+    # open-llm-wiki-app 编译 tauri 2:macOS 无需额外系统包(webkit 随 Xcode toolchain 提供),
     # 且 git_tests 依赖系统 git(macOS 自带)。ubuntu 上 tauri 编译需 webkit2gtk-4.1 等,
     # 故把 App 测试放 macOS 跑最省心。
     runs-on: macos-latest
@@ -78,8 +78,8 @@ jobs:
       - name: Build frontend (ui/dist)
         run: pnpm --dir ui build
 
-      - name: App integration tests (openobs-app, incl. git_tests)
-        run: cargo test -p openobs-app
+      - name: App integration tests (open-llm-wiki-app, incl. git_tests)
+        run: cargo test -p open-llm-wiki-app
 
   e2e:
     # 前端集成 e2e:web mock 模式(无 Tauri runtime),只需 chromium + vite dev server。

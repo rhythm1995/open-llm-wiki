@@ -1,9 +1,9 @@
 [package]
-name = "openobs-core"
+name = "open-llm-wiki-core"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
-description = "OpenObsidian core: pure, IO-free parsing / graph / query logic"
+license = "Apache-2.0"
+description = "Open LLM Wiki core: pure, IO-free parsing / graph / query logic"
 publish = false
 
 [lib]

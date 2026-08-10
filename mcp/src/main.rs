@@ -1,17 +1,17 @@
-//! openobs-mcp —— stdio MCP server(B-MCP v1)。
+//! open-llm-wiki-mcp —— stdio MCP server(B-MCP v1)。
 //!
 //! 让 agent 通过 Model Context Protocol 读写 vault。
 //! 传输:stdin/stdout JSON-RPC 2.0(Content-Length framing 可选;也接受 NDJSON 单行)。
 //!
 //! 用法:
-//!   openobs-mcp /path/to/vault
-//!   OPENOBS_VAULT=/path/to/vault openobs-mcp
+//!   open-llm-wiki-mcp /path/to/vault
+//!   OPEN_LLM_WIKI_VAULT=/path/to/vault open-llm-wiki-mcp
 //!
-//! onboarding 子命令(B-MCP-ONBOARD,逻辑在 lib `openobs_mcp::onboard`):
-//!   openobs-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
-//!   openobs-mcp doctor [--vault P]
-//!   openobs-mcp init <dir> [--force]
-//!   openobs-mcp help
+//! onboarding 子命令(B-MCP-ONBOARD,逻辑在 lib `open_llm_wiki_mcp::onboard`):
+//!   open-llm-wiki-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
+//!   open-llm-wiki-mcp doctor [--vault P]
+//!   open-llm-wiki-mcp init <dir> [--force]
+//!   open-llm-wiki-mcp help
 //!
 //! Tools: list_notes, read_note, write_note, search_notes, run_qql, vault_info, links, lint_vault
 //!
@@ -28,11 +28,11 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
-use openobs_core::{
+use open_llm_wiki_core::{
     lint_all, parse_query, EdgeKind, FindingKind, Graph, LintReport, NodeId, OrphanMode,
     ResultSet, Target, VaultIndex,
 };
-use openobs_mcp::list_md;
+use open_llm_wiki_mcp::list_md;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -42,16 +42,16 @@ fn main() {
         Action::Serve => {
             let vault = resolve_vault_root_from(&args);
             if let Err(e) = run_server(&vault) {
-                eprintln!("openobs-mcp error: {e}");
+                eprintln!("open-llm-wiki-mcp error: {e}");
                 std::process::exit(1);
             }
         }
-        Action::Setup => exit_with(openobs_mcp::onboard::run_setup(&args)),
-        Action::Doctor => exit_with(openobs_mcp::onboard::run_doctor(&args)),
-        Action::Init => exit_with(openobs_mcp::onboard::run_init(&args)),
-        Action::Help => println!("{}", openobs_mcp::onboard::USAGE),
+        Action::Setup => exit_with(open_llm_wiki_mcp::onboard::run_setup(&args)),
+        Action::Doctor => exit_with(open_llm_wiki_mcp::onboard::run_doctor(&args)),
+        Action::Init => exit_with(open_llm_wiki_mcp::onboard::run_init(&args)),
+        Action::Help => println!("{}", open_llm_wiki_mcp::onboard::USAGE),
         Action::UnknownFlag(f) => {
-            eprintln!("openobs-mcp: unknown option `{f}` (see `openobs-mcp help`)");
+            eprintln!("open-llm-wiki-mcp: unknown option `{f}` (see `open-llm-wiki-mcp help`)");
             std::process::exit(2);
         }
     }
@@ -59,7 +59,7 @@ fn main() {
 
 fn exit_with(res: Result<(), String>) {
     if let Err(e) = res {
-        eprintln!("openobs-mcp error: {e}");
+        eprintln!("open-llm-wiki-mcp error: {e}");
         std::process::exit(1);
     }
 }
@@ -87,7 +87,7 @@ fn dispatch(args: &[String]) -> Action {
     }
 }
 
-/// vault 决议:第一个位置参数(跳过可选的显式 `serve`)> `$OPENOBS_VAULT` > 当前目录。
+/// vault 决议:第一个位置参数(跳过可选的显式 `serve`)> `$OPEN_LLM_WIKI_VAULT` > 当前目录。
 fn resolve_vault_root_from(args: &[String]) -> PathBuf {
     let rest: &[String] = if args.first().map(String::as_str) == Some("serve") {
         &args[1..]
@@ -97,7 +97,7 @@ fn resolve_vault_root_from(args: &[String]) -> PathBuf {
     if let Some(a) = rest.first() {
         return PathBuf::from(a);
     }
-    if let Ok(v) = env::var("OPENOBS_VAULT") {
+    if let Ok(v) = env::var("OPEN_LLM_WIKI_VAULT") {
         return PathBuf::from(v);
     }
     env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
@@ -180,7 +180,7 @@ fn handle_message(vault: &Path, raw: &str, out: &mut impl Write) -> Result<(), S
                 "protocolVersion": "2024-11-05",
                 "capabilities": { "tools": {} },
                 "serverInfo": {
-                    "name": "openobsidian",
+                    "name": "open-llm-wiki",
                     "version": env!("CARGO_PKG_VERSION"),
                 }
             }),
@@ -282,7 +282,7 @@ fn tool_defs() -> Vec<Value> {
         ),
         tool(
             "run_qql",
-            "Run a QQL query (openobs-core evaluator).",
+            "Run a QQL query (open-llm-wiki-core evaluator).",
             json!({
                 "type": "object",
                 "properties": { "qql": { "type": "string" } },
@@ -758,7 +758,7 @@ mod tests {
     /// 临时 vault:a→b(wiki)、a→Ghost(悬空)、c→a(wiki);d 孤立。
     /// a 正文提到 "Gamma"(c 的标题)但未链接 → suggest 命中。
     /// 用非 `.` 前缀的临时目录:生产 `list_md` 会跳过任何含 `.` 分量的路径
-    /// (用于隐藏 vault 内的 `.git` / `.openobsidian`),默认 `tempfile::tempdir()`
+    /// (用于隐藏 vault 内的 `.git` / `.open-llm-wiki`),默认 `tempfile::tempdir()`
     /// 生成的 `.tmpXXXX` 名字会触发该规则,故这里显式给一个干净前缀。
     fn fixture() -> tempfile::TempDir {
         let dir = tempfile::Builder::new().prefix("oomcp-").tempdir().unwrap();
@@ -1107,8 +1107,8 @@ mod tests {
             PathBuf::from("/v")
         );
         // env 回退(清掉可能的环境值再设)。
-        env::remove_var("OPENOBS_VAULT");
-        env::set_var("OPENOBS_VAULT", "/env-vault");
+        env::remove_var("OPEN_LLM_WIKI_VAULT");
+        env::set_var("OPEN_LLM_WIKI_VAULT", "/env-vault");
         assert_eq!(
             resolve_vault_root_from(&args(&[])),
             PathBuf::from("/env-vault")
@@ -1117,6 +1117,6 @@ mod tests {
             resolve_vault_root_from(&args(&["serve"])),
             PathBuf::from("/env-vault")
         );
-        env::remove_var("OPENOBS_VAULT");
+        env::remove_var("OPEN_LLM_WIKI_VAULT");
     }
 }
