@@ -6,7 +6,7 @@
  * 拆线 / 诊断 / 播种 / 引导复制 / 浏览回填。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AgentOnboardingSection } from "./AgentOnboardingSection";
 import type { TFunc } from "../lib/i18n";
@@ -180,10 +180,11 @@ describe("AgentOnboardingSection", () => {
     expect(
       (screen.getByTestId("settings-onboard-vault") as HTMLInputElement).value,
     ).toBe("/vault");
-    expect(screen.getByText("settings.onboard.wired")).toBeInTheDocument();
-    expect(screen.getByText("settings.onboard.notWired")).toBeInTheDocument();
-    expect(screen.getByText("settings.onboard.manualOnly")).toBeInTheDocument();
-    expect(screen.getByText("settings.onboard.notDetected")).toBeInTheDocument();
+    // 状态 chip 在主路径卡片列表与高级区勾选行各渲染一份 → 用 getAllByText。
+    expect(screen.getAllByText("settings.onboard.wired").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("settings.onboard.notWired").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("settings.onboard.manualOnly").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("settings.onboard.notDetected").length).toBeGreaterThanOrEqual(1);
     const cursorBox = screen
       .getByTestId("settings-onboard-agent-cursor")
       .querySelector("input[type=checkbox]") as HTMLInputElement;
@@ -297,5 +298,33 @@ describe("AgentOnboardingSection", () => {
       expect(screen.getByTestId("settings-onboard-oneclick")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("settings-onboard-mock")).toBeNull();
+  });
+
+  it("主路径默认展示各 agent 记忆接入卡片列表(图标 + 状态 + 接入明细)", async () => {
+    render(<AgentOnboardingSection vaultRoot="/vault" t={t} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-onboard-agentlist")).toBeInTheDocument(),
+    );
+    // 四个 agent 都渲染出只读卡片。
+    expect(screen.getByTestId("settings-onboard-agentinfo-claude-code")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-onboard-agentinfo-cursor")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-onboard-agentinfo-grok")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-onboard-agentinfo-zed")).toBeInTheDocument();
+    // 状态 chip:已接入 / 未接入 / 仅手动 / 未检测。
+    expect(screen.getByText("settings.onboard.wired")).toBeInTheDocument();
+    expect(screen.getByText("settings.onboard.notWired")).toBeInTheDocument();
+    expect(screen.getByText("settings.onboard.manualOnly")).toBeInTheDocument();
+    expect(screen.getByText("settings.onboard.notDetected")).toBeInTheDocument();
+    // 已接入者显示接入的 vault;未接入者显示检测证据。
+    expect(
+      within(screen.getByTestId("settings-onboard-agentinfo-claude-code")).getByText(
+        /settings\.onboard\.wiredVault.* \/vault/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("settings-onboard-agentinfo-cursor")).getByText(
+        /config exists: \/home\/u\/\.cursor\/mcp\.json/,
+      ),
+    ).toBeInTheDocument();
   });
 });

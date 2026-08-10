@@ -32,7 +32,19 @@ open-llm-wiki-mcp help
   - `--dry-run` — print the plan without writing anything
   - `--remove` — unregister instead of register
 - `doctor` diagnoses wiring health (binary / vault / notes / `format: owf/1` / scaffold / per-agent entry) and exits 1 on failure — script-friendly.
-- `init <dir> [--force]` seeds the wiki-starter template (`--force` merges into a non-empty dir; existing files are never overwritten).
+- `init <dir> [--force]` seeds the wiki-starter template (`--force` merges into a non-empty dir; existing files are never overwritten). Includes **wiki-ingest** skill under `.agents/skills/` and `.claude/skills/`.
+
+### Vault skills (ingest / 提炼)
+
+Procedure lives in a vault skill (not a long chat prompt):
+
+```bash
+# seed already installs skills; upgrade or retrofit an existing vault:
+npx open-llm-wiki-skills install /path/to/vault
+# npm package: open-llm-wiki-skills
+```
+
+Short agent trigger: `Run skill wiki-ingest on <path> using open-llm-wiki MCP tools.`
 
 Agent ids: `claude-code`, `claude-desktop`, `cursor`, `codex`, `windsurf`, `zed`, `grok` (manual).
 

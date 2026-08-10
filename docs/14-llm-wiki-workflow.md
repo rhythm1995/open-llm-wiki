@@ -86,7 +86,8 @@ Concept 是 `Active`/`Contested`——都只看 frontmatter,不看文件夹。
 6. 写完跑 §3 consolidate(Health QQL + 结构 lint)。
 ```
 
-配套可复制提示词模板:[`templates/wiki-starter/prompts/ingest-distill.md`](../templates/wiki-starter/prompts/ingest-distill.md)。
+**主规程(skill):** vault 内 `.agents/skills/wiki-ingest/SKILL.md`(seed / `npx open-llm-wiki-skills install` 写入)。短触发:`Run skill wiki-ingest on <path> using open-llm-wiki MCP`。  
+后备长提示:[`templates/wiki-starter/prompts/ingest-distill.md`](../templates/wiki-starter/prompts/ingest-distill.md)。
 
 **人审门**(结构性,不是可选项):
 

@@ -180,6 +180,9 @@
 | B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ✅ | 2026-08-06:MCP `lint_vault` 工具(`mcp/src/main.rs`,8th tool,内联测试 + `mcp/README.md`)+ app `lint_vault` 命令(注册进 `generate_handler!`,live 索引);agent consolidate 即可消费。**人侧 UI 见下行** |
 | B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立 Health 视图;品味依赖度高(survey §7.4),先让探针跑再决定做不做。**已记录,暂不做** |
 | B-WIKI-FORMAT | OWF-1 格式规范(**档 1**) | 🟢 | ✅ | 2026-08-09:[`docs/15-owf-format.md`](./15-owf-format.md) 转正——装订现状 + 钉版本,零新词汇/字段/行为;唯一新产物 = vault index.md 的 `format: owf/1` 声明(模板已带);宽容规则升为测试锁(`core/tests/owf_conformance.rs`)。**档 2 三项(draft / deprecated / stale_after)未采纳**,设计+触发信号存档 doc 15 §9.2,等真实信号再升级 |
+| B-WIKI-INGEST-SKILL | vault skill wiki-ingest + 应用短触发 | 🟡 | ✅ | 2026-08-11:starter skill + seed 双写 `.agents`/`.claude`;App「提炼进 Wiki」短指令;未分类可提炼;见 `templates/wiki-starter/skills/wiki-ingest/`、`ui/src/lib/wiki-digest.ts` |
+| B-WIKI-SKILLS-NPM | **npm 发布 `open-llm-wiki-skills`** | 🟢 | ⏳ | 包已就绪:`packages/open-llm-wiki-skills`(`npx open-llm-wiki-skills install <vault>`)。**待办**:在 `registry.npmjs.org` 登录后 `pnpm skills:publish`(或 `cd packages/open-llm-wiki-skills && npm publish --access public --registry https://registry.npmjs.org/`)。本机曾遇 token 401 / 镜像 registry 未授权。发布后验收 `npx open-llm-wiki-skills@latest install .` |
+| B-WIKI-INGEST-HOOKS | 调研/可选:用 agent hooks 辅助 ingest | 🟢 | 📋 调研 | 2026-08-11:结论 **hooks 不替代 skill+MCP**——hooks 适合确定性门禁(PostToolUse 跑 lint、写后检查 Digested),不适合「理解原文并蒸馏」。详见 [`docs/research/agent-hooks-vs-skills.md`](./research/agent-hooks-vs-skills.md)。有信号再加 starter hooks 样例 |
 
 ---
 

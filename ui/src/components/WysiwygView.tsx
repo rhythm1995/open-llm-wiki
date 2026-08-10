@@ -62,6 +62,10 @@ import {
   planImagesInsertAsync,
   shouldResolveVaultMediaUrl,
 } from "../lib/wysiwyg-media";
+import {
+  applyProgressiveSelectAll,
+  isSelectAllHotkey,
+} from "../lib/wysiwyg-select-all";
 
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
@@ -252,6 +256,33 @@ export function WysiwygView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   []);
 
+  // ⌘/Ctrl+A:先选中当前块(标题/段落)全文,再扩到整篇。
+  // capture 抢在 TipTap 默认 AllSelection 之前;否则 heading 上常出现「看起来没全选」。
+  const rootElRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = rootElRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!isSelectAllHotkey(e)) return;
+      // 仅当焦点在本编辑器内(避免抢格式条外的其它 input)。
+      const active = document.activeElement;
+      if (!active || !el.contains(active)) return;
+      // 不拦截真正的 <input>/<textarea>(若未来工具条有)。
+      const tag = (active as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        applyProgressiveSelectAll(
+          editor as unknown as Parameters<typeof applyProgressiveSelectAll>[0],
+        );
+      } catch {
+        /* 无选区 / 编辑器未就绪时忽略 */
+      }
+    };
+    el.addEventListener("keydown", onKey, true);
+    return () => el.removeEventListener("keydown", onKey, true);
+  }, [editor]);
 
   if (!hasNote) {
     return (
@@ -264,6 +295,7 @@ export function WysiwygView({
   return (
     // click 事件代理:点 wikilink chip → 读 data-wikilink → onFollow(target)。
     <div
+      ref={rootElRef}
       className="flex h-full flex-col overflow-hidden bg-base"
       data-testid="wysiwyg-editor"
       onPaste={(e) => {

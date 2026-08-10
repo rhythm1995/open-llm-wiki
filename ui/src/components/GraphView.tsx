@@ -68,6 +68,7 @@ import {
   GRAPH_MAX_NODES,
   type GraphNode,
 } from "../lib/graph-model";
+import { labelStatus, labelType } from "../lib/wiki-labels";
 import {
   parseLayoutJson,
   serializeLayoutJson,
@@ -1400,7 +1401,7 @@ function FilterPanel({
               style={{ background: colorFor(tp === TYPELESS ? null : tp) }}
             />
             <span className="flex-1 truncate">
-              {tp === TYPELESS ? t("graph.typeless") : tp}
+              {tp === TYPELESS ? t("graph.typeless") : labelType(tp, t)}
             </span>
             <span className="text-overlay">{typeCount(tp)}</span>
           </label>
@@ -1448,7 +1449,9 @@ function FilterPanel({
                 className="accent-[var(--color-yellow)]"
               />
               <span className="flex-1 truncate">
-                {st === STATUSLESS ? t("graph.statusless") : st}
+                {st === STATUSLESS
+                  ? t("graph.statusless")
+                  : labelStatus(st, t)}
               </span>
               <span className="text-overlay">{statusCount(st)}</span>
             </label>

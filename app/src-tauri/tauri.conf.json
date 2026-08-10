@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../../ui/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm --dir ui dev",
-    "beforeBuildCommand": "pnpm --dir ui build"
+    "beforeDevCommand": "bash -c 'if [ -f app/src-tauri/before-dev.sh ]; then bash app/src-tauri/before-dev.sh; else bash before-dev.sh; fi'",
+    "beforeBuildCommand": "bash -c 'if [ -f app/src-tauri/before-build.sh ]; then bash app/src-tauri/before-build.sh; else bash before-build.sh; fi'"
   },
   "app": {
     "withGlobalTauri": false,
@@ -46,6 +46,9 @@
       "../../THIRD_PARTY_NOTICES.md": ".",
       "../../licenses/blocknote-LICENSE.md": "."
     },
+    "externalBin": [
+      "binaries/open-llm-wiki-mcp"
+    ],
     "macOS": {
       "minimumSystemVersion": "10.15"
     },

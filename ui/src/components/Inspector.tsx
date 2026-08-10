@@ -47,6 +47,7 @@ import {
 import { filterByTitles } from "../lib/wikilink";
 import { parseOutline } from "../lib/outline";
 import { statusChipClass } from "../lib/status-chip";
+import { labelStatus, labelType } from "../lib/wiki-labels";
 import { resolveTypeDoc } from "../lib/type-doc";
 import { cn } from "../lib/cn";
 
@@ -165,7 +166,7 @@ export function Inspector({
           {node.type && (
             <span className="flex items-center gap-1 rounded bg-surface px-1.5 py-0.5 text-lavender">
               <BookOpen size={11} />
-              {node.type}
+              {labelType(node.type, t)}
             </span>
           )}
           {statusStr && (
@@ -175,7 +176,7 @@ export function Inspector({
                 statusChipClass(statusStr),
               )}
             >
-              {statusStr}
+              {labelStatus(statusStr, t)}
             </span>
           )}
           {node.tags.map((tag) => (
@@ -638,7 +639,7 @@ function TypeRow({
         <option value="">{t("inspector.props.emptyValue")}</option>
         {opts.map((tp) => (
           <option key={tp} value={tp}>
-            {tp}
+            {labelType(tp, t)}
           </option>
         ))}
       </select>

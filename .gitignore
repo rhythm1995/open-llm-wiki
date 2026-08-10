@@ -45,3 +45,6 @@ ui/tmp-shots/
 
 # ZCode agent 内部产物(计划/会话草稿)
 .zcode/
+
+# Tauri externalBin sidecars (built by scripts/prepare-mcp-sidecar.sh)
+app/src-tauri/binaries/open-llm-wiki-mcp-*

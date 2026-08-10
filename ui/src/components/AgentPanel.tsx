@@ -268,6 +268,7 @@ export function AgentPanel({
   getAiContext,
   getContextCandidates,
   onOpenMemoryOnboard,
+  composerSeed = null,
 }: {
   root: string;
   t: TFunc;
@@ -280,6 +281,11 @@ export function AgentPanel({
   getContextCandidates?: () => Promise<ContextCandidate[]>;
   /** 打开「设置 → Agent 记忆接入」(外部 MCP)。 */
   onOpenMemoryOnboard?: () => void;
+  /**
+   * 外部预填 composer(如「提炼进 Wiki」)。`token` 变化时写入 input,不自动发送
+   * ——用户需选好 agent 后点发送。
+   */
+  composerSeed?: { text: string; token: number } | null;
 }) {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [active, setActive] = useState(false);
@@ -312,6 +318,39 @@ export function AgentPanel({
   /** agent 推送的上下文用量(usage_update:已用 / 窗口大小),供 SessionControls 进度条。 */
   const [usage, setUsage] = useState<{ used: number; size: number } | null>(null);
   const [handoffOpen, setHandoffOpen] = useState(false);
+
+  /** 最新 seed 的 ref:startAgent 成功后可读,避免闭包陈旧。 */
+  const composerSeedRef = useRef(composerSeed);
+  composerSeedRef.current = composerSeed;
+  /** 有待发送的提炼指令(picker 上展示横幅;会话就绪后自动发)。 */
+  const [seedPending, setSeedPending] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  /** 避免 StrictMode / 重复 token 连发两次。 */
+  const lastAutoSentToken = useRef<number | null>(null);
+
+  // 「提炼进 Wiki」:预填 + 可见反馈;若已有会话则自动发送。
+  useEffect(() => {
+    if (!composerSeed?.text || !composerSeed.token) return;
+    setInput(composerSeed.text);
+    setSeedPending(true);
+    if (
+      active &&
+      threadIdRef.current &&
+      !busy &&
+      lastAutoSentToken.current !== composerSeed.token
+    ) {
+      lastAutoSentToken.current = composerSeed.token;
+      setSeedPending(false);
+      // 下一拍再发,保证 input 已写入
+      window.setTimeout(() => {
+        void doSend(composerSeed.text);
+      }, 0);
+    } else {
+      // picker 态:聚焦无 textarea,等 startAgent
+      window.setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只跟 token 走,不绑 doSend
+  }, [composerSeed?.token, composerSeed?.text, active, busy]);
 
   /** 权限模式:normal(逐次问)/ permissive(宽松,非高危自动放行)。琥珀点提示后者。 */
   const [permMode, setPermMode] = usePersistentState<"normal" | "permissive">(
@@ -667,6 +706,10 @@ export function AgentPanel({
   async function startAgent(a: AgentInfo) {
     setError(null);
     setConnectingAgentId(a.id);
+    // 启动前锁住 seed:start 过程中 token 不应丢
+    const pendingSeed =
+      composerSeedRef.current?.text?.trim() ||
+      (seedPending ? input.trim() : "");
     try {
       // 骨干(§2.4):每个 agent 起一个新线程,线程与 agent 绑定。
       const tid = await invoke<number>("agent_thread_create", { root, agent: a.id });
@@ -689,6 +732,18 @@ export function AgentPanel({
       setActive(true);
       setThreadListOpen(false);
       void refreshThreads();
+      // 提炼入口:开会话后立刻发送预填指令(用户已点「提炼」+ 选 agent = 明确意图)。
+      if (pendingSeed) {
+        if (composerSeedRef.current?.token != null) {
+          lastAutoSentToken.current = composerSeedRef.current.token;
+        }
+        setSeedPending(false);
+        setInput(pendingSeed);
+        window.setTimeout(() => {
+          void doSend(pendingSeed);
+          textareaRef.current?.focus();
+        }, 0);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -1143,8 +1198,26 @@ export function AgentPanel({
       {/* 主体 */}
       {!active && entries.length === 0 ? (
         <div className="flex-1 overflow-y-auto p-3">
+          {/* 提炼进 Wiki:有预填指令时必须看得见,否则像点了没反应(composer 仅在会话内)。 */}
+          {seedPending && (composerSeed?.text || input) && (
+            <div
+              className="mb-3 rounded-lg border border-blue/40 bg-blue/10 px-2.5 py-2"
+              data-testid="agent-seed-banner"
+            >
+              <p className="text-[12px] font-medium text-text">
+                {t("wiki.digest.agentBanner")}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-subtext">
+                {t("wiki.digest.agentBannerHint")}
+              </p>
+              <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded border border-crust bg-base/80 p-2 font-mono text-[10px] leading-snug text-subtext">
+                {(composerSeed?.text || input).slice(0, 600)}
+                {(composerSeed?.text || input).length > 600 ? "…" : ""}
+              </pre>
+            </div>
+          )}
           <p className="mb-3 text-[12px] leading-relaxed text-overlay">
-            {t("agent.intro")}
+            {seedPending ? t("wiki.digest.pickAgent") : t("agent.intro")}
           </p>
           {/* 外部 MCP 记忆接入入口(与右侧「应用内 Agent」并列引导,避免只藏在设置深处)。 */}
           {onOpenMemoryOnboard && !ipc.isMock() && (
@@ -1672,6 +1745,7 @@ export function AgentPanel({
             </div>
             <div className="flex items-end gap-1.5">
               <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1681,7 +1755,7 @@ export function AgentPanel({
                   }
                 }}
                 placeholder={t("agent.placeholder")}
-                rows={2}
+                rows={seedPending || input.length > 80 ? 5 : 2}
                 className="min-h-[40px] flex-1 resize-none rounded border border-crust bg-mantle px-2 py-1.5 text-[12px] text-text outline-none placeholder:text-overlay focus:border-blue"
               />
               {/* busy && queued:Stop 是主动作,排队那条另给一个琥珀小按钮可撤。 */}

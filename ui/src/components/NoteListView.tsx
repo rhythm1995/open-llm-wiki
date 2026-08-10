@@ -25,6 +25,7 @@ import type { VaultActions } from "../lib/store";
 import type { NavSelection } from "../lib/nav-filter";
 import { filterByNav, selectionLabel } from "../lib/nav-filter";
 import { statusChipClass } from "../lib/status-chip";
+import { labelStatus } from "../lib/wiki-labels";
 import { formatDateStr, formatMs } from "../lib/date-format";
 import { asWikilink } from "../lib/frontmatter";
 import { ArchiveView } from "./ArchiveView";
@@ -196,7 +197,7 @@ export function NoteListView({
                           statusChipClass(n.status),
                         )}
                       >
-                        {n.status}
+                        {labelStatus(n.status, t)}
                       </span>
                     )}
                   </div>
@@ -264,7 +265,7 @@ function buildMenuItems(
   // status 预设:当前值标 ✓。
   for (const s of STATUS_PRESETS) {
     items.push({
-      label: `${currentStatus === s ? "✓ " : ""}${s}`,
+      label: `${currentStatus === s ? "✓ " : ""}${labelStatus(s, t)}`,
       onClick: () => void actions.setNoteStatus(n.path, s),
     });
   }

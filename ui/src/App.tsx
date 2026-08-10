@@ -41,6 +41,10 @@ import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
 import { isSheetPath } from "./lib/sheet";
 import {
+  buildIngestPrompt,
+  digestEligibility,
+} from "./lib/wiki-digest";
+import {
   collectPluginCommands,
   loadPluginFromManifest,
   parsePluginMessage,
@@ -124,6 +128,14 @@ export default function App() {
     setSettingsOpen(true);
   }, []);
   const openAgentOnboard = useCallback(() => openSettings("agent"), [openSettings]);
+  /** 「提炼进 Wiki」→ Agent composer 预填(token 变化触发写入)。 */
+  const [agentComposerSeed, setAgentComposerSeed] = useState<{
+    text: string;
+    token: number;
+  } | null>(null);
+  const [digestToast, setDigestToast] = useState<string | null>(null);
+  /** 点过「提炼」后顶栏改文案,直到换笔记。 */
+  const [digestArmed, setDigestArmed] = useState(false);
   const [modeHint, setModeHint] = useState<string | null>(null);
   // 附件目录 / 布局 / 并排(B-ED-MEDIA / B-ED-READING)。
   const [attachmentsDir, setAttachmentsDir] = useState(() => {
@@ -334,6 +346,48 @@ export default function App() {
     for (const n of state.snapshot?.nodes ?? []) if (n.type) set.add(n.type);
     return [...set].sort();
   }, [state.snapshot]);
+
+  /** Source 笔记 → 是否展示「提炼进 Wiki」(图谱优先判已有 Summary)。 */
+  const digestInfo = useMemo(() => {
+    if (isSpecialFile || !state.currentPath) {
+      return { phase: "hidden" as const, type: null, kind: null };
+    }
+    return digestEligibility({
+      path: state.currentPath,
+      content: state.content,
+      snapshotType: currentNode?.type ?? null,
+      nodes: state.snapshot?.nodes ?? [],
+      edges: state.snapshot?.edges ?? [],
+    });
+  }, [
+    isSpecialFile,
+    state.currentPath,
+    state.content,
+    state.snapshot,
+    currentNode?.type,
+  ]);
+
+  // 换笔记时清掉「已武装」提示。
+  useEffect(() => {
+    setDigestArmed(false);
+  }, [state.currentPath]);
+
+  const startWikiDigest = useCallback(() => {
+    const path = state.currentPath;
+    if (!path || digestInfo.phase === "hidden") return;
+    setAgentComposerSeed({
+      text: buildIngestPrompt(path, undefined, {
+        promoteUntyped: digestInfo.kind === "untyped",
+      }),
+      token: Date.now(),
+    });
+    // 强制露出右侧 Agent 栏(持久化偏好可能把右栏关了)。
+    setPropsOpen(true);
+    setRightTab("agent");
+    setDigestArmed(true);
+    setDigestToast(t("wiki.digest.seedNote"));
+    window.setTimeout(() => setDigestToast(null), 5000);
+  }, [state.currentPath, digestInfo.phase, digestInfo.kind, t]);
 
   /** `[[wikilink]]` 跟随:解析为路径则跳转,否则提示新建(编辑器与阅读视图共用)。 */
   const handleFollow = useCallback(
@@ -570,6 +624,9 @@ export default function App() {
       toggleLocale,
       openSettings: () => openSettings("general"),
       openAgentOnboard: () => openAgentOnboard(),
+      startWikiDigest: () => startWikiDigest(),
+      canWikiDigest:
+        digestInfo.phase === "ready" || digestInfo.phase === "done",
       toggleSplitLayout: () => {
         if (editModeRef.current !== "source") {
           persistEditMode("source");
@@ -646,6 +703,8 @@ export default function App() {
     pluginCommands,
     openSettings,
     openAgentOnboard,
+    startWikiDigest,
+    digestInfo.phase,
     t,
   ]);
 
@@ -975,6 +1034,38 @@ export default function App() {
                   actions={actions}
                   t={t}
                 />
+                {digestInfo.phase !== "hidden" && !isSpecialFile && (
+                  <div
+                    data-testid="wiki-digest-bar"
+                    className={
+                      digestArmed
+                        ? "flex shrink-0 items-center gap-2 border-b border-blue/40 bg-blue/10 px-3 py-1.5"
+                        : "flex shrink-0 items-center gap-2 border-b border-crust bg-mantle px-3 py-1.5"
+                    }
+                  >
+                    <p className="min-w-0 flex-1 text-[11px] leading-snug text-subtext">
+                      {digestArmed
+                        ? t("wiki.digest.armed")
+                        : digestInfo.phase === "done"
+                          ? t("wiki.digest.hintDone")
+                          : digestInfo.kind === "untyped"
+                            ? t("wiki.digest.hintUntyped")
+                            : t("wiki.digest.hint")}
+                    </p>
+                    <button
+                      type="button"
+                      data-testid="wiki-digest-btn"
+                      onClick={startWikiDigest}
+                      className="shrink-0 rounded-md bg-blue px-2.5 py-1 text-[11px] font-medium text-white hover:opacity-90"
+                    >
+                      {digestArmed
+                        ? t("wiki.digest.actionAgain")
+                        : digestInfo.phase === "ready"
+                          ? t("wiki.digest.action")
+                          : t("wiki.digest.actionAgain")}
+                    </button>
+                  </div>
+                )}
                 <div className="relative min-h-0 flex-1">
                   {isCanvas ? (
                     <Suspense
@@ -1133,6 +1224,14 @@ export default function App() {
                       {pluginToast}
                     </div>
                   )}
+                  {digestToast && (
+                    <div
+                      data-testid="wiki-digest-toast"
+                      className="absolute bottom-2 left-1/2 z-30 -translate-x-1/2 rounded border border-crust bg-mantle px-3 py-1.5 text-[12px] text-text shadow"
+                    >
+                      {digestToast}
+                    </div>
+                  )}
                   {findOpen && !isSpecialFile && state.currentPath !== null && (
                     <FindBar
                       query={findQuery}
@@ -1186,6 +1285,7 @@ export default function App() {
                 getAiContext={actions.buildAiContextMd}
                 getContextCandidates={actions.contextCandidates}
                 onOpenMemoryOnboard={openAgentOnboard}
+                composerSeed={agentComposerSeed}
               />
             ) : (
               <Inspector

@@ -19,7 +19,9 @@
 | [`index.md`](./index.md) | Navigation 层:wiki 的目录 / 入口。 |
 | [`health/`](./health/) | Health 层:11 条健康指标,每条是一篇 `type: Query` 的笔记,正文里是可直接跑的 QQL。前五条量图谱结构(矛盾/孤儿/饥饿度/证据/综合度),后六条量溯源与漂移(provenance 三值约定 + 复审超期 + 同名撞车,见 `docs/research/trust-provenance-frontmatter.md` / `content-lint-contradiction.md`)。 |
 | [`examples/`](./examples/) | 一条最小示例链(Source→Summary→Entity→Concept),演示关系怎么连。可删。 |
-| [`prompts/`](./prompts/) | 可复制给 agent 的提示词。现有 [`ingest-distill.md`](./prompts/ingest-distill.md):对已有 Source 做蒸馏式 ingest(docs/14 §1.1 L2a)。 |
+| [`skills/wiki-ingest/`](./skills/wiki-ingest/) | **主规程**:agent skill。seed 时写入 vault 的 `.agents/skills/` 与 `.claude/skills/`。升级:`npx open-llm-wiki-skills install .` |
+| [`AGENTS.md`](./AGENTS.md) | 指向 wiki-ingest skill + MCP 工具习惯(agent 读 vault 时的短指引)。 |
+| [`prompts/`](./prompts/) | 后备长提示词 [`ingest-distill.md`](./prompts/ingest-distill.md)(skill 缺失时用)。 |
 
 ## 三条铁律
 

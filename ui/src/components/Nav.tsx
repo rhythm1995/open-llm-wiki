@@ -35,6 +35,7 @@ import { isInbox, sameSelection, type NavSelection } from "../lib/nav-filter";
 import { typeColor, typeIcon } from "../lib/nav-icons";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+import { labelType } from "../lib/wiki-labels";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface TreeNode {
@@ -363,7 +364,7 @@ export function Nav({
                 return itemRow(
                   { kind: "type", id },
                   <TypeIcon size={13} className={isUntyped ? "text-overlay" : typeColor(id)} weight="fill" />,
-                  isUntyped ? t("nav.untyped") : id,
+                  isUntyped ? t("nav.untyped") : labelType(id, t),
                   isEditorView && sameSelection(navSelection, { kind: "type", id }),
                   count,
                 );

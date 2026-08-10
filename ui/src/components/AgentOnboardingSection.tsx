@@ -14,6 +14,7 @@ import type {
 } from "../lib/ipc";
 import type { TFunc } from "../lib/i18n";
 import { AgentIcon } from "../lib/agent-icons";
+import { cn } from "../lib/cn";
 
 const DEFAULT_VAULT_NAME = "Open LLM Wiki-Memory";
 
@@ -93,10 +94,18 @@ export function AgentOnboardingSection({ vaultRoot, t }: Props) {
     vault: string;
     ids: string[];
   } | null> => {
-    // 再扫一次,拿到最新 resolved_binary / agents
+    // 再扫一次 + 必要时单独 resolve:路径由后端自动填,用户无需手填。
     const s = await ipc.onboardScan();
     setScan(s);
-    const bin = (binary.trim() || s.resolved_binary || "").trim();
+    let bin = (binary.trim() || s.resolved_binary || "").trim();
+    if (!bin) {
+      try {
+        bin = (await ipc.onboardResolveBinary())?.trim() || "";
+      } catch {
+        bin = "";
+      }
+    }
+    // 记忆 vault:高级区已填 → 当前打开的 vault → ~/Open LLM Wiki-Memory
     const v = (
       vault.trim() ||
       vaultRoot?.trim() ||
@@ -335,6 +344,64 @@ export function AgentOnboardingSection({ vaultRoot, t }: Props) {
           <p className="mb-3 text-[11px] leading-relaxed text-overlay">
             {t("settings.onboard.oneClickHint")}
           </p>
+
+          {/* 各 agent 记忆接入情况(只读卡片列表,风格对齐右栏 Agent picker)。 */}
+          {scan && scan.agents.length > 0 && (
+            <div
+              className="mb-3"
+              data-testid="settings-onboard-agentlist"
+            >
+              <div className="mb-1 text-[11px] text-overlay">
+                {t("settings.onboard.agentList")}
+              </div>
+              <ul className="flex flex-col gap-1">
+                {scan.agents.map((a) => (
+                  <li
+                    key={a.id}
+                    data-testid={`settings-onboard-agentinfo-${a.id}`}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded border border-crust bg-mantle px-2.5 py-2",
+                      !a.present && !a.manual_only && "opacity-60",
+                    )}
+                  >
+                    <AgentIcon id={a.id} size={22} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[12px] font-medium text-text">
+                          {a.label}
+                        </span>
+                        <StatusChip a={a} t={t} />
+                      </div>
+                      {/* 接入情况明细:配置错误优先 → 已接入时显接入 vault → 检测证据/提示。 */}
+                      {(a.config_error ||
+                        a.wired_vault ||
+                        a.evidence[0] ||
+                        a.hints[0]) && (
+                        <p
+                          className="truncate font-mono text-[10px] text-overlay"
+                          title={
+                            a.config_error ??
+                            a.wired_vault ??
+                            a.evidence[0] ??
+                            a.hints[0] ??
+                            ""
+                          }
+                        >
+                          {a.config_error ??
+                            (a.wired_vault
+                              ? `${t("settings.onboard.wiredVault")}: ${a.wired_vault}`
+                              : (a.evidence[0] ?? a.hints[0]))}
+                        </p>
+                      )}
+                      {a.manual_only && a.note && (
+                        <p className="text-[10px] text-overlay">{a.note}</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {results && (
             <ul

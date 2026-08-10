@@ -15,6 +15,68 @@
 
 ---
 
+### 2026-08-11 Grok — 收口:backlog 记 npm 待办 + hooks 调研 + commit
+
+- **branch**: `release/v0.1.0`
+- **做了**:
+  1. backlog 登记 `B-WIKI-INGEST-SKILL` ✅、`B-WIKI-SKILLS-NPM` ⏳(待 npm 登录发布)、`B-WIKI-INGEST-HOOKS` 📋。
+  2. 调研笔记 [`docs/research/agent-hooks-vs-skills.md`](./docs/research/agent-hooks-vs-skills.md):hooks **不替代** skill+MCP;可作写后门禁。
+  3. commit 本轮产品改动(提炼/skill/i18n/mcp sidecar 等)。
+- **下一步**:`B-WIKI-SKILLS-NPM` 发布后在用户 vault 跑 `npx open-llm-wiki-skills install`。
+
+### 2026-08-11 Grok — wiki-ingest skill + npm 包 open-llm-wiki-skills
+
+- **branch**: `release/v0.1.0`
+- **做了**:
+  1. starter skill `templates/wiki-starter/skills/wiki-ingest/SKILL.md` + `AGENTS.md`;`seed_vault` 双写 `.agents`/`.claude`。
+  2. 应用「提炼」改为**短触发**(指向 skill + MCP),不再塞长 checklist。
+  3. npm 包 `packages/open-llm-wiki-skills`:`npx open-llm-wiki-skills install <vault>`。
+  4. guidance / mcp README / docs/14 同步。
+- **验证**: `cargo test -p open-llm-wiki-mcp seed_/embedded_/guidance` ✓; vitest wiki-digest ✓; 本地 install 冒烟 ✓。
+- **npm publish**: 本机 token 对 registry.npmjs.org 为 401/无效;包已可 `npm pack`。用户在官方 registry 登录后:`pnpm skills:publish` 或 `cd packages/open-llm-wiki-skills && npm publish --access public --registry https://registry.npmjs.org/`。
+
+### 2026-08-11 Grok — 修复「提炼进 Wiki」点击无反馈
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 根因是 seed 只写入 input 而 picker 无 textarea。Agent 选择页加提炼横幅+指令预览;选 agent 后自动发送;顶栏武装态文案。
+- **验证**: typecheck ✓。
+
+### 2026-08-11 Grok — 未分类笔记也可「提炼进 Wiki」
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 收件箱/无 `type` 笔记与 Source 一样出提炼条;prompt 带 promoteUntyped(先标 Source 再 ingest)。Concept 等仍隐藏。
+- **验证**: typecheck + wiki-digest 单测。
+
+### 2026-08-11 Grok — type/status 展示 i18n（Source→来源 等）
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: `wiki-labels.ts` 把 vault 规范 type/status 译成中文展示(frontmatter 仍写英文);接 Nav / 顶栏选择标签 / 列表 status / Inspector 徽标与 type 下拉 / 图谱过滤。未知自定义值原样。
+- **验证**: typecheck ✓; vitest 632 ✓。
+
+### 2026-08-11 Grok — 应用内「提炼进 Wiki」(Source → Agent 预填 ingest)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 补编辑→LLM Wiki 断点:当前笔记为 `type: Source` 时顶栏提示 + **提炼进 Wiki** 按钮;打开右侧 Agent 并预填 doc 14 ingest 指令(不自动发送)。判定优先「有 Summary 经 `source` 边挂回」→ ready/done;⌘K 同命令。纯逻辑 `ui/src/lib/wiki-digest.ts`。
+- **验证**: typecheck ✓; vitest 627 ✓。
+- **用法**: 打开 Source → 点「提炼进 Wiki」→ 选 agent → 发送 → 审 Summary。
+
+### 2026-08-11 Grok — WYSIWYG ⌘A 先全选当前标题/块
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: BlockNote 默认 AllSelection 在 heading 上常像「没全选」;加 progressive ⌘/Ctrl+A(先当前 textblock 全文,再整篇)。`ui/src/lib/wysiwyg-select-all.ts` + `WysiwygView` capture 键绑。
+- **验证**: typecheck ✓; vitest 618 ✓(含 select-all 单测)。
+
+### 2026-08-11 Grok — 一键接入自动解析 mcp/vault(无需手填)
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. **根因**:打包后的 `.app` 未嵌入 `open-llm-wiki-mcp`,`resolved_binary` 为空 → 误报「请先填写路径」。
+  2. **Tauri externalBin**:`binaries/open-llm-wiki-mcp` + `scripts/prepare-mcp-sidecar.sh`;`before-build.sh` / `before-dev.sh` 钩子保证 dev/build 都编出 sidecar。
+  3. **resolve 加固**:同目录 / Resources / 向上找 cargo target / triple 后缀 / 旧名 `openobs-mcp`;apply/doctor 空路径自动回落。
+  4. **build-app.sh**:缺 mcp 硬失败;已有 `.app` 已补拷 mcp 可直接试。
+- **验证**:`cargo test -p open-llm-wiki-app resolve_binary` 3✓;typecheck ✓;vitest 607✓。
+- **下一步**:用户重启现有 `.app` 点「一键接入」;完整重打包走 `pnpm build:app`。
+
 ### 2026-08-11 Grok — Agent 图标改用官方矢量
 
 - **branch**: `release/v0.1.0`(未 commit)

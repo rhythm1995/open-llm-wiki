@@ -85,34 +85,106 @@ pub fn onboard_scan() -> Result<ScanOut, String> {
     })
 }
 
-/// 定位 open-llm-wiki-mcp 二进制(纯函数,`app_exe` 注入以便测试):
-/// 1. 当前 exe 的同目录(dev: target/release 并排; 打包: Contents/MacOS 嵌入);
-/// 2. macOS .app 的 Contents/Resources/;
-/// 3. PATH 上的 `open-llm-wiki-mcp`(`which`);
-/// 4. 都没有 → None,UI 可引导用户或手选。
-pub fn resolve_mcp_binary_from(app_exe: &Path) -> Option<PathBuf> {
-    let exe = app_exe.canonicalize().unwrap_or_else(|_| app_exe.to_path_buf());
-    if let Some(dir) = exe.parent() {
-        let sibling = dir.join("open-llm-wiki-mcp");
-        if sibling.is_file() {
-            return Some(sibling);
+/// MCP 二进制候选文件名(同目录 / Resources / cargo target)。
+const MCP_BIN_NAMES: &[&str] = &["open-llm-wiki-mcp", "openobs-mcp"];
+
+fn is_executable_file(p: &Path) -> bool {
+    if !p.is_file() {
+        return false;
+    }
+    // Windows 无 Unix 可执行位;存在即视为可用。其它平台要求 user 可执行。
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        p.metadata()
+            .map(|m| m.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+fn first_mcp_in_dir(dir: &Path) -> Option<PathBuf> {
+    for name in MCP_BIN_NAMES {
+        let p = dir.join(name);
+        if is_executable_file(&p) {
+            return Some(p);
         }
-        // …/Foo.app/Contents/MacOS/app → …/Foo.app/Contents/Resources/open-llm-wiki-mcp
-        if dir.file_name().and_then(|s| s.to_str()) == Some("MacOS") {
-            if let Some(contents) = dir.parent() {
-                let res = contents.join("Resources").join("open-llm-wiki-mcp");
-                if res.is_file() {
-                    return Some(res);
+        // Tauri externalBin 在部分阶段会保留 `name-<triple>` 后缀。
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for ent in rd.flatten() {
+                let fname = ent.file_name();
+                let s = fname.to_string_lossy();
+                if s.starts_with(&format!("{name}-")) && is_executable_file(&ent.path()) {
+                    return Some(ent.path());
                 }
             }
         }
     }
-    which::which("open-llm-wiki-mcp").ok()
+    None
+}
+
+/// 定位 open-llm-wiki-mcp 二进制(纯函数,`app_exe` 注入以便测试):
+/// 1. 当前 exe 的同目录(dev: target/{debug,release} 并排;打包: Contents/MacOS 嵌入 / externalBin);
+/// 2. macOS .app 的 Contents/Resources/;
+/// 3. 沿父目录向上找 `target/{release,debug}/open-llm-wiki-mcp`(tauri dev / 工作区构建);
+/// 4. PATH 上的 `open-llm-wiki-mcp` / 旧名 `openobs-mcp`(`which`);
+/// 5. 都没有 → None,UI 可引导用户或手选。
+pub fn resolve_mcp_binary_from(app_exe: &Path) -> Option<PathBuf> {
+    let exe = app_exe.canonicalize().unwrap_or_else(|_| app_exe.to_path_buf());
+    if let Some(dir) = exe.parent() {
+        if let Some(p) = first_mcp_in_dir(dir) {
+            return Some(p);
+        }
+        // …/Foo.app/Contents/MacOS/app → …/Foo.app/Contents/Resources/
+        if dir.file_name().and_then(|s| s.to_str()) == Some("MacOS") {
+            if let Some(contents) = dir.parent() {
+                if let Some(p) = first_mcp_in_dir(&contents.join("Resources")) {
+                    return Some(p);
+                }
+            }
+        }
+        // 沿祖先找 cargo target 产物(app 在 target/debug/deps 等嵌套路径时)。
+        // 最多爬 12 层,避免扫到 `/`。
+        let mut cur = Some(dir);
+        for _ in 0..12 {
+            let Some(d) = cur else { break };
+            for profile in ["release", "debug"] {
+                if let Some(p) = first_mcp_in_dir(&d.join("target").join(profile)) {
+                    return Some(p);
+                }
+                // 已在 target/release 或 target/debug 内。
+                if d.file_name().and_then(|s| s.to_str()) == Some(profile) {
+                    if let Some(p) = first_mcp_in_dir(d) {
+                        return Some(p);
+                    }
+                }
+            }
+            cur = d.parent();
+        }
+    }
+    which::which("open-llm-wiki-mcp")
+        .or_else(|_| which::which("openobs-mcp"))
+        .ok()
 }
 
 fn resolve_mcp_binary() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     resolve_mcp_binary_from(&exe)
+}
+
+/// 空字符串时回落自动解析;都没有则报错(供 apply/doctor 共用)。
+fn require_mcp_binary(binary: &str) -> Result<PathBuf, String> {
+    let t = binary.trim();
+    if !t.is_empty() {
+        return Ok(PathBuf::from(t));
+    }
+    resolve_mcp_binary().ok_or_else(|| {
+        "cannot locate open-llm-wiki-mcp binary (rebuild with scripts/build-app.sh or set path under Advanced)"
+            .into()
+    })
 }
 
 /// 单 agent 操作回执(接入 / 拆线共用)。
@@ -147,15 +219,13 @@ pub fn onboard_apply(
     agent_ids: Vec<String>,
     dry_run: Option<bool>,
 ) -> Result<Vec<AgentActionResult>, String> {
-    if binary.trim().is_empty() {
-        return Err("open-llm-wiki-mcp binary path is required".into());
-    }
     if vault.trim().is_empty() {
         return Err("vault path is required".into());
     }
+    let command = require_mcp_binary(&binary)?;
     let home = onboard::home_dir()?;
     let entry = onboard::McpEntry {
-        command: PathBuf::from(binary),
+        command,
         vault: PathBuf::from(vault),
     };
     let mut out = Vec::new();
@@ -197,11 +267,7 @@ pub struct OnboardCheck {
 #[tauri::command]
 pub fn onboard_doctor(vault: String, binary: Option<String>) -> Result<Vec<OnboardCheck>, String> {
     let home = onboard::home_dir()?;
-    let exe = binary
-        .filter(|b| !b.trim().is_empty())
-        .map(PathBuf::from)
-        .or_else(resolve_mcp_binary)
-        .ok_or_else(|| "cannot locate open-llm-wiki-mcp binary".to_string())?;
+    let exe = require_mcp_binary(binary.as_deref().unwrap_or(""))?;
     Ok(onboard::run_checks(&PathBuf::from(vault), &home, &exe)
         .into_iter()
         .map(|c| OnboardCheck {
@@ -265,7 +331,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let app_exe = dir.path().join("open-llm-wiki-app");
         std::fs::write(&app_exe, "").unwrap();
-        std::fs::write(dir.path().join("open-llm-wiki-mcp"), "").unwrap();
+        write_fake_bin(&dir.path().join("open-llm-wiki-mcp"));
         let got = resolve_mcp_binary_from(&app_exe).expect("sibling should win");
         assert!(got.ends_with("open-llm-wiki-mcp"), "got: {got:?}");
         assert_eq!(
@@ -273,6 +339,54 @@ mod tests {
             dir.path().canonicalize().unwrap(),
             "应命中 app exe 同目录,而不是 PATH 上可能存在的其它副本"
         );
+    }
+
+    /// 沿祖先找到 target/release/open-llm-wiki-mcp(模拟 tauri 嵌套产物路径)。
+    #[test]
+    fn resolve_binary_walks_up_to_cargo_target() {
+        let root = tempfile::TempDir::new().unwrap();
+        let release = root.path().join("target/release");
+        std::fs::create_dir_all(&release).unwrap();
+        write_fake_bin(&release.join("open-llm-wiki-mcp"));
+        // app 在更深的假路径里,同目录无 mcp。
+        let nested = root.path().join("target/release/deps");
+        std::fs::create_dir_all(&nested).unwrap();
+        let app_exe = nested.join("open-llm-wiki-app");
+        std::fs::write(&app_exe, "").unwrap();
+        let got = resolve_mcp_binary_from(&app_exe).expect("should walk to target/release");
+        assert!(
+            got.ends_with("open-llm-wiki-mcp"),
+            "got: {got:?}"
+        );
+        assert_eq!(got.parent().unwrap(), release.canonicalize().unwrap());
+    }
+
+    /// 同目录 triple 后缀(externalBin 中间态)也能命中。
+    #[test]
+    fn resolve_binary_accepts_target_triple_suffix() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let app_exe = dir.path().join("open-llm-wiki-app");
+        std::fs::write(&app_exe, "").unwrap();
+        write_fake_bin(&dir.path().join("open-llm-wiki-mcp-aarch64-apple-darwin"));
+        let got = resolve_mcp_binary_from(&app_exe).expect("triple sibling");
+        assert!(
+            got.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("open-llm-wiki-mcp-"),
+            "got: {got:?}"
+        );
+    }
+
+    fn write_fake_bin(p: &Path) {
+        std::fs::write(p, b"#!/bin/sh\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(p).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(p, perms).unwrap();
+        }
     }
 
     /// to_action_result:Ok/Err 映射不丢信息。

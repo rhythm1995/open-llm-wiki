@@ -819,6 +819,15 @@ pub fn embedded_files() -> &'static [(&'static str, &'static str)] {
             include_str!("../../templates/wiki-starter/prompts/ingest-distill.md"),
         ),
         (
+            "AGENTS.md",
+            include_str!("../../templates/wiki-starter/AGENTS.md"),
+        ),
+        // 规范副本(与 templates/ 树一致);seed 时另双写到 agent 发现路径,见 seed_vault。
+        (
+            "skills/wiki-ingest/SKILL.md",
+            include_str!("../../templates/wiki-starter/skills/wiki-ingest/SKILL.md"),
+        ),
+        (
             "types/concept.md",
             include_str!("../../templates/wiki-starter/types/concept.md"),
         ),
@@ -879,6 +888,25 @@ pub fn seed_vault(dir: &Path, force: bool) -> Result<SeedReport, String> {
         }
         fs::write(&full, content).map_err(|e| format!("write {} failed: {e}", full.display()))?;
         report.written.push((*rel).to_string());
+    }
+    // Agent 发现路径:同一 SKILL 双写到 .agents 与 .claude(不覆盖已有)。
+    let skill_body = include_str!("../../templates/wiki-starter/skills/wiki-ingest/SKILL.md");
+    for rel in [
+        ".agents/skills/wiki-ingest/SKILL.md",
+        ".claude/skills/wiki-ingest/SKILL.md",
+    ] {
+        let full = dir.join(rel);
+        if full.exists() {
+            report.skipped.push(rel.to_string());
+            continue;
+        }
+        if let Some(parent) = full.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("create {} failed: {e}", parent.display()))?;
+        }
+        fs::write(&full, skill_body)
+            .map_err(|e| format!("write {} failed: {e}", full.display()))?;
+        report.written.push(rel.to_string());
     }
     Ok(report)
 }
@@ -1192,6 +1220,10 @@ This machine has an Open LLM Wiki vault wired as long-term memory via MCP
   tolerated; follow the page-type conventions under types/.
 - Prefer updating existing pages over creating near-duplicates; lint_vault
   lists structural candidates (never auto-fixed).
+- **Ingest / 提炼**: follow vault skill **wiki-ingest**
+  (`.agents/skills/wiki-ingest/SKILL.md` or `.claude/skills/wiki-ingest/`).
+  Short trigger: «Run skill wiki-ingest on <path> using open-llm-wiki MCP».
+  Upgrade skills: `npx open-llm-wiki-skills install <vault>`.
 ";
 
 struct SetupOpts {
@@ -1788,11 +1820,18 @@ mod tests {
         let dir = tempdir();
         let target = dir.path().join("vault");
         let report = seed_vault(&target, false).unwrap();
-        assert_eq!(report.written.len(), embedded_files().len());
+        // embedded 清单 + skill 双写到 .agents / .claude
+        assert_eq!(report.written.len(), embedded_files().len() + 2);
         assert!(report.skipped.is_empty());
         let index = fs::read_to_string(target.join("index.md")).unwrap();
         assert!(index.contains("format: owf/1"));
         assert!(target.join("types").is_dir());
+        assert!(target
+            .join(".agents/skills/wiki-ingest/SKILL.md")
+            .is_file());
+        assert!(target
+            .join(".claude/skills/wiki-ingest/SKILL.md")
+            .is_file());
     }
 
     #[test]
@@ -1813,7 +1852,8 @@ mod tests {
         fs::write(target.join("index.md"), "# mine\n").unwrap();
         let report = seed_vault(&target, true).unwrap();
         assert!(report.skipped.contains(&"index.md".to_string()));
-        assert_eq!(report.written.len(), embedded_files().len() - 1);
+        // 除已有 index 外全部 embedded + skill 双写
+        assert_eq!(report.written.len(), embedded_files().len() - 1 + 2);
         assert_eq!(fs::read_to_string(target.join("index.md")).unwrap(), "# mine\n");
     }
 
@@ -1963,5 +2003,6 @@ mod tests {
     fn guidance_snippet_mentions_tools_and_format() {
         assert!(GUIDANCE_SNIPPET.contains("write_note"));
         assert!(GUIDANCE_SNIPPET.contains("OWF-1"));
+        assert!(GUIDANCE_SNIPPET.contains("wiki-ingest"));
     }
 }

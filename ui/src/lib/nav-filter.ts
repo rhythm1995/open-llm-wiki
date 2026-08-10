@@ -8,6 +8,7 @@
  */
 import type { NodeOut } from "./ipc";
 import type { TFunc } from "./i18n";
+import { labelType } from "./wiki-labels";
 
 /**
  * Nav 选择模型。`type` 的 `id:""` 代表"未分类"(type 缺失)——与 type 字面量
@@ -73,7 +74,7 @@ export function selectionLabel(sel: NavSelection, t: TFunc): string {
     case "archive":
       return t("nav.archive");
     case "type":
-      return sel.id === "" ? t("nav.untyped") : sel.id;
+      return sel.id === "" ? t("nav.untyped") : labelType(sel.id, t);
     case "tag":
       return `#${sel.id}`;
     case "folder":

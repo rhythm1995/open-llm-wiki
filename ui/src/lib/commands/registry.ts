@@ -25,6 +25,7 @@ import {
   Translate,
   X,
   PlugsConnected,
+  Sparkle,
 } from "@phosphor-icons/react";
 import type { AppCommand, CommandDeps, CommandIcon } from "./types";
 
@@ -163,6 +164,28 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       ],
       inMenu: true,
       run: () => deps.openAgentOnboard!(),
+    });
+  }
+
+  if (deps.startWikiDigest && deps.canWikiDigest) {
+    cmds.push({
+      id: "wiki-digest",
+      label: t("palette.action.wikiDigest"),
+      category: "edit",
+      icon: Sparkle as CommandIcon,
+      keywords: [
+        "ingest",
+        "digest",
+        "source",
+        "summary",
+        "提炼",
+        "消化",
+        "wiki",
+        "llm",
+        "蒸馏",
+      ],
+      inMenu: true,
+      run: () => deps.startWikiDigest!(),
     });
   }
 

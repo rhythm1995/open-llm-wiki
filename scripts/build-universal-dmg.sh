@@ -53,6 +53,9 @@ for t in "${TARGETS[@]}"; do
   fi
 done
 
+echo "▸ 准备双架构 open-llm-wiki-mcp sidecar(universal externalBin)…"
+bash "$ROOT/scripts/prepare-mcp-sidecar.sh" --all-apple
+
 echo "▸ 构建 universal .dmg(--target universal-apple-darwin --bundles dmg)…"
 "$TAURI" build --target universal-apple-darwin --bundles dmg
 
