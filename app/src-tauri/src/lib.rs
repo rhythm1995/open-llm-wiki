@@ -1592,7 +1592,7 @@ pub fn run() {
             let file_new = MenuItemBuilder::with_id("new-note", "New Note")
                 .accelerator("CmdOrCtrl+N")
                 .build(app)?;
-            let file_canvas = MenuItemBuilder::with_id("new-canvas", "New Canvas").build(app)?;
+            let _file_canvas = MenuItemBuilder::with_id("new-canvas", "New Canvas").build(app)?; // 入口暂隐(孤立白板);builder 保留以便恢复
             let file_sheet = MenuItemBuilder::with_id("new-sheet", "New Spreadsheet").build(app)?;
             let file_open = MenuItemBuilder::with_id("open-vault", "Open Vault…")
                 .accelerator("CmdOrCtrl+O")
@@ -1631,7 +1631,7 @@ pub fn run() {
 
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&file_new)
-                .item(&file_canvas)
+                // 画布「新建」入口暂隐:孤立白板,与图谱/QQL 解耦(file_canvas builder 保留)
                 .item(&file_sheet)
                 .separator()
                 .item(&file_open)

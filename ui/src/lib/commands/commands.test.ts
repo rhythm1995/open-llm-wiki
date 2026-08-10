@@ -232,7 +232,7 @@ describe("buildFileEntries / mapSearchHits", () => {
 describe("menu id contract", () => {
   const REQUIRED_MENU_IDS = [
     "new-note",
-    "new-canvas",
+    // new-canvas 不在菜单契约里:画布入口默认隐藏(孤立白板,与图谱/QQL 解耦)
     "new-sheet",
     "open-vault",
     "save",

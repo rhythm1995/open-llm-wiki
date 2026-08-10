@@ -24,7 +24,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Plus,
-  Rectangle,
   FolderPlus,
   FolderOpen,
   Robot,
@@ -33,6 +32,10 @@ import type { MainView } from "./CommandPalette";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { HoverPop } from "./HoverPop";
+
+// 画布(Excalidraw .canvas)是孤立白板:与图谱/QQL/wikilink/搜索完全解耦,不进
+// build_index。UI 入口默认隐藏(底层保留,已存在的 .canvas 仍可打开编辑)。
+// 详见 docs/research/canvas-isolation.md。onNewCanvas prop 保留以维持接口稳定。
 
 interface Props {
   view: MainView;
@@ -110,7 +113,7 @@ export function CenterToolbar({
   listWidth,
   vaultName,
   onNewNote,
-  onNewCanvas,
+  // onNewCanvas:画布入口暂隐(CANVAS_HIDDEN);Props 保留以维持接口稳定
   onOpenVault,
 }: Props) {
   const hasVault = vaultName !== null;
@@ -219,15 +222,7 @@ export function CenterToolbar({
               <Plus size={15} weight="bold" />
             </button>
           </HoverPop>
-          <HoverPop side="down" align="right" text={t("sidebar.newCanvasTip")}>
-            <button
-              onClick={onNewCanvas}
-              aria-label={t("sidebar.newCanvas")}
-              className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
-            >
-              <Rectangle size={15} weight="bold" />
-            </button>
-          </HoverPop>
+          {/* 画布「新建」入口暂隐:孤立白板,与图谱/QQL 解耦(CANVAS_HIDDEN)。onNewCanvas prop 保留以维持接口稳定。 */}
           <HoverPop side="down" align="right" text={t("sidebar.openVaultTip")}>
             <button
               onClick={onOpenVault}

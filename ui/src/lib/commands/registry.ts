@@ -27,6 +27,13 @@ import {
 } from "@phosphor-icons/react";
 import type { AppCommand, CommandDeps, CommandIcon } from "./types";
 
+/**
+ * 画布(Excalidraw .canvas)定位为孤立白板,与图谱/QQL/wikilink/搜索完全解耦。
+ * 「新建画布」入口默认隐藏(底层保留,已存在的 .canvas 仍可打开编辑)。
+ * 详见 docs/research/canvas-isolation.md。
+ */
+const CANVAS_HIDDEN = true;
+
 /** 从依赖构建完整命令表(含 only-menu / only-palette 项)。 */
 export function buildAppCommands(deps: CommandDeps): AppCommand[] {
   const { t } = deps;
@@ -51,7 +58,10 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       inMenu: true,
       run: () => deps.onNewNote(),
     },
-    {
+  ];
+
+  if (!CANVAS_HIDDEN) {
+    cmds.push({
       id: "new-canvas",
       label: t("palette.action.newCanvas"),
       category: "file",
@@ -59,8 +69,8 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       keywords: ["canvas", "画布"],
       inMenu: true,
       run: () => deps.onNewCanvas(),
-    },
-  ];
+    });
+  }
 
   if (deps.onNewSheet) {
     cmds.push({
