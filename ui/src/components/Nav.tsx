@@ -388,35 +388,56 @@ export function Nav({
             </div>
           )}
 
-          {/* ▼ FOLDERS:目录树(默认收起);可接受列表拖放。 */}
-          {sectionHeader("folders", <Folder size={12} weight="fill" />, t("nav.section.folders"))}
-          {openSections.has("folders") && (
-            <div className="mt-0.5">
-              {/* 根目录放置区:把笔记拖回 vault 根。 */}
-              {onMoveNote && (
-                <div
-                  className={cn(
-                    "mb-0.5 rounded px-2 py-1 text-[12px] text-overlay",
-                    dropTarget === "" ? "bg-blue/10 ring-1 ring-blue text-text" : "hover:bg-surface",
-                  )}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    setDropTarget("");
-                  }}
-                  onDragLeave={() => setDropTarget((cur) => (cur === "" ? null : cur))}
-                  onDrop={(e) => acceptNoteDrop(e, "")}
-                >
-                  {t("nav.dropToRoot")}
-                </div>
-              )}
-              {entries.length === 0 ? (
-                <p className="px-2 py-1 text-[12px] text-overlay">{t("sidebar.empty")}</p>
-              ) : (
-                renderFolder(tree, 0)
-              )}
-            </div>
-          )}
+          {/* ▼ FOLDERS:目录树(默认收起)。拖到空白区/分组头 = 移到根(无单独根节点,
+              参考 Tolaria);拖到子文件夹 = 移入该目录。 */}
+          <div
+            className={cn(
+              "rounded",
+              dropTarget === "" && !openSections.has("folders") && "ring-1 ring-blue/40 bg-blue/5",
+            )}
+            onDragOver={(e) => {
+              if (!onMoveNote) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDropTarget("");
+            }}
+            onDragLeave={() => setDropTarget((cur) => (cur === "" ? null : cur))}
+            onDrop={(e) => {
+              if (onMoveNote) acceptNoteDrop(e, "");
+            }}
+          >
+            {sectionHeader("folders", <Folder size={12} weight="fill" />, t("nav.section.folders"))}
+            {openSections.has("folders") && (
+              <div
+                className={cn(
+                  "mt-0.5 min-h-[1.5rem]",
+                  dropTarget === "" && "rounded ring-1 ring-blue/40 bg-blue/5",
+                )}
+                onDragOver={(e) => {
+                  if (!onMoveNote) return;
+                  // 仅容器自身(空白区);子文件夹事件不冒泡到这里(stopPropagation in acceptNoteDrop)
+                  if (e.target !== e.currentTarget) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDropTarget("");
+                }}
+                onDragLeave={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  setDropTarget((cur) => (cur === "" ? null : cur));
+                }}
+                onDrop={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  acceptNoteDrop(e, "");
+                }}
+              >
+                {entries.length === 0 ? (
+                  <p className="px-2 py-1 text-[12px] text-overlay">{t("sidebar.empty")}</p>
+                ) : (
+                  renderFolder(tree, 0)
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <ContextMenu
