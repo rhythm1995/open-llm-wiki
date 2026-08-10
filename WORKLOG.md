@@ -15,6 +15,18 @@
 
 ---
 
+### 2026-08-10 Claude — 画布入口隐藏 + FOLDERS 拖放重做 + nav Concept 图标 + 文档同步
+
+- **branch**: `release/v0.1.0`(已 commit 五刀:`818f3ed` nav-icon / `59d350c` canvas-hide / `2184e03` folders-drop / `5ab00e3` docs / 见下 WORKLOG;未 push)
+- **做了**:
+  1. **nav-icon Concept → Brain**:Concept 和 Note 都命中 Lightbulb(cairn 精确 + note 关键词),TYPES 列表不可辨。Concept 改 Brain(抽象思维),Note 保持 Lightbulb。
+  2. **画布入口隐藏**:调研确认画布(.canvas/Excalidraw)是**孤立白板**——不进 `build_index`、wikilink 不扫、搜索/QQL 数据源不含(刻意设计,避免 JSON 污染图谱)。隐藏三处「新建画布」入口:CenterToolbar 按钮 / 命令面板 `new-canvas`(gate `CANVAS_HIDDEN`)/ Tauri File 菜单(`.item(&file_canvas)` 注释)。**底层全保留**:CanvasView/canvas.ts/createCanvas/isCanvasPath/Excalidraw 依赖/canvas.* i18n —— 已有 `.canvas` 仍可打开编辑。`commands.test` 的 REQUIRED_MENU_IDS 去掉 `new-canvas`。
+  3. **FOLDERS 拖放重做(Tolaria 风格)**:删掉「拖到此处→根目录」虚拟节点(破坏文件夹树心智 + FOLDERS 默认折叠时不可见 + 造成与「打开 Vault」混淆)。改为:FOLDERS 内容区空白 + 分组头(折叠态)接收 drop = 移到根;子文件夹 drop 不变。`e.target === e.currentTarget` 区分空白 vs 子节点;`""` = 根约定贯穿全栈不改。
+  4. **文档同步**:新建 `docs/research/canvas-isolation.md`(隔离证据链 + 为什么是刻意设计 + 未来打通的条件);docs/02/04/06/10/FEATURE-INDEX/backlog/README 全部 F-CANVAS 行加隔离说明 + 入口隐藏标注。
+- **理由 / 影响**:① 画布作为孤立白板,「新建」入口占据高频表头位但与核心价值零交集,隐藏后表头更干净;② FOLDERS 虚拟节点心智模型错误且常隐藏,新方案符合 Finder/Obsidian/Tolaria 惯例,折叠态也可拖放;③ 隔离结论显式存档防止下一个 agent 误判画布是核心组件。
+- **验证**:typecheck ✓;vitest 585/585 ✓;cargo app 49 passed ✓;浏览器 mock 实拍:表头无画布按钮、⌘K 无画布命令、FOLDERS 无虚拟节点、whiteboard.canvas 仍可打开。
+- **下一步 / 接手注意**:画布「打通」是独立工程线(无萌芽),除非产品诉求否则维持隔离;恢复入口 = 改 gate / 取消注释。五刀未 push,待人确认。
+
 ### 2026-08-10 Grok — 图相机:软边界 + 空视口回到图 + ensureVisible
 
 - **branch**: `release/v0.1.0`(未 commit)
