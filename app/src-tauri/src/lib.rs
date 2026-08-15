@@ -1783,6 +1783,8 @@ pub fn run() {
                 .item(&PredefinedMenuItem::cut(app, None)?)
                 .item(&PredefinedMenuItem::copy(app, None)?)
                 .item(&PredefinedMenuItem::paste(app, None)?)
+                // macOS 键等效(⌘A)由原生菜单路由:缺这一项,textarea 里全选会失效。
+                .item(&PredefinedMenuItem::select_all(app, None)?)
                 .separator()
                 .item(&edit_find)
                 .item(&edit_find_vault)
