@@ -31,10 +31,18 @@ export function ContextMenu({ items, pos, onClose }: Props) {
   // 关闭时机:Esc / 滚动(捕获)/ 窗口失焦。
   useEffect(() => {
     if (!pos) return;
+    // 滚动事件是异步派发的:点击前为露出目标行而发生的滚动(Playwright 的
+    // scroll-into-view、用户滚轮惯性),其事件可能在菜单打开之后才送达,曾把
+    // 菜单一开就关掉。用 timeStamp 甄别:只响应「打开之后真正发生的滚动」,
+    // 早于打开时刻的陈旧事件忽略(timeStamp 与 performance.now() 同一时间轴)。
+    const openTs = performance.now();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    const onScroll = () => onClose();
+    const onScroll = (e: Event) => {
+      if (e.timeStamp < openTs) return;
+      onClose();
+    };
     const onBlur = () => onClose();
     window.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
