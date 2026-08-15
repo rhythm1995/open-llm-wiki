@@ -331,17 +331,16 @@ export function AgentPanel({
   // 「提炼进 Wiki」:预填 + 可见反馈;若已有会话则自动发送。
   useEffect(() => {
     if (!composerSeed?.text || !composerSeed.token) return;
+    // 已发送过的 token 早退:本 effect 依赖 active/busy,agent 开始执行、busy 翻转时
+    // 重跑,若不挡住会把已发出的 prompt 再次回填进输入框。
+    if (lastAutoSentToken.current === composerSeed.token) return;
     setInput(composerSeed.text);
     setSeedPending(true);
-    if (
-      active &&
-      threadIdRef.current &&
-      !busy &&
-      lastAutoSentToken.current !== composerSeed.token
-    ) {
+    if (active && threadIdRef.current && !busy) {
       lastAutoSentToken.current = composerSeed.token;
       setSeedPending(false);
-      // 下一拍再发,保证 input 已写入
+      // 与手动 send() 对齐:发出即清,输入框不留已执行的指令。
+      setInput("");
       window.setTimeout(() => {
         void doSend(composerSeed.text);
       }, 0);
@@ -374,6 +373,17 @@ export function AgentPanel({
     "open-llm-wiki.agent.instantCommit",
     false,
   );
+  /**
+   * ACP 轮次结束检查(应用内 hooks):agent-done 后跑 lint_vault,在面板提示候选数。
+   * 设置 → Agent 记忆 可开关;默认开。
+   */
+  const [turnEndCheck, setTurnEndCheck] = usePersistentState<boolean>(
+    "open-llm-wiki.agent.turnEndCheck",
+    true,
+  );
+  const turnEndCheckRef = useRef(turnEndCheck);
+  turnEndCheckRef.current = turnEndCheck;
+  const [lintBanner, setLintBanner] = useState<string | null>(null);
   /** §2.3 agent 声明的会话模式 / 配置(会话建立后由 agent-session-info 填充)。 */
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   /** Composer `@`-context:是否附上下文;选中邻居子集;候选列表;picker 开合。 */
@@ -650,6 +660,27 @@ export function AgentPanel({
             agentTextRef.current = "";
             setBusy(false);
             setActivityTick((n) => n + 1);
+            // ACP 轮次结束检查:只读 lint_vault,提示候选(不改 vault)。
+            if (turnEndCheckRef.current && root && !ipc.isMock()) {
+              void ipc
+                .lintVault(root)
+                .then((rep) => {
+                  const n =
+                    (rep.findings?.length ?? 0) +
+                    (rep.duplicate_names?.length ?? 0);
+                  if (n > 0) {
+                    setLintBanner(
+                      t("agent.turnEndLintFindings", { n }),
+                    );
+                  } else {
+                    setLintBanner(t("agent.turnEndLintClean"));
+                    window.setTimeout(() => setLintBanner(null), 4000);
+                  }
+                })
+                .catch(() => {
+                  /* lint 失败不挡会话 */
+                });
+            }
             // 排队消息:轮到就发。**副作用绝不能放进 setQueued 的 updater**——StrictMode
             // 会双调 updater,排队消息会发两遍。这里读 ref、先清再发(updater 之外)。
             // alreadyShown=false:排队时只存了 state,没入消息流——发出时才展示 + 落库,
@@ -738,7 +769,8 @@ export function AgentPanel({
           lastAutoSentToken.current = composerSeedRef.current.token;
         }
         setSeedPending(false);
-        setInput(pendingSeed);
+        // pendingSeed 已捕获,发送即清空输入框(与手动 send() 对齐)。
+        setInput("");
         window.setTimeout(() => {
           void doSend(pendingSeed);
           textareaRef.current?.focus();
@@ -1194,6 +1226,22 @@ export function AgentPanel({
       </div>
 
       {error && <ErrorBanner text={error} t={t} />}
+
+      {lintBanner && (
+        <div
+          data-testid="agent-turn-end-lint"
+          className="flex items-start gap-2 border-b border-crust bg-mantle px-2.5 py-1.5 text-[11px] text-subtext"
+        >
+          <p className="min-w-0 flex-1 leading-snug">{lintBanner}</p>
+          <button
+            type="button"
+            className="shrink-0 text-overlay underline hover:text-text"
+            onClick={() => setLintBanner(null)}
+          >
+            {t("common.close")}
+          </button>
+        </div>
+      )}
 
       {/* 主体 */}
       {!active && entries.length === 0 ? (
@@ -1739,6 +1787,27 @@ export function AgentPanel({
                   {instantCommit
                     ? t("agent.instantCommitOn")
                     : t("agent.quarantine")}
+                </button>
+              </HoverPop>
+              <HoverPop
+                align="right"
+                lead={t("agent.turnEndCheck")}
+                text={t("agent.turnEndCheckTip")}
+              >
+                <button
+                  type="button"
+                  data-testid="agent-turn-end-check-toggle"
+                  onClick={() => setTurnEndCheck(!turnEndCheck)}
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px]",
+                    turnEndCheck
+                      ? "bg-blue/20 text-blue"
+                      : "bg-mantle text-overlay hover:bg-surface",
+                  )}
+                >
+                  {turnEndCheck
+                    ? t("agent.turnEndCheckOn")
+                    : t("agent.turnEndCheckOff")}
                 </button>
               </HoverPop>
               </div>
