@@ -15,6 +15,19 @@
 
 ---
 
+### 2026-08-15 Claude — 修「提炼后 prompt 残留 / ⌘A 失效 / 右栏过窄」三连 + 顺手修右键菜单秒关
+
+- **branch**: `release/v0.1.0`(未 push,未合并;工作树含其他未提交改动,本条只动了下列文件)
+- **做了**(用户实测反馈的三问题):
+  1. **提炼进 Wiki 后 prompt 残留在 agent 输入框**:`AgentPanel.tsx` seed 两条自动发送路径(startAgent / seed effect)直接调 `doSend` 从不清 `input`,且 effect 依赖 `[active, busy]`,agent 开跑 busy 翻转时 `setInput(seed)` 把已发出的 prompt **再回填**。修:已发送 token 早退 + 两条路径发送即 `setInput("")`(与手动 `send()` 对齐)。
+  2. **composer 里 ⌘A 全选失效**:macOS 键等效走原生菜单,`lib.rs` 自定义 Edit 菜单缺 `select_all` 预置项 → ⌘A 到不了 webview。加一行 `PredefinedMenuItem::select_all`(所有输入框受益)。
+  3. **右侧 agent 栏过窄 / 被遮挡**:`COL.right` 248/300 → **340/400**,新增 `COL.editor.min=320`;`ColResizeHandle` 加可选 `max`(拖拽 clamp 到 [min,max]);App 挂 mount+resize 收敛效应把 `rightWidth` 夹回 [min, max](修旧持久化值过低 + 窗口缩小时固定列互挡;优先保 agent 栏,编辑器让到保底)。
+  4. **顺手修既有 bug(非本次三问题)**:右键菜单打开瞬间即被关闭。根因:scroll 事件异步派发,点击前为露出目标行的滚动(scroll-into-view / 滚轮惯性)其事件**晚于 contextmenu 送达**,被 ContextMenu 捕获期 scroll 监听误当「菜单打开后的滚动」关掉。修:监听里用 `e.timeStamp < openTs` 甄别陈旧事件。此前本地 e2e 4 个右键用例稳定超时,HEAD(7a32dbb)同样复现,确认非工作树回归。
+- **验证**:新增 `AgentPanel.test.tsx`(3 用例,stash 对照确认修复前全红);`pnpm --dir ui typecheck` / `test:cov`(640 全绿)/ `e2e`(18 全绿,含此前失败的 4 个右键用例);`cargo test -p open-llm-wiki-app` 52 全绿;test-setup 补 jsdom 的 `Element.scrollTo` shim。
+- **下一步 / 接手注意**:⌘A 与菜单项需 `tauri dev` 实机手验;右栏宽度语义(340/400)若观感不合适只调 `COL` 常量即可,收敛逻辑自适应。
+
+---
+
 ### 2026-08-11 Grok — 收口:backlog 记 npm 待办 + hooks 调研 + commit
 
 - **branch**: `release/v0.1.0`
