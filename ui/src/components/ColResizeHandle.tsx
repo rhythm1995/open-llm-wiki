@@ -13,11 +13,14 @@
 export function ColResizeHandle({
   width,
   min,
+  max,
   side,
   onChange,
 }: {
   width: number;
   min: number;
+  /** 可选拖拽上限(右栏用:窗口宽 - 其余栏最小值 - 编辑器保底,防拖到过宽挤死编辑器)。 */
+  max?: number;
   side: "left" | "right";
   onChange: (w: number) => void;
 }) {
@@ -27,7 +30,8 @@ export function ColResizeHandle({
     const startW = width;
     const dir = side === "right" ? 1 : -1;
     const move = (ev: MouseEvent) => {
-      const next = Math.max(min, Math.round(startW + (ev.clientX - startX) * dir));
+      const raw = Math.round(startW + (ev.clientX - startX) * dir);
+      const next = Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, raw));
       onChange(next);
     };
     const up = () => {
@@ -53,9 +57,13 @@ export function ColResizeHandle({
   );
 }
 
-/** 常用栏宽约束(最小值 / 默认值),供 App 与工具栏表头共用。 */
+/** 常用栏宽约束(最小值 / 默认值),供 App 与工具栏表头共用。
+ *
+ * `right` 是聊天面板(气泡对话 + composer),248 太窄会被遮挡看不到输入输出;
+ * `editor` 是唯一 flex 栏,给它保底,右栏拖拽 / 窗口收缩时不得吃掉。 */
 export const COL = {
   nav: { min: 176, default: 224 },
   list: { min: 208, default: 320 },
-  right: { min: 248, default: 300 },
+  right: { min: 340, default: 400 },
+  editor: { min: 320 },
 } as const;

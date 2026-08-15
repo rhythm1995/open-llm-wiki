@@ -880,6 +880,27 @@ export default function App() {
     writeLastPath(state.root, state.currentPath);
   }, [state.root, state.currentPath]);
 
+  // 右栏宽度收敛:① 旧持久化值可能低于当前 COL.right.min(常量上调过,读取时不校验);
+  // ② 窗口缩到固定宽度列装不下时会互相遮挡。mount + resize 时把右栏夹回 [min, max],
+  // 优先保住 agent 面板,编辑器(唯一 flex 栏)最多让到 COL.editor.min。值没变就不写,
+  // 避免拖窗口边时每帧都刷 localStorage。
+  const rightWidthRef = useRef(rightWidth);
+  rightWidthRef.current = rightWidth;
+  useEffect(() => {
+    const fit = () => {
+      const max = Math.max(
+        COL.right.min,
+        window.innerWidth - COL.nav.min - COL.list.min - COL.editor.min,
+      );
+      const w = rightWidthRef.current;
+      const next = Math.min(max, Math.max(COL.right.min, w));
+      if (next !== w) setRightWidth(next);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [setRightWidth]);
+
   return (
     <div className="flex h-screen flex-col">
       {/* 上半区横向并排:左半(顶栏 + 导航/列表/编辑器)+ 右栏。右栏**全高**——与顶栏
@@ -1269,6 +1290,11 @@ export default function App() {
           <ColResizeHandle
             width={rightWidth}
             min={COL.right.min}
+            // 拖拽上限:给编辑器留保底,防把 agent 拖到过宽反过来挤死中间栏。
+            max={Math.max(
+              COL.right.min,
+              window.innerWidth - COL.nav.min - COL.list.min - COL.editor.min,
+            )}
             side="left"
             onChange={setRightWidth}
           />
