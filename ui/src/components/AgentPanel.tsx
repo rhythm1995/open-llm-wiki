@@ -26,6 +26,7 @@ import {
 } from "@phosphor-icons/react";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
+import { isIMEComposing } from "../lib/ime";
 import { AgentIcon } from "../lib/agent-icons";
 import { usePersistentState } from "../lib/usePersistentState";
 import { ipc } from "../lib/ipc";
@@ -40,6 +41,16 @@ import { ToolCard } from "./ToolCard";
 import { AgentActivity } from "./AgentActivity";
 import { HoverPop } from "./HoverPop";
 import { log } from "../lib/logger";
+import {
+  isAgentSeedConsumed,
+  markAgentSeedConsumed,
+} from "../lib/agent-seed";
+import {
+  HOT_CACHE_PATH,
+  applyHotCacheToPrompt,
+  shouldRemindHotUpdate,
+  turnsSinceHotInject,
+} from "../lib/hot-cache";
 
 /** 与后端 `acp::AgentInfo` 对齐。 */
 type AgentInfo = {
@@ -111,6 +122,19 @@ type SessionInfo = {
   configOptions?: ConfigOption[] | null;
   models?: SessionModels | null;
 };
+
+/** 提炼/查询 seed:优先上次/当前 agent,否则唯一已装的那一个。 */
+function pickSeedAgent(
+  agents: AgentInfo[],
+  lastId: string | null,
+): AgentInfo | null {
+  if (lastId) {
+    const last = agents.find((a) => a.id === lastId && a.installed);
+    if (last) return last;
+  }
+  const installed = agents.filter((a) => a.installed);
+  return installed.length === 1 ? installed[0] : null;
+}
 
 /** 高危操作启发式(§5):笔记删除 / 重命名移动 / 破坏性覆盖 恒门控,无论权限模式。 */
 function isHighRisk(toolCall: unknown): boolean {
@@ -269,6 +293,7 @@ export function AgentPanel({
   getContextCandidates,
   onOpenMemoryOnboard,
   composerSeed = null,
+  onSeedConsumed,
 }: {
   root: string;
   t: TFunc;
@@ -282,10 +307,17 @@ export function AgentPanel({
   /** 打开「设置 → Agent 记忆接入」(外部 MCP)。 */
   onOpenMemoryOnboard?: () => void;
   /**
-   * 外部预填 composer(如「提炼进 Wiki」)。`token` 变化时写入 input,不自动发送
-   * ——用户需选好 agent 后点发送。
+   * 外部预填 composer(如「提炼进 Wiki」)。活动会话直接发(忙则排队);
+   * 历史回放 / 仅一个已装 agent 则自动拉起,不必再选。
+   * 发送或入队后必须经 onSeedConsumed 清掉,否则换笔记 / 重开面板会再发。
    */
-  composerSeed?: { text: string; token: number } | null;
+  composerSeed?: {
+    text: string;
+    token: number;
+    banner?: "digest" | "query";
+  } | null;
+  /** 本条 seed 已真正发出:父组件应立刻把 composerSeed 置 null。 */
+  onSeedConsumed?: (token: number) => void;
 }) {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [active, setActive] = useState(false);
@@ -308,6 +340,8 @@ export function AgentPanel({
    *  StrictMode 双调 updater 会把排队消息发两遍)。 */
   const [queued, _setQueued] = useState<string | null>(null);
   const queuedRef = useRef<string | null>(null);
+  /** 排队消息是否附 `@` 全文;种子排队为 false。 */
+  const queuedAttachRef = useRef(true);
   const setQueued = (q: string | null) => {
     queuedRef.current = q;
     _setQueued(q);
@@ -322,34 +356,28 @@ export function AgentPanel({
   /** 最新 seed 的 ref:startAgent 成功后可读,避免闭包陈旧。 */
   const composerSeedRef = useRef(composerSeed);
   composerSeedRef.current = composerSeed;
+  const onSeedConsumedRef = useRef(onSeedConsumed);
+  onSeedConsumedRef.current = onSeedConsumed;
   /** 有待发送的提炼指令(picker 上展示横幅;会话就绪后自动发)。 */
   const [seedPending, setSeedPending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   /** 避免 StrictMode / 重复 token 连发两次。 */
   const lastAutoSentToken = useRef<number | null>(null);
+  /** 当前尚未消费的预填原文:父组件清 seed 时用来对账清空输入框。 */
+  const lastSeedTextRef = useRef<string | null>(null);
 
-  // 「提炼进 Wiki」:预填 + 可见反馈;若已有会话则自动发送。
-  useEffect(() => {
-    if (!composerSeed?.text || !composerSeed.token) return;
-    // 已发送过的 token 早退:本 effect 依赖 active/busy,agent 开始执行、busy 翻转时
-    // 重跑,若不挡住会把已发出的 prompt 再次回填进输入框。
-    if (lastAutoSentToken.current === composerSeed.token) return;
-    setInput(composerSeed.text);
-    setSeedPending(true);
-    if (active && threadIdRef.current && !busy) {
-      lastAutoSentToken.current = composerSeed.token;
-      setSeedPending(false);
-      // 与手动 send() 对齐:发出即清,输入框不留已执行的指令。
-      setInput("");
-      window.setTimeout(() => {
-        void doSend(composerSeed.text);
-      }, 0);
-    } else {
-      // picker 态:聚焦无 textarea,等 startAgent
-      window.setTimeout(() => textareaRef.current?.focus(), 50);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只跟 token 走,不绑 doSend
-  }, [composerSeed?.token, composerSeed?.text, active, busy]);
+  const consumeComposerSeed = (token: number | undefined) => {
+    if (token == null) return;
+    markAgentSeedConsumed(token);
+    lastAutoSentToken.current = token;
+    lastSeedTextRef.current = null;
+    setSeedPending(false);
+    onSeedConsumedRef.current?.(token);
+  };
+
+  const seedAlreadyTaken = (token: number | undefined | null) =>
+    token != null &&
+    (isAgentSeedConsumed(token) || lastAutoSentToken.current === token);
 
   /** 权限模式:normal(逐次问)/ permissive(宽松,非高危自动放行)。琥珀点提示后者。 */
   const [permMode, setPermMode] = usePersistentState<"normal" | "permissive">(
@@ -384,6 +412,11 @@ export function AgentPanel({
   const turnEndCheckRef = useRef(turnEndCheck);
   turnEndCheckRef.current = turnEndCheck;
   const [lintBanner, setLintBanner] = useState<string | null>(null);
+  const [hotBanner, setHotBanner] = useState<string | null>(null);
+  const wroteThisTurnRef = useRef(false);
+  const turnCountRef = useRef(0);
+  const lastHotInjectTurnRef = useRef<number | null>(null);
+  const lastHotBodyRef = useRef<string | null>(null);
   /** §2.3 agent 声明的会话模式 / 配置(会话建立后由 agent-session-info 填充)。 */
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   /** Composer `@`-context:是否附上下文;选中邻居子集;候选列表;picker 开合。 */
@@ -396,6 +429,7 @@ export function AgentPanel({
   const ctxRingRef = useRef<HTMLDivElement | null>(null);
   /** §31 历史会话列表 + 切换浮层。 */
   const [threads, setThreads] = useState<ThreadInfo[]>([]);
+  const [threadsReady, setThreadsReady] = useState(false);
   const [threadListOpen, setThreadListOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -421,18 +455,114 @@ export function AgentPanel({
   }, []);
 
   // 挂载 / 换 vault:拉历史列表 + 回放最近一条线程(顺带修切 tab 卸载丢对话)。
+  // 子进程若仍活着(只是卸掉了面板):恢复活动会话,不要当历史回放、不要冷启动。
+  // 若已有提炼/查询 seed 且进程已死,不要回放历史——历史视图没有 picker,seed 会卡死。
   useEffect(() => {
-    if (!root) return;
+    if (!root) {
+      setThreadsReady(false);
+      return;
+    }
     threadIdRef.current = null;
     setThreadListOpen(false);
+    setThreadsReady(false);
     (async () => {
+      let liveId: string | null = null;
+      try {
+        const rt = await invoke<{ alive: boolean; agentId?: string | null }>(
+          "agent_runtime",
+        );
+        if (rt?.alive && rt.agentId) liveId = rt.agentId;
+      } catch {
+        /* mock / 旧后端 */
+      }
       const list = await refreshThreads();
+      setThreadsReady(true);
+      if (liveId) {
+        const mine = list.find((th) => th.agent === liveId) ?? list[0];
+        if (mine) await openThread(mine.id, mine.agent);
+        setActiveAgent(liveId);
+        setActive(true);
+        return;
+      }
       if (list.length === 0) return;
+      const pending = composerSeedRef.current;
+      // 只有尚未消费的 seed 才挡住历史回放;leftover 已发过的指令不该把面板卡在空 picker。
+      if (pending?.text && !seedAlreadyTaken(pending.token)) return;
       const latest = list[0];
       await openThread(latest.id, latest.agent);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [root]);
+
+  // 「提炼进 Wiki」/「查询 Vault」:活动会话直接发;忙则排队;历史回放或仅一个
+  // 已装 agent 则自动 startAgent(不必再选)。历史视图没有 picker,不能卡在「请选择」。
+  // 已消费的 token / 父组件清空的 seed 绝不能再武装——换笔记或重开面板会误提炼。
+  useEffect(() => {
+    if (!composerSeed?.text || !composerSeed.token) {
+      const leftover = lastSeedTextRef.current;
+      lastSeedTextRef.current = null;
+      setSeedPending(false);
+      if (leftover) {
+        setInput((prev) => (prev === leftover ? "" : prev));
+      }
+      return;
+    }
+    // 已发送过的 token 早退:本 effect 依赖 active/busy,agent 开始执行、busy 翻转时
+    // 重跑,若不挡住会把已发出的 prompt 再次回填进输入框。
+    if (seedAlreadyTaken(composerSeed.token)) return;
+
+    if (active && threadIdRef.current && !busy) {
+      consumeComposerSeed(composerSeed.token);
+      setInput("");
+      window.setTimeout(() => {
+        void doSend(composerSeed.text, false, false);
+      }, 0);
+      return;
+    }
+
+    if (active && threadIdRef.current && busy) {
+      // 先记下 token,避免 busy 翻转时 effect 再发一遍;真正 doSend 后再消费。
+      // 入队阶段不清 App seed:卸载再挂还能靠 leftover 把排队补回来。
+      lastAutoSentToken.current = composerSeed.token;
+      setSeedPending(false);
+      setInput("");
+      queuedAttachRef.current = false;
+      setQueued(composerSeed.text);
+      return;
+    }
+
+    lastSeedTextRef.current = composerSeed.text;
+    setInput(composerSeed.text);
+    setSeedPending(true);
+
+    if (connectingAgentId !== null) return;
+
+    const lastId = activeAgent ?? threads[0]?.agent ?? null;
+    const pick = pickSeedAgent(agents, lastId);
+    if (pick) {
+      void startAgent(pick);
+      return;
+    }
+
+    // agent_list / 历史列表还没回来,先等,不要把历史视图清成空 picker。
+    if (agents.length === 0 || !threadsReady) return;
+
+    // 多个已装 agent 且没有「上次」:必须让人看见 picker。
+    if (entries.length > 0) startNewConversation();
+    window.setTimeout(() => textareaRef.current?.focus(), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startAgent/doSend 每渲新建
+  }, [
+    composerSeed?.token,
+    composerSeed?.text,
+    active,
+    busy,
+    activeAgent,
+    agents,
+    threads,
+    threadsReady,
+    connectingAgentId,
+    entries.length,
+  ]);
 
   // 滚到底。
   useEffect(() => {
@@ -641,6 +771,7 @@ export function AgentPanel({
             // §4 标注层:每次 fs 写即时刷新 git 活动面板(边写边现);
             // payload 含 {path,writer,added,removed,created} 供后续转录/工具卡细化。
             void e.payload;
+            wroteThisTurnRef.current = true;
             setActivityTick((n) => n + 1);
           },
         ],
@@ -660,6 +791,16 @@ export function AgentPanel({
             agentTextRef.current = "";
             setBusy(false);
             setActivityTick((n) => n + 1);
+            turnCountRef.current += 1;
+            if (
+              shouldRemindHotUpdate(
+                wroteThisTurnRef.current,
+                lastHotBodyRef.current,
+              )
+            ) {
+              setHotBanner(t("agent.hotUpdateHint"));
+            }
+            wroteThisTurnRef.current = false;
             // ACP 轮次结束检查:只读 lint_vault,提示候选(不改 vault)。
             if (turnEndCheckRef.current && root && !ipc.isMock()) {
               void ipc
@@ -687,8 +828,12 @@ export function AgentPanel({
             // 否则这轮 user 消息在对话里凭空消失、历史里也查不到。
             const q = queuedRef.current;
             if (q) {
+              const attach = queuedAttachRef.current;
+              queuedAttachRef.current = true;
               setQueued(null);
-              void doSend(q);
+              const seed = composerSeedRef.current;
+              if (seed?.text === q) consumeComposerSeed(seed.token);
+              void doSend(q, false, attach);
             }
           },
         ],
@@ -737,10 +882,11 @@ export function AgentPanel({
   async function startAgent(a: AgentInfo) {
     setError(null);
     setConnectingAgentId(a.id);
-    // 启动前锁住 seed:start 过程中 token 不应丢
-    const pendingSeed =
-      composerSeedRef.current?.text?.trim() ||
-      (seedPending ? input.trim() : "");
+    // 只发「尚未消费」的 seed。已发过的 leftover 绝不能在下次点 agent 时再提炼。
+    const seed = composerSeedRef.current;
+    const pendingSeed = seedAlreadyTaken(seed?.token)
+      ? ""
+      : seed?.text?.trim() || (seedPending ? input.trim() : "");
     try {
       // 骨干(§2.4):每个 agent 起一个新线程,线程与 agent 绑定。
       const tid = await invoke<number>("agent_thread_create", { root, agent: a.id });
@@ -765,14 +911,11 @@ export function AgentPanel({
       void refreshThreads();
       // 提炼入口:开会话后立刻发送预填指令(用户已点「提炼」+ 选 agent = 明确意图)。
       if (pendingSeed) {
-        if (composerSeedRef.current?.token != null) {
-          lastAutoSentToken.current = composerSeedRef.current.token;
-        }
-        setSeedPending(false);
+        consumeComposerSeed(seed?.token);
         // pendingSeed 已捕获,发送即清空输入框(与手动 send() 对齐)。
         setInput("");
         window.setTimeout(() => {
-          void doSend(pendingSeed);
+          void doSend(pendingSeed, false, false);
           textareaRef.current?.focus();
         }, 0);
       }
@@ -852,10 +995,19 @@ export function AgentPanel({
     toolsRef.current = new Map();
     threadIdRef.current = null;
     setThreadListOpen(false);
+    wroteThisTurnRef.current = false;
+    turnCountRef.current = 0;
+    lastHotInjectTurnRef.current = null;
+    lastHotBodyRef.current = null;
+    setHotBanner(null);
   }
 
   /** 实际发送(内部)。`alreadyShown` = 文本已作为气泡展示/落库(移交 seed 场景)。 */
-  async function doSend(text: string, alreadyShown = false) {
+  async function doSend(
+    text: string,
+    alreadyShown = false,
+    attachContext = true,
+  ) {
     if (!text || !threadIdRef.current) return;
     // 新一轮 prompt开始:上一轮的「取消中」状态作废,清掉兜底定时器,防其误复位本轮 busy。
     clearStopping();
@@ -866,14 +1018,32 @@ export function AgentPanel({
       persist("user", text);
     }
     agentTextRef.current = "";
-    // @-context:发送时附当前笔记 + 勾选的邻居正文(§25 选择器)。
+    // @-context:仅手动发送时附全文。提炼/查询种子只带 path,由 skill / MCP 按需读。
     let full = text;
-    if (ctxActive && getAiContext) {
+    if (attachContext && ctxActive && getAiContext) {
       try {
         const ctx = await getAiContext(ctxSelected);
         if (ctx) full = `${ctx}\n\n---\n\n${text}`;
       } catch {
         /* 附不上就发原文 */
+      }
+    }
+    // hot.md:仅手动发送(attachContext)才注;提炼/查询种子保持短触发。
+    // 首轮必注;之后每 HOT_REINJECT_TURNS 回合再注(近似压缩后再读)。
+    if (attachContext) {
+      const hot = await applyHotCacheToPrompt({
+        enabled: Boolean(root) && !ipc.isMock(),
+        userText: full,
+        turnsSinceInject: turnsSinceHotInject(
+          lastHotInjectTurnRef.current,
+          turnCountRef.current,
+        ),
+        readHot: () => ipc.readNote(root, HOT_CACHE_PATH),
+      });
+      lastHotBodyRef.current = hot.hotBody ?? lastHotBodyRef.current;
+      if (hot.injected) {
+        full = hot.text;
+        lastHotInjectTurnRef.current = turnCountRef.current;
       }
     }
     try {
@@ -1242,6 +1412,21 @@ export function AgentPanel({
           </button>
         </div>
       )}
+      {hotBanner && (
+        <div
+          data-testid="agent-hot-update"
+          className="flex items-start gap-2 border-b border-crust bg-mantle px-2.5 py-1.5 text-[11px] text-subtext"
+        >
+          <p className="min-w-0 flex-1 leading-snug">{hotBanner}</p>
+          <button
+            type="button"
+            className="shrink-0 text-overlay underline hover:text-text"
+            onClick={() => setHotBanner(null)}
+          >
+            {t("common.close")}
+          </button>
+        </div>
+      )}
 
       {/* 主体 */}
       {!active && entries.length === 0 ? (
@@ -1253,10 +1438,18 @@ export function AgentPanel({
               data-testid="agent-seed-banner"
             >
               <p className="text-[12px] font-medium text-text">
-                {t("wiki.digest.agentBanner")}
+                {t(
+                  composerSeed?.banner === "query"
+                    ? "wiki.query.agentBanner"
+                    : "wiki.digest.agentBanner",
+                )}
               </p>
               <p className="mt-0.5 text-[11px] leading-snug text-subtext">
-                {t("wiki.digest.agentBannerHint")}
+                {t(
+                  composerSeed?.banner === "query"
+                    ? "wiki.query.agentBannerHint"
+                    : "wiki.digest.agentBannerHint",
+                )}
               </p>
               <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded border border-crust bg-base/80 p-2 font-mono text-[10px] leading-snug text-subtext">
                 {(composerSeed?.text || input).slice(0, 600)}
@@ -1265,7 +1458,13 @@ export function AgentPanel({
             </div>
           )}
           <p className="mb-3 text-[12px] leading-relaxed text-overlay">
-            {seedPending ? t("wiki.digest.pickAgent") : t("agent.intro")}
+            {seedPending
+              ? t(
+                  composerSeed?.banner === "query"
+                    ? "wiki.query.pickAgent"
+                    : "wiki.digest.pickAgent",
+                )
+              : t("agent.intro")}
           </p>
           {/* 外部 MCP 记忆接入入口(与右侧「应用内 Agent」并列引导,避免只藏在设置深处)。 */}
           {onOpenMemoryOnboard && !ipc.isMock() && (
@@ -1818,7 +2017,8 @@ export function AgentPanel({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  // IME 组合期(拼音候选确认)的 Enter 不是发送。
+                  if (e.key === "Enter" && !e.shiftKey && !isIMEComposing(e)) {
                     e.preventDefault();
                     send();
                   }

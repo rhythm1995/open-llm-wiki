@@ -30,7 +30,7 @@
  *
  * 许可:BlockNote MPL-2.0(见 THIRD_PARTY_NOTICES)。
  */
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import {
@@ -66,6 +66,7 @@ import {
   applyProgressiveSelectAll,
   isSelectAllHotkey,
 } from "../lib/wysiwyg-select-all";
+import { collectHeadingBlocks } from "../lib/outline";
 
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
@@ -95,21 +96,35 @@ interface Props {
   attachmentLayout?: AttachmentLayout;
   /** 当前笔记相对路径;folder-note / note-folder 分桶用。 */
   notePath?: string | null;
+  /**
+   * 带所有权的回写(store.writeScoped):flush 时携带本视图自己的 path+root。
+   * 切笔记后卸载 flush 迟到时,由 store 定向写回原路径而非污染共享 content 槽。
+   */
+  onFlush?: (path: string, root: string | null, next: string) => void;
 }
 
-export function WysiwygView({
-  content,
-  onChange,
-  onFollow,
-  noteTitles,
-  hasNote,
-  theme,
-  t,
-  root = null,
-  attachmentsDir = DEFAULT_ATTACHMENTS_DIR,
-  attachmentLayout = DEFAULT_ATTACHMENT_LAYOUT,
-  notePath = null,
-}: Props) {
+export interface WysiwygHandle {
+  /** 跳到大纲第 index 个标题块,光标放到块首并滚到视口中间。 */
+  scrollToHeading: (index: number) => void;
+}
+
+export const WysiwygView = forwardRef<WysiwygHandle, Props>(function WysiwygView(
+  {
+    content,
+    onChange,
+    onFollow,
+    noteTitles,
+    hasNote,
+    theme,
+    t,
+    root = null,
+    attachmentsDir = DEFAULT_ATTACHMENTS_DIR,
+    attachmentLayout = DEFAULT_ATTACHMENT_LAYOUT,
+    notePath = null,
+    onFlush,
+  },
+  ref,
+) {
   // 仅挂载时取一次 body;切笔记靠 App 的 key={currentPath} 重建触发,不在此响应 content 变化。
   const initialBody = useMemo(() => splitFrontmatter(content).body, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,6 +133,8 @@ export function WysiwygView({
   contentRef.current = content;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onFlushRef = useRef(onFlush);
+  onFlushRef.current = onFlush;
   const onFollowRef = useRef(onFollow);
   onFollowRef.current = onFollow;
   const titlesRef = useRef(noteTitles);
@@ -191,6 +208,7 @@ export function WysiwygView({
           await ipc.saveAttachment(vaultRoot, plan.relPath, dataUrl);
           const cursor = editor.getTextCursorPosition();
           // 直接插 image 块:url 为 vault 相对路径(落盘 md 干净)。
+          markTouched();
           editor.insertBlocks(
             [
               {
@@ -227,24 +245,44 @@ export function WysiwygView({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // 最近一次序列化出的 body(每次 change 同步更新);卸载 flush 用它,避免依赖可能已销毁的 editor。
   const latestBodyMdRef = useRef<string>("");
+  /** 仅用户动过才落盘。挂载 replaceBlocks / 回读图片会触发 onChange,不能当成编辑。 */
+  const userTouchedRef = useRef(false);
+  const markTouched = () => {
+    userTouchedRef.current = true;
+  };
 
   /** 把最近序列化的 body 与 store 当前 body 比较,不同才合并回写(防自写回环)。 */
   const flushSave = () => {
+    if (!userTouchedRef.current) return;
     const bodyMd = latestBodyMdRef.current;
     if (!bodyMd) return;
     const { hasFm, fm, body } = splitFrontmatter(contentRef.current);
     // 序列化 body 与 store 当前 body 一致 → 无变化(初始载入 / 仅 fm 改动),跳过,避免回环。
     if (bodyMd === body) return;
-    onChangeRef.current(mergeFrontmatter(hasFm, fm, bodyMd));
+    const next = mergeFrontmatter(hasFm, fm, bodyMd);
+    // 优先走带所有权的回写:切笔记后卸载 flush 迟到时定向写回本笔记路径,
+    // 不污染共享 content 槽(旧内容会落盘到新笔记路径,2026-08-15 竞态修复)。
+    const flush = onFlushRef.current;
+    if (flush && notePathRef.current) {
+      flush(notePathRef.current, rootRef.current, next);
+    } else {
+      onChangeRef.current(next);
+    }
   };
 
   /** BlockNote 文档变化 → 同步更新最新 body(chip 先 dehydrate 回纯文本)→ 防抖合并回写。 */
   const handleChange = () => {
+    if (!userTouchedRef.current) return;
     latestBodyMdRef.current = editor.blocksToMarkdownLossy(
       dehydrateWikilinks(editor.document),
     );
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+  };
+  /** 格式条 / 插图:点了就是用户编辑。 */
+  const handleUserChange = () => {
+    markTouched();
+    handleChange();
   };
 
   // 卸载:清防抖并立即 flush,避免切模式/切笔记时丢失未落盘的编辑(flushSave 经 ref 读最新值)。
@@ -281,8 +319,59 @@ export function WysiwygView({
       }
     };
     el.addEventListener("keydown", onKey, true);
-    return () => el.removeEventListener("keydown", onKey, true);
+    const markIfEdit = (e: Event) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace" || e.key === "Delete") {
+          markTouched();
+        }
+        return;
+      }
+      markTouched();
+    };
+    el.addEventListener("keydown", markIfEdit);
+    el.addEventListener("beforeinput", markIfEdit);
+    el.addEventListener("paste", markIfEdit);
+    el.addEventListener("drop", markIfEdit);
+    el.addEventListener("dragend", markIfEdit);
+    return () => {
+      el.removeEventListener("keydown", onKey, true);
+      el.removeEventListener("keydown", markIfEdit);
+      el.removeEventListener("beforeinput", markIfEdit);
+      el.removeEventListener("paste", markIfEdit);
+      el.removeEventListener("drop", markIfEdit);
+      el.removeEventListener("dragend", markIfEdit);
+    };
   }, [editor]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToHeading: (index: number) => {
+        const headings = collectHeadingBlocks(
+          editor.document as Array<{
+            id: string;
+            type: string;
+            children?: Array<{ id: string; type: string }>;
+          }>,
+        );
+        const block = headings[index];
+        if (!block) return;
+        try {
+          editor.setTextCursorPosition(block.id, "start");
+          editor.focus();
+        } catch {
+          /* 无块 / 未就绪 */
+        }
+        const root = editor.domElement ?? rootElRef.current;
+        const el = root?.querySelector(
+          `[data-id="${CSS.escape(block.id)}"]`,
+        );
+        el?.scrollIntoView({ block: "center" });
+      },
+    }),
+    [editor],
+  );
 
   if (!hasNote) {
     return (
@@ -336,7 +425,7 @@ export function WysiwygView({
                 type: type as "paragraph",
                 props: props as never,
               });
-              handleChange();
+              handleUserChange();
             } catch {
               /* 无选区时忽略 */
             }
@@ -350,7 +439,7 @@ export function WysiwygView({
                 data-testid="wysiwyg-fmt-bold"
                 onClick={() => {
                   editor.toggleStyles({ bold: true });
-                  handleChange();
+                  handleUserChange();
                 }}
               >
                 <TextB size={14} weight="bold" />
@@ -362,7 +451,7 @@ export function WysiwygView({
                 data-testid="wysiwyg-fmt-italic"
                 onClick={() => {
                   editor.toggleStyles({ italic: true });
-                  handleChange();
+                  handleUserChange();
                 }}
               >
                 <TextItalic size={14} />
@@ -436,12 +525,12 @@ export function WysiwygView({
                         props: { inner: "Note" },
                       } as never,
                     ]);
-                    handleChange();
+                    handleUserChange();
                   } catch {
                     editor.insertInlineContent([
                       { type: "text", text: "[[Note]]", styles: {} },
                     ]);
-                    handleChange();
+                    handleUserChange();
                   }
                 }}
               >
@@ -514,4 +603,4 @@ export function WysiwygView({
       </div>
     </div>
   );
-}
+});

@@ -25,10 +25,24 @@
 
 1. **蒸馏是语义任务**,不是事件脚本。要从 Source 正文抽出 TL;DR / Concept / 矛盾,必须有 LLM 读与写——hook 脚本做不到「理解原文」。
 2. **Hooks 跨产品碎片化**。Claude Code(`.claude/settings` hooks)、Cursor(`hooks.json`)、其它 agent 各一套;Open LLM Wiki 要服务多 agent + 应用内 ACP,**skill 文件 + MCP 更中性**。
-3. **Hooks 适合挂在 ingest 之后**,例如:
+3. **Hooks 通常绑在「某个项目/仓库目录」**,不是任意 Vault 自动生效——用户知识库路径与 agent 工程目录常不一致。
+4. **Hooks 适合挂在 ingest 之后**,例如:
    - `PostToolUse` / after write:提醒跑 `lint_vault`、检查 Source 是否已 `Digested`、是否有 Summary 的 `source` 边;
    - 禁止在未备份时批量删笔记。
-4. **应用内 ACP** 目前没有与 Claude/Cursor 同构的 hooks 配置面;按钮短触发 skill 仍是统一入口。
+5. **应用内 ACP** 目前没有与 Claude/Cursor 同构的 hooks 配置面;按钮短触发 skill 仍是统一入口。
+
+## 2.1 Hooks 入口在哪(用户怎么配)
+
+Open LLM Wiki **应用内没有 Hooks 设置页**。Hooks 属于各家编码 Agent 自己的配置:
+
+| Agent | 入口 / 配置位置 |
+|-------|-----------------|
+| **Claude Code** | 用户级 `~/.claude/settings.json`(或项目 `.claude/settings.json`)里的 `hooks` 字段;事件如 PreToolUse / PostToolUse / Stop 等。文档与社区多称 Settings → hooks,实质是 JSON 配置而非 OLW UI。 |
+| **Cursor** | 项目 `.cursor/hooks.json` 或用户 `~/.cursor/hooks.json`;也可通过 Cursor 的 `/create-hook` 等命令生成。在 **以该目录为工作区** 打开时生效。 |
+| **应用内 Agent(ACP)** | **无 hooks 入口**(当前架构未实现)。 |
+| **Open LLM Wiki 桌面** | **无 hooks 入口**;记忆接入是 MCP setup,规程是 vault skill。 |
+
+因此:要「对指定目录」用 hooks,须在**该目录作为 agent 工程打开时**配置上述文件——不能在 OLW 里点一下全局生效。
 
 ## 3. 推荐分层(与已实现方向一致)
 

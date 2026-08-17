@@ -89,6 +89,10 @@ const onboardInit = vi.fn(async (_dir: string, _force?: boolean) => ({
   written: ["index.md", "README.md"],
   skipped: ["types/concept.md"],
 }));
+const onboardInstallSkill = vi.fn(async (_dir: string) => ({
+  written: [".agents/skills/wiki-ingest/SKILL.md"],
+  skipped: [".claude/skills/wiki-ingest/SKILL.md"],
+}));
 const onboardScan = vi.fn(async () => scanFixture);
 const onboardGuidance = vi.fn(async () => scanFixture.guidance);
 const onboardPickBinary = vi.fn(async () => "/picked/open-llm-wiki-mcp");
@@ -106,6 +110,7 @@ vi.mock("../lib/ipc", () => ({
     onboardDoctor: (vault: string, binary?: string | null) =>
       onboardDoctor(vault, binary),
     onboardInit: (dir: string, force?: boolean) => onboardInit(dir, force),
+    onboardInstallSkill: (dir: string) => onboardInstallSkill(dir),
     onboardGuidance: () => onboardGuidance(),
     onboardPickBinary: () => onboardPickBinary(),
     onboardResolveBinary: async () => "/bin/open-llm-wiki-mcp",
@@ -163,6 +168,9 @@ describe("AgentOnboardingSection", () => {
     expect(binary).toBe("/bin/open-llm-wiki-mcp");
     expect(vault).toBe("/vault");
     expect(ids.sort()).toEqual(["claude-code", "cursor"]);
+    // 一键接入同时给当前工作 vault 补装 wiki-ingest skill(提炼所需)。
+    await waitFor(() => expect(onboardInstallSkill).toHaveBeenCalledTimes(1));
+    expect(onboardInstallSkill.mock.calls[0][0]).toBe("/vault");
     await waitFor(() =>
       expect(screen.getByTestId("settings-onboard-results")).toBeInTheDocument(),
     );

@@ -754,6 +754,7 @@ pub fn embedded_files() -> &'static [(&'static str, &'static str)] {
     &[
         ("README.md", include_str!("../../templates/wiki-starter/README.md")),
         ("index.md", include_str!("../../templates/wiki-starter/index.md")),
+        ("hot.md", include_str!("../../templates/wiki-starter/hot.md")),
         (
             "examples/example-concept.md",
             include_str!("../../templates/wiki-starter/examples/example-concept.md"),
@@ -890,7 +891,18 @@ pub fn seed_vault(dir: &Path, force: bool) -> Result<SeedReport, String> {
         report.written.push((*rel).to_string());
     }
     // Agent 发现路径:同一 SKILL 双写到 .agents 与 .claude(不覆盖已有)。
+    let skill = install_wiki_ingest_skill(dir)?;
+    report.written.extend(skill.written);
+    report.skipped.extend(skill.skipped);
+    Ok(report)
+}
+
+/// 仅把 wiki-ingest skill 写到 `dir` 的 agent 发现路径(`.agents/` + `.claude/`),
+/// 不写整套 starter 模板。用于"一键接入"给**当前工作 vault** 补装提炼所需的 skill,
+/// 避免往用户已有笔记的 vault 塞 types/、AGENTS.md 等模板。**永不覆盖**已有 skill 文件。
+pub fn install_wiki_ingest_skill(dir: &Path) -> Result<SeedReport, String> {
     let skill_body = include_str!("../../templates/wiki-starter/skills/wiki-ingest/SKILL.md");
+    let mut report = SeedReport::default();
     for rel in [
         ".agents/skills/wiki-ingest/SKILL.md",
         ".claude/skills/wiki-ingest/SKILL.md",
@@ -1855,6 +1867,34 @@ mod tests {
         // 除已有 index 外全部 embedded + skill 双写
         assert_eq!(report.written.len(), embedded_files().len() - 1 + 2);
         assert_eq!(fs::read_to_string(target.join("index.md")).unwrap(), "# mine\n");
+    }
+
+    /// install_wiki_ingest_skill:只写 .agents + .claude 两份 skill,不写整套模板;
+    /// 不覆盖已有;给「一键接入」补装到工作 vault 用。
+    #[test]
+    fn install_wiki_ingest_skill_writes_only_skill_and_never_clobbers() {
+        let dir = tempdir();
+        let target = dir.path().join("vault");
+        fs::create_dir_all(&target).unwrap();
+        // 用户已有笔记,install_wiki_ingest_skill 不得往里塞 types/、index.md 等模板。
+        fs::write(target.join("mine.md"), "# mine\n").unwrap();
+
+        let report = install_wiki_ingest_skill(&target).unwrap();
+        assert_eq!(report.written.len(), 2);
+        assert!(report.written.contains(&".agents/skills/wiki-ingest/SKILL.md".to_string()));
+        assert!(report.written.contains(&".claude/skills/wiki-ingest/SKILL.md".to_string()));
+        assert!(target.join(".agents/skills/wiki-ingest/SKILL.md").is_file());
+        assert!(target.join(".claude/skills/wiki-ingest/SKILL.md").is_file());
+        // 关键:不污染既有 vault —— 不写任何 starter 模板。
+        assert!(!target.join("index.md").exists());
+        assert!(!target.join("types").is_dir());
+        assert!(!target.join("AGENTS.md").exists());
+        assert_eq!(fs::read_to_string(target.join("mine.md")).unwrap(), "# mine\n");
+
+        // 幂等:再次调用全跳过(不覆盖已有)。
+        let again = install_wiki_ingest_skill(&target).unwrap();
+        assert!(again.written.is_empty());
+        assert_eq!(again.skipped.len(), 2);
     }
 
     /// drift guard:include_str! 防「删」,此测试防「增」——

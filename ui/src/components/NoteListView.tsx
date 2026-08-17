@@ -23,10 +23,12 @@ import type { NodeOut, VaultSnapshot } from "../lib/ipc";
 import { ipc } from "../lib/ipc";
 import type { VaultActions } from "../lib/store";
 import type { NavSelection } from "../lib/nav-filter";
+import { isIMEComposing } from "../lib/ime";
 import { filterByNav, selectionLabel } from "../lib/nav-filter";
 import { statusChipClass } from "../lib/status-chip";
 import { labelStatus } from "../lib/wiki-labels";
 import { formatDateStr, formatMs } from "../lib/date-format";
+import { pinCurrentInList, type ListPin } from "../lib/note-list-order";
 import { asWikilink } from "../lib/frontmatter";
 import { ArchiveView } from "./ArchiveView";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -92,6 +94,17 @@ export function NoteListView({
     });
   }, [sorted, filter]);
 
+  const listPinRef = useRef<ListPin | null>(null);
+  const displayed = useMemo(() => {
+    const { items, pin } = pinCurrentInList(
+      filtered,
+      currentPath,
+      listPinRef.current,
+    );
+    listPinRef.current = pin;
+    return items;
+  }, [filtered, currentPath]);
+
   const now = Date.now();
 
   // 过滤框 placeholder 的 scope 描述(当前 Nav 选择;复用 selectionLabel)。
@@ -138,17 +151,17 @@ export function NoteListView({
           className="min-w-0 flex-1 bg-transparent text-[12px] text-text outline-none placeholder:text-overlay"
         />
         <span className="ml-1 shrink-0 text-[11px] tabular-nums text-overlay">
-          {filtered.length}
+          {displayed.length}
         </span>
       </div>
 
-      {filtered.length === 0 ? (
+      {displayed.length === 0 ? (
         <p className="px-3 py-3 text-[12px] text-overlay">
           {filter.trim() ? t("palette.empty") : t(emptyKey)}
         </p>
       ) : (
         <ul className="flex flex-col">
-          {filtered.map((n) => {
+          {displayed.map((n) => {
             const active = currentPath === n.path;
             const title = n.title || n.path.split("/").pop()?.replace(/\.md$/i, "") || n.path;
             const renaming = n.path === renamingPath;
@@ -315,7 +328,7 @@ function RenameInput({
       value={v}
       onChange={(e) => setV(e.target.value)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !isIMEComposing(e)) {
           e.preventDefault();
           onCommit(v);
         } else if (e.key === "Escape") {

@@ -29,8 +29,8 @@ A local-first, file-as-truth, Apache-2.0-licensed knowledge-base desktop app —
 ### Option A — Build from source (works today)
 
 ```bash
-git clone https://github.com/rhythm1995/Open LLM Wiki.git
-cd Open LLM Wiki
+git clone https://github.com/rhythm1995/open-llm-wiki.git
+cd open-llm-wiki
 pnpm install --dir ui
 pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/Open LLM Wiki.app
 open target/release/bundle/macos/Open LLM Wiki.app
@@ -52,7 +52,7 @@ ui/node_modules/.bin/tauri dev
 
 ### Option B — Download a prebuilt app (once published)
 
-Grab `Open LLM Wiki.app` from [Releases](https://github.com/rhythm1995/Open LLM Wiki/releases):
+Grab `Open LLM Wiki.app` from [Releases](https://github.com/rhythm1995/open-llm-wiki/releases):
 
 - **macOS:** move it to `/Applications`; choose *Replace* if one exists. Builds are **unsigned**, so the first launch is blocked by Gatekeeper — *System Settings → Privacy & Security → Open Anyway*, or:
   ```bash
@@ -101,6 +101,8 @@ core (Rust: parsing / graph / search — pure logic, IO-free, TDD)
 
 This is an **original, independent implementation**, Apache-2.0-licensed. **Red line: never introduce GPL/AGPL or other copyleft source into this repository (verbatim or near-verbatim)** — doing so would void the Apache-2.0 license. We only reference public ideas, architecture, and feature concepts (mostly uncopyrightable ideas/methods); all source, component implementations, and visual expression are our own. Obsidian is used only as a public feature comparison, and its source is likewise not copied. See [docs/](./docs/) (start with [docs/README.md](./docs/README.md)).
 
+- Repository: [https://github.com/rhythm1995/open-llm-wiki](https://github.com/rhythm1995/open-llm-wiki)
+- Feedback: [Issues](https://github.com/rhythm1995/open-llm-wiki/issues)
 - Done features: [docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - Roadmap / backlog: [docs/backlog.md](./docs/backlog.md)
 - New deps must be logged in [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md); no PR may introduce verbatim copyleft source fragments — diffs are checked at review.

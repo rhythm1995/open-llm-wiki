@@ -4,7 +4,11 @@ import {
   isSourceType,
   sourceHasInboundSummary,
   digestEligibility,
+  isWikiOsPath,
   buildIngestPrompt,
+  detectWikiIngestSkill,
+  WIKI_INGEST_SKILL_PATHS,
+  WIKI_SKILLS_NPX_CMD,
 } from "./wiki-digest";
 
 describe("noteTypeFromContent / isSourceType", () => {
@@ -101,16 +105,72 @@ describe("digestEligibility", () => {
       digestEligibility({ path: null, content: "", nodes: [], edges: [] }).phase,
     ).toBe("hidden");
   });
+
+  it("wiki 操作系统路径即使未分类也不提炼", () => {
+    const os = [
+      "AGENTS.md",
+      "README.md",
+      "skills/wiki-ingest/SKILL.md",
+      "prompts/ingest-distill.md",
+      "source.md",
+      "health/orphans.md",
+    ];
+    for (const path of os) {
+      const r = digestEligibility({
+        path,
+        content: "# bare\n",
+        nodes: [],
+        edges: [],
+      });
+      expect(r.phase, path).toBe("hidden");
+    }
+  });
+
+  it("普通未分类文章仍可提炼", () => {
+    const r = digestEligibility({
+      path: "2026-ai-native.md",
+      content: "# 摘录\n",
+      nodes: [],
+      edges: [],
+    });
+    expect(r.phase).toBe("ready");
+    expect(r.kind).toBe("untyped");
+  });
+});
+
+describe("isWikiOsPath", () => {
+  it("agent 约定 / skill / prompt / 根类型契约", () => {
+    expect(isWikiOsPath("AGENTS.md")).toBe(true);
+    expect(isWikiOsPath("CLAUDE.md")).toBe(true);
+    expect(isWikiOsPath("README.md")).toBe(true);
+    expect(isWikiOsPath("skills/wiki-ingest/SKILL.md")).toBe(true);
+    expect(isWikiOsPath(".agents/skills/wiki-ingest/SKILL.md")).toBe(true);
+    expect(isWikiOsPath("prompts/ingest-distill.md")).toBe(true);
+    expect(isWikiOsPath("agents-md-tolaria-vault.md")).toBe(true);
+    expect(isWikiOsPath("source.md")).toBe(true);
+    expect(isWikiOsPath("index.md")).toBe(true);
+    expect(isWikiOsPath("hot.md")).toBe(true);
+    expect(isWikiOsPath("types/query.md")).toBe(true);
+    expect(isWikiOsPath("health/orphans.md")).toBe(true);
+  });
+
+  it("知识笔记不是 OS", () => {
+    expect(isWikiOsPath("2026-什么才算ai-native人才-如何unlearn.md")).toBe(false);
+    expect(isWikiOsPath("concept-unlearn.md")).toBe(false);
+    expect(isWikiOsPath("inbox/clip.md")).toBe(false);
+    expect(isWikiOsPath("notes/index.md")).toBe(false);
+    expect(isWikiOsPath("sources/source.md")).toBe(false);
+  });
 });
 
 describe("buildIngestPrompt", () => {
-  it("短触发:路径 + skill 名 + MCP", () => {
+  it("短触发:路径 + skill 名,不含 npx / 工具表", () => {
     const p = buildIngestPrompt("notes/foo.md");
     expect(p).toContain("notes/foo.md");
     expect(p).toContain("wiki-ingest");
-    expect(p).toContain("open-llm-wiki");
-    expect(p).toContain(".agents/skills/wiki-ingest");
-    expect(p.length).toBeLessThan(900);
+    expect(p).not.toContain(WIKI_SKILLS_NPX_CMD);
+    expect(p).not.toContain("lint_vault");
+    expect(p.length).toBeLessThan(280);
   });
 
   it("promoteUntyped 提示未分类", () => {
@@ -119,5 +179,22 @@ describe("buildIngestPrompt", () => {
     });
     expect(p).toMatch(/无 type|未分类/);
     expect(p).toContain("Source");
+  });
+});
+
+describe("detectWikiIngestSkill", () => {
+  it("任一路径可读 → true", async () => {
+    const ok = await detectWikiIngestSkill(async (p) => {
+      if (p === WIKI_INGEST_SKILL_PATHS[0]) return "# skill\n";
+      throw new Error("missing");
+    });
+    expect(ok).toBe(true);
+  });
+
+  it("全部失败 → false", async () => {
+    const ok = await detectWikiIngestSkill(async () => {
+      throw new Error("missing");
+    });
+    expect(ok).toBe(false);
   });
 });

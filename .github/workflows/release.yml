@@ -8,7 +8,7 @@ name: Release
 #         + 公证 APPLE_ID / APPLE_PASSWORD / APPLE_TEAM
 #   Updater:TAURI_PRIVATE_KEY / TAURI_KEY_PASSWORD(决定是否上自动更新)
 #   Windows 安装包:TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-# 何时配置由用户决定(见 docs/deferred.md 「打包与分发」的前置项)。
+# 何时配置由用户决定(见 docs/backlog.md 「F. 分发与工程」的前置项)。
 
 on:
   push:

@@ -26,6 +26,7 @@ use open_llm_wiki_core::{
 };
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
@@ -521,61 +522,6 @@ fn attachment_exists(root: String, path: String) -> Result<bool, String> {
     Ok(full.is_file())
 }
 
-fn is_image_rel(path: &str) -> bool {
-    Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| {
-            matches!(
-                e.to_ascii_lowercase().as_str(),
-                "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp"
-            )
-        })
-        .unwrap_or(false)
-}
-
-/// 列出 vault 内图片附件相对路径。
-/// `dir` 缺省为 `attachments`;只扫该子树下的图片扩展名,不进笔记 live index。
-#[tauri::command]
-fn list_attachments(root: String, dir: Option<String>) -> Result<Vec<String>, String> {
-    let sub = dir
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or("attachments");
-    // 与前端 normalizeAttachmentsDir 对齐:禁止 `..` 逃逸(resolve_under 也兜底)。
-    let sub_norm = normalize_rel(sub);
-    if sub_norm.is_empty() || sub_norm.split('/').any(|s| s == "..") {
-        return Err("invalid attachments dir".into());
-    }
-    let base = resolve_under(&root, &sub_norm)?;
-    if !base.is_dir() {
-        return Ok(Vec::new());
-    }
-    let root_path = Path::new(&root);
-    let mut out = Vec::new();
-    for entry in WalkDir::new(&base)
-        .into_iter()
-        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
-    {
-        let e = entry.map_err(err)?;
-        let p = e.path();
-        if !p.is_file() {
-            continue;
-        }
-        let rel = normalize_rel(
-            &p.strip_prefix(root_path)
-                .unwrap_or(p)
-                .to_string_lossy(),
-        );
-        if is_image_rel(&rel) {
-            out.push(rel);
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
 /// 媒体索引对外 DTO(serde;camelCase 由前端读 path/bytes/…)。
 #[derive(serde::Serialize)]
 struct MediaMetaOut {
@@ -680,18 +626,6 @@ fn media_of_note(
         .iter()
         .map(|m| media_meta_out(&live.media, m))
         .collect())
-}
-
-/// 引用某附件的笔记路径列表。
-#[tauri::command]
-fn media_used_by(
-    root: String,
-    path: String,
-    state: State<LiveVaultState>,
-) -> Result<Vec<String>, String> {
-    let g = ensure_live_media(&state, &root)?;
-    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
-    Ok(live.media.used_by(&path))
 }
 
 /// 将附件移入 `.open-llm-wiki/media-trash/`(可还原目录树),并更新 media files 表。
@@ -1083,13 +1017,6 @@ fn lint_vault(root: String, state: State<LiveVaultState>) -> Result<LintReport, 
     Ok(lint_all(live.index.graph()))
 }
 
-/// 前端→ LogBus:把 webview 的 console.error / 未捕获错误写入文件 + stderr。
-/// 兼容旧调用方;等价于 `log_write(error, webview, line)`。
-#[tauri::command]
-fn diag_log(line: String) {
-    logging::emit(logging::LogLevel::Error, "webview", &line, None);
-}
-
 /// 结构化日志写入(L1 LogBus)。level: trace|debug|info|warn|error|fatal。
 #[tauri::command]
 fn log_write(
@@ -1105,14 +1032,6 @@ fn log_write(
         target.as_str()
     };
     logging::emit(lv, tgt, &msg, fields);
-}
-
-/// 返回应用日志目录绝对路径(macOS: ~/Library/Logs/{bundleId}/ …)。
-#[tauri::command]
-fn log_get_dir() -> Result<String, String> {
-    logging::log_dir()
-        .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| "log bus not initialized".into())
 }
 
 /// 在系统文件管理器中打开日志目录。
@@ -1334,6 +1253,26 @@ fn reveal_in_finder(root: String, path: String) -> Result<(), String> {
             .unwrap_or_else(|| full.to_string_lossy().to_string());
         ("xdg-open", vec![parent])
     };
+    std::process::Command::new(program)
+        .args(&args)
+        .spawn()
+        .map_err(err)?;
+    Ok(())
+}
+
+/// 用系统浏览器打开白名单 https 地址(问题反馈 → GitHub Issues)。
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    const PREFIX: &str = "https://github.com/rhythm1995/open-llm-wiki";
+    if url != PREFIX && !url.starts_with(&format!("{PREFIX}/")) {
+        return Err("blocked url".into());
+    }
+    #[cfg(target_os = "macos")]
+    let (program, args): (&str, Vec<String>) = ("open", vec![url]);
+    #[cfg(target_os = "windows")]
+    let (program, args): (&str, Vec<String>) = ("cmd", vec!["/C".into(), "start".into(), url]);
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let (program, args): (&str, Vec<String>) = ("xdg-open", vec![url]);
     std::process::Command::new(program)
         .args(&args)
         .spawn()
@@ -1678,13 +1617,6 @@ fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Resu
     Ok(())
 }
 
-/// 停止监听(drop watcher → channel 断开 → debounce 线程自然退出)。
-#[tauri::command]
-fn unwatch_vault(state: State<WatcherState>) -> Result<(), String> {
-    *state.0.lock().unwrap() = None;
-    Ok(())
-}
-
 // ───────────────────────── 应用入口 ──────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1694,13 +1626,13 @@ pub fn run() {
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
         .manage(acp::AcpState::default())
-        // §9.6 关闭善后:单窗口 app,主窗口关闭即退出 → 终止活动 agent 子进程,
-        // 防 orphan(kill_on_drop 在进程被强杀时不一定触发)。
+        // 菜单栏 app 模式:主窗口点 × 只隐藏,app 与状态栏图标常驻 → 左键状态栏图标可重开。
+        // 不在此停 agent:app 继续运行、会话保留;真正退出(Cmd+Q / tray Quit)走 PredefinedMenuItem::quit
+        // → app.exit(0)(不触发 prevent_close),进程结束时 kill_on_drop / drop 清理 agent 子进程。
         .on_window_event(move |window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(st) = window.try_state::<acp::AcpState>() {
-                    acp::stop_state(&st.0);
-                }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
             }
         })
         .setup(|app| {
@@ -1741,6 +1673,8 @@ pub fn run() {
             let file_settings = MenuItemBuilder::with_id("settings", "Settings…")
                 .accelerator("CmdOrCtrl+,")
                 .build(app)?;
+            let help_issue =
+                MenuItemBuilder::with_id("report-issue", "Report Issue…").build(app)?;
             let edit_find = MenuItemBuilder::with_id("find", "Find in Note")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -1754,6 +1688,7 @@ pub fn run() {
                 MenuItemBuilder::with_id("toggle-split", "Toggle Split Preview").build(app)?;
             let view_ed = MenuItemBuilder::with_id("view-editor", "Editor").build(app)?;
             let view_gr = MenuItemBuilder::with_id("view-graph", "Graph").build(app)?;
+            let view_health = MenuItemBuilder::with_id("view-health", "Health").build(app)?;
             let view_git = MenuItemBuilder::with_id("view-git", "Git").build(app)?;
             let view_theme =
                 MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
@@ -1796,15 +1731,20 @@ pub fn run() {
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&view_ed)
                 .item(&view_gr)
+                .item(&view_health)
                 .item(&view_git)
                 .separator()
                 .item(&view_theme)
                 .item(&view_refresh)
                 .build()?;
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(&help_issue)
+                .build()?;
             let menu = MenuBuilder::new(app)
                 .item(&file_menu)
                 .item(&edit_menu)
                 .item(&view_menu)
+                .item(&help_menu)
                 .build()?;
             app.set_menu(menu)?;
             let handle = app.handle().clone();
@@ -1812,6 +1752,50 @@ pub fn run() {
                 let id = event.id().as_ref().to_string();
                 let _ = handle.emit("menu-action", id);
             });
+
+            // ── 状态栏(menubar)图标:左键打开主窗口,右键 Show/Quit 菜单 ──
+            // 图标为 macOS template image(纯黑 + alpha),icon_as_template(true) → 系统
+            // 自动按菜单栏明暗反色(浅色栏 → 白),与主 app icon 的灯泡意象一致。
+            // 用 @2x(44px):Retina 原生、非 Retina 向下采样,两种屏都清晰。
+            let tray_show = MenuItemBuilder::with_id("tray-show", "Show Open LLM Wiki").build(app)?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&tray_show)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+            TrayIconBuilder::with_id("main-tray")
+                .icon(tauri::image::Image::from_bytes(include_bytes!(
+                    "../icons/tray-icon-light@2x.png"
+                ))?)
+                .icon_as_template(true)
+                .menu(&tray_menu)
+                // 左键不弹菜单,改由 on_tray_icon_event 直接显示窗口。
+                .show_menu_on_left_click(false)
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        if let Some(w) = tray.app_handle().get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                })
+                .on_menu_event(|app, event| {
+                    // tray 菜单事件独立于 app.on_menu_event(window menu);此处只处理自定义 show。
+                    if event.id().as_ref() == "tray-show" {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1823,10 +1807,8 @@ pub fn run() {
             rename_note,
             save_attachment,
             attachment_exists,
-            list_attachments,
             media_index,
             media_of_note,
-            media_used_by,
             trash_attachments,
             read_attachment_data_url,
             read_graph_layout,
@@ -1839,9 +1821,8 @@ pub fn run() {
             pick_vault,
             create_sample_vault,
             reveal_in_finder,
-            diag_log,
+            open_external_url,
             log_write,
-            log_get_dir,
             log_open_dir,
             log_set_profile,
             log_get_status,
@@ -1856,13 +1837,13 @@ pub fn run() {
             git_restore_note,
             git_init,
             watch_vault,
-            unwatch_vault,
             acp::agent_list,
             acp::agent_start,
             acp::agent_prompt,
             acp::agent_stop,
             acp::agent_cancel,
             acp::agent_alive,
+            acp::agent_runtime,
             acp::agent_permission_respond,
             acp::agent_set_instant_commit,
             acp::agent_set_mode,
@@ -1873,7 +1854,6 @@ pub fn run() {
             transcript::agent_thread_list,
             transcript::agent_thread_load,
             transcript::agent_thread_append,
-            transcript::agent_thread_clear,
             transcript::agent_thread_delete,
             git_attr::agent_activity,
             git_attr::agent_diff,
@@ -1884,6 +1864,7 @@ pub fn run() {
             onboarding::onboard_remove,
             onboarding::onboard_doctor,
             onboarding::onboard_init,
+            onboarding::onboard_install_skill,
             onboarding::onboard_guidance,
             onboarding::onboard_resolve_binary,
             onboarding::onboard_pick_binary,

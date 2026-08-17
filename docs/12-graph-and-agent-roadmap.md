@@ -1,7 +1,7 @@
 # 12 — 图谱打磨 → Agent 结合（下一阶段规划）
 
 > **⚠ 状态(2026-08-02 更新):§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留(Cytoscape + graph-* 纯逻辑 + QQL IR/MCP + Rust core),远期重启时按本文 6A→6B→6D→6C 推进。  
-> **已交付(无需再开)**:**6B agent 侧 MCP 工具**(`links` / read 简报 / write 审计 / 客户端配置,见 [backlog §I-B](./backlog.md))与 **6D wiki 脚手架**(2026-08-05:`templates/wiki-starter/` + Health QQL 5 条 + [14-llm-wiki-workflow](./14-llm-wiki-workflow.md),见 [backlog §I-D](./backlog.md))。§I 剩余 = **6A 人侧全部 + `B-GRAPH-HEALTH-UI` + 6C(可选)**。  
+> **已交付(无需再开)**:**6B agent 侧 MCP 工具** + **6B 人侧库健康 / Agent 查库**(2026-08-15,`B-HEALTH-DASH` / `B-VAULT-QUERY-SEED`;**不是 QueryPanel**)与 **6D wiki 脚手架**(Health QQL **11** 条)。§I 剩余 = **6A 人侧图 polish + `B-GRAPH-HEALTH-UI` 死链列表(可选) + 6C(可选)**。`B-WIKI-LINT-UI` 等信号。  
 > **历史状态**:产品曾拍板(2026-08-01)先优化图再 agent;**已被 2026-08-02 决策覆盖**,下文规划作为远期参考保留。  
 > **阶段命名（全库统一）**:**Phase 6** 下分子阶段 **6A / 6B / 6C / 6D**（与 [06-roadmap](./06-roadmap.md)、[backlog §I](./backlog.md)、[open-questions P6-*](./open-questions.md) 一致）。下文 **不再**单独使用无前缀的 A/B/C/D 作阶段名。  
 > **参考（概念 / 产品语义 only，零代码复制）**:
@@ -40,7 +40,17 @@
 
 **MCP v1 工具清单（6 个，勿漏）**:`list_notes` · `read_note` · `write_note` · `search_notes` · `run_qql` · **`vault_info`**。
 
-> **NL→QQL(6B 重点,2026-08-02 定)**:QQL 的**用户面已删**(见 [04](./04-features.md) F-QUERY),引擎 + `run_qql` 保留作 agent 编译目标。6B 交付**自然语言查询表面**:NL → agent 生成**可审查** QQL → `run_qql`;用户可编辑、可存为查询。QQL 长期定位 = IR,不直接面向用户。**外部 agent 现在就能经 MCP `run_qql` 跑 NL→QQL 验证**(零 UI 成本),建议 6B 开工前先用它确认生成质量。
+> **NL→QQL(2026-08-15 修订)**:QQL 的 **QueryPanel / 内联 ```qql / `MainView:"query"` 保持删除**(2026-08-02:DSL 四层门槛)。**不要重建查询 IDE。** 人侧交付 = **库健康看板**(11 条锁定模板,零模型,`MainView: "health"`)+ **Agent 短指令「查询 Vault」**(NL → 可审查 QQL → 若 agent 已有 `run_qql` 再跑;不假设应用内 ACP 已注入 MCP)。QQL 长期定位 = IR。外部 agent 仍可经 MCP `run_qql` 做 NL→QQL。
+>
+> **应用内 Agent(2026-08-15)**:ACP `session/new` 注入本机 MCP stdio,查询/提炼可走 `Graph`;失败回退无 MCP。npx 适配器钉版本。活会话切栏再回来不冷启动。能映射到库健康指标的问句直接开看板。
+>
+> **人侧三项排序(勿重开错项)**:
+>
+> | 本轮 | 项 | 结论 |
+> |---|---|---|
+> | **做了** | 库健康 + Agent 查库 | `B-HEALTH-DASH` / `B-VAULT-QUERY-SEED`。不是 QueryPanel。 |
+> | 不做(剩余低) | 图谱 Orphans/Hubs 打磨 | `B-GRAPH-HEALTH-UI` 约 80% 已在 Graph「图谱健康」面板。若再开,优先全库死链列表,不要雕 hubs。**≠ 库健康。** |
+> | 等信号 | lint findings 人侧列表 | `B-WIKI-LINT-UI`。`MainView "health"` **禁止**拿去画 lint。等回合结束条经常 N>0。禁止正文矛盾 NLI。 |
 
 **架构红线（2026-08 修订）**:
 
@@ -147,11 +157,16 @@
 - 不阻断保存（软类型原则一致：提示不强制）。
 - **App 编辑器写路径的断链提示**：**不在本 ID 内**。若产品要做，另开 **`B-ED-BROKEN-LINKS`**（可选，见 backlog）；实现时可复用与 MCP 相同的纯函数检测。
 
-### 6B4 图 UI：Orphans / Hubs 模式 — `B-GRAPH-HEALTH-UI`
+### 6B4 图 UI：Orphans / Hubs 模式 — `B-GRAPH-HEALTH-UI`（人侧约 80% 已有 · 本期不打磨）
 
-- GraphView 或侧栏模式：**Explore | Orphans | Hubs**（inkeep 心智，UI 自绘）。
-- 列表点击 → 图上 focus + 打开笔记。
-- 数据：core/UI 纯函数派生（与 MCP 共用逻辑优先放 core 或 `ui/src/lib/graph-health.ts`）。
+- GraphView「更多 → 图谱健康」已有 Orphans / Hubs 列表(`graph-health.ts`)+ 点行 focus。**不要**与 `MainView: "health"`(库健康 / QQL)合并。
+- 剩余若再开:优先全库死链列表(`deadLinks()` 已有、未接线),不要再雕 hubs。
+
+### 6B6 库健康 + Agent 查库 — `B-HEALTH-DASH` / `B-VAULT-QUERY-SEED` ✅(2026-08-15)
+
+- **库健康**:第四主视图 `"health"`。内置 11 条锁定 QQL + vault `health/*.md` 按 basename 覆盖。`ipc.runQql` → live index。点击行打开编辑器。
+- **问 Agent**:`buildVaultQueryPrompt` 预填侧栏,与「提炼进 Wiki」同构。不重建 QueryPanel,不复活 `mock-qql`。
+- 应用内 ACP **不**注入 `run_qql`;没有该工具时 agent 只打印 QQL 并指向库健康 / 一键接入。
 
 ### 6B5 MCP 配置样例 — `B-MCP-CONFIG`
 
@@ -160,10 +175,11 @@
 
 ### Phase 6B 验收
 
-- [ ] agent 用 `links(["dead","orphans","hubs"])` 一次拿到图健康摘要  
-- [ ] `read_note` 含邻接；`write_note` 响应含 `broken_links`  
-- [ ] UI Orphans/Hubs 可操作  
-- [ ] `cargo test -p open-llm-wiki-core` + mcp 集成测 + UI 相关 vitest  
+- [x] agent 用 `links(["dead","orphans","hubs"])` 一次拿到图健康摘要  
+- [x] `read_note` 含邻接；`write_note` 响应含 `broken_links`  
+- [x] 图谱 HealthPanel Orphans/Hubs 可点(不打磨)  
+- [x] 库健康看板跑 11 条锁定模板;Agent「查询 Vault」短指令  
+- [x] `cargo test -p open-llm-wiki-core` + UI vitest(health-catalog / qql-result / HealthView)  
 
 ---
 
@@ -261,7 +277,9 @@ log.md            # append-only
 | B-MCP-LINKS | 6B | MCP links 多 kind |
 | B-MCP-READ-BRIEF | 6B | read 附带图上下文 |
 | B-MCP-WRITE-FEEDBACK | 6B | **MCP** write 返回 broken_links |
-| B-GRAPH-HEALTH-UI | 6B | Orphans / Hubs UI |
+| B-GRAPH-HEALTH-UI | 6B | Orphans / Hubs UI(图内已有;不打磨) |
+| B-HEALTH-DASH | 6B6 | 库健康看板(11 锁定 QQL) |
+| B-VAULT-QUERY-SEED | 6B6 | Agent「查询 Vault」短指令 |
 | B-MCP-CONFIG | 6B | 客户端配置样例 |
 | B-ED-BROKEN-LINKS | 可选 | App 写路径断链提示（非 6B3 默认） |
 | B-GRAPH-SEMANTIC | 6C | 语义边管道 + **core EdgeKind 评审** |
@@ -324,3 +342,4 @@ log.md            # append-only
 | 2026-08-01 | **审阅修订**:统一 6A–6D 命名；A1=落盘 atop 暖启动；P6-7 gitignore 默认；6C EdgeKind 级联与术语；6A5 不绑 links；MCP 6 tools；6B3 仅 MCP；6D status 唯一真相；6D2 🟢 |
 | 2026-08-02 | **图栈翻案**:主路径 **Cytoscape + cose**；废止「保留 sigma WebGL」旧口径 |
 | 2026-08-05 | **6D 交付**:`templates/wiki-starter/`(5 类型契约)+ Health QQL 5 条(`core/tests/wiki_health_qql.rs` 门禁)+ [14](./14-llm-wiki-workflow.md);backlog §I-D ✅。§I 剩余 = 6A 人侧 + `B-GRAPH-HEALTH-UI` + 6C |
+| 2026-08-15 | **6B 人侧 NL 表面**:库健康看板 + Agent 查库短指令。**禁止重建 QueryPanel**。6D Health 模板已是 11 条。三项排序写入本文 §0。`B-GRAPH-HEALTH-UI` / `B-WIKI-LINT-UI` 不并进 `MainView:"health"`。 |

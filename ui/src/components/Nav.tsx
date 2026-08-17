@@ -3,7 +3,7 @@
  *
  * 两层结构:第一层 = 分组标题行(可折叠),第二层 = 组内条目。
  *   - 智能视图(无标题,顶部平铺):Inbox / All Notes / Archive,各带计数。
- *   - ▼ VIEWS:已保存的 QQL 查询(`type: Query` 笔记);点击 → List 运行该查询。
+ *   - TYPES 里的 `type: Query` 笔记只是普通笔记(打开编辑);跑查询走「库健康」视图。
  *   - ▼ TYPES:`type` 去重 + 计数(动态);未分类(type 缺失)单列一行。
  *   - ▼ FOLDERS:目录树(复用 buildTree,只列目录;文件由中间 List 呈现)。
  *
@@ -151,7 +151,11 @@ export function Nav({
   // type 去重 + 计数;typed 升序,未分类("")排末尾。
   const types = useMemo(() => {
     const m = new Map<string, number>();
-    for (const n of nodes) m.set(n.type ?? "", (m.get(n.type ?? "") ?? 0) + 1);
+    for (const n of nodes) {
+      // 操作系统未标 type 不进「未分类」桶(与 isInbox 一致)。
+      if (n.type == null && !isInbox(n)) continue;
+      m.set(n.type ?? "", (m.get(n.type ?? "") ?? 0) + 1);
+    }
     return [...m.entries()].sort((a, b) => {
       if (a[0] === "") return 1;
       if (b[0] === "") return -1;
@@ -287,19 +291,23 @@ export function Nav({
           onDragLeave={() => setDropTarget((cur) => (cur === node.path ? null : cur))}
           onDrop={(e) => acceptNoteDrop(e, node.path)}
         >
-          <button
-            onClick={() => toggleFolder(node.path)}
-            className="shrink-0 rounded p-0.5 text-overlay hover:text-text"
-            tabIndex={-1}
-            aria-label={open ? t("nav.section.folders") : t("nav.section.folders")}
-          >
-            {open ? <CaretDown size={11} weight="bold" /> : <CaretRight size={11} weight="bold" />}
-          </button>
+          {kids.length > 0 ? (
+            <button
+              onClick={() => toggleFolder(node.path)}
+              className="shrink-0 rounded p-0.5 text-overlay hover:text-text"
+              tabIndex={-1}
+              aria-label={open ? t("nav.section.folders") : t("nav.section.folders")}
+            >
+              {open ? <CaretDown size={11} weight="bold" /> : <CaretRight size={11} weight="bold" />}
+            </button>
+          ) : (
+            <span className="inline-block size-[15px] shrink-0" aria-hidden />
+          )}
           <button
             onClick={() => onNavSelect({ kind: "folder", id: node.path })}
             className="flex min-w-0 flex-1 items-center gap-1.5 rounded py-1"
           >
-            {open ? (
+            {open && kids.length > 0 ? (
               <FolderOpen size={14} className="shrink-0 text-yellow" weight="fill" />
             ) : (
               <Folder size={14} className="shrink-0 text-yellow" weight="fill" />

@@ -42,7 +42,8 @@
   - app Tauri 命令 `run_qql`(未来 in-app NL 表面可直连;目前 UI 不再调用)。
 - **查询语言(QQL)**——DQL 风格子集,关键字 `WHERE` / `SORT` / `SHOW` / `LIMIT` / `GROUP BY` / `RENDER`;谓词 `=/!=/AND/OR/NOT/CONTAINS/STARTSWITH/ENDSWITH/IN`;输出 `List` / `Table` / `Count` / `Groups` / `Sum` / `Histogram`。**不**追求 Dataview 全语法逐字兼容。
 - **已删(用户面 A)**:内联 ```qql 块 widget + `resultToHtml`、saved query(`saved-query.ts` + `type: Query`)、`QueryPanel`、Query 视图、`MainView:"query"`、nav-selection `kind:"query"`、CenterToolbar 查询按钮、palette/registry 查询命令、**TS 全量重写** `ui/src/lib/qql/*` 与 `mock-qql`、相关 i18n 键。
-- **下一步(6B)**:NL → agent 生成**可审查** QQL → `run_qql`;用户可编辑/存为查询。QQL 长期定位 = **IR(中间表示)**,不再直接面向用户。
+- **人侧(2026-08-15,2026-08-17 合成层)**:不重建 QueryPanel / 不教人写 QQL。**库健康**进门先看图谱即时分数(来源消化 / 主张达标 / 争议 / 孤儿 / 单源)+ 下一动作;左侧 11 条锁定 QQL 按结构/证据/信任分组,桌面后台扫角标。饥饿度按 Active≥2 / Contested≥3 着色。临时问题走 Agent「查询 Vault」。**不要**「存为查询」CRUD,不要 `MainView:"query"`。
+- QQL 长期定位 = **IR(中间表示)**。
 - **与 cairn**:Health KPI 未来由 agent 经 `run_qql` 生成维护,而非用户手写 live QQL——见 [07-llm-wiki-architecture](./07-llm-wiki-architecture.md)。
 
 ---
@@ -64,12 +65,12 @@
 
 | ID | 功能 | 级别 | 状态 | 说明 |
 |---|---|---|---|---|
-| F-EDITOR | 编辑器 | P0 | ✅ | 双模+格式条/右键/查找替换/大纲/附件/并排 ✅;WYSIWYG 格式条+断链提示 ✅;保真双层门禁(app+真 BN 引擎)+ 23 例往返扫描 ✅。后置:Live Preview、raw HTML(表+行内)保真、GFM 字节身份([plan §Editor](./plan.md))。 |
+| F-EDITOR | 编辑器 | P0 | ✅ | 双模+格式条/右键/查找替换/大纲/附件/并排 ✅;WYSIWYG 格式条+断链提示 ✅;保真双层门禁(app+真 BN 引擎)+ 31 例往返扫描 ✅;卸载 flush 所有权回写(防跨笔记写坏)+ IME 组合期 Enter 守卫 ✅(2026-08-15)。后置:Live Preview、raw HTML(表+行内)保真、GFM 字节身份、引用空段落/链接内行内代码两个 risky 边界([plan §Editor](./plan.md))。 |
 | F-VAULT | vault 管理 | P0 | ✅ | 打开/切换;LiveVault 增量索引。 |
 | F-WIKILINK | wikilink + 反向链接 | P0 | ✅ | 解析、补全、点击跳转;反向链接实时。 |
 | F-FILETREE | 文件浏览 | P0 | ✅ | Nav+列表+拖拽+右键。 |
 | F-SEARCH | 全文/查找 | P0 | ✅ | ⌘F 文内;⌘P 快开;⌘⇧F 库内全文([10](./10-menus-and-search.md))。 |
-| F-PROPERTIES | 属性面板 | P1 | ✅ | frontmatter 可视化;类型说明提示。 |
+| F-PROPERTIES | 属性面板 | P1 | ✅ | 知识卡片 Header(类型/状态/定义摘要)+ frontmatter 分组编辑;类型说明默认折叠;反链按来源去重。 |
 | F-STATUS | status chip | P1 | ✅ | chip + 列表右键切状态。 |
 | F-TAGS | 标签 | P1 | ✅ | 解析 + Nav TAGS。 |
 | F-PALETTE | 命令面板 | P1 | ✅ | ⌘K/⌘P/⌘⇧F 三 mode;注册表同源([10](./10-menus-and-search.md))。 |
@@ -97,6 +98,6 @@
 1. **发布收口**:feat/phase1-core 已合 main(`84accb0`);`release/v0.1.0` 进行中;签名 / Updater 凭证门  
 2. **真机验收**:图谱 1k/5k 帧率(B-GRAPH-FPS);应用内 Agent 端到端(需本机 opencode / claude-code)  
 3. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)  
-4. **远期**:§I 人侧(6A 图 polish + B-GRAPH-HEALTH-UI)与 6C 语义(6B MCP 侧 / 6D wiki 脚手架已交付)  
+4. **远期**:§I 人侧 6A 图 polish 与 6C 语义。6B MCP + 库健康/Agent 查库 + 6D 已交付。不要重开 QueryPanel。
 
 完整 ID 表 → [backlog.md](./backlog.md)。

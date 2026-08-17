@@ -1,7 +1,7 @@
 {
   "name": "open-llm-wiki-skills",
-  "version": "0.1.0",
-  "description": "Install Open LLM Wiki agent skills (wiki-ingest, etc.) into a vault directory",
+  "version": "0.1.1",
+  "description": "Install Open LLM Wiki agent skills + optional hooks templates into a vault (npx from npm or GitHub)",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
@@ -10,6 +10,7 @@
   "files": [
     "bin",
     "skills",
+    "hooks",
     "AGENTS.snippet.md",
     "README.md"
   ],
@@ -18,13 +19,15 @@
     "llm-wiki",
     "agent-skills",
     "mcp",
-    "ingest"
+    "ingest",
+    "hooks"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/open-llm-wiki/open-llm-wiki.git",
+    "url": "git+https://github.com/rhythm1995/open-llm-wiki.git",
     "directory": "packages/open-llm-wiki-skills"
   },
+  "homepage": "https://github.com/rhythm1995/open-llm-wiki/tree/main/packages/open-llm-wiki-skills",
   "engines": {
     "node": ">=18"
   },

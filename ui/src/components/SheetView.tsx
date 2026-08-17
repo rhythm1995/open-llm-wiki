@@ -1,7 +1,7 @@
 /**
  * SheetView —— F-SHEET v2 网格:多表、冻结、图表、ironcalc 可选求值。
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   activeTab,
   addSheet,
@@ -23,15 +23,29 @@ import {
   type OpenLlmWikiSheet,
 } from "../lib/sheet";
 import { evalSheetWithIroncalc } from "../lib/sheet-ironcalc";
+import { isIMEComposing } from "../lib/ime";
 import type { TFunc } from "../lib/i18n";
 
 interface Props {
   content: string;
   onSave: (next: string) => void;
   t: TFunc;
+  /** 本表格文件相对路径;卸载 flush 定向写回用。 */
+  notePath?: string | null;
+  /** vault 根;卸载 flush 定向写回用。 */
+  root?: string | null;
+  /** 带所有权的回写(store.writeScoped)。 */
+  onFlush?: (path: string, root: string | null, next: string) => void;
 }
 
-export function SheetView({ content, onSave, t }: Props) {
+export function SheetView({
+  content,
+  onSave,
+  t,
+  notePath = null,
+  root = null,
+  onFlush,
+}: Props) {
   const [doc, setDoc] = useState<OpenLlmWikiSheet>(() => parseSheet(content));
   const [active, setActive] = useState("A1");
   const [draft, setDraft] = useState("");
@@ -89,6 +103,29 @@ export function SheetView({ content, onSave, t }: Props) {
     persist(next);
   }, [doc, active, draft, tab.id, persist]);
 
+  // 卸载:提交公式栏未落盘的草稿。经带所有权的回写定向写回本文件,
+  // 切笔记后迟到也不会把表格 JSON 写进当时激活的其它笔记。
+  const onFlushRef = useRef(onFlush);
+  onFlushRef.current = onFlush;
+  const notePathRef = useRef(notePath);
+  notePathRef.current = notePath;
+  const rootRef = useRef(root);
+  rootRef.current = root;
+  const draftRef = useRef({ doc, active, draft, tabId: tab.id });
+  draftRef.current = { doc, active, draft, tabId: tab.id };
+  useEffect(
+    () => () => {
+      const { doc: d, active: a, draft: dr, tabId } = draftRef.current;
+      const cur = d.sheets.find((s) => s.id === tabId)?.cells[a] ?? "";
+      if (dr === cur) return; // 草稿与单元格现值一致,无需提交
+      const flush = onFlushRef.current;
+      if (!flush || !notePathRef.current) return;
+      flush(notePathRef.current, rootRef.current, serializeSheet(setCell(d, a, dr, tabId)));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const selectCell = (ref: string) => {
     if (ref !== active) {
       const next = setCell(doc, active, draft, tab.id);
@@ -122,7 +159,7 @@ export function SheetView({ content, onSave, t }: Props) {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commitActive}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && !isIMEComposing(e)) {
               e.preventDefault();
               commitActive();
             }

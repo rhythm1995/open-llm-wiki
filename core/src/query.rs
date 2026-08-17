@@ -61,13 +61,6 @@ pub enum FieldRef {
     Len(LenSrc),
 }
 
-impl FieldRef {
-    /// `type` 键的糖。
-    pub fn type_ref() -> Self {
-        FieldRef::Key("type".into())
-    }
-}
-
 /// 谓词(WHERE)。字符串匹配默认大小写不敏感。
 #[derive(Debug, Clone, PartialEq)]
 pub enum Predicate {

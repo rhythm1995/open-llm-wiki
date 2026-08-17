@@ -49,10 +49,6 @@ export function ensureIroncalc(): Promise<boolean> {
   return initPromise;
 }
 
-export function ironcalcAvailableSync(): boolean {
-  return ModelCtor != null;
-}
-
 /**
  * 用 ironcalc 求值整个 active 表(或指定 sheet),返回 ref → display。
  * 不可用时返回 null。

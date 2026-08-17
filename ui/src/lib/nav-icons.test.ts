@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  At,
   BookOpen,
   BookmarkSimple,
   Brain,
@@ -10,24 +9,33 @@ import {
   Database,
   Flask,
   FolderOpen,
+  IdentificationCard,
   Lightbulb,
+  MagnifyingGlass,
+  Note,
   Sparkle,
+  Stack,
   User,
 } from "@phosphor-icons/react";
 import { typeIcon, typeColor } from "./nav-icons";
 
 describe("nav-icons.typeIcon — cairn 核心类型(精确匹配)", () => {
-  it("Source / Summary / Entity / Concept 各有独立图标", () => {
+  it("固定软类型各有独立图标", () => {
     expect(typeIcon("source")).toBe(Database);
     expect(typeIcon("summary")).toBe(Sparkle);
-    expect(typeIcon("entity")).toBe(At);
+    expect(typeIcon("entity")).toBe(IdentificationCard);
     expect(typeIcon("concept")).toBe(Brain);
+    expect(typeIcon("note")).toBe(Note);
+    expect(typeIcon("query")).toBe(MagnifyingGlass);
+    expect(typeIcon("type")).toBe(Stack);
+    expect(typeIcon("typedoc")).toBe(BookOpen);
   });
 
   it("精确匹配大小写不敏感 + trim", () => {
     expect(typeIcon("Source")).toBe(Database);
     expect(typeIcon("  SUMMARY  ")).toBe(Sparkle);
-    expect(typeIcon("Entity")).toBe(At);
+    expect(typeIcon("Entity")).toBe(IdentificationCard);
+    expect(typeIcon("Note")).toBe(Note);
   });
 
   it("cairn 类型优先于关键词规则(concept 不被 card/object 的 Cube 吃掉)", () => {
@@ -65,11 +73,12 @@ describe("nav-icons.typeIcon", () => {
     expect(typeIcon("")).toBe(BookmarkSimple);
   });
 
-  it("RULES 优先级:book 在 note 之前(book-notes 命中 BookOpen 而非 Lightbulb)", () => {
-    // "note" 单独命中 Lightbulb,但 "book" 规则更靠前,"booknote" 应被 book 命中。
+  it("RULES 优先级:book 在 note 子串之前(booknote 命中 BookOpen)", () => {
     expect(typeIcon("booknote")).toBe(BookOpen);
-    // 纯 note(无 book)→ Lightbulb
-    expect(typeIcon("note")).toBe(Lightbulb);
+    // 纯 note(固定词表)→ 纸页,不是灯泡
+    expect(typeIcon("note")).toBe(Note);
+    // idea 仍走灵感灯泡
+    expect(typeIcon("idea")).toBe(Lightbulb);
   });
 });
 
@@ -79,6 +88,9 @@ describe("nav-icons.typeColor", () => {
     expect(typeColor("summary")).toBe("text-mauve");
     expect(typeColor("entity")).toBe("text-teal");
     expect(typeColor("concept")).toBe("text-yellow");
+    expect(typeColor("note")).toBe("text-subtext");
+    expect(typeColor("query")).toBe("text-lavender");
+    expect(typeColor("type")).toBe("text-overlay");
   });
 
   it("命中关键词返回对应 Tailwind 色类", () => {

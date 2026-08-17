@@ -47,7 +47,7 @@ Tauri 2 外壳 + React 19:
 
 ### Phase 4 — 实时聚合(差异化 #2)✅(本次完成)
 
-- ✅ F-QUERY 引擎:core `qql::parse + query::eval` 求值。🔴 **用户面(文本查询面板 / List·Table·Count·Groups·Sum 渲染 / 点击跳转)已删 2026-08-02**,待 6B 用 NL 重建(见 [04](./04-features.md) F-QUERY)。
+- ✅ F-QUERY 引擎:core `qql::parse + query::eval` 求值。🔴 **QueryPanel 用户面已删 2026-08-02,不再重建**。人侧改为库健康看板 + Agent 短指令(2026-08-15,见 [04](./04-features.md) F-QUERY / [12](./12-graph-and-agent-roadmap.md))。
 - ✅ 统一字段模型 + 比较运算符(`==/!=/>/>=/</<=`)+ `.len()` 度数访问器 + 聚合渲染(`count/list/group_by(field)/sum(field)`)+ `AS` 列别名。
 - ✅ qql 文本解析层(Phase 1 只建了求值器,本轮按"DQL 风格语法"补全文本层)。
 - 🔴 ~~内联 ```qql + saved query 面板~~ 已删 2026-08-02(QQL 用户面)。
@@ -72,7 +72,7 @@ Tauri 2 外壳 + React 19:
 - ✅ **F-TEMPLATES** 模板:`templates/` 下 .md 为模板,新建笔记选模板并做 `{{title}}`/`{{date}}` 替换;NewNoteDialog 取代 prompt。纯逻辑 `template.ts`。
 - ✅ **F-THEMES** 浅色主题:Catppuccin Latte 变体 + 工具栏切换 + localStorage 持久化;CodeMirror 经 Compartment 随主题切换不重建。纯逻辑 `theme.ts`。
 - ✅ **F-TABS** 拖拽重排:reducer 的 reorder 此前已测,本轮接 HTML5 DnD。
-- ✅ **F-OUTLINE** 大纲面板:Inspector 第三 tab,提取标题(忽略代码块/frontmatter),点击滚动编辑器到行。纯逻辑 `outline.ts`;Editor 暴露 `scrollToLine` 命令式句柄。
+- ✅ **F-OUTLINE** 大纲面板:Inspector 第三 tab,提取标题(忽略代码块/frontmatter),点击跳到对应标题(源码放光标+滚行,所见即所得定位 heading 块)。纯逻辑 `outline.ts`;Editor `scrollToLine` / WysiwygView `scrollToHeading`。
 - ✅ **F-READING** 阅读视图:编辑/阅读切换,marked 渲染,`[[wikilink]]` 可点击跟随。纯逻辑 `render.ts`。
 - ✅ **mock 检索**:浏览器 dev 的 search 接入极简 AND 检索(标题×2 加权),让 `vite dev` 演示完整可用。纯逻辑 `mock-search.ts`。
 - ✅ 杂项:⌘S 立即保存。
@@ -126,11 +126,11 @@ Tauri 2 外壳 + React 19:
 | 子阶段 | 主题 | 关键 backlog | 状态 |
 |---|---|---|---|
 | **6A** | 传统图 polish(人) | ~~POS-PERSIST~~ ✅ / FORCES / SETTINGS-UI / HIDE-UNRESOLVED / PATH | ⏳(推迟) |
-| **6B** | 图健康 + MCP 工具化(agent) | MCP-LINKS ✅ / READ-BRIEF ✅ / WRITE-FEEDBACK ✅ / CONFIG ✅ / GRAPH-HEALTH-UI ⏳ | 🟡 MCP 侧 ✅;人侧 UI ⏳ |
-| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ✅(2026-08-05:`templates/wiki-starter/` + Health QQL 5 条 + [14](./14-llm-wiki-workflow.md)) |
+| **6B** | 图健康 + MCP + 库健康 | MCP 图工具 ✅ / HEALTH-DASH ✅ / VAULT-QUERY-SEED ✅ / GRAPH-HEALTH-UI ⏳(图内已有,不打磨) | 🟡 MCP+库健康 ✅;图 polish 仍推迟 |
+| **6D** | LLM wiki 脚手架 + QQL Health | B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC | ✅(Health QQL **11** 条 + [14](./14-llm-wiki-workflow.md)) |
 | **6C** | 语义发现层(可选) | B-GRAPH-SEMANTIC / SUGGEST-UI / INSIGHTS | ⏳ 后置 |
 
-默认顺序:**6A → 6B → 6D → 6C**(6B MCP 侧与 6D 已交付;剩 6A 人侧 / HEALTH-UI / 6C)。真机帧率 B-GRAPH-FPS 可与 6A 并行。
+默认顺序:**6A → 6B → 6D → 6C**(6B MCP 侧、库健康、6D 已交付;剩 6A 人侧图 polish / 可选死链列表 / 6C)。真机帧率 B-GRAPH-FPS 可与 6A 并行。
 
 ### Phase 7 — 应用内侧栏 Agent(ACP 托管)✅(2026-08-04 完工)
 
@@ -150,7 +150,7 @@ Tauri 2 外壳 + React 19:
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;**图工具化(links / brief / write 审计)✅**;人侧健康面 UI 见 6B。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;图工具化 ✅;库健康 + Agent 查库 ✅(非 QueryPanel)。 |
 | 应用内 Agent(ACP) | ✅ | Phase 7 完工(2026-08-04):Tier 1 + 完整 Tier 2,见 [11](./11-in-app-agent-roadmap.md);真机端到端待用户验收。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。孤立白板(与图谱/QQL 解耦);「新建」入口默认隐藏。 |
@@ -158,12 +158,12 @@ Tauri 2 外壳 + React 19:
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
 | 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
-| 图谱 | 🟡 | Cytoscape+多布局 ✅;6A 人侧 polish **推迟**;6B MCP 侧 ✅ / 人侧健康面 UI ⏳;B-GRAPH-FPS 🧪。 |
+| 图谱 | 🟡 | Cytoscape+多布局 ✅;6A 人侧 polish **推迟**;6B MCP + 库健康 ✅;图内 HealthPanel 不打磨;B-GRAPH-FPS 🧪。 |
 | 类型文档 / QQL 扩展 | ✅ | QQL-TS 与差分 CI 随用户面删除(2026-08-02);引擎留 Rust core + MCP `run_qql`。 |
 | Live 索引 + 三层搜索 | ✅ | |
 | 打包与分发 | 🟡 | 本地 dmg ✅ + universal 脚本 ✅(`scripts/build-universal-dmg.sh`);签名/Updater 🔑;feat/phase1-core 已合 main(`84accb0`),`release/v0.1.0` 进行中。 |
 
-**原则**:不塞空心 stub。**本期收尾**:真机帧率 / 应用内 Agent 端到端 / 签名 / 发布收口。**远期重启 §I**:6A 人侧图 polish → 可选 6C 语义(6B 的 agent 侧 MCP 工具与 6D wiki 脚手架已交付,见上)。TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。**本期收尾**:真机帧率 / 应用内 Agent 端到端 / 签名 / 发布收口。**远期重启 §I**:6A 人侧图 polish → 可选 6C 语义(6B MCP、库健康、6D 已交付)。**不要重建 QueryPanel。** TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

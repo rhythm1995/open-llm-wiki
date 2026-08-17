@@ -39,6 +39,19 @@ function fileStem(path: string): string {
   return dot === -1 ? last : last.slice(0, dot);
 }
 
+/**
+ * 把关系 chip 的 raw target 解析成展示标题。
+ * 复用 resolveWikiTarget 的 title → pathStem → fileStem 三级回退;
+ * 命中取 node.title,未命中回退 target 原串。
+ */
+export function resolveTitleForTarget(target: string, nodes: NodeOut[]): string {
+  const path = resolveWikiTarget(target, nodes);
+  if (!path) return target;
+  const node = nodes.find((n) => n.path === path);
+  const title = node?.title.trim();
+  return title ? title : target;
+}
+
 /** 把 `[[target]]` 解析到 vault 路径;未命中返回 null。 */
 export function resolveWikiTarget(target: string, nodes: NodeOut[]): string | null {
   const t = target.trim().toLowerCase();

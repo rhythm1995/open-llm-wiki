@@ -15,6 +15,7 @@ import type {
 import type { TFunc } from "../lib/i18n";
 import { AgentIcon } from "../lib/agent-icons";
 import { cn } from "../lib/cn";
+import { WIKI_SKILLS_NPX_CMD } from "../lib/wiki-digest";
 
 const DEFAULT_VAULT_NAME = "Open LLM Wiki-Memory";
 
@@ -166,6 +167,17 @@ export function AgentOnboardingSection({ vaultRoot, t }: Props) {
         paths.ids,
       );
       setResults(rs);
+      // 给当前工作 vault 补装 wiki-ingest skill(提炼所需;幂等,永不覆盖已有)。
+      // vaultRoot 优先;未开 vault 时回退记忆 vault(paths.vault)。装失败不阻断 MCP 接入。
+      const skillDir = vaultRoot?.trim() || paths.vault;
+      try {
+        const sk = await ipc.onboardInstallSkill(skillDir);
+        if (sk.written.length > 0) {
+          setSeedMsg(t("settings.onboard.skillInstalled"));
+        }
+      } catch {
+        /* skill 装失败:用户仍可走下方 npx 命令手动补装 */
+      }
       const s = await ipc.onboardScan();
       setScan(s);
     } catch (e) {
@@ -281,6 +293,18 @@ export function AgentOnboardingSection({ vaultRoot, t }: Props) {
   const wiredCount =
     scan?.agents.filter((a) => a.wired_command).length ?? 0;
 
+  const [skillsCopied, setSkillsCopied] = useState(false);
+
+  const copySkillsNpx = async () => {
+    try {
+      await navigator.clipboard.writeText(WIKI_SKILLS_NPX_CMD);
+      setSkillsCopied(true);
+      window.setTimeout(() => setSkillsCopied(false), 2000);
+    } catch {
+      setError(t("settings.onboard.copyFailed"));
+    }
+  };
+
   return (
     <div className="pt-1" data-testid="settings-onboarding">
       <div className="mb-1 text-[13px] font-semibold text-text">
@@ -289,6 +313,49 @@ export function AgentOnboardingSection({ vaultRoot, t }: Props) {
       <p className="mb-3 text-[12px] leading-relaxed text-subtext">
         {t("settings.onboard.hint")}
       </p>
+
+      {/* Skills / Hooks：分步引导 + GitHub npx */}
+      <div
+        className="mb-4 rounded-lg border border-crust bg-base px-3 py-2"
+        data-testid="settings-skills-hooks"
+      >
+        <div className="mb-1 text-[12px] font-semibold text-text">
+          {t("settings.skillsHooks.title")}
+        </div>
+        <p className="mb-2 text-[11px] leading-relaxed text-subtext">
+          {t("settings.skillsHooks.hint")}
+        </p>
+        <ol className="mb-2 list-none space-y-1 text-[11px] leading-relaxed text-subtext">
+          <li>{t("settings.skillsHooks.step1")}</li>
+          <li>{t("settings.skillsHooks.step2")}</li>
+          <li>{t("settings.skillsHooks.step3")}</li>
+          <li>{t("settings.skillsHooks.step4")}</li>
+        </ol>
+        <div className="mb-1 text-[10px] text-overlay">
+          {t("settings.skillsHooks.npxLabel")}
+        </div>
+        <div className="flex gap-1">
+          <code
+            className="min-w-0 flex-1 overflow-x-auto rounded border border-crust bg-mantle px-2 py-1.5 font-mono text-[10px] text-text"
+            data-testid="settings-skills-hooks-cmd"
+          >
+            {WIKI_SKILLS_NPX_CMD}
+          </code>
+          <button
+            type="button"
+            className="shrink-0 rounded border border-crust bg-mantle px-2 py-1 text-[11px] text-text hover:bg-surface"
+            data-testid="settings-skills-hooks-copy"
+            onClick={() => void copySkillsNpx()}
+          >
+            {skillsCopied
+              ? t("settings.skillsHooks.copied")
+              : t("settings.skillsHooks.copy")}
+          </button>
+        </div>
+        <p className="mt-2 text-[10px] leading-relaxed text-overlay">
+          {t("settings.skillsHooks.hooksNote")}
+        </p>
+      </div>
 
       {ipc.isMock() ? (
         <p

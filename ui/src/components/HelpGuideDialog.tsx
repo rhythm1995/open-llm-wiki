@@ -7,13 +7,16 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   FolderOpen,
   Graph,
+  Heartbeat,
   PlugsConnected,
   Robot,
   Command,
   Sparkle,
+  Bug,
   X,
 } from "@phosphor-icons/react";
 import type { TFunc } from "../lib/i18n";
+import { openProjectIssues } from "../lib/project";
 
 export function HelpGuideDialog({
   open,
@@ -98,6 +101,46 @@ export function HelpGuideDialog({
               icon={<Robot size={16} weight="fill" className="text-blue" />}
               title={t("help.inAppAgentTitle")}
               body={t("help.inAppAgentBody")}
+            />
+            <GuideCard
+              icon={<Heartbeat size={16} weight="fill" className="text-blue" />}
+              title={t("help.healthTitle")}
+              body={t("help.healthBody")}
+            />
+            <GuideCard
+              icon={<Sparkle size={16} weight="fill" className="text-blue" />}
+              title={t("help.distillTitle")}
+              body={t("help.distillBody")}
+              action={
+                onOpenAgentOnboard
+                  ? {
+                      label: t("help.distillAction"),
+                      onClick: () => {
+                        onOpenChange(false);
+                        onOpenAgentOnboard();
+                      },
+                    }
+                  : onOpenSettings
+                    ? {
+                        label: t("help.settingsAction"),
+                        onClick: () => {
+                          onOpenChange(false);
+                          onOpenSettings();
+                        },
+                      }
+                    : undefined
+              }
+            />
+            <GuideCard
+              icon={<Bug size={16} weight="bold" className="text-blue" />}
+              title={t("help.feedbackTitle")}
+              body={t("help.feedbackBody")}
+              action={{
+                label: t("help.feedbackAction"),
+                onClick: () => {
+                  openProjectIssues();
+                },
+              }}
             />
             <GuideCard
               icon={<Command size={16} weight="bold" className="text-blue" />}

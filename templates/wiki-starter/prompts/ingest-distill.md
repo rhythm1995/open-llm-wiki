@@ -1,3 +1,7 @@
+---
+type: Note
+---
+
 # Prompt: ingest a Source (distill L2a) — fallback
 
 > **Preferred:** use the vault skill **wiki-ingest**  

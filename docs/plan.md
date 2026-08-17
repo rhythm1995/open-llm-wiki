@@ -9,7 +9,7 @@
 
 1. **编辑器 / 写作** — **主路径 + 保真门禁已收敛** ✅(见 §Editor)  
 2. **非图杂项** — 已收口:IPC 日志打点 ✅ · source 任务按钮 ✅ · **wiki 脚手架(§I-D)✅** · **universal dmg 脚本 ✅** · AGENTS tldraw 叙述 ✅;剩签名 / Updater(🔑 凭证门)  
-3. **图 / Agent / §I** — **人侧本期不做,推迟到很后**(图打磨 ROI 低 / 图不好做;2026-08-02 决策);6B agent 侧 MCP 与 6D wiki 脚手架**已交付**  
+3. **图 / Agent / §I** — 人侧图 polish 仍推迟。**例外(2026-08-15)**:6B NL 表面按「库健康 + Agent 短指令」落地,不重建 QueryPanel。6B MCP 与 6D wiki 脚手架已交付。
 
 `feat/phase1-core` 已合 main(`84accb0`);当前开发在 `release/v0.1.0`(v0.1.0 tag 已打)。下一刀:真机验收(B-GRAPH-FPS / 应用内 Agent 端到端)+ 发布收口;或产品点名新项。
 
@@ -50,7 +50,7 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 > **2026-08-02 决策**:§I 图谱 polish(6A)整期推迟——图打磨 ROI 低、实现成本高(「图不好做」)。引擎保留,远期重启。
 
 见 [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) 与 backlog §I。  
-**不主动开 6A 帧率 / 6B MCP links / 6C 语义**,除非产品再改优先级。
+**不主动开 6A 图 polish / 6C 语义**,除非产品再改优先级。6B 人侧查库已按库健康 + Agent seed 交付(见 backlog `B-HEALTH-DASH`)。
 
 | 可后续 | 说明 |
 |---|---|

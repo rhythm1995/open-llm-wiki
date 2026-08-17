@@ -15,6 +15,263 @@
 
 ---
 
+### 2026-08-18 Grok — 一次提交 release/v0.1.0 积压改动
+
+- **branch**: `release/v0.1.0`(未 push,领先 origin 6)
+- **做了**: 把库健康总览 / hot.md 注入 / 仓库改址与问题反馈 / tray / skills hooks / Inspector·IME·误保存等积压改动打成一次 commit。
+- **理由 / 影响**: 用户要求「提交一次当前的 commit」;工作区此前未 staged。
+- **下一步 / 接手注意**: 未 push。桌面 tray / hot 注入需本机包才看得到。
+
+---
+
+### 2026-08-17 Grok — 本机打包并覆盖安装 `/Applications`(hot/frontier)
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: `bash scripts/build-app.sh`;覆盖 `/Applications/Open LLM Wiki.app`;`xattr -cr`;`open`。
+- **理由 / 影响**:含 hot.md 注入、库健康前沿打分、TDD 补测。
+- **下一步 / 接手注意**:未签名。Gatekeeper 拦则「仍要打开」。
+
+---
+
+### 2026-08-17 Grok — 按 TDD 补 hot/frontier 测试
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 先写失败用例再实现/接线。
+  - `applyHotCacheToPrompt` / `turnsSinceHotInject`(mock 不读、不足 6 回合不读、空白/读失败、首轮包装)。
+  - AgentPanel:桌面手动发送注入、seed 不读 hot、写库后提醒。
+  - frontier:实体/未解析边/score≤0/新近度排序;HealthView 折叠块点开跳转。
+- **验证**: 上述文件 + typecheck。
+
+---
+
+### 2026-08-17 Grok — hot.md 会话缓存 + 库健康前沿打分 + 分层读序
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**(claude-obsidian 调研 A→B→C,零复制):
+  1. `hot.md` starter + seed;`hot-cache.ts`;Agent 首轮/每 6 回合静默注入;写过库则 `agent-done` 提醒整页覆写。
+  2. `frontierCandidates`(出度−入度)×新近度,库健康总览折叠块,标明议程建议。
+  3. starter `AGENTS.md` / MCP README / kb 读序:hot → index → 少页。
+- **验证**: 单测 + typecheck(本轮改完后跑)。
+- **下一步 / 接手注意**: 桌面才能看到注入与提醒;mock 不读 hot。语义去重仍只在调研里,未做嵌入。
+
+---
+
+### 2026-08-17 Grok — 本机打包并覆盖安装 `/Applications`
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: `bash scripts/build-app.sh` 出 `.app`(含嵌入 mcp sidecar);覆盖 `/Applications/Open LLM Wiki.app`;`xattr -cr`;`open` 启动。
+- **理由 / 影响**:用户要打包。含库健康总览分数等未进上一包的改动。
+- **下一步 / 接手注意**:未签名。若被 Gatekeeper 拦,系统设置 → 隐私与安全性 → 仍要打开。
+
+---
+
+### 2026-08-17 Grok — 库健康合成层:总览分数 + 分组 + 饥饿目标
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 按第一性原理补 MEASURE 合成,不新增第 12 条 QQL:
+  1. `health-score.ts` 从快照入度即时算来源消化/主张达标(Active≥2,Contested≥3)/争议/孤儿/单源。
+  2. HealthView 默认总览:六格分数 + 下一动作 + 最饿主张名单;11 条按结构/证据/信任分组。
+  3. 桌面进视图后台扫 QQL 填角标;mock 不扫(图谱分数仍可用)。饥饿表明细未达标行着色。
+- **理由 / 影响**: 以前要点 11 次才有数;现在进门能判断「信不信 / 下一步吃什么」。叙事仍以 wiki-health.md 为准。
+- **验证**: typecheck;`health-score` 8 + HealthView 5;全量单测先跑。
+- **下一步 / 接手注意**: 桌面打包后看 kb 的分数是否接近 wiki-health 表。信任三条仍依赖 reviewed,空字段会偏红(组下有说明)。
+
+---
+
+### 2026-08-18 Grok — 仓库改址 + 问题反馈入口
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**:
+  1. 本项目 GitHub 改为 `https://github.com/rhythm1995/open-llm-wiki`(README clone/Releases、skills npx、mcp/backlog)。
+  2. 问题反馈打开 `…/open-llm-wiki/issues`:帮助手册卡片、⌘K「问题反馈」、设置→诊断、桌面 Help 菜单。桌面 `open_external_url` 只放行该仓库 https。
+- **验证**: typecheck + commands/i18n 单测。
+- **下一步 / 接手注意**: 桌面需再打包。旧 `OpenObsidian` npx 路径已失效。
+
+---
+
+### 2026-08-18 Grok — 空文件夹不显示展开三角
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: Nav 目录树没有子目录时不再画 caret(留 15px 占位对齐);图标保持合上的 Folder。
+- **验证**: 结构改动,无单独单测。
+- **下一步 / 接手注意**: 桌面需再打包。
+
+---
+
+### 2026-08-18 Grok — 堵住打开就写盘 / 列表跳顶的同类口
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**:
+  1. 画布:Excalidraw 挂载 onChange 不再落盘;要指针/键盘动过且序列化 ≠ 原文才写。
+  2. store:`setContent` 相同字节直接返回;`saveNow` 未 dirty 不写盘(不闪保存、不改 mtime)。
+  3. 第二栏:`pinCurrentInList` 钉住当前打开笔记的位置,这次打开即使 mtime 变了也不冲到顶。
+  4. ⌘F 临时切源码,不写进默认编辑模式;关掉查找还原。
+- **验证**: canvas / store-flush / note-list-order 单测 + typecheck。
+- **下一步 / 接手注意**: 桌面需再打包。
+
+---
+
+### 2026-08-18 Grok — Query 展示名:查询笔记 / QueryNote
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 只改看得见的 `wiki.type.Query`:zh「查询笔记」、en「QueryNote」。frontmatter / QQL 仍是 `type: Query`。
+- **验证**: 文案两处替换。
+- **下一步 / 接手注意**: 桌面需再打包。
+
+---
+
+### 2026-08-18 Grok — 打开笔记不再误保存;Query 译「查询页」
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**:
+  1. 打开任意笔记会 `saving`、第二栏按 modified 把该条顶上去:Wysiwyg 挂载 `replaceBlocks` / 回读图触发 onChange,BN lossy 序列化 ≠ 原文就落盘。现在只有用户键入/粘贴/拖放/格式条才 `userTouched` 并写盘。
+  2. `wiki.type.Query` 查询→查询页(类型是存下来的 QQL 笔记,不是「去查询」这个动作)。
+- **验证**: WysiwygView 打开不落盘回归 + 原有防抖/卸载 flush;typecheck。
+- **下一步 / 接手注意**: 桌面需再打包。
+
+---
+
+### 2026-08-17 Grok — 大纲树脊 + 折叠
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: Inspector 大纲改嵌套树:`nestOutline` 按层级挂子节点;子组一条连续竖线;有子级的节点可折叠(点三角,点标题仍跳转)。密度保持 12px / 紧行距。切笔记清折叠态。
+- **验证**: outline nest 单测 + Inspector 折叠回归;typecheck。
+- **下一步 / 接手注意**: 桌面需再打包。未做 H1/H2 徽章。
+
+---
+
+### 2026-08-17 Grok — 类型展示:主张 + Entity/Note/Query/Type 图标
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 按已拍板表改展示(frontmatter 英文不动):
+  - `wiki.type.Concept` 概念→主张;提炼条/库健康相关中文一并改。问句别名仍认「概念饥饿」「单源概念」。
+  - 图标:Entity `IdentificationCard`、Note `Note`(灰)、Query `MagnifyingGlass`、Type `Stack`;TypeDoc 仍 `BookOpen`。
+- **验证**: nav-icons / wiki-labels / typecheck。
+- **下一步 / 接手注意**: 桌面要看到需再打包。
+
+---
+
+### 2026-08-17 Grok — 本机打包并覆盖安装 `/Applications`
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: `bash scripts/build-app.sh` 出 `.app`(含嵌入 mcp sidecar);覆盖 `/Applications/Open LLM Wiki.app`;`xattr -cr`;`open` 启动。
+- **理由 / 影响**:用户要打包。未签名,本机覆盖 8/15 安装。本包含 leftover 提炼修复 + 大纲跳转。
+- **下一步 / 接手注意**:首次若被 Gatekeeper 拦,系统设置 → 隐私与安全性 → 仍要打开。
+
+---
+
+### 2026-08-17 Grok — 大纲点击跳到对应标题(源码+所见即所得)
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 右侧大纲原先只 `editorRef.scrollToLine`,默认 WYSIWYG 时 Editor 没挂载,点了没反应;源码模式也不放光标,且 body 行号没加 frontmatter 行差会跳错行。
+  1. 源码:`scrollToLine` 设选区到该行开头并 focus;跳转时 `frontmatterLineOffset`。
+  2. WYSIWYG:`WysiwygHandle.scrollToHeading(index)` 按文档序定位 heading 块、放光标、滚入视口。
+  3. Inspector `onJumpToHeading({ bodyLine, index })`。
+- **验证**: frontmatter/outline/Inspector/WysiwygView 单测;e2e 大纲点击冒烟。
+- **下一步 / 接手注意**: 无。
+
+---
+
+### 2026-08-17 Grok — 修提炼/查询 leftover seed:换笔记再开 Agent 不再误提炼
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**:
+  1. 根因:App `agentComposerSeed` 只写不清。提炼发完后 token 仍挂在 props;切 Inspector/关右栏会卸 AgentPanel,`lastAutoSentToken` 归零,再开 Agent 把旧指令当新的——横幅「已准备提炼指令」,点任意 agent 再跑一遍。查询 Vault 同一条链路。`digestArmed` 换笔记会清,seed 不会。
+  2. 发送/入队即 `onSeedConsumed` 把 App seed 置 null;换笔记/换库也清。
+  3. 模块级已消费 token(`ui/src/lib/agent-seed.ts`):面板卸载再挂同一 token 不再武装;`startAgent` 忽略已消费 leftover。
+  4. 父组件清 seed 时撤横幅;已消费 leftover 不再挡住历史回放。
+- **验证**: `AgentPanel` leftover 回归(卸载再挂 / 关会话再点 / 父组件清空)+ `agent-seed` 单测;typecheck + 相关 vitest。
+- **下一步 / 接手注意**: 本机要看到需再 `bash scripts/build-app.sh` 覆盖安装。未点过「提炼」的新开 Agent 不应再出现提炼横幅。
+
+---
+
+### 2026-08-17 Grok — wiki 操作系统不当原料:提炼入口 + 未分类/收件箱排除
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**:
+  1. `isWikiOsPath`(wiki-digest.ts):AGENTS/CLAUDE/README/SKILL、根类型契约、skills/prompts/health/types、点目录 → 提炼按钮 hidden。
+  2. `isInbox` 与 TYPES「未分类」走同一判断,OS 文件不再进收件箱计数。
+  3. starter + skills 包 + `~/Desktop/kb` 那 4 份补 `type: Note`;skill 停手名单加 Note。
+- **理由 / 影响**: 说明书不是 Source。kb 打开 AGENTS.md / wiki-ingest 不再出现「提炼」,未分类不再挂这 4 条。
+- **验证**: `pnpm --dir ui typecheck`;wiki-digest 17 + nav-filter 18 绿(全量 713)。
+- **下一步 / 接手注意**: 桌面端需让 kb 重新索引(live watch 或切一下 vault)才看到 type: Note。不要对 OS 文件跑 wiki-ingest。
+
+---
+
+### 2026-08-15 Grok — Inspector 从属性检查器改为知识卡片
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 右栏可读性/图谱感,不改 core / IPC:
+  1. `groupBacklinks` 按来源合并 wiki+relation,Tab 角标改篇数。
+  2. `resolveTitleForTarget` 让关系 chip 显示笔记标题,写入仍是 `[[target]]`。
+  3. Header Card:类型/状态/标签 + definition 两行 clamp(无则隐藏,不用 20 字阈值)+ 类型说明仅在有 typeDoc 时默认折叠。
+  4. 属性分 基础 / 相关 / 其他;definition 与长文本走 textarea;关系行淡紫底。
+  5. Tab 选中 `bg-surface2`;大纲 H1 加粗、下级竖线。
+- **理由 / 影响**: 反链 17 边变 9 篇可扫;related 不再截成文件名;无类型文档灰框不再常驻。
+- **验证**: `typecheck` ✅;`test:cov` 715 绿 / branches 58.92%;e2e 20 绿(含 Inspector 知识卡片走查)。
+- **下一步 / 接手注意**: 真机 vault(如「AI Native 人才」)核对 反链篇数与中文 chip。关系 chip 换行撑高先观察,不加 3 行折叠。definition 同时出现在 Header(只读)与属性 Tab(可编辑)是有意分层。
+
+---
+
+### 2026-08-15 ZCode — 调研 tolaria 技法 → 落地三件:卸载 flush 所有权回写 / IME Enter 守卫 / 保真 sweep +2
+
+- **branch**: `release/v0.1.0`(未 push)
+- **背景**: 对 ~/Desktop/tolaria(AGPL,同赛道)近三个月 release notes + 近两周 112 提交做了技法层调研(只学概念,零代码复制)。产出五个候选项,自查本仓库后拍板:两修一扩两缓(错误分类器/图标目录缓做,见 backlog `B-ED-ERR-RECOVERY`)。
+- **做了**:
+  1. **修跨笔记写坏竞态**(唯一可能损坏用户数据的项):WYSIWYG 编辑后 <400ms 切 tab,卸载 flush 无路径校验写共享 content 槽 → 旧笔记内容落盘到新笔记/`.sheet`(Canvas 保存 timer 幸存同理,Sheet 公式栏草稿卸载即丢)。修法:`store.writeScoped(path, root, next)` 所有权回写(当前笔记走 setContent;迟到 flush 定向写回原 (root, path);rename/move 后经别名重定向防旧文件复活)+ WysiwygView/CanvasView/SheetView `onFlush` 接线 + Canvas 卸载清 timer + Sheet 卸载提交草稿。
+  2. **IME 组合期 Enter 守卫**:新增 `lib/ime.ts`(`isComposing` + keyCode 229),9 处受控输入 Enter 加守卫(Agent composer、⌘K、查找/替换、Inspector 属性与标签、公式栏、列表重命名)——拼音候选确认不再误发送/误提交。
+  3. **保真 sweep +2 例**(31 例):`blockquote-blank-paragraph` 与 `linked-inline-code` 实测均 BREAK(后者往返**丢链接**,URL 数据丢失);ZWSP 桥与哨兵桥实验均无便宜修法(BN 序列化边界)→ 按既定工作流标 risky + 登记 `DISABLED_OR_RISKY_PATTERNS`(记录实测行为与桥实验结论)。
+- **验证**: `pnpm --dir ui typecheck` ✅;`test:cov` **699 绿** / branches **58.12%**(过 58% 门;新增测试把 store/Canvas/Sheet 首次拉进单测覆盖面,补了 store 动作冒烟);e2e **19 绿**。
+- **下一步 / 接手注意**: ① Sheet 卸载草稿提交只覆盖公式栏,不含表格其它内联状态;② `linked-inline-code` 若真实笔记大量出现,可评估「导入哨兵桥救链接(牺牲 code 样式)」的窄修;③ 文档同步:backlog §C 三新条目 + B-BN-FIDELITY-DEEP 23→31、04-features F-EDITOR。
+
+---
+
+### 2026-08-15 Grok — Agent 走 Graph:注入 MCP / 钉 npx / 活会话重连 / 瘦种子 / 库健康分流
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**(无损 token/速度,不改蒸馏语义):
+  1. ACP `session/new` 注入本机 `open-llm-wiki-mcp` stdio;失败立刻无 MCP 重试。
+  2. Claude/Cursor npx 适配器钉版本(`@0.68.0` / `@0.7.1`),去掉 `@latest`。
+  3. `agent_runtime`:切走 Agent 栏再回来若进程仍活则恢复活动会话,提炼不冷启动。
+  4. 提炼/查询种子不附 `@` 全文;ingest/query prompt 缩短。
+  5. `matchHealthQuestion`:孤儿/争议/撞名等问句直接开库健康。
+- **验证**:`cargo test -p open-llm-wiki-app --lib` 55 绿;`pnpm --dir ui typecheck`;`test:cov` 678 绿;e2e 19 绿。
+- **下一步 / 接手注意**:真机看提炼是否出现 MCP 工具;某 adapter 仍拒 `mcpServers` 会走回退,日志有 warn。
+
+---
+
+### 2026-08-15 Grok — 修「Agent 已开着时提炼卡在请选择」
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 历史回放(`!active` + 有对话)没有 picker,提炼 seed 却要求再选 agent → 发不出去。seed 现在:活动会话直接发、忙碌则排队、历史/唯一已装 agent 自动 `startAgent`。文案改为「指令已交给右侧 Agent」。
+- **验证**: `AgentPanel.test.tsx` 6 绿(含历史回放自动拉起、忙碌排队)。
+- **下一步 / 接手注意**: 桌面包是上一轮打的,要本机看到此修复需再 `bash scripts/build-app.sh` 覆盖安装。
+
+---
+
+### 2026-08-15 Grok — 本机打包并覆盖安装 `/Applications`
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: `bash scripts/build-app.sh` 出 `.app`(含嵌入 mcp sidecar);覆盖 `/Applications/Open LLM Wiki.app`;`xattr -cr`;`open` 启动。
+- **理由 / 影响**:用户要打包安装。未签名,本机覆盖旧 8/11 安装。
+- **下一步 / 接手注意**:首次若被 Gatekeeper 拦,系统设置 → 隐私与安全性 → 仍要打开。
+
+---
+
+### 2026-08-15 Grok — 库健康看板 + Agent「查询 Vault」(不重建 QueryPanel)
+
+- **branch**: `release/v0.1.0`(未 push,未合并)
+- **做了**:
+  1. 产品结论写入 [docs/12](docs/12-graph-and-agent-roadmap.md):人侧三项里只做 NL 查库;**不做**独立查询 IDE。落地 = **库健康**(11 条锁定 QQL,`MainView:"health"`)+ **问 Agent** 短指令。图谱 HealthPanel / lint 列表不并进这个视图。
+  2. `health-catalog.ts` / `qql-result.ts` / `vault-query.ts` + 单测。vault 覆盖按 basename;starter 写死日期保持滚动 180 天;其它 ISO 日期才覆盖。
+  3. `HealthView` + `ipc.runQql`;mock 诚实空 List。原生 View 菜单加 `view-health`。Agent seed 支持 `banner: "query"`;toast 提到 App 根(`agent-seed-toast`)。
+  4. 文档去漂移:backlog `B-HEALTH-DASH` / `B-VAULT-QUERY-SEED` ✅;04 / 06 / 07 / FEATURE-INDEX / README / plan / CHANGELOG。
+- **理由 / 影响**:QQL 用户面 2026-08-02 已删。模板在仓库里却跑不了,是聚合查询这块最大的人侧洞。Health 零模型可测;NL 走已有 Agent seed,避免再造 QueryPanel。
+- **验证**:`pnpm --dir ui typecheck`;`test:cov` 672 全绿;e2e 19 全绿(含库健康 mock 提示);`cargo test -p open-llm-wiki-app` 52 全绿。
+- **下一步 / 接手注意**:桌面端点开「库健康」才看得到真实结果(mock 恒空)。Agent 查库依赖它是否已有 MCP `run_qql`,没有则只打印 QQL。勿把 lint findings 塞进这个视图。
+
+---
+
 ### 2026-08-15 Claude — 修「提炼后 prompt 残留 / ⌘A 失效 / 右栏过窄」三连 + 顺手修右键菜单秒关
 
 - **branch**: `release/v0.1.0`(未 push,未合并;工作树含其他未提交改动,本条只动了下列文件)
@@ -27,6 +284,50 @@
 - **下一步 / 接手注意**:⌘A 与菜单项需 `tauri dev` 实机手验;右栏宽度语义(340/400)若观感不合适只调 `COL` 常量即可,收敛逻辑自适应。
 
 ---
+
+### 2026-08-11 Claude — 一键接入自动装 wiki-ingest skill 到当前 vault
+
+- **branch**: `release/v0.1.0`(未 push,未合并)
+- **做了**:
+  - 「一键接入」现在除了装 MCP + 播种记忆 vault,还会**给当前打开的工作 vault 补装 wiki-ingest skill**(提炼所需),让「提炼进 Wiki」开箱即用——不再需要用户复制 npx 命令去终端手动装。
+  - 后端 `mcp/src/onboard.rs`:把 `seed_vault` 末尾的 skill 双写逻辑抽成公开 `install_wiki_ingest_skill(dir)`(只写 `.agents/`+`.claude/`,不写整套模板,永不覆盖);`seed_vault` 改为复用它(行为不变)。
+  - 新增 `onboard_install_skill` tauri command(app onboarding.rs + lib.rs handler 注册);前端 ipc 封装 `onboardInstallSkill`。
+  - `oneClickConnect` 在 `onboardApply` 后对 `vaultRoot`(回退 `paths.vault`)调 `onboardInstallSkill`;装成功给 `skillInstalled` 反馈。
+  - 文案同步(中英 7 处):`oneClickHint`/`skillInstalled`/`skillsHooks.hint+step3+npxLabel`(重新定位为可选/手动/hooks)/`help.distillTitle+Body`(四步→三步)/`wiki.digest.skillMissing+Action`(引导去一键接入)。
+- **理由 / 影响**:原一键接入只保证 MCP 通道 + 记忆 vault 的 skill,当前工作 vault 不一定有 skill → 提炼弹 skillMissing、用户困惑"记忆还是提炼"。现统一为"一键接入 = MCP + 当前 vault 的 skill"。不自动装外部 hooks(仍走 npx,可选)。
+- **验证**:`pnpm --dir ui typecheck` + `ui test`(637 全绿,含 oneClick 新断言);`cargo test -p open-llm-wiki-mcp`(install_wiki_ingest_skill 新测 + seed_vault 3 回归);`cargo check -p open-llm-wiki-app` 通过。
+- **下一步 / 接手注意**:
+  - 桌面端实跑验证(可选):`bash scripts/build-app.sh` → 开 vault → 一键接入 → 点「提炼进 Wiki」,应不再弹 skillMissing。
+  - skillsHooks 区块(npx 命令)保留作命令行/hooks 模板 fallback,文案已标"可选"。
+
+### 2026-08-11 Claude — macOS 菜单栏(menubar)状态栏图标
+
+- **branch**: `release/v0.1.0`(未 push,未合并)
+- **做了**:
+  - 新增 macOS 菜单栏 tray 图标(白色灯泡 template image,与主 app icon 灯泡意象一致):左键显示+聚焦主窗口,右键 Show/Quit 菜单。
+  - 改主窗口关闭行为为 menu bar app 模式:点 × 只 `hide()`+`prevent_close()`,app 与 tray 常驻;真正退出走 Cmd+Q / tray Quit(PredefinedMenuItem::quit → `app.exit(0)`,绕过 prevent_close)。原 §9.6「关窗即停 agent」逻辑移除——app 继续运行、会话保留,进程结束时 kill_on_drop 清理。
+  - `scripts/gen-tray-icon.mjs`:用 sharp 把手绘灯泡 SVG 渲染成 22/44px 纯黑+alpha 的 template PNG(RGB 归零后处理),可复跑。
+  - `Cargo.toml`:tauri features 加 `tray-icon` + `image-png`。
+- **理由 / 影响**:用户要"状态栏图标 + 左键打开主窗口";menu bar 模式是状态栏图标的标准用法(否则关窗即退出、tray 消失,"打开主窗口"无意义)。不影响既有命令/IPC。`cargo check` + `build-app.sh` 全绿,已 `open` 启动验证:app 运行时菜单栏右侧出现白色灯泡,杀 app 后消失(对比截图确证是本 app 的 tray)。
+- **下一步 / 接手注意**:
+  - GUI 交互(左键聚焦、关窗隐藏、tray Quit)已按标准 Tauri 模式实现,建议人工最终点一遍。
+  - 图标形状在 `gen-tray-icon.mjs` 的 SVG 常量里,要改形状/粗细直接改 SVG 重跑 `node scripts/gen-tray-icon.mjs`。
+  - 若未来要 dock-only(不出现在 dock)再设 LSUIElement;本次保留 dock 图标。
+
+### 2026-08-11 Grok — 应用内「提炼」四步引导
+
+- **branch**: `release/v0.1.0`
+- **做了**: 帮助手册加「提炼进 Wiki」卡;设置 Skills 改 1–4 步;提炼条探测 skill 缺失→「去安装 skill」进设置;关设置后重探。
+- **验证**: typecheck ✓; wiki-digest 13 tests ✓。
+
+### 2026-08-11 Grok — GitHub npx skills/hooks + ACP 轮次结束 lint
+
+- **branch**: `release/v0.1.0`
+- **做了**:
+  1. `open-llm-wiki-skills` 支持 **GitHub npx**(无需 npm 发布);默认安装 skill + hooks 模板。
+  2. ACP:`agent-done` → `lint_vault` 提示;面板「检查开/关」;设置页复制安装命令。
+  3. backlog `B-WIKI-INGEST-HOOKS` ✅;npm 发布仍 ⏳ 但 GitHub 路径可用。
+- **验证**: 本地 install --hooks 冒烟 ✓; typecheck ✓。
 
 ### 2026-08-11 Grok — 收口:backlog 记 npm 待办 + hooks 调研 + commit
 
@@ -846,3 +1147,27 @@
   - ⌘F 的 `window.find()` 是非标准 API,**Tauri WKWebView 真机需验证**;若不稳,fallback = 给 source 模式加 `@codemirror/search`(后置,未做)。
   - `editMode` 存 localStorage;老设备若之前存过 `"source"`,需手动切一次或清 `open-llm-wiki.editMode` 才看得到 wysiwyg 默认。
   - 本批 3 commits 未 push;接手前先 `git pull` / 确认是否要我 push。
+
+### 2026-08-16 ZCode — 全仓死代码清理(UI / core / app / 外围)
+
+- **branch**: `release/v0.1.0`(直接改工作区,未 commit;工作区本就有一批未提交改动)。
+- **做了**(三路探索 agent 全仓扫描 + grep 交叉验证后删除,含跨行链式调用 / 动态 import / 字符串 key 排查):
+  1. UI 整文件:`lib/graph-label.ts`(+test)、`lib/palette-commands.ts`(+test)——全仓仅被自身测试引用。
+  2. UI 零引用导出:`ironcalcAvailableSync`、`LOCALES`、`parseFrontmatterObject`、`isLayoutMode`+`LAYOUT_MODES`、`clusterColorResolved`/`baseBgResolved`/`pinColorResolved`、`HEALTH_TILE_COUNT`(连带 HealthView 死 import)、plugin-host 的 `pluginManifestPath`/`PLUGIN_MANIFEST`/`PLUGIN_ENABLED_KEY`/`loadEnabledMap`/`applyEnabledMap`(插件启用持久化半成品)。
+  3. test-only 助手:canvas 的 `emptyCanvasContent`/`createEmptyCanvasDoc`、wysiwyg-media 同步版 `planImageInsert`/`planImagesInsert`;契约用例改走异步版,路径分配逻辑覆盖仍在 attachments.test(冲突序号/folder-note 分桶)。
+  4. IPC 两侧:`listAttachments`/`mediaUsedBy`/`unwatchVault`/`attachmentExists`(同步废弃版)TS wrapper + mock 不可达分支 + Rust 命令 `list_attachments`/`media_used_by`/`unwatch_vault`(连带 `is_image_rel`)。
+  5. Rust 死命令:`diag_log`(被 LogBus 取代)、`log_get_dir`(目录信息走 `log_get_status` 的 dir 字段)、`transcript::agent_thread_clear`;均同步清出 `generate_handler!`。
+  6. core:`FieldRef::type_ref`、`MediaIndex::set_files`/`by_note()`/`by_media()`/`used_by`(used_by 随 `media_used_by` 命令同批变孤儿)+ 测试断言。保留 `VaultIndex::is_empty`(clippy len 惯例)与 `QqlParseError`/`predicate_matches` 重导出别名。
+  7. 依赖:ui 移除 4 个零 import 包(`@tauri-apps/plugin-dialog`、`@radix-ui/react-dropdown-menu`、`@radix-ui/react-tooltip`、`class-variance-authority`),lockfile 已刷新;Rust `tauri-plugin-dialog` crate 保留(桌面 pick_vault 在用)。
+  8. 外围:olw-skills.mjs 头注释/usage 删无效 `--hooks` 标志(实际仅 `--no-hooks` 有效,hooks 默认装);release.yml 失效注释 `docs/deferred.md` → `docs/backlog.md`「F. 分发与工程」;删 `graph-demo/Users/` 空目录链(脚本 bug 副产品,未跟踪)。
+- **验证(CI 同款门全绿)**:typecheck clean · `test:cov` 74 files / 701 用例全过(66.02% stmts / 59.03% branch / 59.68% funcs / 68.01% lines,高于阈值)· `pnpm --dir ui build` OK · e2e 20/20 · `cargo test -p open-llm-wiki-core` / `-p open-llm-wiki-app`(55)/ `-p open-llm-wiki-mcp`(53)绿 · clippy 无 error、无新增 warning。
+- **影响 / 风险**:`unwatch_vault` 删除后 watch 仍无解除入口(现状本就如此,`watchVault` 唯一入口 store.ts:201);未来切 vault 若需解除监听再重实现。刻意保留的非死代码:blocknote-fidelity 保真门禁集群、`_file_canvas` roadmap builder、mcp `RpcReq.jsonrpc`(serde 容忍)。
+- **发现但未动(反向问题:文件被引用却不在 git,建议尽快单独处理)**:① `packages/open-llm-wiki-skills/hooks/` 未提交,但 package.json `files` 与安装器引用它 → README 主推的 npx GitHub 安装会静默缺 hooks;② lib.rs 引用的 `tray-icon-light@2x.png` 与 `scripts/gen-tray-icon.mjs` 未提交 → fresh clone 缺托盘图标。
+- **下一步**:待人类确认后 commit;上述两个未提交文件问题待拍板。
+
+### 2026-08-17 ZCode — claude-obsidian 调研报告(新增 docs/research/claude-obsidian-survey.md)
+
+- **branch**: `release/v0.1.0`(只新增调研文档 + 本 WORKLOG 条目,未 commit;工作区原有改动未动)。
+- **做了**: 调研 [AgriciDaniel/claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian)(MIT,★ 10.9k / fork 1.3k,2026-04 建仓,v1.9.2)——同源 Karpathy LLM Wiki pattern 的 Claude Code 插件形态实现。产出调研报告 `docs/research/claude-obsidian-survey.md`(格式对齐 openkb-survey):机制拆解(v1.7 chunk 级混合检索 +32pp top-1 基准 / hot cache + PostCompact 再注入 / 按文件 advisory lock / DragonScale 四机制 / 10 类 lint)、与我们逐项对照、P1-P3 借鉴建议(hot cache 会话闭环、frontier 打分进 doc 14 §3.3、语义去重的校准纪律)、定位与许可结论(MIT、零复制零依赖、无 THIRD_PARTY_NOTICES 登记义务)。
+- **理由 / 影响**: 赛道需求被 10.9k★ 验证;其公开短板(无增量摄取、结构操作烧 token、无查询语言、检索栈自装依赖)是我们 core 路线图的对照卖点。纯文档,不影响代码。
+- **下一步**: 待人拍板是否采纳 P1 三项(以及是否把报告挂进 docs/README.md 文档地图);生态页提示的 `llm-wiki`、`obsidian-wiki` 两个邻近实现未调研,可作后续扫描。

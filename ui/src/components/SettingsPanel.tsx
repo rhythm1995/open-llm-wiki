@@ -21,6 +21,7 @@ import {
   type LogStatus,
 } from "../lib/logger";
 import { AgentOnboardingSection } from "./AgentOnboardingSection";
+import { openProjectIssues } from "../lib/project";
 import { cn } from "../lib/cn";
 import { X } from "@phosphor-icons/react";
 
@@ -354,6 +355,14 @@ function DiagnosticsTab({
               onClick={() => void openLogDir()}
             >
               {t("settings.openLogDir")}
+            </button>
+            <button
+              type="button"
+              className="w-full rounded border border-crust bg-base px-2 py-1.5 text-[12px] text-text hover:bg-surface"
+              data-testid="settings-report-issue"
+              onClick={() => openProjectIssues()}
+            >
+              {t("settings.reportIssue")}
             </button>
             <button
               type="button"

@@ -36,7 +36,9 @@ export type CommandId =
   | "refresh-index"
   | "view-editor"
   | "view-graph"
+  | "view-health"
   | "view-git"
+  | "vault-query"
   | string; // plugin:* 等
 
 export interface AppCommand {
@@ -54,7 +56,7 @@ export interface AppCommand {
   run: () => void;
 }
 
-export type MainViewId = "editor" | "graph" | "git";
+export type MainViewId = "editor" | "graph" | "health" | "git";
 
 export interface CommandDeps {
   t: TFunc;
@@ -80,6 +82,8 @@ export interface CommandDeps {
   hasOpenTab?: boolean;
   canReveal?: boolean;
   openSettings?: () => void;
+  /** 打开 GitHub Issues(问题反馈)。 */
+  reportIssue?: () => void;
   /** 直达「设置 → Agent 记忆接入」(外部 MCP)。 */
   openAgentOnboard?: () => void;
   /**
@@ -89,6 +93,8 @@ export interface CommandDeps {
   startWikiDigest?: () => void;
   /** 当前笔记是否可提炼(Source)。 */
   canWikiDigest?: boolean;
+  /** 打开 Agent 并预填「查询 Vault」短指令。App 仅在有 vault 时传入。 */
+  startVaultQuery?: (question?: string) => void;
   toggleSplitLayout?: () => void;
   editorLayout?: "edit" | "split";
   /** 清理未引用附件(媒体索引 orphans → trash,需确认)。 */

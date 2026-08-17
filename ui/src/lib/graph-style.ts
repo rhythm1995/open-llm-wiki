@@ -72,14 +72,6 @@ export function edgeColorResolved(
   return colorWithAlpha(base, isDarkTheme() ? 0.75 : 0.55);
 }
 
-export function clusterColorResolved(): string {
-  return graphAccentResolved();
-}
-
-export function baseBgResolved(): string {
-  return graphCanvasBgResolved();
-}
-
 export function labelColorResolved(): string {
   if (isDarkTheme()) {
     return cssColor("--graph-label", "#8CA3BD");
@@ -89,10 +81,6 @@ export function labelColorResolved(): string {
 
 export function unresolvedColorResolved(): string {
   return cssColor("--graph-unresolved", "#B27D75");
-}
-
-export function pinColorResolved(): string {
-  return graphAccentResolved();
 }
 
 /**

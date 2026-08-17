@@ -48,7 +48,7 @@
 | Source(CM6) + WYSIWYG(BlockNote) 双模 | B-ED-MODE-UX | `Editor.tsx`,`WysiwygView.tsx`,`edit-mode.ts` |
 | 格式条 / 右键 | B-ED-FMT-BAR / CTX-MENU | `Editor.tsx` |
 | ⌘F 查找替换 | B-ED-FIND-* | `FindBar.tsx`,`find-in-doc.ts` |
-| 大纲 | B-ED-OUTLINE | Inspector outline + `scrollToLine` |
+| 大纲 | B-ED-OUTLINE | Inspector 树形大纲(竖线+折叠)+ 源码 `scrollToLine` / WYSIWYG `scrollToHeading` |
 | wikilink 补全/跳转 | F-WIKILINK | `wikilink.ts`,两侧编辑器 |
 | 阅读渲染 + sanitize | F-READING | `ui/src/lib/render.ts` |
 | WYSIWYG 格式条(粗斜/标题/列表/引用/链接/图) | B-ED-WYSIWYG-FMT | `WysiwygView.tsx` fmt bar |
@@ -69,6 +69,9 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 文件树 / 标签 / 类型视图 | — | `Nav.tsx`,`nav-filter.ts` |
+| 库健康看板(11 条锁定 QQL + 总览分数) | B-HEALTH-DASH | `HealthView.tsx`,`health-score.ts`,`health-catalog.ts`,`qql-result.ts`;IPC `runQql`;总览含前沿打分 |
+| vault `hot.md` 会话缓存 | B-WIKI-HOT | `hot-cache.ts`;AgentPanel 注入 + 写库提醒;`templates/wiki-starter/hot.md` |
+| Agent「查询 Vault」短指令 | B-VAULT-QUERY-SEED | `vault-query.ts`;App `startVaultQuery`;⌘K `vault-query` |
 | 命令注册表 + ⌘K / 菜单 | B-CMD-* / 10 | `ui/src/lib/commands/*` |
 | 三层搜索 ⌘P / ⌘⇧F | 10 | CommandPalette modes |
 | Settings(主题/语言/附件/布局/日志) | — | `SettingsPanel.tsx`,`settings.ts` |
@@ -86,6 +89,7 @@
 | LLM Wiki 脚手架(5 类型契约 + Health QQL **11** 条) | B-WIKI-STARTER / HEALTH-QQL | `templates/wiki-starter/`;`core/tests/wiki_health_qql.rs`;规格 [14](./14-llm-wiki-workflow.md) |
 | provenance / reviewed / trust 软字段约定(P0 L1) | B-WIKI-PROVENANCE | `templates/wiki-starter/types/*` + `health/agent-unreviewed` 等;规格 [14](./14-llm-wiki-workflow.md) §3.1 / [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) |
 | 对话→vault 蒸馏 L2a(零代码工作流 + 提示词) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §1.1;`templates/wiki-starter/prompts/ingest-distill.md` |
+| 提炼/收件箱排除 wiki 操作系统 | B-WIKI-INGEST-SKILL | `isWikiOsPath`(`wiki-digest.ts`)+ `isInbox`;AGENTS/skills/prompts/README 不当未分类原料 |
 | 内容级 lint L2 工作流(agent-in-the-loop,零新工具) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §3.2.3;调研 [research/content-lint-contradiction.md](./research/content-lint-contradiction.md) |
 | OWF-1 格式规范(**档 1** ✅:装订现状 + 钉版本,零新词汇) | B-WIKI-FORMAT | 规格 [15](./15-owf-format.md);`format: owf/1` 声明在 `templates/wiki-starter/index.md`;宽容规则测试锁 `core/tests/owf_conformance.rs` |
 | 规格 | — | [09-big-features-v1.md](./09-big-features-v1.md) |

@@ -4,8 +4,8 @@
  * mock 模式下 App 启动即自动打开种子 vault(index/zettelkasten/evergreen-notes/…),
  * 默认编辑模式为 wysiwyg(BlockNote)。故点笔记后看到的是 `.ProseMirror`,非 `.cm-content`。
  * 选择器一律限定容器(note-list / center-toolbar)或用 exact 文本 / aria-label,避免
- * strict-mode 命中多处。run_qql 在 mock 下返回空(core 不在浏览器复刻),查询路径信心
- * 来自 cargo test;此处不测查询结果。
+ * strict-mode 命中多处。run_qql 在 mock 下返回空 List(core 不在浏览器复刻),查询路径信心
+ * 来自 cargo test;此处不测查询结果行,只测库健康视图能打开。
  *
  * 第二栏表头是常驻过滤框(textbox);inline 重命名也用 textbox。新建/重命名用例里,
  * 过滤框是第 0 个 textbox、重命名输入是第 1 个,用 nth(1) 精确定位避开歧义。
@@ -35,6 +35,17 @@ test.describe("mock vault 关键路径", () => {
     await expect(page.locator(".ProseMirror").first()).toContainText("原子化卡片", {
       timeout: 15_000,
     });
+  });
+
+  test("库健康视图打开并显示 mock 提示", async ({ page }) => {
+    await page.goto("/");
+    await vaultReady(page);
+    await page.getByTestId("view-health").click();
+    await expect(page.getByTestId("health-view")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/浏览器预览不跑 QQL/)).toBeVisible();
+    await expect(page.getByTestId("health-scorecard")).toBeVisible();
+    await expect(page.getByTestId("health-overview-pane")).toBeVisible();
+    await expect(page.getByTestId("health-next-action")).toBeVisible();
   });
 
   test("图谱视图渲染节点统计", async ({ page }) => {
@@ -197,5 +208,47 @@ test.describe("mock vault 关键路径", () => {
     await vaultReady(page);
     // 搜索视图已删除:工具栏不应再出现独立搜索入口。
     await expect(page.getByRole("button", { name: "搜索" })).toHaveCount(0);
+  });
+
+  test("Inspector 知识卡片:Header + 分组属性 + 反链篇数", async ({ page }) => {
+    await page.goto("/");
+    await vaultReady(page);
+    const list = page.getByTestId("note-list");
+    await list.getByText("Zettelkasten", { exact: true }).click();
+    const inspector = page.getByTestId("inspector");
+    await expect(inspector).toBeVisible({ timeout: 10_000 });
+    await expect(inspector.getByText("Zettelkasten", { exact: true })).toBeVisible();
+    // 有 type 但无 types/Concept.md → 不渲染常驻「无类型文档」灰框。
+    await expect(inspector.getByText("无类型文档")).toHaveCount(0);
+    await expect(inspector.getByTestId("inspector-type-doc")).toHaveCount(0);
+    // 反链 Tab 默认打开;Index 以 wiki 链入 Zettelkasten。
+    await expect(inspector.getByRole("tab", { name: /反链/ })).toBeVisible();
+    await expect(inspector.getByText("Index", { exact: true })).toBeVisible();
+    await inspector.getByRole("tab", { name: /属性/ }).click();
+    await expect(inspector.getByText("基础", { exact: true })).toBeVisible();
+
+    await list.getByTestId("list-filter").fill("利润中心");
+    await list.getByText("Summary — 从成本中心到利润中心", { exact: true }).click();
+    await expect(inspector.getByText("Summary — 从成本中心到利润中心", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+    await inspector.getByRole("tab", { name: /属性/ }).click();
+    await expect(inspector.getByText("相关", { exact: true })).toBeVisible();
+    // source: [[Karpathy LLM Wiki]] 显示解析标题,不是文件名。
+    await expect(inspector.getByText("Karpathy LLM Wiki", { exact: true })).toBeVisible();
+  });
+
+  test("大纲点击标题跳到编辑器对应位置", async ({ page }) => {
+    await page.goto("/");
+    await vaultReady(page);
+    await page.getByTestId("note-list").getByText("Zettelkasten", { exact: true }).click();
+    const inspector = page.getByTestId("inspector");
+    await inspector.getByRole("tab", { name: /大纲/ }).click();
+    const heading = inspector.getByTestId("outline-heading");
+    await expect(heading).toHaveText("Zettelkasten");
+    await heading.click();
+    const editor = page.getByTestId("wysiwyg-editor");
+    await expect(editor).toBeVisible();
+    await expect(editor).toContainText("原子化卡片");
   });
 });

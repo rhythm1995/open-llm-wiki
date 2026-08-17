@@ -177,15 +177,6 @@ pub fn agent_thread_append(
     Ok(())
 }
 
-/// 清空某线程的消息(保留线程壳)。
-#[tauri::command]
-pub fn agent_thread_clear(app: AppHandle, root: String, thread_id: i64) -> Result<(), String> {
-    let conn = open(&app, &root)?;
-    conn.execute("DELETE FROM messages WHERE thread_id = ?1", params![thread_id])
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 /// 删除某线程及其全部消息。
 #[tauri::command]
 pub fn agent_thread_delete(app: AppHandle, root: String, thread_id: i64) -> Result<(), String> {

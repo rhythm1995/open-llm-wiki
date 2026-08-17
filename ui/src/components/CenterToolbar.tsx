@@ -17,6 +17,7 @@
 import {
   PencilSimple,
   Graph,
+  Heartbeat,
   GitBranch,
   SidebarSimple,
   TextAlignLeft,
@@ -84,7 +85,7 @@ const VIEWS: {
 }[] = [
   { id: "editor", key: "view.editor", tip: "view.editorTip", icon: PencilSimple },
   { id: "graph", key: "view.graph", tip: "view.graphTip", icon: Graph },
-  // 搜索/查询视图已移除:文档内查找用 ⌘F;快速打开笔记用 ⌘P;查询留待 agent(见 docs/04 F-QUERY)。
+  { id: "health", key: "view.health", tip: "view.healthTip", icon: Heartbeat },
   { id: "git", key: "view.git", tip: "view.gitTip", icon: GitBranch },
 ];
 
@@ -253,6 +254,7 @@ export function CenterToolbar({
                 <HoverPop key={v.id} side="down" text={t(v.tip as Parameters<TFunc>[0])}>
                   <button
                     onClick={() => onNavigate(v.id)}
+                    data-testid={v.id === "health" ? "view-health" : undefined}
                     aria-label={t(v.key)}
                     aria-pressed={active}
                     className={cn(

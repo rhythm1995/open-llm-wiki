@@ -25,7 +25,7 @@ open-llm-wiki-mcp init <dir> [--force]
 open-llm-wiki-mcp help
 ```
 
-- `setup` detects which agents are installed (PATH binary ∨ config file ∨ macOS app bundle) and registers an `open-llm-wiki` entry (`command` = this binary, `args` = vault path) in each agent's **user-level** MCP config. If the vault does not exist yet it is seeded from the bundled wiki-starter template (23 files) after confirmation.
+- `setup` detects which agents are installed (PATH binary ∨ config file ∨ macOS app bundle) and registers an `open-llm-wiki` entry (`command` = this binary, `args` = vault path) in each agent's **user-level** MCP config. If the vault does not exist yet it is seeded from the bundled wiki-starter template (includes `hot.md` session cache) after confirmation.
   - `--vault P` — vault to expose (default: `$OPEN_LLM_WIKI_VAULT`, else `~/Open LLM Wiki-Memory`)
   - `--agent ID` — only act on these agents (repeatable); default: every detected one
   - `--yes` — never prompt (required when stdin is not a terminal, e.g. in CI)
@@ -34,17 +34,22 @@ open-llm-wiki-mcp help
 - `doctor` diagnoses wiring health (binary / vault / notes / `format: owf/1` / scaffold / per-agent entry) and exits 1 on failure — script-friendly.
 - `init <dir> [--force]` seeds the wiki-starter template (`--force` merges into a non-empty dir; existing files are never overwritten). Includes **wiki-ingest** skill under `.agents/skills/` and `.claude/skills/`.
 
-### Vault skills (ingest / 提炼)
+### Vault skills + hooks templates (ingest / 提炼)
 
-Procedure lives in a vault skill (not a long chat prompt):
+Procedure lives in a vault skill (not a long chat prompt). **No npm login required** — install from GitHub:
 
 ```bash
-# seed already installs skills; upgrade or retrofit an existing vault:
-npx open-llm-wiki-skills install /path/to/vault
-# npm package: open-llm-wiki-skills
+# in vault root (or pass absolute path)
+npx --yes --package=github:rhythm1995/open-llm-wiki#path:packages/open-llm-wiki-skills \
+  open-llm-wiki-skills install . --hooks
 ```
 
+Also writes optional hook templates under `.agents/hooks/` + Claude/Cursor example JSON (merge manually).  
+In-app Agent uses **Settings → Agent memory** / panel **轮次结束检查** (ACP lint after each turn).
+
 Short agent trigger: `Run skill wiki-ingest on <path> using open-llm-wiki MCP tools.`
+
+After npm publish you can also: `npx open-llm-wiki-skills install .`
 
 Agent ids: `claude-code`, `claude-desktop`, `cursor`, `codex`, `windsurf`, `zed`, `grok` (manual).
 
@@ -60,6 +65,14 @@ Safety (writing other apps' config files):
 The desktop app exposes the same logic in **Settings → Agent Memory Onboarding** (no CLI needed).
 
 Windows registry entries compile but are untested this round; the Linux Claude Desktop path is a community path, also untested.
+
+## How agents should read a vault
+
+Token-cheap order (same as starter `AGENTS.md`):
+
+1. `read_note` `hot.md` if it exists (session cache, ≤500 words).
+2. `read_note` `index.md`.
+3. Then `run_qql` / `links` / `read_note` on a few hits — do not start with `search_notes` over the whole vault.
 
 ## Tools
 

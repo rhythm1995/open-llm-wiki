@@ -25,22 +25,6 @@ export interface OpenLlmWikiCanvas {
   files: Record<string, unknown>;
 }
 
-/** 空画布文件内容(空串;新建 `.canvas` 即写空串,首次编辑再落 schema)。 */
-export function emptyCanvasContent(): string {
-  return "";
-}
-
-/** 构造一份空白可编辑画布文档。 */
-export function createEmptyCanvasDoc(): OpenLlmWikiCanvas {
-  return {
-    openLlmWikiCanvas: CANVAS_SCHEMA_VERSION,
-    engine: CANVAS_ENGINE,
-    elements: [],
-    appState: {},
-    files: {},
-  };
-}
-
 /** 是否为历史 tldraw 快照(`TLEditorSnapshot` 形态)。 */
 export function isLegacyTldrawCanvas(raw: string): boolean {
   if (!raw || !raw.trim()) return false;

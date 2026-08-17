@@ -9,7 +9,6 @@
  * 纯函数、无 IO、可单测。Nav.tsx 只消费 typeIcon / typeColor 两个导出。
  */
 import {
-  At,
   BookOpen,
   BookmarkSimple,
   Brain,
@@ -23,29 +22,39 @@ import {
   Flask,
   FolderOpen,
   Gear,
+  IdentificationCard,
   Lightbulb,
+  MagnifyingGlass,
   MapPin,
+  Note,
   PenNib,
   ShootingStar,
   Sparkle,
+  Stack,
   User,
   type Icon,
 } from "@phosphor-icons/react";
 
 /**
- * cairn 协议四个核心具名类型(Source / Summary / Entity / Concept)。
- * 这些是固定词表,不是用户随手写的 id —— 用**精确匹配**(id === key),
- * 优先级最高,各自配独立图标 + 配色,让 wiki 主干一眼可辨:
- * - Source  原始材料库      → Database  蓝(信息源)
- * - Summary LLM 提炼的 TL;DR → Sparkle  紫(派生合成)
- * - Entity  具名实体         → At        青(具名引用 @)
- * - Concept 抽象思维/主张    → Brain     黄(思维/论断)
+ * 软类型固定词表(精确匹配,优先于关键词规则):
+ * - Source   原料库     → Database            蓝
+ * - Summary  提炼摘要   → Sparkle             紫
+ * - Entity   具名东西   → IdentificationCard  青
+ * - Concept  主张       → Brain               黄
+ * - Note     普通页     → Note                灰
+ * - Query    查询       → MagnifyingGlass     薰衣草
+ * - Type     类型契约   → Stack               淡
+ * - TypeDoc  类型文档   → BookOpen            薰衣草
  */
 const CAIRN_TYPES: { key: string; icon: Icon; color: string }[] = [
   { key: "source", icon: Database, color: "text-blue" },
   { key: "summary", icon: Sparkle, color: "text-mauve" },
-  { key: "entity", icon: At, color: "text-teal" },
+  { key: "entity", icon: IdentificationCard, color: "text-teal" },
   { key: "concept", icon: Brain, color: "text-yellow" },
+  { key: "note", icon: Note, color: "text-subtext" },
+  { key: "query", icon: MagnifyingGlass, color: "text-lavender" },
+  { key: "type", icon: Stack, color: "text-overlay" },
+  { key: "typedoc", icon: BookOpen, color: "text-lavender" },
 ];
 
 /** 关键词 → phosphor 图标组件。数组顺序即优先级(长的 / 特异的放前面)。 */
@@ -59,7 +68,7 @@ const RULES: { keys: string[]; icon: Icon; color: string }[] = [
   // 任务 / 待办
   { keys: ["task", "todo", "action", "checklist"], icon: CheckSquare, color: "text-green" },
   // 想法 / 灵感 / 速记
-  { keys: ["idea", "thought", "insight", "brainstorm", "note", "memo"], icon: Lightbulb, color: "text-yellow" },
+  { keys: ["idea", "thought", "insight", "brainstorm", "memo"], icon: Lightbulb, color: "text-yellow" },
   // 会议 / 日程
   { keys: ["meeting", "event", "calendar", "schedule", "date"], icon: Calendar, color: "text-mauve" },
   // 代码 / 技术笔记
@@ -76,7 +85,7 @@ const RULES: { keys: string[]; icon: Icon; color: string }[] = [
   { keys: ["place", "location", "travel", "map", "spot"], icon: MapPin, color: "text-green" },
   // 模板 / 配置
   { keys: ["template", "config", "setting", "system"], icon: Gear, color: "text-overlay" },
-  // 卡片 / 杂项对象(entity / concept 已由 CAIRN_TYPES 精确接管)
+  // 卡片 / 杂项对象(wiki 固定类型已由 CAIRN_TYPES 精确接管)
   { keys: ["card", "object", "item"], icon: Cube, color: "text-lavender" },
   // 收藏 / 精品 / 重点
   { keys: ["star", "favorite", "highlight", "best"], icon: ShootingStar, color: "text-yellow" },

@@ -541,35 +541,11 @@ export async function handle<T>(
       return attachments.has(path) as unknown as T;
     }
 
-    case "list_attachments": {
-      const dirRaw = args.dir == null || args.dir === ""
-        ? "attachments"
-        : String(args.dir).replace(/\\/g, "/").replace(/^\/+/, "");
-      const prefix = dirRaw.endsWith("/") ? dirRaw : `${dirRaw}/`;
-      const imgRe = /\.(png|jpe?g|gif|webp|svg|bmp)$/i;
-      const out = [...attachments.keys()]
-        .filter((p) => (p === dirRaw || p.startsWith(prefix)) && imgRe.test(p))
-        .sort();
-      return out as unknown as T;
-    }
-
     case "media_index":
       return mockMediaSnapshot() as unknown as T;
 
     case "media_of_note":
       return mockMediaOfNote(String(args.path)) as unknown as T;
-
-    case "media_used_by": {
-      const target = String(args.path).replace(/\\/g, "/");
-      const notes: string[] = [];
-      for (const [notePath, content] of vault.entries()) {
-        if (!notePath.endsWith(".md")) continue;
-        if (extractMarkdownImagePaths(content).includes(target)) {
-          notes.push(notePath);
-        }
-      }
-      return notes.sort() as unknown as T;
-    }
 
     case "trash_attachments": {
       const paths = (args.paths as string[] | undefined) ?? [];
@@ -600,6 +576,14 @@ export async function handle<T>(
       return null as unknown as T;
     case "save_graph_layout":
       return undefined as unknown as T;
+
+    case "run_qql":
+      // Honest empty: core is not ported to TS. Do not resurrect mock-qql.
+      return { List: [] } as unknown as T;
+
+    case "lint_vault":
+      // mock:空候选报告(不跑完整 core lint)。
+      return { findings: [], duplicate_names: [] } as unknown as T;
 
     case "index_vault":
       // force 在 mock 无差异(内存 map 即真相)。
@@ -640,7 +624,6 @@ export async function handle<T>(
       throw new Error("mock 模式下 git 不可用;请在桌面 app 中打开 git 仓库。");
 
     case "watch_vault":
-    case "unwatch_vault":
       // mock 无 OS fs,不监听;种子静态,浏览器 dev 靠手动 refresh。
       return undefined as unknown as T;
 

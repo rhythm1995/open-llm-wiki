@@ -11,7 +11,9 @@ import {
   FolderOpen,
   GitBranch,
   Graph,
+  Heartbeat,
   MagnifyingGlass,
+  Robot,
   Moon,
   PencilSimple,
   Plus,
@@ -21,6 +23,7 @@ import {
   Table,
   TextT,
   Gear,
+  Bug,
   Image as ImageIcon,
   Translate,
   X,
@@ -145,6 +148,18 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
     });
   }
 
+  if (deps.reportIssue) {
+    cmds.push({
+      id: "report-issue",
+      label: t("palette.action.reportIssue"),
+      category: "file",
+      icon: Bug as CommandIcon,
+      keywords: ["feedback", "bug", "issue", "反馈", "问题", "github"],
+      inMenu: true,
+      run: () => deps.reportIssue!(),
+    });
+  }
+
   if (deps.openAgentOnboard) {
     cmds.push({
       id: "agent-onboard",
@@ -186,6 +201,18 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       ],
       inMenu: true,
       run: () => deps.startWikiDigest!(),
+    });
+  }
+
+  if (deps.startVaultQuery) {
+    cmds.push({
+      id: "vault-query",
+      label: t("palette.action.vaultQuery"),
+      category: "go",
+      icon: Robot as CommandIcon,
+      keywords: ["query", "qql", "health", "查询", "库健康", "agent"],
+      inMenu: false,
+      run: () => deps.startVaultQuery!(),
     });
   }
 
@@ -325,6 +352,15 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       icon: Graph as CommandIcon,
       inMenu: true,
       run: () => deps.onNavigate("graph"),
+    },
+    {
+      id: "view-health",
+      label: `${t("palette.action.viewPrefix")}${t("view.health")}`,
+      category: "view",
+      icon: Heartbeat as CommandIcon,
+      keywords: ["health", "健康", "qql", "orphans", "库健康"],
+      inMenu: true,
+      run: () => deps.onNavigate("health"),
     },
     {
       id: "view-git",

@@ -3,7 +3,7 @@
  *
  * 与「有 vault 但未选笔记」的 empty.selectOrCreate 分流:
  * - 主 CTA:打开本机 Markdown 文件夹
- * - 次要:创建示例知识库
+ * - 次要:创建示例 Vault
  * - 最近打开列表
  * - 拖入文件夹(Tauri 桌面;浏览器降级提示)
  * - 理念 MG:默认中央;可关闭并选择「以后默认右上角 logo」

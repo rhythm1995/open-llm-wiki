@@ -1,5 +1,6 @@
 ---
 name: wiki-ingest
+type: Note
 description: >-
   Ingest / distill a raw note into Open LLM Wiki (Source → Summary + Entity/Concept).
   Use when the user says 提炼、消化、ingest、distill into wiki, or points at an
@@ -24,7 +25,7 @@ Turn one **raw** note into typed wiki pages. Spec: Open LLM Wiki workflow §1 (i
 
 - `read_note` the target path (use graph brief).
 - If frontmatter has **no `type`** or type is empty: treat as raw material → set `type: Source` and `status: Unprocessed` before/with digest bookkeeping.
-- If `type` is already `Summary` / `Entity` / `Concept` / `Query` / `Type`: **stop** and tell the user this is not a raw source (do not invent a second Summary).
+- If `type` is already `Summary` / `Entity` / `Concept` / `Query` / `Type` / `Note`: **stop** and tell the user this is not a raw source (do not invent a second Summary).
 
 ### 2. Distill into four slots (do not collapse into one bland paragraph)
 

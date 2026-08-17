@@ -170,7 +170,7 @@ pub fn resolve_mcp_binary_from(app_exe: &Path) -> Option<PathBuf> {
         .ok()
 }
 
-fn resolve_mcp_binary() -> Option<PathBuf> {
+pub fn resolve_mcp_binary() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     resolve_mcp_binary_from(&exe)
 }
@@ -293,6 +293,17 @@ pub struct SeedReportOut {
 #[tauri::command]
 pub fn onboard_init(dir: String, force: Option<bool>) -> Result<SeedReportOut, String> {
     let report = onboard::seed_vault(&PathBuf::from(dir), force.unwrap_or(false))?;
+    Ok(SeedReportOut {
+        written: report.written,
+        skipped: report.skipped,
+    })
+}
+
+/// 仅给 `dir`(当前工作 vault)补装 wiki-ingest skill 到 `.agents/` + `.claude/`,
+/// 不写整套 starter 模板。一键接入调用,让「提炼进 Wiki」开箱即用。永不覆盖已有。
+#[tauri::command]
+pub fn onboard_install_skill(dir: String) -> Result<SeedReportOut, String> {
+    let report = onboard::install_wiki_ingest_skill(&PathBuf::from(dir))?;
     Ok(SeedReportOut {
         written: report.written,
         skipped: report.skipped,

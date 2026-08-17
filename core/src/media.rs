@@ -105,24 +105,8 @@ impl MediaIndex {
         self.files.remove(&path);
     }
 
-    /// 批量同步 files 侧:先可选清空再插入,或按 path 列表 upsert/remove。
-    pub fn set_files(&mut self, file_metas: impl IntoIterator<Item = MediaMeta>) {
-        self.files.clear();
-        for m in file_metas {
-            self.upsert_file(m);
-        }
-    }
-
     pub fn files(&self) -> &BTreeMap<String, MediaMeta> {
         &self.files
-    }
-
-    pub fn by_note(&self) -> &BTreeMap<String, BTreeSet<String>> {
-        &self.by_note
-    }
-
-    pub fn by_media(&self) -> &BTreeMap<String, BTreeSet<String>> {
-        &self.by_media
     }
 
     pub fn refcount(&self, media_path: &str) -> usize {
@@ -146,15 +130,6 @@ impl MediaIndex {
                 })
             })
             .collect()
-    }
-
-    /// 引用该媒体的笔记路径。
-    pub fn used_by(&self, media_path: &str) -> Vec<String> {
-        let p = normalize_media_path(media_path);
-        self.by_media
-            .get(&p)
-            .map(|s| s.iter().cloned().collect())
-            .unwrap_or_default()
     }
 
     /// 磁盘上有、但没有任何笔记引用。
@@ -680,7 +655,6 @@ mod tests {
         assert_eq!(ix.orphans().len(), 1);
         assert_eq!(ix.orphans()[0].path, "attachments/orphan.png");
         assert_eq!(ix.missing(), vec!["attachments/missing.png".to_string()]);
-        assert_eq!(ix.used_by("attachments/used.png"), vec!["n.md".to_string()]);
         assert_eq!(ix.media_of("n.md").len(), 2);
         let st = ix.stats();
         assert_eq!(st.files, 2);

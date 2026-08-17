@@ -55,9 +55,12 @@
 | B-ED-MEDIA-WIKI | `![[img]]` wiki 嵌入图 | 🟡 | ✅ | 阅读 render+短名 resolve;插入默认仍 `![](…)`;`![[Note]]` 降级 wikilink |
 | B-ED-MEDIA-MOVE | 迁笔记受限搬图 | 🟡 | ✅ | rename_note:refcount==1 + 同目录/stem 桶 + 改正文;core plan+rewrite |
 | B-ED-WYSIWYG-FMT | WYSIWYG 格式条对齐 source | 🟢 | ✅ | 粗/斜/H1–3/列表/引用/wikilink + 图片 |
-| B-BN-FIDELITY-DEEP | 真引擎 md↔blocks 往返门禁 | 🔴 | ✅ | `blocknote-engine-roundtrip`+双层 `safeFixtureHolds`;列表 `-/*` + hr 三写法规范化;⛔ 嵌套任务/HTML(表+行内)/全 GFM 字节身份(风险清单);`blocknote-fidelity-sweep.test` 23 例诊断 |
+| B-BN-FIDELITY-DEEP | 真引擎 md↔blocks 往返门禁 | 🔴 | ✅ | `blocknote-engine-roundtrip`+双层 `safeFixtureHolds`;列表 `-/*` + hr 三写法规范化;⛔ 嵌套任务/HTML(表+行内)/全 GFM 字节身份(风险清单);`blocknote-fidelity-sweep.test` **31 例**诊断(2026-08-15 +2:引用空段落塌硬换行、链接内行内代码丢链接——均实测无便宜修法,标 risky 入清单) |
 | B-ED-BROKEN-LINKS | 当前笔记断链提示 | 🟢 | ✅ | Inspector 黄条;纯逻辑 `broken-links.ts` |
 | B-ED-TASK-BTN | source 任务列表按钮 | 🟢 | ✅ | 格式条 `ListChecks` → `toggleTaskList`(纯逻辑 `md-format`);已是任务项剥 checkbox,否则加 `- [ ] ` |
+| B-ED-FLUSH-OWNERSHIP | 卸载 flush 所有权回写(跨笔记写坏修复) | 🟡 | ✅ | 2026-08-15:WYSIWYG 编辑后 <400ms 切 tab,卸载 flush 会把旧笔记内容写进新笔记/`.sheet` 并落盘;Canvas timer 幸存同理。修法:`store.writeScoped(path, root, next)`(rename 别名重定向)+ 三视图 `onFlush`;store-flush/CanvasView/SheetView/WysiwygView 回归测试 |
+| B-ED-IME-ENTER | IME 组合期 Enter 守卫 | 🟢 | ✅ | 2026-08-15:`lib/ime.ts` `isIMEComposing`(isComposing + keyCode 229);9 处受控输入 Enter 加守卫(Agent composer/⌘K/查找替换/Inspector 标签与属性/公式栏/列表重命名)——拼音候选确认不再误提交 |
+| B-ED-ERR-RECOVERY | 编辑器错误签名分类 + 恢复 | 🔴 | ⏳ 后置 | 双层 ErrorBoundary 已有(局部失败自动降 source)。缓做项:transform/dispatch 面错误签名表 + 原地恢复;**触发条件:真机验收/用户日志产出第一批真实报错签名**(概念源自公开架构调研,实现自写) |
 
 ---
 
@@ -155,7 +158,7 @@
 | B-MCP-LINKS | MCP `links` 多 kind | 🔴 | ✅ | `links`:backlinks/forward/dead/orphans/hubs/suggest;可数组 audit(`mcp/src/main.rs`) |
 | B-MCP-READ-BRIEF | read 附带图上下文 | 🟡 | ✅ | `links_brief`:in/out 边 + dead + degree(`read_note.graph`) |
 | B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ✅ | `write_note` 返回 `broken_links[]`+`orphan_hint`;提示不阻断保存 |
-| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式(MCP 侧已能算,缺人侧 UI) |
+| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Graph「图谱健康」已有列表(~80%)。**本期不打磨 hubs**。剩余若开=全库死链。**≠ 库健康**(`B-HEALTH-DASH`)。 |
 | B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ✅ | 六家 agent 手动 snippet 兜底见 `mcp/README.md` §Client configuration |
 | B-MCP-ONBOARD | MCP 一键接入(setup/doctor/init) | 🔴 | ✅ | `mcp/src/onboard.rs`(lib,CLI 与桌面共用):探测 7 家 agent + 写用户级配置(备份/原子/不可解析拒触/`--dry-run`);桌面 Settings「Agent 记忆接入」面板复用同一逻辑(`app/src-tauri/src/onboarding.rs` + `AgentOnboardingSection.tsx`);见 `mcp/README.md` §Agent onboarding |
 | B-ED-BROKEN-LINKS | ~~见 §C~~ | 🟢 | →§C | 与编辑器断链提示合并 |
@@ -174,15 +177,18 @@
 |---|---|---|---|---|
 | B-WIKI-STARTER | starter vault 脚手架 | 🟡 | ✅ | `templates/wiki-starter/`:5 类型契约 + index + 示例链;文件夹不承载语义,`status` 为唯一状态真相 |
 | B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ✅ | `templates/wiki-starter/health/` **11 条** `type: Query`(2026-08-06 加 6 条溯源/漂移);语法+语义由 `core/tests/wiki_health_qql.rs` 锁住;doc 07 §Health 已对齐 |
+| B-HEALTH-DASH | **库健康看板** | 🟡 | ✅ | 2026-08-15:`MainView:"health"` + 11 条锁定 QQL。2026-08-17:总览分数 + 分组 + 饥饿目标;前沿打分(出−入)×新近度挂总览,标注议程建议 |
+| B-WIKI-HOT | vault `hot.md` 会话缓存 | 🟢 | ✅ | 2026-08-17:starter `hot.md`;应用内首轮/每 6 回合注入;写过库则 agent-done 提醒覆写;不自动写 |
+| B-VAULT-QUERY-SEED | Agent「查询 Vault」 | 🟢 | ✅ | 2026-08-15:`vault-query.ts` + ⌘K / 库健康「问 Agent」;高把握问句分流到库健康;ACP 可注入 MCP `run_qql` |
 | B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ✅ | `docs/14-llm-wiki-workflow.md`:ingest/research/consolidate + **§1.1 蒸馏 L2a** + **§3.2 分层 lint(L1 索引 / L2 agent 五分类)** + MCP 工具速查;`templates/wiki-starter/prompts/ingest-distill.md` |
 | B-WIKI-PROVENANCE | provenance/reviewed/trust 软字段约定(P0 L1) | 🟢 | ✅ | 2026-08-06:纯约定零 core 改动(QQL 直读任意 frontmatter);进 types/examples/health/docs 14,07;字段可选永不校验;**L2(写入路径只补缺省不覆盖)待探针观察约一个月采纳率后再定** |
 | B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源)+ `lint_all` 报告层(`LintReport`),19+3 单测 + 4 proptest;**只产候选不判决**;消费面见下行 |
 | B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ✅ | 2026-08-06:MCP `lint_vault` 工具(`mcp/src/main.rs`,8th tool,内联测试 + `mcp/README.md`)+ app `lint_vault` 命令(注册进 `generate_handler!`,live 索引);agent consolidate 即可消费。**人侧 UI 见下行** |
-| B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立 Health 视图;品味依赖度高(survey §7.4),先让探针跑再决定做不做。**已记录,暂不做** |
+| B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立列表;**禁止**占用 `MainView:"health"`(那是 QQL 库健康)。等回合结束条经常 N>0。禁止正文矛盾 NLI。 |
 | B-WIKI-FORMAT | OWF-1 格式规范(**档 1**) | 🟢 | ✅ | 2026-08-09:[`docs/15-owf-format.md`](./15-owf-format.md) 转正——装订现状 + 钉版本,零新词汇/字段/行为;唯一新产物 = vault index.md 的 `format: owf/1` 声明(模板已带);宽容规则升为测试锁(`core/tests/owf_conformance.rs`)。**档 2 三项(draft / deprecated / stale_after)未采纳**,设计+触发信号存档 doc 15 §9.2,等真实信号再升级 |
-| B-WIKI-INGEST-SKILL | vault skill wiki-ingest + 应用短触发 | 🟡 | ✅ | 2026-08-11:starter skill + seed 双写 `.agents`/`.claude`;App「提炼进 Wiki」短指令;未分类可提炼;见 `templates/wiki-starter/skills/wiki-ingest/`、`ui/src/lib/wiki-digest.ts` |
-| B-WIKI-SKILLS-NPM | **npm 发布 `open-llm-wiki-skills`** | 🟢 | ⏳ | 包已就绪:`packages/open-llm-wiki-skills`(`npx open-llm-wiki-skills install <vault>`)。**待办**:在 `registry.npmjs.org` 登录后 `pnpm skills:publish`(或 `cd packages/open-llm-wiki-skills && npm publish --access public --registry https://registry.npmjs.org/`)。本机曾遇 token 401 / 镜像 registry 未授权。发布后验收 `npx open-llm-wiki-skills@latest install .` |
-| B-WIKI-INGEST-HOOKS | 调研/可选:用 agent hooks 辅助 ingest | 🟢 | 📋 调研 | 2026-08-11:结论 **hooks 不替代 skill+MCP**——hooks 适合确定性门禁(PostToolUse 跑 lint、写后检查 Digested),不适合「理解原文并蒸馏」。详见 [`docs/research/agent-hooks-vs-skills.md`](./research/agent-hooks-vs-skills.md)。有信号再加 starter hooks 样例 |
+| B-WIKI-INGEST-SKILL | vault skill wiki-ingest + 应用短触发 | 🟡 | ✅ | 2026-08-11:starter skill + seed 双写 `.agents`/`.claude`;App「提炼进 Wiki」短指令;未分类可提炼。2026-08-17:`isWikiOsPath` 排除 AGENTS/skills/prompts/README,收件箱/未分类与提炼入口一致 |
+| B-WIKI-SKILLS-NPM | **npm 发布 `open-llm-wiki-skills`** | 🟢 | ⏳ | 包已就绪。**无需 npm 也可装**:`npx --yes --package=github:rhythm1995/open-llm-wiki#path:packages/open-llm-wiki-skills open-llm-wiki-skills install . --hooks`。可选日后 `pnpm skills:publish` 到 registry。 |
+| B-WIKI-INGEST-HOOKS | hooks 模板 + ACP 轮次结束检查 | 🟡 | ✅ | 2026-08-11:外部 hooks 模板随 skills 包安装(`.agents/hooks` + Claude/Cursor 示例 JSON);应用内 ACP `agent-done` → `lint_vault` 提示(Agent 面板开关「检查开」);设置页复制 GitHub npx 命令。Hooks **不替代** skill。见 `docs/research/agent-hooks-vs-skills.md` |
 
 ---
 
@@ -221,7 +227,7 @@
 
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / 媒体~~ ✅(QQL 差分 CI 随用户面删除,不再需要)  
 2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
-3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6D wiki 脚手架** ✅(2026-08-05);剩人侧 `B-GRAPH-HEALTH-UI` 与 6C 随 §I 远期  
+3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6B 库健康 + Agent 查库** ✅(2026-08-15) · **6D wiki 脚手架** ✅;剩图 polish / 可选死链 / 6C 随 §I 远期
 4. **本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 签名/Updater(凭证门) · `release/v0.1.0` 发布收口(合 main 已完成 `84accb0`)  
 5. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
 

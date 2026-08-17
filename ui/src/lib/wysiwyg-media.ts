@@ -9,7 +9,6 @@ import {
   ensureImageExt,
   isVaultRelativeImageSrc,
   markdownImageSnippet,
-  uniqueAttachmentPath,
   type AttachmentLayout,
 } from "./attachments";
 
@@ -29,62 +28,6 @@ export interface ImageInsertOpts {
 export type AttachmentExistsFn = (
   rel: string,
 ) => boolean | Promise<boolean>;
-
-/**
- * 为一张图片文件计算 vault 相对路径与 md 插入片段(同步)。
- */
-export function planImageInsert(
-  fileName: string,
-  mime: string | undefined,
-  attachmentsDir: string = DEFAULT_ATTACHMENTS_DIR,
-  exists: (rel: string) => boolean = () => false,
-  stamp: number = Date.now(),
-  opts: Omit<ImageInsertOpts, "attachmentsDir" | "exists" | "stamp"> = {},
-): ImageInsertPlan {
-  const base = ensureImageExt(fileName || "image", mime);
-  const relPath = uniqueAttachmentPath(
-    attachmentsDir,
-    base,
-    exists,
-    stamp,
-    {
-      layout: opts.layout ?? DEFAULT_ATTACHMENT_LAYOUT,
-      notePath: opts.notePath,
-    },
-  );
-  const alt = base.replace(/\.[^.]+$/, "") || "image";
-  return {
-    relPath,
-    snippet: markdownImageSnippet(relPath, alt),
-    alt,
-  };
-}
-
-/** 多张图片 → 连续 snippet(换行分隔);同步。 */
-export function planImagesInsert(
-  files: { name: string; type?: string }[],
-  attachmentsDir: string = DEFAULT_ATTACHMENTS_DIR,
-  exists: (rel: string) => boolean = () => false,
-  stamp: number = Date.now(),
-  opts: Omit<ImageInsertOpts, "attachmentsDir" | "exists" | "stamp"> = {},
-): ImageInsertPlan[] {
-  const taken = new Set<string>();
-  const check = (r: string) => exists(r) || taken.has(r);
-  const out: ImageInsertPlan[] = [];
-  files.forEach((f, i) => {
-    const p = planImageInsert(
-      f.name,
-      f.type,
-      attachmentsDir,
-      check,
-      stamp + i * 1000,
-      opts,
-    );
-    taken.add(p.relPath);
-    out.push(p);
-  });
-  return out;
-}
 
 /**
  * 异步分配路径(桌面 attachment_exists / mock 均可)。

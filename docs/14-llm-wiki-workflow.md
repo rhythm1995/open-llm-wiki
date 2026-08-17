@@ -49,6 +49,14 @@ Concept 是 `Active`/`Contested`——都只看 frontmatter,不看文件夹。
 
 一篇 Source 常触及 10–15 个 wiki 页面。这是特性,不是 bug——这就是「复利」。
 
+### 1.0 会话缓存 `hot.md`
+
+vault 根 `hot.md`(`type: Note`)是**整页覆写**的短缓存,不是 log。约 500 词,四段:最近更新 / 关键事实 / 刚改了什么 / 进行中的线。
+
+- 应用内 Agent:首轮 prompt 静默注入;之后每隔数轮再注入(近似压缩后再读)。
+- 本轮写过 vault → 回合结束提醒更新,不自动写。
+- 外部 agent:先 `read_note("hot.md")` 再读 `index.md`,不要一上来全文检索。
+
 ### 1.1 对话 / 会话 → vault(蒸馏 L2a · 零代码路径)
 
 > 规格来源:[`research/conversation-to-vault-distillation.md`](./research/conversation-to-vault-distillation.md)。  

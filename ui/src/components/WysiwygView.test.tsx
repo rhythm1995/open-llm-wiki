@@ -23,6 +23,9 @@ const mockEditor = {
   getTextCursorPosition: vi.fn(() => ({
     block: { id: "b1", type: "paragraph" },
   })),
+  setTextCursorPosition: vi.fn(),
+  focus: vi.fn(),
+  domElement: undefined as HTMLDivElement | undefined,
 };
 vi.mock("@blocknote/react", () => ({
   useCreateBlockNote: () => mockEditor,
@@ -40,11 +43,18 @@ vi.mock("@blocknote/mantine", () => ({
 // wikilink hydrate/dehydrate 由 blocknote-wikilink.test.ts 覆盖,IC 呈现由 e2e 覆盖。
 vi.mock("./WysiwygWikilink", () => ({ wysiwygSchema: {} }));
 
-import { WysiwygView } from "./WysiwygView";
+import { createRef } from "react";
+import { WysiwygView, type WysiwygHandle } from "./WysiwygView";
 import type { TFunc } from "../lib/i18n";
 
 const t = ((k: string) => k) as unknown as TFunc;
 const noop = () => {};
+
+/** 打开笔记后的 BN onChange 不算编辑;先按一个键再触发文档变化。 */
+function simulateUserEdit() {
+  fireEvent.keyDown(screen.getByTestId("wysiwyg-editor"), { key: "a" });
+  fireEvent.click(screen.getByTestId("bn-mock"));
+}
 
 // JS 字符串字面量(`\n` 是换行);用 JSX 表达式传入。
 const HEAD = "---\ntype: X\n---\n# 标题\n正文";
@@ -116,7 +126,7 @@ describe("WysiwygView", () => {
         t={t}
       />,
     );
-    act(() => fireEvent.click(screen.getByTestId("bn-mock")));
+    act(() => simulateUserEdit());
     expect(onChange).not.toHaveBeenCalled(); // 防抖未到
     act(() => vi.advanceTimersByTime(400));
     expect(onChange).toHaveBeenCalledWith("---\ntype: X\n---\n# 新正文\n");
@@ -138,7 +148,7 @@ describe("WysiwygView", () => {
         t={t}
       />,
     );
-    act(() => fireEvent.click(screen.getByTestId("bn-mock")));
+    act(() => simulateUserEdit());
     act(() => vi.advanceTimersByTime(400));
     expect(onChange).not.toHaveBeenCalled();
     vi.useRealTimers();
@@ -159,10 +169,98 @@ describe("WysiwygView", () => {
         t={t}
       />,
     );
-    act(() => fireEvent.click(screen.getByTestId("bn-mock")));
+    act(() => simulateUserEdit());
     // 防抖未到就卸载 → 应立即 flush,而非丢弃。
     act(() => unmount());
     expect(onChange).toHaveBeenCalledWith("编辑中");
     vi.useRealTimers();
+  });
+
+  it("卸载 flush 走带所有权的 onFlush(携带本笔记 path+root,不走共享 onChange)", () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const onFlush = vi.fn();
+    mockEditor.blocksToMarkdownLossy.mockReturnValue("编辑中");
+    const { unmount } = render(
+      <WysiwygView
+        content={PLAIN}
+        onChange={onChange}
+        onFlush={onFlush}
+        onFollow={noop}
+        noteTitles={[]}
+        hasNote={true}
+        theme="dark"
+        t={t}
+        notePath="notes/a.md"
+        root="/vault"
+      />,
+    );
+    act(() => simulateUserEdit());
+    act(() => unmount());
+    // 关键:卸载 flush 携带视图自己的 (path, root),由 store.writeScoped 判定归属,
+    // 防止切笔记后迟到的 flush 污染共享 content 槽(跨笔记写坏竞态)。
+    expect(onFlush).toHaveBeenCalledWith("notes/a.md", "/vault", "编辑中");
+    expect(onChange).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("只打开笔记:BN 序列化差也不落盘,卸载也不写", () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const onFlush = vi.fn();
+    mockEditor.blocksToMarkdownLossy.mockReturnValue("# 序列化出来的\n");
+    const { unmount } = render(
+      <WysiwygView
+        content={HEAD}
+        onChange={onChange}
+        onFlush={onFlush}
+        onFollow={noop}
+        noteTitles={[]}
+        hasNote={true}
+        theme="dark"
+        t={t}
+        notePath="n.md"
+        root="/vault"
+      />,
+    );
+    act(() => fireEvent.click(screen.getByTestId("bn-mock")));
+    act(() => vi.advanceTimersByTime(400));
+    act(() => unmount());
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onFlush).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("scrollToHeading 把光标放到对应 heading 并 focus", () => {
+    mockEditor.document = [
+      { id: "p", type: "paragraph", children: [] },
+      { id: "h1", type: "heading", children: [] },
+      {
+        id: "list",
+        type: "bulletListItem",
+        children: [{ id: "h2", type: "heading", children: [] }],
+      },
+    ];
+    mockEditor.setTextCursorPosition.mockClear();
+    mockEditor.focus.mockClear();
+    const ref = createRef<WysiwygHandle>();
+    render(
+      <WysiwygView
+        ref={ref}
+        content={PLAIN}
+        onChange={noop}
+        onFollow={noop}
+        noteTitles={[]}
+        hasNote={true}
+        theme="dark"
+        t={t}
+      />,
+    );
+    act(() => {
+      ref.current?.scrollToHeading(1);
+    });
+    expect(mockEditor.setTextCursorPosition).toHaveBeenCalledWith("h2", "start");
+    expect(mockEditor.focus).toHaveBeenCalled();
+    mockEditor.document = [];
   });
 });

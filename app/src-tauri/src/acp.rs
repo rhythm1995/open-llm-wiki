@@ -45,7 +45,8 @@ use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, CreateTerminalRequest, ErrorCode,
     CreateTerminalResponse, EnvVariable, FileSystemCapabilities, InitializeRequest,
-    KillTerminalRequest, KillTerminalResponse, NewSessionRequest, PromptRequest,
+    KillTerminalRequest, KillTerminalResponse, McpServer, McpServerStdio, NewSessionRequest,
+    PromptRequest,
     ReadTextFileRequest, ReadTextFileResponse, ReleaseTerminalRequest,
     ReleaseTerminalResponse, RequestPermissionOutcome, RequestPermissionRequest,
     RequestPermissionResponse, SelectedPermissionOutcome, SessionConfigOptionValue, SessionId,
@@ -468,7 +469,8 @@ fn recipes() -> &'static [Recipe] {
             // 官方 ACP 适配器(@agentclientprotocol/claude-agent-acp),与本 crate 用的
             // agent-client-protocol SDK 同源、版本对齐。先前用的 @zed-industries/claude-code-acp
             // 是旧分支:session/new 时 mcpServers 处理不兼容,握手后进程即崩(Query closed)。
-            command: "npx -y @agentclientprotocol/claude-agent-acp@latest",
+            // 钉版本:避免每次 @latest 解析/拉取。升级只改这一处。
+            command: "npx -y @agentclientprotocol/claude-agent-acp@0.68.0",
             detect: Detect::NpxAdapter,
             install_hint: "经 npx 运行,无需单独安装;但要先装 Node,且已 claude /login 登录。",
             login_cmd: Some("claude /login"),
@@ -478,7 +480,8 @@ fn recipes() -> &'static [Recipe] {
             label: "Cursor",
             // 社区 ACP 适配器(blowmage/cursor-agent-acp-npm),把 Cursor CLI 包成
             // ACP 服务,stdio、无子命令。类比 claude-code 的 npx adapter 路径。
-            command: "npx -y @blowmage/cursor-agent-acp",
+            // 钉版本:避免每次解析 registry 最新。升级只改这一处。
+            command: "npx -y @blowmage/cursor-agent-acp@0.7.1",
             detect: Detect::NpxAdapter,
             install_hint: "经 npx 运行,无需单独安装;但要先装 Node,且 Cursor CLI 已登录。",
             login_cmd: Some("cursor-agent login"),
@@ -626,6 +629,8 @@ pub struct AcpState(pub Mutex<Option<AcpHandle>>);
 
 pub struct AcpHandle {
     tx: mpsc::UnboundedSender<AcpCmd>,
+    /// 当前活动 agent 配方 id(活会话重连用)。
+    agent_id: String,
     /// 子进程存活标志(专用线程进入 true / 退出 false)。`agent_alive` 轮询它。
     alive: Arc<AtomicBool>,
     /// 是否为用户主动 `agent_stop`(true → 线程退出不报「意外结束」)。
@@ -761,6 +766,7 @@ pub async fn agent_start(
         let mut g = state.0.lock().unwrap();
         *g = Some(AcpHandle {
             tx: tx.clone(),
+            agent_id: agent_id.clone(),
             alive: alive.clone(),
             clean: clean.clone(),
             instant_commit: instant_commit.clone(),
@@ -981,6 +987,40 @@ pub fn agent_alive(state: State<'_, AcpState>) -> bool {
         .as_ref()
         .map(|h| h.alive.load(Ordering::SeqCst))
         .unwrap_or(false)
+}
+
+/// 活动 ACP 运行时(切走 Agent 栏再回来时,用来恢复「已连接」而不是冷启动)。
+#[derive(Serialize)]
+pub struct AgentRuntime {
+    pub alive: bool,
+    #[serde(rename = "agentId")]
+    pub agent_id: Option<String>,
+}
+
+#[tauri::command]
+pub fn agent_runtime(state: State<'_, AcpState>) -> AgentRuntime {
+    match state.0.lock().unwrap().as_ref() {
+        Some(h) if h.alive.load(Ordering::SeqCst) => AgentRuntime {
+            alive: true,
+            agent_id: Some(h.agent_id.clone()),
+        },
+        _ => AgentRuntime {
+            alive: false,
+            agent_id: None,
+        },
+    }
+}
+
+/// 本机 vault MCP → ACP `mcpServers` stdio 声明。找不到二进制则 None(会话仍可建)。
+pub(crate) fn wiki_mcp_stdio(vault: &str, bin: Option<&Path>) -> Option<McpServer> {
+    let bin = bin?;
+    if !bin.is_file() {
+        return None;
+    }
+    Some(McpServer::Stdio(
+        McpServerStdio::new("open-llm-wiki", bin.to_path_buf())
+            .args(vec![vault.to_string()]),
+    ))
 }
 
 fn stop_inner(state: &State<'_, AcpState>) {
@@ -1624,10 +1664,50 @@ async fn run_connection<E: AgentEmitter>(
                 // Err 并结束连接(`agent_start` 立即返回);成功则拿到具体 session_id,后续
                 // 循环复用(此处已建会话,不再是 Option)。
                 logging::emit(logging::LogLevel::Debug, "acp", "new_session → sending", None);
+                let mcp_bin = crate::onboarding::resolve_mcp_binary();
+                let mcp = wiki_mcp_stdio(vault_root.as_str(), mcp_bin.as_deref());
+                if mcp.is_some() {
+                    logging::emit(
+                        logging::LogLevel::Info,
+                        "acp",
+                        "new_session will advertise vault MCP",
+                        Some(serde_json::json!({
+                            "mcp": mcp_bin.as_ref().map(|p| p.to_string_lossy()),
+                        })),
+                    );
+                }
+                let req_with_mcp = {
+                    let mut req = NewSessionRequest::new(PathBuf::from(vault_root.as_str()));
+                    if let Some(s) = mcp.clone() {
+                        req = req.mcp_servers(vec![s]);
+                    }
+                    req
+                };
                 let ns = match connection
-                    .send_request(NewSessionRequest::new(PathBuf::from(vault_root.as_str())))
+                    .send_request(req_with_mcp)
                     .block_task()
                     .await
+                {
+                    Ok(ns) => Ok(ns),
+                    Err(e) if mcp.is_some() => {
+                        // 部分适配器仍不认 mcpServers:同一连接立刻再试一次不带 MCP。
+                        let raw = format!("{e:?}");
+                        logging::emit(
+                            logging::LogLevel::Warn,
+                            "acp",
+                            "new_session with MCP failed; retrying without",
+                            Some(serde_json::json!({ "error": &raw })),
+                        );
+                        connection
+                            .send_request(NewSessionRequest::new(PathBuf::from(
+                                vault_root.as_str(),
+                            )))
+                            .block_task()
+                            .await
+                    }
+                    Err(e) => Err(e),
+                };
+                let ns = match ns
                 {
                     Ok(ns) => ns,
                     Err(e) => {
@@ -2587,5 +2667,52 @@ mod tests {
         assert_eq!(by_id("opencode"), Some("opencode auth login"));
         assert_eq!(by_id("grok-build"), None);
         assert_eq!(by_id("pi"), None);
+    }
+
+    #[test]
+    fn wiki_mcp_stdio_none_without_bin() {
+        assert!(wiki_mcp_stdio("/vault", None).is_none());
+        assert!(wiki_mcp_stdio("/vault", Some(Path::new("/no/such/mcp-bin"))).is_none());
+    }
+
+    #[test]
+    fn wiki_mcp_stdio_stdio_decl_when_bin_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("open-llm-wiki-mcp");
+        std::fs::write(&bin, b"x").unwrap();
+        let s = wiki_mcp_stdio("/tmp/vault", Some(&bin)).expect("bin exists");
+        match s {
+            McpServer::Stdio(st) => {
+                assert_eq!(st.name, "open-llm-wiki");
+                assert_eq!(st.command, bin);
+                assert_eq!(st.args, vec!["/tmp/vault"]);
+            }
+            other => panic!("expected Stdio, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn recipes_pin_npx_adapter_versions() {
+        let cmd = |id: &str| {
+            recipes()
+                .iter()
+                .find(|r| r.id == id)
+                .map(|r| r.command)
+                .unwrap()
+        };
+        assert!(
+            cmd("claude-code").contains("@0.68.0"),
+            "claude adapter must be pinned: {}",
+            cmd("claude-code")
+        );
+        assert!(
+            !cmd("claude-code").contains("@latest"),
+            "do not use @latest"
+        );
+        assert!(
+            cmd("cursor").contains("@0.7.1"),
+            "cursor adapter must be pinned: {}",
+            cmd("cursor")
+        );
     }
 }

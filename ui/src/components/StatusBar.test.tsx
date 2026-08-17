@@ -62,7 +62,7 @@ describe("StatusBar", () => {
     expect(screen.getByText("status.idle")).toBeInTheDocument();
   });
 
-  it("无 vault 显示未打开知识库", () => {
+  it("无 vault 显示未打开 Vault", () => {
     render(<StatusBar {...base} state={state({ root: null })} />);
     expect(screen.getByText("status.noVault")).toBeInTheDocument();
   });

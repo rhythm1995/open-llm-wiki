@@ -1,7 +1,7 @@
 # 11 — 应用内侧栏 Agent(ACP 托管)· 规划
 
 > **状态:✅ Phase 7 完工(2026-08-04)——第一版 Tier 1 + 完整 Tier 2 全部落代码、自测通过(§6 定义的 first-version scope 全覆盖)。** 详见 §10「实施状态」。第一版目标 = **Tier 1 + 完整 Tier 2(ACP)**(Tier 0 不含,见 §6),现已全部 ✅,无推迟项。
-> **与 [12](./12-graph-and-agent-roadmap.md) 的关系**:doc 12 的 §6B 讲的是**外部 agent 经 MCP 读写 vault**(Claude Desktop / Cursor 连进来)。本文讲的是**应用内自己托管的 agent**(把 agent CLI 作为子进程拉起、侧栏里对话)——两条线互补、不重叠:外部 agent 走 MCP server(被动),应用内 agent 走 ACP client(主动)。
+> **与 [12](./12-graph-and-agent-roadmap.md) 的关系**:doc 12 的 §6B 讲的是**外部 agent 经 MCP 读写 vault**(Claude Desktop / Cursor 连进来)。本文讲的是**应用内自己托管的 agent**(把 agent CLI 作为子进程拉起、侧栏里对话)。两条线互补:**外部**走用户级 MCP 配置;**应用内 ACP**在 `session/new` 注入本机 `open-llm-wiki-mcp` stdio(找不到二进制或适配器拒收则回退为空,不挡启动),让 `links` / `run_qql` / `lint_vault` 打到同一张 LiveVault `Graph`。
 > **阶段命名**:本文 = **Phase 7**;内部按 **Tier 0 / Tier 1 / Tier 2** 分层(见 §6),与 Phase 6 的 6A–6D 并列、不冲突。
 >
 > **参考红线(逐字保留,实现期不得越线)**:

@@ -169,6 +169,28 @@ export interface OnboardSeedReport {
   skipped: string[];
 }
 
+/** core lint_all / app lint_vault 的序列化形态(L1 候选,非判决)。 */
+export interface LintNodeRef {
+  path: string;
+  title: string;
+}
+
+export interface LintFinding {
+  kind: string;
+  subject: LintNodeRef;
+  other: LintNodeRef | null;
+}
+
+export interface LintDuplicateNameGroup {
+  key: string;
+  members: LintNodeRef[];
+}
+
+export interface LintReport {
+  findings: LintFinding[];
+  duplicate_names: LintDuplicateNameGroup[];
+}
+
 async function call<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   if (isTauri) {
     return invoke<T>(cmd, args);
@@ -217,24 +239,12 @@ export const ipc = {
       return false;
     }
   },
-  /**
-   * 列出 vault 内图片附件相对路径(默认扫 `attachments/` 子树)。
-   * 供媒体清单 / 孤儿检测;不进笔记 live index。
-   */
-  listAttachments: (root: string, dir?: string | null) =>
-    call<string[]>("list_attachments", {
-      root,
-      dir: dir ?? null,
-    }),
   /** 媒体索引快照:stats + orphans + missing。 */
   mediaIndex: (root: string, force = false) =>
     call<MediaSnapshot>("media_index", { root, force }),
   /** 某笔记引用的媒体(含断链占位 bytes=0)。 */
   mediaOfNote: (root: string, path: string) =>
     call<MediaMetaOut[]>("media_of_note", { root, path }),
-  /** 引用该附件的笔记路径。 */
-  mediaUsedBy: (root: string, path: string) =>
-    call<string[]>("media_used_by", { root, path }),
   /**
    * 将附件移入 `.open-llm-wiki/media-trash/` 并更新索引。
    * 需用户确认后调用;delete_note 不自动 GC。
@@ -284,14 +294,6 @@ export const ipc = {
       return ipc.resolveMediaUrl(root, rel);
     }
   },
-  /**
-   * 同步占用检查:仅 mock 内存有效;桌面恒 false。
-   * 新代码请用 `attachmentExistsAsync(root, path)`。
-   */
-  attachmentExists: (relPath: string): boolean => {
-    if (isTauri) return false;
-    return mock.attachmentExists(relPath);
-  },
   deleteNote: (root: string, path: string) =>
     call<void>("delete_note", { root, path }),
   renameNote: (root: string, from: string, to: string) =>
@@ -310,6 +312,11 @@ export const ipc = {
     call<VaultSnapshot>("apply_vault_changes", { root, paths }),
   searchNotes: (root: string, query: string) =>
     call<SearchHit[]>("search_notes", { root, query }),
+  /** QQL IR → ResultSet(只读 live index)。浏览器 mock 返回空 List。 */
+  runQql: (root: string, qql: string) =>
+    call<ResultSet>("run_qql", { root, qql }),
+  /** L1 结构 lint(只读 live index;候选报告,不改 vault)。 */
+  lintVault: (root: string) => call<LintReport>("lint_vault", { root }),
   pickVault: () => call<string | null>("pick_vault", {}),
   /**
    * 在用户 Documents 下创建示例知识库并返回绝对路径(桌面);
@@ -319,6 +326,14 @@ export const ipc = {
   /** 在系统文件管理器中显示笔记(macOS Finder / Windows 资源管理器 / Linux)。桌面专用。 */
   revealInFinder: (root: string, path: string) =>
     call<void>("reveal_in_finder", { root, path }),
+  /** 用系统浏览器打开 https 链接(问题反馈等)。浏览器 mock 走 window.open。 */
+  openExternalUrl: async (url: string) => {
+    if (!isTauri) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    await invoke("open_external_url", { url });
+  },
 
   // ── git(F-GIT):返回 git 原始 stdout,前端 `git-parse.ts` 解析。
   //   仅在 Tauri 桌面 app 打开真正的 git 仓库时生效;mock 模式下不可用。
@@ -348,7 +363,6 @@ export const ipc = {
   // ── 文件监听(Tauri 桌面):notify 监听 vault,debounce 后 emit "vault-changed",
   //   前端 listen → 节流全量 refresh。mock/浏览器不监听(无 fs)。
   watchVault: (root: string) => call<void>("watch_vault", { root }),
-  unwatchVault: () => call<void>("unwatch_vault", {}),
 
   // ── Agent 记忆接入(B-MCP-ONBOARD):桌面专用(mock 模式下面板展示占位提示)。
   //   与 CLI `open-llm-wiki-mcp setup/doctor/init` 共享同一套探测/接线/播种逻辑。
@@ -376,6 +390,9 @@ export const ipc = {
   /** 播种 wiki-starter 模板(force 合并,永不覆盖已有文件)。 */
   onboardInit: (dir: string, force = false) =>
     call<OnboardSeedReport>("onboard_init", { dir, force }),
+  /** 仅给当前工作 vault 补装 wiki-ingest skill(提炼所需;不写整套模板,永不覆盖)。 */
+  onboardInstallSkill: (dir: string) =>
+    call<OnboardSeedReport>("onboard_install_skill", { dir }),
   /** 引导文本(粘贴进 agent 指引文件;UI 只复制,绝不代写)。 */
   onboardGuidance: () => call<string>("onboard_guidance", {}),
   /** 重新解析 open-llm-wiki-mcp 二进制路径。 */

@@ -6,7 +6,7 @@ const zh: Record<string, string> = {
   "wiki.type.Source": "来源",
   "wiki.type.Summary": "摘要",
   "wiki.type.Entity": "实体",
-  "wiki.type.Concept": "概念",
+  "wiki.type.Concept": "主张",
   "wiki.type.Note": "笔记",
   "wiki.status.Active": "生效",
   "wiki.status.Contested": "争议中",
@@ -19,7 +19,7 @@ const t = ((key: string) => zh[key] ?? key) as TFunc;
 describe("labelType", () => {
   it("规范类型译中文", () => {
     expect(labelType("Source", t)).toBe("来源");
-    expect(labelType("concept", t)).toBe("概念");
+    expect(labelType("concept", t)).toBe("主张");
     expect(labelType("  Entity  ", t)).toBe("实体");
   });
 

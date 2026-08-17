@@ -1,3 +1,7 @@
+---
+type: Note
+---
+
 # wiki-starter — LLM Wiki 起步脚手架
 
 把一个空 vault 变成一台**可查询的知识复利引擎**:Raw(不可变源)→ Wiki(派生知识)→ Schema(类型契约)→ Navigation(索引)→ Health(度量反馈)。五层全靠 `type:` 软类型 + `[[wikilink]]` 关系边 + QQL 实时聚合,**不靠文件夹**。
@@ -17,6 +21,7 @@
 |---|---|
 | [`types/`](./types/) | 五个软类型的契约:`Source` / `Summary` / `Entity` / `Concept` / `Query`。每个是一篇 `type: Type` 的笔记,说明该类型的字段、关系与 `status` 取值。 |
 | [`index.md`](./index.md) | Navigation 层:wiki 的目录 / 入口。 |
+| [`hot.md`](./hot.md) | 会话缓存(整页覆写,约 500 词)。应用内 Agent 启动/长会话再注入;改过库后提醒更新。 |
 | [`health/`](./health/) | Health 层:11 条健康指标,每条是一篇 `type: Query` 的笔记,正文里是可直接跑的 QQL。前五条量图谱结构(矛盾/孤儿/饥饿度/证据/综合度),后六条量溯源与漂移(provenance 三值约定 + 复审超期 + 同名撞车,见 `docs/research/trust-provenance-frontmatter.md` / `content-lint-contradiction.md`)。 |
 | [`examples/`](./examples/) | 一条最小示例链(Source→Summary→Entity→Concept),演示关系怎么连。可删。 |
 | [`skills/wiki-ingest/`](./skills/wiki-ingest/) | **主规程**:agent skill。seed 时写入 vault 的 `.agents/skills/` 与 `.claude/skills/`。升级:`npx open-llm-wiki-skills install .` |
@@ -31,7 +36,7 @@
 
 ## 跑 Health 查询
 
-`health/` 里每篇笔记的 ```qql ``` 块就是一条 QQL。复制它,通过 MCP `run_qql`、或 core 直接求值即可:
+桌面应用顶栏「库健康」会一键跑这些模板(内置目录与 `health/*.md` 按文件名对齐)。也可以复制 fence,通过 MCP `run_qql` 或 core 直接求值:
 
 ```bash
 # MCP(Claude Code / Cursor 等):把 QQL 字符串传给 run_qql 工具

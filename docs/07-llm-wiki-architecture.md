@@ -110,8 +110,8 @@ LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Op
 | **Raw** | 不可变原始源 | 笔记的 `type: Source`;不可变语义由 **git 版本真相**保证(re-ingest 产新 Summary,旧版可还原) | `type: Source` · `git_restore_note` · ArchiveView |
 | **Wiki** | LLM 生成的派生知识 | `Summary` / `Entity` / `Concept` 软类型 + 关系边(`derived_into` / `mentioned_in` / `contradicts`) | `type: Summary\|Entity\|Concept` · Inspector 关系编辑 · GraphView |
 | **Schema** | 类型与关系的契约 | `core::index` 解析 `type:`/frontmatter;`Type` 文档定义软类型;`AGENTS.md` 作 schema 提示(兼容 cairn) | `type_of()` · `relationship_links()` · Type 文档 · AGENTS.md |
-| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(Cytoscape)+ **QQL IR**(MCP `run_qql`,用户面 UI 已撤)+ **⌘F/⌘P/⌘K**+ Nav 智能视图 | GraphView/CytoscapeLayer · FindBar · CommandPalette · `index_vault` |
-| **Health** | 度量与反馈环 | **用 QQL 实时算**,而非手写 wiki-health 快照 —— 见下文「Health 即查询」 | `run_qql` + saved `type: Query` 笔记 |
+| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(Cytoscape)+ **库健康**(锁定 QQL)+ **QQL IR**(MCP / Agent)+ **⌘F/⌘P/⌘K** | GraphView · HealthView · FindBar · CommandPalette · `index_vault` |
+| **Health** | 度量与反馈环 | **用 QQL 实时算** —— 应用里跑 = 库健康视图;agent 跑 = `run_qql` | `HealthView` + `ipc.runQql` + MCP `run_qql` + `type: Query` 笔记 |
 
 ### Health 即查询(核心洞察)
 
@@ -181,12 +181,12 @@ sequenceDiagram
   UI->>IPC: index_vault(重建快照)
 
   Note over UI,Core: 实时聚合查询
-  U->>UI: QQL / 内联 ```qql / 全文搜索
+  U->>UI: 库健康瓷砖 / 问 Agent / ⌘⇧F 全文
   UI->>IPC: run_qql / search_notes
   IPC->>App: 转发
   App->>Core: VaultIndex.query(q) / .search(terms)
   Core-->>App: ResultSet / SearchHit[]
-  App-->>UI: 渲染结果(GraphView / ⌘F FindBar / MCP 侧 agent 消费 ResultSet)
+  App-->>UI: HealthView 表 / FindBar / MCP 或 Agent 消费 ResultSet
 ```
 
 ---
@@ -202,7 +202,7 @@ sequenceDiagram
 | UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 + 少量 Radix** | 降依赖体积 |
 | Canvas | — | **Excalidraw(MIT)** 懒加载 | 已替换 tldraw;默认纯 MIT 分发 |
 | 索引 | 每次全量 WalkDir | **LiveVault 路径级 delta** + force 自愈 | open 一次全量;写/watcher 增量 |
-| QQL 用户面 | 内联块 + QueryPanel | **已撤**;仅 core + MCP `run_qql`(IR) | 见 04 F-QUERY |
+| QQL 用户面 | 内联块 + QueryPanel | **已撤**;人侧 = 库健康 + Agent 短指令;引擎 = core + `run_qql` | 见 04 F-QUERY;勿重建 QueryPanel |
 
 > 原则没变:依赖只选成熟 + MIT/Apache(或 MPL 弱 copyleft);画布不再引入 source-available 生产限制。
 

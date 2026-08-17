@@ -28,6 +28,15 @@ function deps(over: Partial<CommandDeps> = {}): CommandDeps {
 }
 
 describe("buildAppCommands", () => {
+  it("report-issue 打开反馈", () => {
+    const reportIssue = vi.fn();
+    const cmds = buildAppCommands(deps({ reportIssue }));
+    const c = cmds.find((x) => x.id === "report-issue");
+    expect(c?.inMenu).toBe(true);
+    c!.run();
+    expect(reportIssue).toHaveBeenCalled();
+  });
+
   it("含 open-vault 且 shortcut ⌘O", () => {
     const cmds = buildAppCommands(deps());
     const open = cmds.find((c) => c.id === "open-vault");
@@ -240,6 +249,7 @@ describe("menu id contract", () => {
     "archive",
     "close-tab",
     "settings",
+    "report-issue",
     "agent-onboard",
     "find",
     "find-vault",
@@ -248,6 +258,7 @@ describe("menu id contract", () => {
     "toggle-split",
     "view-editor",
     "view-graph",
+    "view-health",
     "view-git",
     "toggle-theme",
     "refresh-index",
@@ -272,6 +283,7 @@ describe("menu id contract", () => {
           revealCurrent: () => {},
           canReveal: true,
           openSettings: () => {},
+          reportIssue: () => {},
           openAgentOnboard: () => {},
         }),
       ),

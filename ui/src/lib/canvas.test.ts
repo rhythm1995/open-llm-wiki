@@ -3,12 +3,10 @@
  */
 import { describe, it, expect } from "vitest";
 import {
-  emptyCanvasContent,
   parseCanvasContent,
   serializeCanvasContent,
   isCanvasPath,
   isLegacyTldrawCanvas,
-  createEmptyCanvasDoc,
   canvasDocFromExcalidraw,
   CANVAS_SCHEMA_VERSION,
   CANVAS_ENGINE,
@@ -21,21 +19,6 @@ const DOC = {
   appState: { theme: "dark" },
   files: {},
 };
-
-describe("emptyCanvasContent", () => {
-  it("返回空串", () => {
-    expect(emptyCanvasContent()).toBe("");
-  });
-});
-
-describe("createEmptyCanvasDoc", () => {
-  it("带 schema 标记与空 elements", () => {
-    const d = createEmptyCanvasDoc();
-    expect(d.openLlmWikiCanvas).toBe(1);
-    expect(d.engine).toBe("excalidraw");
-    expect(d.elements).toEqual([]);
-  });
-});
 
 describe("isLegacyTldrawCanvas", () => {
   it("识别 tldraw {document,session}", () => {
@@ -88,7 +71,7 @@ describe("serializeCanvasContent round-trip", () => {
     expect(parseCanvasContent(s)).toEqual(DOC);
   });
   it("美化 JSON", () => {
-    const out = serializeCanvasContent(createEmptyCanvasDoc());
+    const out = serializeCanvasContent(DOC);
     expect(out).toContain("\n  ");
     expect(out).toContain('"engine": "excalidraw"');
   });

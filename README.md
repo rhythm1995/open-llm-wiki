@@ -29,8 +29,8 @@
 ### 方式 A —— 从源码构建(当前可用)
 
 ```bash
-git clone https://github.com/rhythm1995/Open LLM Wiki.git
-cd Open LLM Wiki
+git clone https://github.com/rhythm1995/open-llm-wiki.git
+cd open-llm-wiki
 pnpm install --dir ui
 pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/Open LLM Wiki.app
 open target/release/bundle/macos/Open LLM Wiki.app
@@ -52,7 +52,7 @@ ui/node_modules/.bin/tauri dev
 
 ### 方式 B —— 下载预编译版(发布后)
 
-发布后从 [Releases](https://github.com/rhythm1995/Open LLM Wiki/releases) 取 `Open LLM Wiki.app`:
+发布后从 [Releases](https://github.com/rhythm1995/open-llm-wiki/releases) 取 `Open LLM Wiki.app`:
 
 - **macOS**:拖入 `/Applications`;若已存在选「替换」。构建**未签名**,首次运行被 Gatekeeper 拦 —— 系统设置 → 隐私与安全性 → 仍要打开,或:
   ```bash
@@ -101,6 +101,8 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 本项目是**原创、独立的实现**,Apache 2.0 许可。**红线:绝不把 GPL/AGPL 等 copyleft 源码(逐字或近似逐字)引入本仓库**——那会让「Apache 2.0 许可」落空。只参考公开的思想、架构与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
 
+- 仓库:[https://github.com/rhythm1995/open-llm-wiki](https://github.com/rhythm1995/open-llm-wiki)
+- 问题反馈:[Issues](https://github.com/rhythm1995/open-llm-wiki/issues)
 - 已做功能:[docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
 - 路线图 / 待办:[docs/backlog.md](./docs/backlog.md)
 - 新增依赖请登记 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md);任何 PR 不得引入 copyleft 源码的逐字片段,review 时查重。
@@ -109,7 +111,7 @@ core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
 
 - **未签名构建** —— 暂无代码签名 / 公证;macOS 首次运行需上文 Gatekeeper 处理。
 - **图谱打磨推迟** —— 图谱可用但未达商业精致(布局坐标落盘、力参数面板、最短路径高亮等推迟;见 [CHANGELOG](./CHANGELOG.md))。
-- **QQL 仅程序化** —— QQL 用户面已移除;查询引擎仍保留在 Rust core,经 MCP `run_qql` 工具可达,无 GUI 查询界面。
+- **无 QueryPanel** —— 不教人写 QQL。桌面「库健康」跑锁定模板;自然语言走应用内 Agent 或外部 MCP `run_qql`。浏览器 mock 不求值。
 - **无自动更新。**
 
 ## 许可

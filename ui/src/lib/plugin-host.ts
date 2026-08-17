@@ -11,7 +11,6 @@
  */
 
 export const PLUGIN_ROOT = ".open-llm-wiki/plugins";
-export const PLUGIN_MANIFEST = "plugin.json";
 
 /** v1 可声明权限。 */
 export type PluginPermission =
@@ -109,10 +108,6 @@ export function pluginEntryPath(pluginId: string, main: string): string {
   return `${PLUGIN_ROOT}/${pluginId}/${main}`.replace(/\/+/g, "/");
 }
 
-export function pluginManifestPath(pluginId: string): string {
-  return `${PLUGIN_ROOT}/${pluginId}/${PLUGIN_MANIFEST}`;
-}
-
 /** 是否允许某权限。 */
 export function hasPermission(
   m: PluginManifest,
@@ -160,38 +155,6 @@ export function collectPluginCommands(
   plugins: readonly LoadedPlugin[],
 ): PluginCommand[] {
   return plugins.filter((p) => p.enabled).flatMap((p) => p.commands);
-}
-
-/** 启用状态表持久化键。 */
-export const PLUGIN_ENABLED_KEY = "open-llm-wiki.pluginEnabled";
-
-export function loadEnabledMap(
-  raw: string | null,
-): Record<string, boolean> {
-  if (!raw) return {};
-  try {
-    const o = JSON.parse(raw) as unknown;
-    if (typeof o !== "object" || o === null) return {};
-    const out: Record<string, boolean> = {};
-    for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
-      if (typeof v === "boolean") out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-export function applyEnabledMap(
-  plugins: LoadedPlugin[],
-  map: Record<string, boolean>,
-): LoadedPlugin[] {
-  return plugins.map((p) => {
-    if (p.manifest.id in map) {
-      return { ...p, enabled: map[p.manifest.id]! };
-    }
-    return p;
-  });
 }
 
 /**
