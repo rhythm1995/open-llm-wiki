@@ -15,6 +15,19 @@
 
 ---
 
+### 2026-08-18 Grok — 推送官网、仓库改公开、GitHub Pages 上线
+
+- **branch**: `release/v0.1.0`(已 push)
+- **做了**:
+  1. 推送 `c3f3759` / `a46b15f`(`@types/node` 修 CI typecheck)。
+  2. 私有仓免费套餐不能开 Pages，把 `rhythm1995/open-llm-wiki` 改为 **public**。
+  3. Pages source = GitHub Actions；`github-pages` 环境允许 `main` + `release/v0.1.0`。
+  4. Site workflow 绿：typecheck + build + deploy。
+- **线上**: https://rhythm1995.github.io/open-llm-wiki/ （首页、`/docs/start`、中文 tutorial、截图均已浏览器验收）
+- **下一步 / 接手注意**: 深链服务端仍是 404.html 回退 SPA，浏览器可用。若必须 HTTP 200 再预渲染路径。
+
+---
+
 ### 2026-08-18 Grok — 独立官网 site/ + 渲染 docs/user + Site CI / Pages
 
 - **branch**: `release/v0.1.0`
