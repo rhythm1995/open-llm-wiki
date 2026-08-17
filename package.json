@@ -1,11 +1,14 @@
 {
-  "name": "openobsidian",
+  "name": "open-llm-wiki",
   "version": "0.1.0",
   "private": true,
   "description": "Local-first, file-as-truth knowledge base (Tauri 2 + Rust core + React). Root scripts only; the frontend lives in ui/.",
   "scripts": {
     "tauri": "ui/node_modules/.bin/tauri",
-    "build:app": "bash scripts/build-app.sh"
+    "build:app": "bash scripts/build-app.sh",
+    "skills:sync": "cp templates/wiki-starter/skills/wiki-ingest/SKILL.md packages/open-llm-wiki-skills/skills/wiki-ingest/SKILL.md && cp templates/wiki-starter/AGENTS.md packages/open-llm-wiki-skills/AGENTS.snippet.md",
+    "skills:publish": "pnpm skills:sync && cd packages/open-llm-wiki-skills && npm publish --access public --registry https://registry.npmjs.org/",
+    "skills:install-local": "node packages/open-llm-wiki-skills/bin/olw-skills.mjs install"
   },
-  "license": "MIT"
+  "license": "Apache-2.0"
 }

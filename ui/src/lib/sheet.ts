@@ -33,8 +33,8 @@ export interface SheetTab {
   freezeCols: number;
 }
 
-export interface OpenObsidianSheet {
-  openobsidianSheet: typeof SHEET_SCHEMA_VERSION;
+export interface OpenLlmWikiSheet {
+  openLlmWikiSheet: typeof SHEET_SCHEMA_VERSION;
   sheets: SheetTab[];
   activeSheetId: string;
   charts: SheetChart[];
@@ -70,10 +70,10 @@ export function createEmptyTab(
 export function createEmptySheet(
   rows = DEFAULT_SHEET_ROWS,
   cols = DEFAULT_SHEET_COLS,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   const tab = createEmptyTab("Sheet1", rows, cols);
   return {
-    openobsidianSheet: SHEET_SCHEMA_VERSION,
+    openLlmWikiSheet: SHEET_SCHEMA_VERSION,
     sheets: [tab],
     activeSheetId: tab.id,
     charts: [],
@@ -119,7 +119,7 @@ function parseTab(raw: unknown, fallbackName: string): SheetTab | null {
 }
 
 /** 解析磁盘 JSON;兼容 v1 单表。 */
-export function parseSheet(raw: string): OpenObsidianSheet {
+export function parseSheet(raw: string): OpenLlmWikiSheet {
   if (!raw || !raw.trim()) return createEmptySheet();
   let data: unknown;
   try {
@@ -162,7 +162,7 @@ export function parseSheet(raw: string): OpenObsidianSheet {
       }
     }
     return {
-      openobsidianSheet: SHEET_SCHEMA_VERSION,
+      openLlmWikiSheet: SHEET_SCHEMA_VERSION,
       sheets,
       activeSheetId: active,
       charts,
@@ -175,17 +175,17 @@ export function parseSheet(raw: string): OpenObsidianSheet {
   tab.rows = clampDim(o.rows, DEFAULT_SHEET_ROWS, 200);
   tab.cols = clampDim(o.cols, DEFAULT_SHEET_COLS, 52);
   return {
-    openobsidianSheet: SHEET_SCHEMA_VERSION,
+    openLlmWikiSheet: SHEET_SCHEMA_VERSION,
     sheets: [tab],
     activeSheetId: tab.id,
     charts: [],
   };
 }
 
-export function serializeSheet(doc: OpenObsidianSheet): string {
+export function serializeSheet(doc: OpenLlmWikiSheet): string {
   return JSON.stringify(
     {
-      openobsidianSheet: SHEET_SCHEMA_VERSION,
+      openLlmWikiSheet: SHEET_SCHEMA_VERSION,
       activeSheetId: doc.activeSheetId,
       sheets: doc.sheets.map((s) => ({
         id: s.id,
@@ -203,24 +203,24 @@ export function serializeSheet(doc: OpenObsidianSheet): string {
   );
 }
 
-export function activeTab(doc: OpenObsidianSheet): SheetTab {
+export function activeTab(doc: OpenLlmWikiSheet): SheetTab {
   return (
     doc.sheets.find((s) => s.id === doc.activeSheetId) ?? doc.sheets[0]
   );
 }
 
 export function setActiveSheet(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId: string,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   if (!doc.sheets.some((s) => s.id === sheetId)) return doc;
   return { ...doc, activeSheetId: sheetId };
 }
 
 export function addSheet(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   name?: string,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   const n = name?.trim() || `Sheet${doc.sheets.length + 1}`;
   const tab = createEmptyTab(n);
   return {
@@ -231,10 +231,10 @@ export function addSheet(
 }
 
 export function renameSheet(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId: string,
   name: string,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   const n = name.trim();
   if (!n) return doc;
   return {
@@ -244,9 +244,9 @@ export function renameSheet(
 }
 
 export function removeSheet(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId: string,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   if (doc.sheets.length <= 1) return doc;
   const sheets = doc.sheets.filter((s) => s.id !== sheetId);
   const activeSheetId =
@@ -260,11 +260,11 @@ export function removeSheet(
 }
 
 export function setFreeze(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId: string,
   freezeRows: number,
   freezeCols: number,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   return {
     ...doc,
     sheets: doc.sheets.map((s) =>
@@ -280,11 +280,11 @@ export function setFreeze(
 }
 
 export function setCell(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   ref: string,
   value: string,
   sheetId?: string,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   const id = sheetId ?? doc.activeSheetId;
   const key = normalizeCellRef(ref);
   return {
@@ -300,17 +300,17 @@ export function setCell(
 }
 
 export function upsertChart(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   chart: SheetChart,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   const rest = doc.charts.filter((c) => c.id !== chart.id);
   return { ...doc, charts: [...rest, chart] };
 }
 
 export function removeChart(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   chartId: string,
-): OpenObsidianSheet {
+): OpenLlmWikiSheet {
   return { ...doc, charts: doc.charts.filter((c) => c.id !== chartId) };
 }
 
@@ -387,7 +387,7 @@ export function parseSheetQualifiedRef(
 
 type NumOrErr = number | { err: "#ERR" | "#CYCLE" | "#DIV0" | "#NAME" };
 
-function tabByName(doc: OpenObsidianSheet, name: string | null): SheetTab {
+function tabByName(doc: OpenLlmWikiSheet, name: string | null): SheetTab {
   if (!name) return activeTab(doc);
   const found = doc.sheets.find(
     (s) => s.name.toLowerCase() === name.toLowerCase(),
@@ -395,7 +395,7 @@ function tabByName(doc: OpenObsidianSheet, name: string | null): SheetTab {
   return found ?? activeTab(doc);
 }
 
-function cellsOf(doc: OpenObsidianSheet, sheetName: string | null): Record<string, string> {
+function cellsOf(doc: OpenLlmWikiSheet, sheetName: string | null): Record<string, string> {
   return tabByName(doc, sheetName).cells;
 }
 
@@ -404,16 +404,16 @@ function cellsOf(doc: OpenObsidianSheet, sheetName: string | null): Record<strin
  */
 export function evalCell(
   ref: string,
-  cellsOrDoc: Record<string, string> | OpenObsidianSheet,
+  cellsOrDoc: Record<string, string> | OpenLlmWikiSheet,
   stack: Set<string> = new Set(),
   sheetName: string | null = null,
 ): string {
-  const doc: OpenObsidianSheet | null =
+  const doc: OpenLlmWikiSheet | null =
     cellsOrDoc &&
     typeof cellsOrDoc === "object" &&
     "sheets" in cellsOrDoc &&
-    Array.isArray((cellsOrDoc as OpenObsidianSheet).sheets)
-      ? (cellsOrDoc as OpenObsidianSheet)
+    Array.isArray((cellsOrDoc as OpenLlmWikiSheet).sheets)
+      ? (cellsOrDoc as OpenLlmWikiSheet)
       : null;
   const cells = doc
     ? cellsOf(doc, sheetName)
@@ -439,7 +439,7 @@ export function evalCell(
 
 /** 工作簿上批量显示值(active 表)。 */
 export function evalAllDisplay(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId?: string,
 ): Map<string, string> {
   const tab =
@@ -459,7 +459,7 @@ function evalExpr(
   expr: string,
   cells: Record<string, string>,
   stack: Set<string>,
-  doc: OpenObsidianSheet | null,
+  doc: OpenLlmWikiSheet | null,
   sheetName: string | null,
 ): NumOrErr {
   const tokens = tokenizeExpr(expr);
@@ -595,7 +595,7 @@ function evalFunc(
   args: string[],
   cells: Record<string, string>,
   stack: Set<string>,
-  doc: OpenObsidianSheet | null,
+  doc: OpenLlmWikiSheet | null,
   sheetName: string | null,
 ): NumOrErr {
   const fn = name.toUpperCase();
@@ -763,7 +763,7 @@ export interface ChartSeries {
 
 /** 从 range 抽图表数据:第一列标签,其余数值列;或单列纯数值。 */
 export function chartDataFromRange(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   sheetId: string,
   range: string,
 ): ChartSeries {
@@ -884,7 +884,7 @@ function escapeXml(s: string): string {
 
 /** 渲染只读 HTML 表格(阅读嵌入用)。 */
 export function sheetToHtmlTable(
-  doc: OpenObsidianSheet,
+  doc: OpenLlmWikiSheet,
   opts?: { sheetId?: string; maxRows?: number; maxCols?: number },
 ): string {
   const tab =

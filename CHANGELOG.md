@@ -8,6 +8,10 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 
 ### ✨ 功能
 
+#### 图谱
+
+- **图渲染换代(force-graph)**:Cytoscape → `force-graph` Canvas 主路径;OpenWiki 气质 glow 节点 / 有向粒子边 / 邻域 dim / 选中不抢镜头;克制类型色板;工具条减料(过滤+更多)+ 当前笔记摘要卡。数据管线(filter/model/modes/落盘)保留。
+
 #### 面向 AI(应用内 Agent)
 
 - **应用内侧栏 Agent(ACP 托管)**:配方 picker(opencode / claude-code 等,运行时探测)+ 流式对话 + tool_call 折叠卡;Composer 单一动作槽(Send / Stop / Queue)+ `@`-笔记上下文药丸;权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具分类白名单;Model C 跨 agent 移交;每 vault 一 SQLite 转录 + 历史会话回放。
@@ -19,15 +23,25 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 - **provenance 软字段约定(P0 L1)**:`provenance: human|agent|ingested` + `reviewed` + 可选 `trust` 进类型契约与示例;Health 增 agent-unreviewed / stale-agent-notes / unreviewed-pages / knowledge-mix 等溯源/漂移查询(字段可选、永不校验)。
 - **内容级 lint L1(core)**:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性、归一化撞名、Summary 挂废源、Active 引废源);只产候选、不自动改 status。消费面(MCP/UI)未接通。
 - **蒸馏 L2a + lint L2 工作流(文档)**:docs/14 §1.1 对话→vault 零代码 ingest 路径 + `templates/wiki-starter/prompts/ingest-distill.md`;§3.2 分层 lint(链接/L1/L2 agent 五分类/L3 远期)。
+- **库健康看板 + 查询 Vault**:第四主视图「库健康」一键跑 11 条锁定 QQL(不重建 QueryPanel);⌘K / 视图内「问 Agent」预填 NL→QQL 短指令。浏览器 mock 返回空结果。
 
 #### 诊断
 
-- **TCP 日志端口**:`OPENOBS_LOG_PORT=<port>` 在 127.0.0.1 起 PortSink,`nc` 实时看 NDJSON 流(默认关)。
+- **TCP 日志端口**:`OPEN_LLM_WIKI_LOG_PORT=<port>` 在 127.0.0.1 起 PortSink,`nc` 实时看 NDJSON 流(默认关)。
 - 日志按 target 级别 override(must-debug targets)。
 
 #### 构建
 
 - **universal DMG 脚本**:`scripts/build-universal-dmg.sh`(`--target universal-apple-darwin --bundles dmg`,自动补双架构 rust target);`build-app.sh` 仍为日常默认。
+
+### 🐛 修复
+
+- **提炼/查询种子残留**:指令发出后 `composerSeed` 一直留在 App 里;换笔记或重开 Agent 会再次武装「已准备提炼指令」,点任意 agent 就再跑一遍。发送/入队即消费,换笔记/换库清空;面板卸载再挂也认已消费 token。
+- **大纲点击跳转**:默认所见即所得下点大纲无反应(只接到了源码 Editor);现两种模式都会把光标放到对应标题,源码模式补上 frontmatter 行差。
+- **类型展示**:Concept 中文「主张」;Query 展示「查询笔记」/「QueryNote」;TYPES 图标 Entity=`IdentificationCard`、Note=`Note`(灰)、Query=`MagnifyingGlass`、Type=`Stack`。`type:` 仍是 `Query`。
+- **打开笔记误保存**:所见即所得载入时 BlockNote 序列化差会写盘,mtime 变了第二栏按修改时间跳顶。现在只在用户真正编辑后落盘。画布挂载 onChange、相同字节 `setContent`/`saveNow` 同样不写;当前打开的笔记不因这次 mtime 冲到列表顶;⌘F 切源码不改默认编辑模式。
+
+- **问题反馈**:帮助手册 / ⌘K / 设置→诊断 / 桌面 Help 菜单打开 [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues)。仓库地址改为 `rhythm1995/open-llm-wiki`。
 
 ### 📚 文档
 
@@ -83,7 +97,7 @@ v0.1.0 tag 之后的变更(开发于 `release/v0.1.0`)。
 ### ⚠️ 已知限制
 
 - **图谱打磨推迟**：本期不做布局坐标落盘序列化、力参数面板、最短路径高亮、隐藏悬空节点、图健康 UI 增强（整期转远期）。图谱主路径可用，但未达商业级精致。
-- **未签名 / 未公证**：macOS 构建未签名（凭证门），首次运行被 Gatekeeper 拦截 —— 右键「打开」，或终端执行 `xattr -dr com.apple.quarantine /path/to/OpenObsidian.app`。需 macOS 10.15+。
+- **未签名 / 未公证**：macOS 构建未签名（凭证门），首次运行被 Gatekeeper 拦截 —— 右键「打开」，或终端执行 `xattr -dr com.apple.quarantine /path/to/Open LLM Wiki.app`。需 macOS 10.15+。
 - **无自动更新**（凭证门）。
 - **QQL 用户面已移除**：仅保留 Rust core + MCP `run_qql`（程序化 / agent 用），无 GUI 查询界面。
 - **插件系统**：宿主保留，v1 不做插件商店 / vault 扫描 / 签名。

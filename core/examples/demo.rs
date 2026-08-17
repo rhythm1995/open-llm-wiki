@@ -1,16 +1,16 @@
-//! OpenObsidian core 端到端 demo。
+//! Open LLM Wiki core 端到端 demo。
 //!
-//! **IO 只在本二进制里**(读文件系统);核心 `openobs-core` 库保持 IO-free。
+//! **IO 只在本二进制里**(读文件系统);核心 `open-llm-wiki-core` 库保持 IO-free。
 //!
 //! 用法:
-//!   cargo run -p openobs-core --example demo            # 用内建样例
-//!   cargo run -p openobs-core --example demo -- docs    # 索引一个真实目录
-//!   cargo run -p openobs-core --example demo -- <dir>   # 索引任意 .md 目录(递归)
+//!   cargo run -p open-llm-wiki-core --example demo            # 用内建样例
+//!   cargo run -p open-llm-wiki-core --example demo -- docs    # 索引一个真实目录
+//!   cargo run -p open-llm-wiki-core --example demo -- <dir>   # 索引任意 .md 目录(递归)
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use openobs_core::{parse_query, EdgeKind, Target, VaultIndex};
+use open_llm_wiki_core::{parse_query, EdgeKind, Target, VaultIndex};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -30,7 +30,7 @@ fn main() {
     // ---- 概览 ----
     let total_edges = v.graph().edges.len();
     let dangling = v.graph().unresolved().count();
-    println!("═══ OpenObsidian core demo ═══");
+    println!("═══ Open LLM Wiki core demo ═══");
     println!(
         "笔记 {} 篇 · 边 {} 条(其中悬空 {})",
         v.len(),
@@ -117,8 +117,8 @@ fn main() {
 }
 
 /// 打印 ResultSet(各渲染模式)。
-fn print_resultset(v: &VaultIndex, rs: &openobs_core::ResultSet) {
-    use openobs_core::ResultSet;
+fn print_resultset(v: &VaultIndex, rs: &open_llm_wiki_core::ResultSet) {
+    use open_llm_wiki_core::ResultSet;
     match rs {
         ResultSet::List(ids) => {
             for &id in ids {

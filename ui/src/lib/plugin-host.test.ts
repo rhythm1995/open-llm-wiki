@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyEnabledMap,
   collectPluginCommands,
   hasPermission,
   loadPluginFromManifest,
@@ -65,8 +64,10 @@ describe("collect / enable", () => {
   it("only enabled", () => {
     let a = loadPluginFromManifest(sampleHelloManifest());
     a = registerPluginCommand(a, { id: "g", label: "G" });
-    const b = applyEnabledMap([a], { hello: false });
-    expect(collectPluginCommands(b)).toEqual([]);
+    let b = loadPluginFromManifest({ ...sampleHelloManifest(), enabled: false });
+    b = registerPluginCommand(b, { id: "g", label: "G" });
+    expect(collectPluginCommands([a])).toHaveLength(1);
+    expect(collectPluginCommands([b])).toEqual([]);
     expect(hasPermission(a.manifest, "ui.notify")).toBe(true);
   });
 });
@@ -89,7 +90,7 @@ describe("parsePluginMessage", () => {
 describe("paths", () => {
   it("entry path", () => {
     expect(pluginEntryPath("hello", "main.js")).toBe(
-      ".openobs/plugins/hello/main.js",
+      ".open-llm-wiki/plugins/hello/main.js",
     );
   });
 });

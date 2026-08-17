@@ -1,0 +1,16 @@
+{
+  "$schema_note": "Merge the \"hooks\" object into ~/.claude/settings.json or .claude/settings.json for this vault/project. Paths are relative to the working directory when Claude Code runs.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/hooks/olw-post-write.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

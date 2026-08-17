@@ -22,6 +22,7 @@ const t = ((key: string, params?: Record<string, string | number>) => {
 
 function state(over: Partial<VaultState> = {}): VaultState {
   return {
+    root: "/vault",
     saveState: "idle",
     dirty: false,
     currentPath: null,
@@ -59,6 +60,11 @@ describe("StatusBar", () => {
   it("idle 显示空闲文案", () => {
     render(<StatusBar {...base} state={state({})} />);
     expect(screen.getByText("status.idle")).toBeInTheDocument();
+  });
+
+  it("无 vault 显示未打开 Vault", () => {
+    render(<StatusBar {...base} state={state({ root: null })} />);
+    expect(screen.getByText("status.noVault")).toBeInTheDocument();
   });
 
   it("显示快照节点计数", () => {

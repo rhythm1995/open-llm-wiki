@@ -8,7 +8,7 @@ name: Release
 #         + 公证 APPLE_ID / APPLE_PASSWORD / APPLE_TEAM
 #   Updater:TAURI_PRIVATE_KEY / TAURI_KEY_PASSWORD(决定是否上自动更新)
 #   Windows 安装包:TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-# 何时配置由用户决定(见 docs/deferred.md 「打包与分发」的前置项)。
+# 何时配置由用户决定(见 docs/backlog.md 「F. 分发与工程」的前置项)。
 
 on:
   push:
@@ -91,6 +91,6 @@ jobs:
           # 故用 npx 拉 @tauri-apps/cli@2,避免 `pnpm --dir ui exec`(会改 CWD 到 ui/ 致发现失败)。
           tauriScript: npx --yes --package @tauri-apps/cli@^2 tauri
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "OpenObsidian ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseName: "Open LLM Wiki ${{ github.event.inputs.tag || github.ref_name }}"
           releaseDraft: true
           prerelease: false

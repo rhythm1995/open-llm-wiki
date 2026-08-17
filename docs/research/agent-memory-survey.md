@@ -17,7 +17,7 @@
 7. **规模有阈值**:<100 篇结构化文档 → wiki;1,000+ → RAG;单次查询要载 >5-6 篇 → 切 RAG;~3K token 的 wiki 比 RAG 便宜,~30K 的 wiki 反而更贵[16]。wiki 路线是**小规模+高综合**的甜蜜点,不是无限扩展方案。
 8. **记忆写入面是新攻击面**:记忆投毒已进 OWASP(ASI06);MINJA 经纯查询接口达成 >95% 注入成功率,「注入发生在二月,伤害发生在四月」[15];Unit 42 展示了经会话摘要持久 365 天、静默外泄的攻击链[14]。防御栈(溯源标注、写入前校验、信任加权、时间衰减)对任何「agent 可写 vault」的系统都是必修课[15]。
 9. **反直觉的负面证据**:ETH Zurich 实证发现 LLM 生成的 AGENTS.md 类上下文文件让编码 agent 成功率**下降 ~3%**、推理成本 +20%;人写的才 +4%(且同样 +20% 成本)[12]。「给 agent 塞上下文文件」本身不产生价值,**质量与维护方式**才产生价值。
-10. **对 OpenObsidian**:五层架构(Raw/Wiki/Schema/Navigation/Health)与 wiki-memory 范式高度同构,其中「Health 即查询」(QQL 存为 `type: Query` 笔记)是相对 Karpathy 原式的独有升级;MCP 7 工具已覆盖读时图简报 + 写时断链审计(正对应 wiki memory 的读/写两侧)。最大差距不在引擎,在**脚手架与约定**:没有 ingest/lint/consolidate 工作流的 starter vault(B-WIKI-STARTER/HEALTH-QQL/AGENT-DOC 均未建),没有「对话 → vault 蒸馏」管道,检索只有词法+结构(P6-5 默认不做向量——调研结论:对 wiki-memory 路线这**够用**,检索只是辅助而非记忆本体[5])。
+10. **对 Open LLM Wiki**:五层架构(Raw/Wiki/Schema/Navigation/Health)与 wiki-memory 范式高度同构,其中「Health 即查询」(QQL 存为 `type: Query` 笔记)是相对 Karpathy 原式的独有升级;MCP 7 工具已覆盖读时图简报 + 写时断链审计(正对应 wiki memory 的读/写两侧)。最大差距不在引擎,在**脚手架与约定**:没有 ingest/lint/consolidate 工作流的 starter vault(B-WIKI-STARTER/HEALTH-QQL/AGENT-DOC 均未建),没有「对话 → vault 蒸馏」管道,检索只有词法+结构(P6-5 默认不做向量——调研结论:对 wiki-memory 路线这**够用**,检索只是辅助而非记忆本体[5])。
 
 ---
 
@@ -173,11 +173,11 @@ LangChain 的提炼[2]:wiki 是「agent 维护的数据结构,以 agent 友好�
 - **局限**:「忘记」与矛盾处理默认关闭,说明这两件事在生产中是成本项而非免费午餐[40]。
 
 ### 卡片 8:basic-memory(开源,MCP 原生)
-- **定位**:「markdown 知识库 + MCP」的最小完整实现,与 OpenObsidian 形态最近的对照组。
+- **定位**:「markdown 知识库 + MCP」的最小完整实现,与 Open LLM Wiki 形态最近的对照组。
 - **机制**:每个 markdown 文件是一个 Entity,含 Observations(事实)与 Relations(关系);**AI 与人写同一批文件**,sync 保持一致;「观察与 wikilink 复利成上下文。纯文本,在你磁盘上。永远。」[19]
 - **接口**:MCP 工具 + CLI。
 - **证据**:无量化基准;被多篇综述列为文件式记忆的代表[7]。
-- **局限**:AGPL-3.0(对 OpenObsidian 是许可红线,仅作概念参照);无 lint/健康检查机制的公开描述。
+- **局限**:AGPL-3.0(对 Open LLM Wiki 是许可红线,仅作概念参照);无 lint/健康检查机制的公开描述。
 
 ---
 
@@ -229,15 +229,15 @@ MindStudio 的决策框架[16]:<100 篇结构良好文档 → LLM Wiki;100–1,0
 
 ---
 
-## 7. 对照 OpenObsidian:已有映射 / 差距 / 机会点
+## 7. 对照 Open LLM Wiki:已有映射 / 差距 / 机会点
 
 > 本节断言全部对照仓库现状(`docs/07`、`docs/12`、`docs/11`、`docs/open-questions.md`、`docs/backlog.md`、`mcp/README.md`、`mcp/src/main.rs`)核实;backlog 状态以 backlog 文件为准,与代码实际不一致处如实标注。
 
-### 7.1 已有映射:OpenObsidian 的五层 × wiki-memory 范式
+### 7.1 已有映射:Open LLM Wiki 的五层 × wiki-memory 范式
 
 `docs/07-llm-wiki-architecture.md` §3 的映射表,对照本次调研的范式语言重述:
 
-| LLM Wiki 层 | OpenObsidian 落点 | 调研视角的对应物 |
+| LLM Wiki 层 | Open LLM Wiki 落点 | 调研视角的对应物 |
 |---|---|---|
 | Raw(不可变源) | `type: Source` + git 版本真相(re-ingest 产新 Summary,旧版可还原) | Karpathy 的 immutable sources[1];比原式多了 git 还原能力 |
 | Wiki(LLM 派生知识) | `Summary`/`Entity`/`Concept` 软类型 + 关系边(`derived_into`/`mentioned_in`/`contradicts`) | LangChain 的 agent-maintained data structure[2];`contradicts` 边是多数 wiki 系统没有的显式矛盾表达(呼应 §6.5 矛盾抹平问题[11]) |
@@ -253,11 +253,11 @@ MCP 侧(`mcp/README.md`,7 工具:`list_notes`/`read_note`/`write_note`/`links`/`
 ### 7.2 差距清单(调研发现的缺口,按证据强度排序)
 
 1. **没有「记忆」定位的 vault 级 agent 使用文档**。B-WIKI-AGENT-DOC(ingest/research/consolidate 流程说明)在 backlog 为 🟢⏳ 未建。调研显示 wiki-memory 的生效前提是 agent 知道「三层结构 + 三工作流」[1][2]——引擎有了,说明书没有。
-2. **没有 ingest/lint 工作流的脚手架**。B-WIKI-STARTER(starter vault,`status: provisional|canonical` 生命周期)🟡⏳、B-WIKI-HEALTH-QQL(Health 模板)🟢⏳ 均未交付。Karpathy 三工作流中 Ingest/Lint 在 OpenObsidian 里没有对应模板或示例流;Health 层引擎(QQL)齐全但**没有开箱模板**——这是「引擎超前、脚手架缺位」的典型。
-3. **缺「对话 → vault 蒸馏」管道**。`docs/11` 把会话转录明确定为应用数据(SQLite,「转录不进 vault、不进 git」),「线程导出为 md 入 vault」仅为可选 backlog。调研的交叉结论(§6.2:固化才是杠杆[8][28])意味着:OpenObsidian 目前**有仓库、有工具,但没有固化管道**——agent 会话中的经验没有一条默认路径沉淀为 vault 笔记。(注:转录留在应用数据是刻意决策,本报告不主张改动它,只陈述管道现状。)
+2. **没有 ingest/lint 工作流的脚手架**。B-WIKI-STARTER(starter vault,`status: provisional|canonical` 生命周期)🟡⏳、B-WIKI-HEALTH-QQL(Health 模板)🟢⏳ 均未交付。Karpathy 三工作流中 Ingest/Lint 在 Open LLM Wiki 里没有对应模板或示例流;Health 层引擎(QQL)齐全但**没有开箱模板**——这是「引擎超前、脚手架缺位」的典型。
+3. **缺「对话 → vault 蒸馏」管道**。`docs/11` 把会话转录明确定为应用数据(SQLite,「转录不进 vault、不进 git」),「线程导出为 md 入 vault」仅为可选 backlog。调研的交叉结论(§6.2:固化才是杠杆[8][28])意味着:Open LLM Wiki 目前**有仓库、有工具,但没有固化管道**——agent 会话中的经验没有一条默认路径沉淀为 vault 笔记。(注:转录留在应用数据是刻意决策,本报告不主张改动它,只陈述管道现状。)
 4. **检索只有词法 + 结构,无语义**。P6-5 明确【待定】【默认关向量主索引】。**调研结论:对 wiki-memory 路线这不是缺陷而是与范式一致的选择**——「检索、向量、rerank 只是辅助,不定义记忆系统;记忆是被维护的知识本体」[5];且 wiki 的写入时综合本就降低了对强检索的依赖[2]。但规模阈值[16]给出重估触发条件:vault 超过 ~1,000 篇、或单次查询稳定需要载入 >5–6 篇笔记时,应重新评估引入语义检索(可选本地模型或外部 API,与 P6-5 选项单一致)。
-5. **AGENTS.md「共享 memory MCP server 默认不上」的决策与调研结论的关系**:调研显示文件式 vault 本身就是多 agent 共享记忆的推荐载体(basic-memory 人机共写[19]、DeepWiki 团队共享文档[23]),OpenObsidian 的 vault + openobs-mcp 已经**是**那个共享记忆面——AGENTS.md 说的「memory MCP server」指的是 repo 文件之外的独立记忆中间件,调研证据(「别去找同步中间件」的失败模式,与 §6.5 维护坍缩同构)支持**维持该决策**,故仅陈述、不建议改动。
-6. **安全机制尚未对位**。调研防御栈[15](溯源标注、写入前校验、信任加权、时间衰减)中,OpenObsidian 已有「写入前校验」的链接侧(broken_links)与「溯源标注」的雏形(Source 类型 + doc 07 Health 表的 `evidence_tier` 字段示意),但**没有记忆投毒意义上的信任分级**(agent 写入 vs 人写入 vs 外部摄入的区分)。这属于机会点而非缺陷——当前 MCP 写入面由用户显式配置,风险可控。
+5. **AGENTS.md「共享 memory MCP server 默认不上」的决策与调研结论的关系**:调研显示文件式 vault 本身就是多 agent 共享记忆的推荐载体(basic-memory 人机共写[19]、DeepWiki 团队共享文档[23]),Open LLM Wiki 的 vault + open-llm-wiki-mcp 已经**是**那个共享记忆面——AGENTS.md 说的「memory MCP server」指的是 repo 文件之外的独立记忆中间件,调研证据(「别去找同步中间件」的失败模式,与 §6.5 维护坍缩同构)支持**维持该决策**,故仅陈述、不建议改动。
+6. **安全机制尚未对位**。调研防御栈[15](溯源标注、写入前校验、信任加权、时间衰减)中,Open LLM Wiki 已有「写入前校验」的链接侧(broken_links)与「溯源标注」的雏形(Source 类型 + doc 07 Health 表的 `evidence_tier` 字段示意),但**没有记忆投毒意义上的信任分级**(agent 写入 vs 人写入 vs 外部摄入的区分)。这属于机会点而非缺陷——当前 MCP 写入面由用户显式配置,风险可控。
 7. **backlog 与代码的一致性小账**:B-MCP-LINKS / B-MCP-READ-BRIEF / B-MCP-WRITE-FEEDBACK 在 backlog 标 ⏳,但 `mcp/src/main.rs` 与 `mcp/README.md` 显示三者已交付(links 六 kind、read 图简报、write broken_links 均已实现)。报告如实记录,供下次 backlog 清理时核对。
 
 ### 7.3 机会点(候选,均标注与现有 backlog 的关系;只陈述,不拍板)
@@ -272,7 +272,7 @@ MCP 侧(`mcp/README.md`,7 工具:`list_notes`/`read_note`/`write_note`/`links`/`
 - **信任分级**:在 frontmatter 约定 `provenance:`(human / agent / ingested)是调研防御栈[15] 在本仓库的最小落地,不碰 core。
 
 **工作流层**:
-- 「Query → 回填」:Karpathy 的「好答案归档回 wiki」[1] 在 OpenObsidian 的具体形态可以是:agent 经 `run_qql` 得到的结果集,值得沉淀时经 `write_note` 写为 `type: Summary` 并自动带 `derived_into` 边——工具已全部就位,缺的只是工作流文档(回到 B-WIKI-AGENT-DOC);
+- 「Query → 回填」:Karpathy 的「好答案归档回 wiki」[1] 在 Open LLM Wiki 的具体形态可以是:agent 经 `run_qql` 得到的结果集,值得沉淀时经 `write_note` 写为 `type: Summary` 并自动带 `derived_into` 边——工具已全部就位,缺的只是工作流文档(回到 B-WIKI-AGENT-DOC);
 - Health 模板(B-WIKI-HEALTH-QQL)可把调研的失败模式直接编译成 QQL:孤儿 Concept、单源概念(综合度)、无 `reviewed` 字段的老页面(漂移风险)——doc 07 §3 已给出示意查询,交付模板即可。
 
 **检索层**(远期、条件触发):

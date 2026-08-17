@@ -28,7 +28,7 @@
 |---|---|---|---|---|
 | B-SHEET | **F-SHEET 嵌入式表格** | 🔴 | ✅ | v2 齐;⛔ 不做 XLSX 全量互通 / 实时协作(对照 Obsidian 核心亦非主路径;git 即可) |
 | B-PLUGIN | **F-PLUGIN 插件系统** | 🔴 | ⛔ | v1 宿主保留;产品决定**不再深化**(无商店/vault 扫描 UI/签名) |
-| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | 7 tools:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`;read 简报 / write 审计 / 配置样例见 **§I-B** 全 ✅;剩人侧 UI(`B-GRAPH-HEALTH-UI`) |
+| B-MCP | **完整 MCP server(AI 写侧)** | 🔴 | ✅ | 8 tools:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`/`lint_vault`;read 简报 / write 审计 / 配置样例见 **§I-B** 全 ✅;剩人侧 UI(`B-GRAPH-HEALTH-UI`) |
 | B-BN-FIDELITY | **BlockNote ↔ Markdown 保真** | 🟡 | ✅ | 安全样例表 + app 层 wikilink/fm;与 DEEP 共用 `safeFixtureHolds` |
 | B-QQL-TS | ~~**QQL 求值器移植到 TS**~~ | 🔴 | 🗑️ 已删 | 2026-08-02 随 QQL 用户面删除:`ui/src/lib/qql/*` + `mock-qql` 全清。引擎仅留 Rust core + MCP `run_qql`(见 [04](./04-features.md) F-QUERY) |
 
@@ -55,9 +55,12 @@
 | B-ED-MEDIA-WIKI | `![[img]]` wiki 嵌入图 | 🟡 | ✅ | 阅读 render+短名 resolve;插入默认仍 `![](…)`;`![[Note]]` 降级 wikilink |
 | B-ED-MEDIA-MOVE | 迁笔记受限搬图 | 🟡 | ✅ | rename_note:refcount==1 + 同目录/stem 桶 + 改正文;core plan+rewrite |
 | B-ED-WYSIWYG-FMT | WYSIWYG 格式条对齐 source | 🟢 | ✅ | 粗/斜/H1–3/列表/引用/wikilink + 图片 |
-| B-BN-FIDELITY-DEEP | 真引擎 md↔blocks 往返门禁 | 🔴 | ✅ | `blocknote-engine-roundtrip`+双层 `safeFixtureHolds`;列表 `-/*` + hr 三写法规范化;⛔ 嵌套任务/HTML(表+行内)/全 GFM 字节身份(风险清单);`blocknote-fidelity-sweep.test` 23 例诊断 |
+| B-BN-FIDELITY-DEEP | 真引擎 md↔blocks 往返门禁 | 🔴 | ✅ | `blocknote-engine-roundtrip`+双层 `safeFixtureHolds`;列表 `-/*` + hr 三写法规范化;⛔ 嵌套任务/HTML(表+行内)/全 GFM 字节身份(风险清单);`blocknote-fidelity-sweep.test` **31 例**诊断(2026-08-15 +2:引用空段落塌硬换行、链接内行内代码丢链接——均实测无便宜修法,标 risky 入清单) |
 | B-ED-BROKEN-LINKS | 当前笔记断链提示 | 🟢 | ✅ | Inspector 黄条;纯逻辑 `broken-links.ts` |
 | B-ED-TASK-BTN | source 任务列表按钮 | 🟢 | ✅ | 格式条 `ListChecks` → `toggleTaskList`(纯逻辑 `md-format`);已是任务项剥 checkbox,否则加 `- [ ] ` |
+| B-ED-FLUSH-OWNERSHIP | 卸载 flush 所有权回写(跨笔记写坏修复) | 🟡 | ✅ | 2026-08-15:WYSIWYG 编辑后 <400ms 切 tab,卸载 flush 会把旧笔记内容写进新笔记/`.sheet` 并落盘;Canvas timer 幸存同理。修法:`store.writeScoped(path, root, next)`(rename 别名重定向)+ 三视图 `onFlush`;store-flush/CanvasView/SheetView/WysiwygView 回归测试 |
+| B-ED-IME-ENTER | IME 组合期 Enter 守卫 | 🟢 | ✅ | 2026-08-15:`lib/ime.ts` `isIMEComposing`(isComposing + keyCode 229);9 处受控输入 Enter 加守卫(Agent composer/⌘K/查找替换/Inspector 标签与属性/公式栏/列表重命名)——拼音候选确认不再误提交 |
+| B-ED-ERR-RECOVERY | 编辑器错误签名分类 + 恢复 | 🔴 | ⏳ 后置 | 双层 ErrorBoundary 已有(局部失败自动降 source)。缓做项:transform/dispatch 面错误签名表 + 原地恢复;**触发条件:真机验收/用户日志产出第一批真实报错签名**(概念源自公开架构调研,实现自写) |
 
 ---
 
@@ -80,7 +83,7 @@
 | 编辑器正文(source) | ✅ |
 | Nav 文件夹/类型/标签 | ✅ |
 | Tab 栏 | ✅ |
-| 画布 | Excalidraw 自带 |
+| 画布 | Excalidraw 自带(孤立白板,「新建」入口默认隐藏) |
 
 ---
 
@@ -142,7 +145,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ✅ | `read/save_graph_layout` IPC + GraphView 读写 `.openobsidian/graph-layout.json`;写盘不走结构自动 commit(P6-7) |
+| B-GRAPH-POS-PERSIST | 布局坐标**落盘** | 🟡 | ✅ | `read/save_graph_layout` IPC + GraphView 读写 `.open-llm-wiki/graph-layout.json`;写盘不走结构自动 commit(P6-7) |
 | B-GRAPH-FORCES | 力参数 + Recalculate | 🟡 | ⏳ | center/repel/link/distance;Reset 默认 |
 | B-GRAPH-SETTINGS-UI | 图设置分组面板 | 🟡 | ⏳ | Filters / Display / Text / Forces |
 | B-GRAPH-HIDE-UNRESOLVED | 隐藏悬空/phantom | 🟢 | ⏳ | ghost 边一键 hide |
@@ -155,8 +158,9 @@
 | B-MCP-LINKS | MCP `links` 多 kind | 🔴 | ✅ | `links`:backlinks/forward/dead/orphans/hubs/suggest;可数组 audit(`mcp/src/main.rs`) |
 | B-MCP-READ-BRIEF | read 附带图上下文 | 🟡 | ✅ | `links_brief`:in/out 边 + dead + degree(`read_note.graph`) |
 | B-MCP-WRITE-FEEDBACK | **MCP** write 返回 broken_links | 🟡 | ✅ | `write_note` 返回 `broken_links[]`+`orphan_hint`;提示不阻断保存 |
-| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Explore\|Orphans\|Hubs 模式(MCP 侧已能算,缺人侧 UI) |
-| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ✅ | Claude Code / Cursor 配置见 `mcp/README.md` §Client configuration |
+| B-GRAPH-HEALTH-UI | Orphans / Hubs UI | 🟡 | ⏳ | Graph「图谱健康」已有列表(~80%)。**本期不打磨 hubs**。剩余若开=全库死链。**≠ 库健康**(`B-HEALTH-DASH`)。 |
+| B-MCP-CONFIG | MCP 客户端配置样例 | 🟢 | ✅ | 六家 agent 手动 snippet 兜底见 `mcp/README.md` §Client configuration |
+| B-MCP-ONBOARD | MCP 一键接入(setup/doctor/init) | 🔴 | ✅ | `mcp/src/onboard.rs`(lib,CLI 与桌面共用):探测 7 家 agent + 写用户级配置(备份/原子/不可解析拒触/`--dry-run`);桌面 Settings「Agent 记忆接入」面板复用同一逻辑(`app/src-tauri/src/onboarding.rs` + `AgentOnboardingSection.tsx`);见 `mcp/README.md` §Agent onboarding |
 | B-ED-BROKEN-LINKS | ~~见 §C~~ | 🟢 | →§C | 与编辑器断链提示合并 |
 
 ### I-C · 6C 语义发现（可选,后置）
@@ -173,11 +177,18 @@
 |---|---|---|---|---|
 | B-WIKI-STARTER | starter vault 脚手架 | 🟡 | ✅ | `templates/wiki-starter/`:5 类型契约 + index + 示例链;文件夹不承载语义,`status` 为唯一状态真相 |
 | B-WIKI-HEALTH-QQL | Health **QQL 模板** | 🟢 | ✅ | `templates/wiki-starter/health/` **11 条** `type: Query`(2026-08-06 加 6 条溯源/漂移);语法+语义由 `core/tests/wiki_health_qql.rs` 锁住;doc 07 §Health 已对齐 |
+| B-HEALTH-DASH | **库健康看板** | 🟡 | ✅ | 2026-08-15:`MainView:"health"` + 11 条锁定 QQL。2026-08-17:总览分数 + 分组 + 饥饿目标;前沿打分(出−入)×新近度挂总览,标注议程建议 |
+| B-WIKI-HOT | vault `hot.md` 会话缓存 | 🟢 | ✅ | 2026-08-17:starter `hot.md`;应用内首轮/每 6 回合注入;写过库则 agent-done 提醒覆写;不自动写 |
+| B-VAULT-QUERY-SEED | Agent「查询 Vault」 | 🟢 | ✅ | 2026-08-15:`vault-query.ts` + ⌘K / 库健康「问 Agent」;高把握问句分流到库健康;ACP 可注入 MCP `run_qql` |
 | B-WIKI-AGENT-DOC | Agent 流程说明 | 🟢 | ✅ | `docs/14-llm-wiki-workflow.md`:ingest/research/consolidate + **§1.1 蒸馏 L2a** + **§3.2 分层 lint(L1 索引 / L2 agent 五分类)** + MCP 工具速查;`templates/wiki-starter/prompts/ingest-distill.md` |
 | B-WIKI-PROVENANCE | provenance/reviewed/trust 软字段约定(P0 L1) | 🟢 | ✅ | 2026-08-06:纯约定零 core 改动(QQL 直读任意 frontmatter);进 types/examples/health/docs 14,07;字段可选永不校验;**L2(写入路径只补缺省不覆盖)待探针观察约一个月采纳率后再定** |
-| B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源),19 单测 + 4 proptest;**只产候选不判决**;尚无消费面 → 见下两行 |
-| B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ⏳ | **P1 产生价值的最短一跳**:app 加 command(注册进 `generate_handler!`)+ mcp 侧透传(如 `lint_vault` 返回 Finding 列表),agent consolidate 即可消费。**已记录,暂不做(2026-08-06 拍板)** |
-| B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立 Health 视图;品味依赖度高(survey §7.4),先让探针跑再决定做不做。**已记录,暂不做** |
+| B-WIKI-LINT-CORE | 内容级 lint L1 core 纯函数(P1) | 🟡 | ✅ | 2026-08-06:`core/src/lint.rs` 四条结构启发式(contradicts↔Contested 一致性 / 归一化撞名 / 挂废源 / 引废源)+ `lint_all` 报告层(`LintReport`),19+3 单测 + 4 proptest;**只产候选不判决**;消费面见下行 |
+| B-WIKI-LINT-MCP | lint 暴露为 MCP 工具 | 🟡 | ✅ | 2026-08-06:MCP `lint_vault` 工具(`mcp/src/main.rs`,8th tool,内联测试 + `mcp/README.md`)+ app `lint_vault` 命令(注册进 `generate_handler!`,live 索引);agent consolidate 即可消费。**人侧 UI 见下行** |
+| B-WIKI-LINT-UI | lint findings 人侧显形 | 🟡 | ⏳ 后置 | Inspector 角标或独立列表;**禁止**占用 `MainView:"health"`(那是 QQL 库健康)。等回合结束条经常 N>0。禁止正文矛盾 NLI。 |
+| B-WIKI-FORMAT | OWF-1 格式规范(**档 1**) | 🟢 | ✅ | 2026-08-09:[`docs/15-owf-format.md`](./15-owf-format.md) 转正——装订现状 + 钉版本,零新词汇/字段/行为;唯一新产物 = vault index.md 的 `format: owf/1` 声明(模板已带);宽容规则升为测试锁(`core/tests/owf_conformance.rs`)。**档 2 三项(draft / deprecated / stale_after)未采纳**,设计+触发信号存档 doc 15 §9.2,等真实信号再升级 |
+| B-WIKI-INGEST-SKILL | vault skill wiki-ingest + 应用短触发 | 🟡 | ✅ | 2026-08-11:starter skill + seed 双写 `.agents`/`.claude`;App「提炼进 Wiki」短指令;未分类可提炼。2026-08-17:`isWikiOsPath` 排除 AGENTS/skills/prompts/README,收件箱/未分类与提炼入口一致 |
+| B-WIKI-SKILLS-NPM | **npm 发布 `open-llm-wiki-skills`** | 🟢 | ⏳ | 包已就绪。**无需 npm 也可装**:`npx --yes --package=github:rhythm1995/open-llm-wiki#path:packages/open-llm-wiki-skills open-llm-wiki-skills install . --hooks`。可选日后 `pnpm skills:publish` 到 registry。 |
+| B-WIKI-INGEST-HOOKS | hooks 模板 + ACP 轮次结束检查 | 🟡 | ✅ | 2026-08-11:外部 hooks 模板随 skills 包安装(`.agents/hooks` + Claude/Cursor 示例 JSON);应用内 ACP `agent-done` → `lint_vault` 提示(Agent 面板开关「检查开」);设置页复制 GitHub npx 命令。Hooks **不替代** skill。见 `docs/research/agent-hooks-vs-skills.md` |
 
 ---
 
@@ -189,7 +200,7 @@
 |---|---|---|---|---|
 | B-LOG-BUS | LogBus + Filter + File/Stderr + panic hook | 🟡 | ✅ | L1:`logging.rs`;NDJSON;dev/verbose/prod;panic hook |
 | B-LOG-UI | 设置:profile / 打开日志目录 / 导出 | 🟡 | ✅ | profile+打开目录+`log_export_bundle` 单文件 txt(非 zip) |
-| B-LOG-PORT | TCP PortSink(`OPENOBS_LOG_PORT`) | 🟢 | ✅ | app 做 server(127.0.0.1),`nc 127.0.0.1 <port>` 实时看 NDJSON 流;默认关,仅 env 开;接入 `init`/`emit_raw` |
+| B-LOG-PORT | TCP PortSink(`OPEN_LLM_WIKI_LOG_PORT`) | 🟢 | ✅ | app 做 server(127.0.0.1),`nc 127.0.0.1 <port>` 实时看 NDJSON 流;默认关,仅 env 开;接入 `init`/`emit_raw` |
 | B-LOG-IPC-SPANS | 关键 IPC 结构化打点 | 🟢 | ✅ | index/write/pick_vault + **git 集中**(`run_git` 一处覆盖 status/log/commit/pull/push/init/restore/自动提交;成功 debug、失败 error 含 cmd+code+stderr) |
 
 ## K. 应用内侧栏 Agent(ACP 托管,见 [11](./11-in-app-agent-roadmap.md))
@@ -216,7 +227,7 @@
 
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / 媒体~~ ✅(QQL 差分 CI 随用户面删除,不再需要)  
 2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
-3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6D wiki 脚手架** ✅(2026-08-05);剩人侧 `B-GRAPH-HEALTH-UI` 与 6C 随 §I 远期  
+3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6B 库健康 + Agent 查库** ✅(2026-08-15) · **6D wiki 脚手架** ✅;剩图 polish / 可选死链 / 6C 随 §I 远期
 4. **本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 签名/Updater(凭证门) · `release/v0.1.0` 发布收口(合 main 已完成 `84accb0`)  
 5. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
 

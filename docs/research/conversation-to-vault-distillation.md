@@ -8,9 +8,9 @@
 
 ## 1. TL;DR
 
-1. **OpenObsidian 目前「有仓库、有工具、没有固化管道」**:应用内 agent(ACP 托管)的会话转录存本地 SQLite(app data、每 vault 一 db、刻意不进 vault/git,`app/src-tauri/src/transcript.rs`);「线程导出为 md 入 vault」在 doc 11 §3 只是可选 backlog,无任何代码路径。agent 会话中的经验没有一条默认路径沉淀为 vault 笔记。
+1. **Open LLM Wiki 目前「有仓库、有工具、没有固化管道」**:应用内 agent(ACP 托管)的会话转录存本地 SQLite(app data、每 vault 一 db、刻意不进 vault/git,`app/src-tauri/src/transcript.rs`);「线程导出为 md 入 vault」在 doc 11 §3 只是可选 backlog,无任何代码路径。agent 会话中的经验没有一条默认路径沉淀为 vault 笔记。
 2. **调研的交叉结论不变:持久化不是杠杆,固化才是**(调研 §6.2[8][26][27][28])。所以本方案不主张「把转录倒进 vault」,而是设计一条**显式、蒸馏式、人审**的固化管道:原始转录永留应用数据,蒸馏产物走 doc 14 的类型体系(Source/Summary/Entity/Concept)入 vault。
-3. **固化时机的业界光谱**:手动(Claude Code 的「remember X」/ 早期 `#` 快捷键,后者已于 2025-12 v2.0.70 移除 [D2])→ 会话中 agent 自决(Claude Code Auto memory [D1])→ 会话间隙后台蒸馏(Letta sleep-time「做梦」,触发 = 消息数或上下文压缩 [D4])→ 新笔记触发邻居修订(A-MEM Memory Evolution [8])。OpenObsidian 无任何 LLM 内置调用,故**所有需要模型的固化都必须经用户自带的 agent(ACP / MCP)完成**——这既是约束也是隐私特性。
+3. **固化时机的业界光谱**:手动(Claude Code 的「remember X」/ 早期 `#` 快捷键,后者已于 2025-12 v2.0.70 移除 [D2])→ 会话中 agent 自决(Claude Code Auto memory [D1])→ 会话间隙后台蒸馏(Letta sleep-time「做梦」,触发 = 消息数或上下文压缩 [D4])→ 新笔记触发邻居修订(A-MEM Memory Evolution [8])。Open LLM Wiki 无任何 LLM 内置调用,故**所有需要模型的固化都必须经用户自带的 agent(ACP / MCP)完成**——这既是约束也是隐私特性。
 4. **蒸馏粒度的光谱**:原始导出 → 会话摘要 → 原子主张(mem0 ADD/UPDATE/DELETE/NOOP [29])→ 类型化 wiki 页(Karpathy Ingest [1],即 doc 14 的 ingest)。对 wiki-memory 路线,终点形态应是**类型化 wiki 页**,原始导出只是零蒸馏端点,不是目标。
 5. **最小可用切片(L1)= 一个显式动作**:把线程导出为 `type: Source` 笔记——纯前端编排(复用已有 `agent_thread_load` + `create_note` 命令 + 新增纯函数 `renderThreadAsSource`),**零新 Rust 命令、零新依赖**,并复用 doc 11 Model C 已验证的归一化思路。
 6. **L2 = 蒸馏本身,且有零代码路径**:导出的 Source 已在 vault 里,doc 14 §1 的 ingest 工作流就是现成的蒸馏说明书——agent 经 MCP(外部)或 ACP(应用内)即可完成 Source → Summary/Entity/Concept。应用内再加一个「一键蒸馏」按钮(seed 消息 = ingest 指令 + Source 内容)即闭环。
@@ -21,7 +21,7 @@
 
 ---
 
-## 2. 问题与现状(OpenObsidian 已有什么、断在哪里)
+## 2. 问题与现状(Open LLM Wiki 已有什么、断在哪里)
 
 **已有(全部对照代码核实)**:
 
@@ -40,7 +40,7 @@
 1. **线程到 vault 零路径**。`agent_thread_*` 六命令只有 create/list/load/append/clear/delete——没有 export;doc 11 §3 的「线程导出为 md 入 vault」仅一句 backlog,**且 `docs/backlog.md` 里没有对应 ID 条目**(grep 无蒸馏/导出相关项)——规划与 backlog 之间的小漂移,本文顺手记录。
 2. **归一化只服务移交**。`normalizeForHandoff` 的产物是「给下一个 agent 的 seed」,头部语义是「承接自 X 的线程」;要成为「vault 里的 Source 笔记」需要另一套面向**人类未来读者**的骨架(frontmatter + 出处 + 不可变语义)。
 3. **转录层没有「值得固化」的信号**。threads 表无标题、无摘要、无消息统计之外的元数据;「哪条线程值得蒸馏」目前只能靠人翻列表(线程列表只有 agent/时间/消息数)。
-4. **MCP 侧读不到转录**。`openobs-mcp` 是独立进程、只读 vault 目录;转录在 app data——外部 agent 想「把我刚才的会话存进 vault」也拿不到原文(这是刻意边界,见 §4)。
+4. **MCP 侧读不到转录**。`open-llm-wiki-mcp` 是独立进程、只读 vault 目录;转录在 app data——外部 agent 想「把我刚才的会话存进 vault」也拿不到原文(这是刻意边界,见 §4)。
 
 **刻意决策(本方案不推翻)**:doc 11 §3 明确「转录是应用数据、不是 vault 知识——不进 vault、不进 git」。理由成立:转录含大量噪声(thinking/permission 往返/逐 token 增量)、可能含敏感内容、体量增长快,进 vault 会污染图谱与 git 历史。**本方案的全部设计都以此为不变量:原始转录永留应用数据,只有蒸馏产物、且经显式动作与人审,才进 vault。**
 
@@ -75,11 +75,11 @@ Generative Agents 的 reflection 是「阈值触发归纳」的源头:重要性�
 
 Zettelkasten 传统给这条管道的三个现成概念:① **原子性**——「每张笔记只做一个主张、注明来源、至少指向一个链接」[D9];② **三级笔记**——fleeting(草稿)→ literature(来源笔记)→ permanent(自己的主张),映射到这里就是:**原始转录 = fleeting(留在应用数据,用完即弃的心态)、导出的 Source = literature note、蒸馏出的 Concept = permanent note**——固化管道本质是把笔记沿这三级向上搬;③ **反面警告**:Zettelkasten 社区对 AI 批量造卡的态度明确——「你可以让 AI 生成十万张笔记,但它们对你都是陌生的」[D10]:蒸馏的价值以**人审与少量精卡**为前提,批量自动化恰恰毁掉它。
 
-**决策与教训(decisions/lessons)抽取**值得单独说:agent 会话里最高价值的往往不是事实而是**决策(为什么这么改)与教训(踩了什么坑)**——这正是 Claude Code 建议写进 CLAUDE.md 的内容(「Claude 第二次犯同一个错时」「code review 指出它本应知道的事」[D1]),也是 Auto memory 的典型条目(构建命令、调试心得、偏好 [D1])。对 OpenObsidian:决策/教训最自然的落点是 **Concept(主张)或 Entity 画像的补充**,而非 Summary——L2 的蒸馏提示词应显式分槽(事实/决策/教训/待办),而非一整段摘要。
+**决策与教训(decisions/lessons)抽取**值得单独说:agent 会话里最高价值的往往不是事实而是**决策(为什么这么改)与教训(踩了什么坑)**——这正是 Claude Code 建议写进 CLAUDE.md 的内容(「Claude 第二次犯同一个错时」「code review 指出它本应知道的事」[D1]),也是 Auto memory 的典型条目(构建命令、调试心得、偏好 [D1])。对 Open LLM Wiki:决策/教训最自然的落点是 **Concept(主张)或 Entity 画像的补充**,而非 Summary——L2 的蒸馏提示词应显式分槽(事实/决策/教训/待办),而非一整段摘要。
 
 ### 3.3 代表系统对照表
 
-| 系统 | 存储形态 | 固化时机 | 蒸馏粒度 | 人审门 | 对 OpenObsidian 的参照点 |
+| 系统 | 存储形态 | 固化时机 | 蒸馏粒度 | 人审门 | 对 Open LLM Wiki 的参照点 |
 |---|---|---|---|---|---|
 | Claude Code Auto memory [D1] | markdown(MEMORY.md 索引 + 主题文件),机器本地、不入 git | 会话中 agent 自决 + 用户「remember X」 | 经验/偏好条目 | `/memory` 可浏览编辑 | 「agent 自决写什么」已产品化;但它**在版本库外**,恰说明我们要反过来:进 vault = 进 git = 有版本真相 |
 | Claude Code `#` 快捷键 [D2][D3] | CLAUDE.md | 人快捷键 | 一行 | 无(直写) | 已被官方移除——轻量直记入口让位给经 agent 的写 |
@@ -108,7 +108,7 @@ Zettelkasten 传统给这条管道的三个现成概念:① **原子性**——�
 
 ---
 
-## 4. 与 OpenObsidian 的适配分析
+## 4. 与 Open LLM Wiki 的适配分析
 
 **五层落点(对照 doc 07 §3)**:
 
@@ -142,7 +142,7 @@ Zettelkasten 传统给这条管道的三个现成概念:① **原子性**——�
 1. **原始转录永留应用数据**——不进 vault、不进 git(doc 11 决策,不动)。
 2. **蒸馏产物走类型体系**——Source/Summary/Entity/Concept + doc 14 字段约定,不发明平行类型。
 3. **人审门结构性存在**——L1/L2 显式动作;L3 即使自动蒸馏也经 git 归因 quarantine(采纳/撤销)+ `reviewed:` 字段双门。
-4. **OpenObsidian 不内置 LLM 调用**——一切「智能」经用户自带 agent(ACP 子进程 / MCP 客户端)。隐私上这是特性:转录内容只流向用户自己选的 agent。
+4. **Open LLM Wiki 不内置 LLM 调用**——一切「智能」经用户自带 agent(ACP 子进程 / MCP 客户端)。隐私上这是特性:转录内容只流向用户自己选的 agent。
 5. **能不加依赖就不加**(§5.5);能不加命令就不加(L1 零命令)。
 6. **可回溯**:蒸馏产物 frontmatter 记 `thread_id`/`agent`/导出日期,原始转录是它的「底片」。
 
@@ -163,7 +163,7 @@ Zettelkasten 传统给这条管道的三个现成概念:① **原子性**——�
 **L3 — 固化时机自动化(sleep-time 式,远期)**
 - **触发器**(参照 Letta [D4],不用空闲计时):① 线程结束(`agent_stop` / picker 切换即结束当前线程)时,若线程满足「值得蒸馏」启发式则**提示**(默认)或自动排队(可选);② 消息数阈值(【默认】≥ 20 条且含 ≥ 1 次文件写——供人改)。
 - **纯本地部分**(无需 LLM):「值得蒸馏」评分 = 纯函数(消息数/文件写数/错误数加权),位置同 L1 渲染函数(`ui/src/lib/distill.ts`)。
-- **依赖外部 LLM 的部分**:蒸馏执行本身——仍经用户 agent(起一个后台线程跑 L2b 的 seed)。**OpenObsidian 侧没有任何新模型依赖。**
+- **依赖外部 LLM 的部分**:蒸馏执行本身——仍经用户 agent(起一个后台线程跑 L2b 的 seed)。**Open LLM Wiki 侧没有任何新模型依赖。**
 - **跨线程归纳**(reflection 式 [28],可选远期):N 条同源线程 → 一篇 Concept 候选,触发与形态均未定,只占位。
 - **默认关**。开关与阈值归 doc 11 §9.5 的 mode/config 表面。
 
@@ -185,7 +185,7 @@ reviewed:                     # 预留字段,空 = 未复审
 
 # 对话记录:opencode · 2026-08-06(线程 #123,42 条消息)
 
-> 导出自 OpenObsidian 应用内 agent 线程。原始转录仍存应用数据(SQLite),
+> 导出自 Open LLM Wiki 应用内 agent 线程。原始转录仍存应用数据(SQLite),
 > 本笔记是其蒸馏底稿;更新 = 重新导出 + 旧 Summary 标 Superseded(Source 不可变)。
 
 **我:** ……
@@ -220,8 +220,8 @@ reviewed:                     # 预留字段,空 = 未复审
 
 | 层 | 影响 | 新增测试 |
 |---|---|---|
-| core(`openobs-core`) | **零改动**(方案刻意不碰) | 无 |
-| app(`openobs-app`) | L1 零改动;L3 或加 1 命令 | 若加命令:`cargo test -p openobs-app` 覆盖(SQLite 侧仿 `transcript.rs` 现有纯测试模式) |
+| core(`open-llm-wiki-core`) | **零改动**(方案刻意不碰) | 无 |
+| app(`open-llm-wiki-app`) | L1 零改动;L3 或加 1 命令 | 若加命令:`cargo test -p open-llm-wiki-app` 覆盖(SQLite 侧仿 `transcript.rs` 现有纯测试模式) |
 | ui 纯逻辑 | `distill.ts` 新纯函数 | vitest:`renderThreadAsSource`(角色混合/空线程/转义/截断)+ `buildIngestSeed`;对齐 `agent-session.test.ts` 风格 |
 | ui e2e(playwright) | 可选 | 现有 `smoke.spec.ts`/`palette-search.spec.ts` 不受影响;导出流在 mock 模式不可用则不加 e2e,留真机验收 |
 | CI 三 job | core-and-ui 会跑新 vitest(typecheck + test:cov);app job 仅在加命令时受影响;e2e job 不受影响 | — |

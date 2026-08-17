@@ -8,11 +8,11 @@
 
 ## 1. TL;DR
 
-1. **现状的空白是结构性的**:OpenObsidian 现有 lint 全部在链接级(MCP `links` 六 kind)与计数级(`templates/wiki-starter/health/` 五条 QQL),`contradicts` 边纯靠人工在 frontmatter 标注;内容层(两页正文互相冲突)没有任何检查。QQL 谓词是**单笔记求值**(`core/src/query.rs::matches`),无跨笔记 join、无边类型过滤,这决定了「内容级检查为什么 QQL 做不了」——但**结构启发式的跨笔记部分**可以做成 core 纯函数。
+1. **现状的空白是结构性的**:Open LLM Wiki 现有 lint 全部在链接级(MCP `links` 六 kind)与计数级(`templates/wiki-starter/health/` 五条 QQL),`contradicts` 边纯靠人工在 frontmatter 标注;内容层(两页正文互相冲突)没有任何检查。QQL 谓词是**单笔记求值**(`core/src/query.rs::matches`),无跨笔记 join、无边类型过滤,这决定了「内容级检查为什么 QQL 做不了」——但**结构启发式的跨笔记部分**可以做成 core 纯函数。
 2. **内容级矛盾检测是公认难题,不是成熟技术**:学界(NLI 模型)在「参考上下文不匹配」时错误率极高;LLM 成对判断贵且不稳(判断不一致、传递性矛盾);事实核查流水线的通行做法是先把页面拆成原子 claim、按实体对齐再逐对比——**候选生成 + 逐 claim 比较**,从不全量两两比较。
-3. **候选生成是成本的决定项**:O(n²) 两两比较在千页 vault 上即百万对。成熟做法(实体解析/record linkage 的 blocking 传统)是先用廉价信号收敛:共享出链/共享标签(图)、共享邻居(二跳)、词汇重叠(倒排)、embedding 相似(向量)。OpenObsidian 已有前三者的全部原料(`Graph` 邻接 + `SearchIndex` 倒排 + tags),**零模型依赖**即可做候选生成。
+3. **候选生成是成本的决定项**:O(n²) 两两比较在千页 vault 上即百万对。成熟做法(实体解析/record linkage 的 blocking 传统)是先用廉价信号收敛:共享出链/共享标签(图)、共享邻居(二跳)、词汇重叠(倒排)、embedding 相似(向量)。Open LLM Wiki 已有前三者的全部原料(`Graph` 邻接 + `SearchIndex` 倒排 + tags),**零模型依赖**即可做候选生成。
 4. **许可核查(一手核验,HF API 2026-08-06)**:常用 NLI 权重许可**并不统一**——`cross-encoder/nli-deberta-v3-base` Apache-2.0(~184M,带 ONNX/int8);`MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` MIT(多语含 zh/ja);`microsoft/deberta-large-mnli` 与 `facebook/bart-large-mnli` 均 MIT;但**不存在** `microsoft/deberta-v3-large-mnli` 这个模型(404),第三方 v3-MNLI 权重各家许可各异。MIT 红线可守,但必须逐个核。
-5. **Cognee 的教训值得直译**:它把矛盾检测做成 opt-in、默认关——因为这是成本项与误报源,不是免费午餐。OpenObsidian 的对应设计:**系统只产候选 + 证据摘要,判断留给 agent/人**(agent-in-the-loop lint),候选宁缺勿滥;判断结果由 agent 经既有 `write_note`(带写后审计)落为 `contradicts` 边 + `status: Contested`,git 留审计轨迹。
+5. **Cognee 的教训值得直译**:它把矛盾检测做成 opt-in、默认关——因为这是成本项与误报源,不是免费午餐。Open LLM Wiki 的对应设计:**系统只产候选 + 证据摘要,判断留给 agent/人**(agent-in-the-loop lint),候选宁缺勿滥;判断结果由 agent 经既有 `write_note`(带写后审计)落为 `contradicts` 边 + `status: Contested`,git 留审计轨迹。
 6. **漂移六型的可查性差别很大**(§3.3 逐型判定):Terminology / Structure 漂移大部分可机器查;Source / Decision / Citation 漂移的**结构信号**(日期、状态字段、断链)可机器查,语义部分只能给 agent 提示;Concept 漂移只能查症状。六型里有三型的结构侧**今天就能用 QQL/图算表达**(§5.1 给了具体文本)。
 7. **工程方案三层**:L1 纯结构启发式(零依赖,部分 QQL 可表达 + 部分 core 纯函数);L2 agent-in-the-loop 内容 lint(先出工作流文档、按需再出 MCP 工具,两案对比见 §5.2);L3 可选自动判(本地 NLI 或外部 LLM,远期、条件触发)。**建议顺序 L1 → L2-doc → L2-tool →(视数据)L3**,每层独立可停。
 8. **优先级定位(2026-08-06 补记,方法论详见 [survey §7.4](./agent-memory-survey.md))**:本方向是四个调研方向中**品味依赖度最低**的一个,排序 P1(1–3 天):L1 检查的是 doc 14 已写成文约定的自洽性(contradicts↔Contested 双向一致、同名静默撞解析等)——不变量成立与否是事实,不是品味判断,无需等待任何观察信号;约定今天就存在,缺的只是守约者。仅个别规则宽严参数(如 L1-A 方向宽松度)需人拍板。
@@ -67,22 +67,22 @@
 - 结论:许可可过 MIT 红线(选 MIT/Apache 权重即可),成本是体积(base 级数百 MB、large 级 >1.5GB)与误报;且 NLI 只判**句对**,仍需要前置的 claim 切分与候选生成。
 
 **路线 B:LLM-as-judge 成对判断**
-- 机制:把候选对 + 各自关键句喂给 LLM,问「是否矛盾、属哪种冲突」。正是 `docs/14` 里 agent 的角色——**在 OpenObsidian 的形态里,agent 本来就是那个 judge**。
+- 机制:把候选对 + 各自关键句喂给 LLM,问「是否矛盾、属哪种冲突」。正是 `docs/14` 里 agent 的角色——**在 Open LLM Wiki 的形态里,agent 本来就是那个 judge**。
 - 证据:LLM-as-a-judge 综述确认成对比较是主流范式;但 judge 自身有一致性问题——TrustJudge(arXiv 2509.21117)实测 LLM 成对判断存在**传递性不一致**(A>B、B>C 却 C>A 类矛盾),相当比例源自「打平」判断的不稳定。成本按对数线性涨,且每次判断不可复现(非确定性)。
 - 结论:判断质量上限高于 NLI(能利用版本/时间/范围语境),但**贵、不稳、不可单测**——适合放在 agent 侧按需触发,不适合做成系统内自动门。
 
 **路线 C:claim 抽取 → 实体对齐 → 逐对比较(事实核查流水线)**
 - 机制:不比较整页,先把每页拆成原子 claim(FActScore 的 atomic facts[AF];SAFE 的「分解→过滤→逐条检索验证」[SAFE];ClaimDecomp 把复杂 claim 拆成子问答[CD]),按主体(entity/subject)归组,组内两两比 status/date/version/scope。
 - 证据:Glukhov 的 LLM Wiki 矛盾工作流与这条流水线同构:「Extract claims → Find related pages → Extract claims → Group claims by subject → Compare status/date/version/scope → Classify → Contradiction report → Human or agent-assisted resolution」[11]。并给出五分类替代二元判断:**real contradiction / version difference / scope difference / terminology difference / unresolved uncertainty**——多数「表面矛盾」其实是后四种。
-- 结论:这是三条路里**唯一被 wiki 维护实践直接验证**的路线;它把「谁来判断」显式留在最后一步(人/agent),与 §4 的推荐一致。抽取与对齐在 OpenObsidian 里可由 agent 完成(L2),不需要系统内置 NLP。
+- 结论:这是三条路里**唯一被 wiki 维护实践直接验证**的路线;它把「谁来判断」显式留在最后一步(人/agent),与 §4 的推荐一致。抽取与对齐在 Open LLM Wiki 里可由 agent 完成(L2),不需要系统内置 NLP。
 
 ### 3.2 候选生成策略(O(n²) 为什么不可行)
 
 - **算术**:1,000 页 vault 两两比较 = 499,500 对;每对若走 LLM judge 按 ~1k token 输入估,一轮 lint ≈ 5 亿 token——不可行。即使本地 NLI,base 级模型 CPU 上每对数十~百毫秒量级,50 万对也是数小时起步。**候选生成不是优化项,是前提。**
 - 实体解析(record linkage)领域对这个问题有 40 年的成熟答案,统称 **blocking / candidate generation**:先用廉价键把记录分块,只在块内/邻域内比较,用 reduction ratio(压缩了多少对)与 pair completeness(漏了多少真对)两个指标权衡(Papadakis et al.,《An Overview of End-to-End Entity Resolution for Big Data》,ACM Computing Surveys;Christen,《Data Matching》)[ER1][ER2]。
-- 四种收敛手段 → OpenObsidian 的对应物:
+- 四种收敛手段 → Open LLM Wiki 的对应物:
 
-  | 手段 | 原理 | OpenObsidian 现成原料 | 依赖 |
+  | 手段 | 原理 | Open LLM Wiki 现成原料 | 依赖 |
   |---|---|---|---|
   | 同键分块(key blocking) | 同标签/同类型才比 | frontmatter `tags`、`type` | 零 |
   | 共享邻居(图) | 链到同一页的两页更可能谈同一件事 | `Graph` 出入邻接(outgoing/backlinks) | 零 |
@@ -113,17 +113,17 @@
 
 ### 3.4 误报治理与 opt-in 教训
 
-- **Cognee 案例**(agent-memory-survey §4.3[40]):Cognee 的 cognify 管线六步任务含矛盾检测,但它是 **opt-in、默认关**。一个开源记忆平台把矛盾检测做成可选,传递的信号很直白:这件事的成本(算力 + 人审)与误报风险在生产中是净负担,除非用户明确要。OpenObsidian 若内置自动判,等于把别人默认关掉的东西默认打开。
+- **Cognee 案例**(agent-memory-survey §4.3[40]):Cognee 的 cognify 管线六步任务含矛盾检测,但它是 **opt-in、默认关**。一个开源记忆平台把矛盾检测做成可选,传递的信号很直白:这件事的成本(算力 + 人审)与误报风险在生产中是净负担,除非用户明确要。Open LLM Wiki 若内置自动判,等于把别人默认关掉的东西默认打开。
 - **狼来了效应**:矛盾检测误报的直接代价不是算力,是**信任**——agent 被喂了十个假候选之后,第十一个真候选也会被敷衍处理。静态分析领域有同构的老结论:工具误报率高时开发者直接忽略全部告警(「Why Don't Developers Use Static Analysis Tools?」PLDI 2013 一类研究的共识[SA1];证据强度:领域共识级,未逐篇核)。
 - 代表系统的治理手法(综合 Glukhov[11] 与 LLM-as-judge 文献):
   1. **分级输出,不做二元判决**:五分类(real/version/scope/terminology/uncertainty)替代「矛盾/不矛盾」;
   2. **自动检测、审慎更新**:「Detect automatically. Explain clearly. Update deliberately. Review risky changes.」——语义检查只产报告,**不自动改写**;改 status 属高风险变更,要人审(Glukhov review levels 把「resolving contradictions」列入 high-risk);
   3. **阈值/置信度门**:只有高置信候选才上浮到人/agent 面前;低置信候选进报告不进门;
-  4. **可回滚**:判断错了能撤——OpenObsidian 的 git 版本真相天然满足(改 status / 加 contradicts 都是可 `git restore` 的小 diff)。
+  4. **可回滚**:判断错了能撤——Open LLM Wiki 的 git 版本真相天然满足(改 status / 加 contradicts 都是可 `git restore` 的小 diff)。
 
 ---
 
-## 4. 与 OpenObsidian 的适配分析
+## 4. 与 Open LLM Wiki 的适配分析
 
 ### 4.1 核心分歧点:判断权归谁
 
@@ -132,7 +132,7 @@
 | (a) 系统内置自动判 | core 内置 NLI/规则,自动改 `status: Contested` | 全自动 | 误报直接污染唯一状态真相(`status` 是 frontmatter 单真相,docs/14 §0);自动改 status 属 Glukhov 定义的 high-risk 变更;模型依赖染色 + 体积;不可单测的判定进 core 违反纯函数原则 |
 | (b) 系统产候选 + 证据,判断给 agent/人 | lint 输出 = 候选对 + 各自关键句 + 共享邻居;agent 读后经 `write_note` 决定是否写 contradicts/Contested | 误报有人兜底;判断留痕(git diff 即审计);零模型依赖可起步;与「agent 经 MCP 干活」的既有形态完全一致 | 吞吐受 agent/人限;需要工作流纪律 |
 
-**倾向 (b)**——理由:① Cognee 用 opt-in 投的反对票(§3.4);② OpenObsidian 的 MCP 面本来就有「写后即审」闭环(`broken_links`/`orphan_hint`),矛盾判断只是同一闭环上再加一类「读后证据包」;③ `contradicts`+`Contested` 的既有语义(docs/03、docs/14 §1.4)是**人/agent 的断言**,系统自动写会让这个语义失真。此结论为建议,**需人拍板**。
+**倾向 (b)**——理由:① Cognee 用 opt-in 投的反对票(§3.4);② Open LLM Wiki 的 MCP 面本来就有「写后即审」闭环(`broken_links`/`orphan_hint`),矛盾判断只是同一闭环上再加一类「读后证据包」;③ `contradicts`+`Contested` 的既有语义(docs/03、docs/14 §1.4)是**人/agent 的断言**,系统自动写会让这个语义失真。此结论为建议,**需人拍板**。
 
 ### 4.2 QQL 与 links 的边界
 
@@ -259,8 +259,8 @@
 
 ### 5.5 测试与 CI 影响
 
-- **core(TDD 主场)**:L1-A/B/D/E 全是 `&[Note]+&Graph` 纯函数,按仓库惯例单测 + proptest(仿 `graph.rs` props);新 QQL 模板进 `wiki_health_qql.rs` 锁「能解析 + 语义对」。→ 自动落入 CI job ①(`cargo test -p openobs-core`)。
-- **mcp**:若做 L2 工具,测试仿 `mcp/src/main.rs` 现有 fixture 风格(tempdir vault + `tools_call`)。**诚实标注:当前 CI(`.github/workflows/ci.yml`)只跑 `openobs-core` 与 `openobs-app`,mcp crate 的既有测试并不在 CI 门里**——新增 mcp 测试要不要进 CI 门(改 ci.yml 加 `cargo test -p openobs-mcp`),需人拍板。
+- **core(TDD 主场)**:L1-A/B/D/E 全是 `&[Note]+&Graph` 纯函数,按仓库惯例单测 + proptest(仿 `graph.rs` props);新 QQL 模板进 `wiki_health_qql.rs` 锁「能解析 + 语义对」。→ 自动落入 CI job ①(`cargo test -p open-llm-wiki-core`)。
+- **mcp**:若做 L2 工具,测试仿 `mcp/src/main.rs` 现有 fixture 风格(tempdir vault + `tools_call`)。**诚实标注:当前 CI(`.github/workflows/ci.yml`)只跑 `open-llm-wiki-core` 与 `open-llm-wiki-app`,mcp crate 的既有测试并不在 CI 门里**——新增 mcp 测试要不要进 CI 门(改 ci.yml 加 `cargo test -p open-llm-wiki-mcp`),需人拍板。
 - **ui/app**:本方案不碰 app 命令层与 ui(除非未来做 lint 结果面板,非本方案范围)。e2e 门不受影响。
 
 ### 5.6 新增依赖与许可

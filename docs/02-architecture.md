@@ -9,14 +9,14 @@
 | 层 | 实际选型 | 为什么 |
 |---|---|---|
 | 桌面外壳 | **Tauri 2.5+**(`@tauri-apps/api`/`cli`/`plugin-dialog`) | 比 Electron 轻 10x+,Rust 后端,原生文件/性能。Obsidian 用 Electron;用 Tauri 是结构性差异。 |
-| 后端 / 核心 | **Rust**(`openobs-core` crate) | 性能关键路径(解析、图谱、查询)放这。纯逻辑、IO-free、全测试,TDD 心脏。 |
+| 后端 / 核心 | **Rust**(`open-llm-wiki-core` crate) | 性能关键路径(解析、图谱、查询)放这。纯逻辑、IO-free、全测试,TDD 心脏。 |
 | 前端 | **React 19.1 + TypeScript 5.9 + Vite 7** | 生态成熟、类型安全。 |
 | 样式 | **Tailwind CSS 4**(`@tailwindcss/vite`)+ 语义令牌 | 原子化样式;主题靠 `@theme` 的 CSS 变量切换,组件只引用令牌。 |
 | UI 组件 | **少量 Radix**(dialog / dropdown-menu / tabs / tooltip)+ **shadcn 模式**(cva/clsx/tailwind-merge)+ **Phosphor icons** | 无障碍的交互组件用 Radix;展示型组件自实现,降依赖体积。 |
 | 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。ReadingView(marked + DOMPurify)。保真:app wikilink + 真 BN 引擎往返门禁([FEATURE-INDEX](./FEATURE-INDEX.md))。 |
 | 图谱渲染 | **Cytoscape.js**(懒加载 `CytoscapeLayer`)+ 力导向 **cose** + 预设坐标(type 层/时间轴) | 交互/样式一体、可测纯逻辑在 `graph-*` lib;大图 top-K 截断;真机帧率见 [backlog](./backlog.md) B-GRAPH-FPS / [plan](./plan.md)。 |
 | 阅读渲染 | **marked 18 + DOMPurify 3** | Markdown → HTML + sanitize;F-READING 安全加固。 |
-| Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk(见 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md))。 |
+| Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk。**孤立白板**:不进 `build_index`、不参与图谱/QQL/wikilink(见 [research/canvas-isolation](./research/canvas-isolation.md));「新建」入口默认隐藏。 |
 | 包管理 | **pnpm**(workspace monorepo) | 快、磁盘高效。 |
 | 测试 | **cargo test**(Rust)+ **Vitest 4**(TS) + **Playwright**(e2e) | 单元(cargo + Vitest node 纯逻辑)+ @testing-library/jsdom 组件测试 + Playwright e2e(mock 模式 smoke,见 [05-tdd-strategy](./05-tdd-strategy.md))。 |
 
@@ -25,7 +25,7 @@
 ## 仓库布局(Cargo workspace + 前端)
 
 ```
-OpenObsidian/
+Open LLM Wiki/
 ├── Cargo.toml            ← workspace 根:members = [core, app/src-tauri]
 ├── core/                 ← Rust crate:纯逻辑(解析/图谱/查询/检索),IO-free,TDD 心脏
 │   └── src/{lib,parse,index,graph,qql,query,search,vault}.rs
@@ -148,7 +148,7 @@ watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径�
 - **图谱**:`graph-model`(path-stable)+ **Cytoscape** 渲染;`cose` 力导向(滑条→布局参数);type 层/时间轴为 preset 坐标;`graph-filter` / health / cluster / style 纯逻辑可测。大图 **top-K 按度数截断**(~2000)。
 - **查询**:Rust 原生(`query::eval` 在 live 不可变快照上);MCP `run_qql` 为 agent/IR 入口。UI 搜索:⌘F 文档内、⌘P 快速打开、⌘K 命令(**无**独立 Query 面板)。
 - **编辑器**:CodeMirror 源码 + BlockNote WYSIWYG 双模;自动保存防抖。
-- **画布**:Excalidraw(MIT),懒加载。
+- **画布**:Excalidraw(MIT),懒加载。孤立白板 —— 不进图谱/QQL/wikilink 索引,「新建」入口默认隐藏(底层保留,见 [research/canvas-isolation](./research/canvas-isolation.md))。
 
 ## 为什么是这个架构(诚实取舍)
 

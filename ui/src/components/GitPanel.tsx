@@ -221,6 +221,28 @@ export function GitPanel({ root, t }: Props) {
         </div>
       )}
 
+      {/* 提交(VS Code 式:commit 表单 + 按钮置顶,变更列表在下) */}
+      <section className="mb-4">
+        <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
+          {t("git.commitSection")}
+        </div>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder={t("git.commitPlaceholder")}
+          rows={2}
+          className="w-full resize-none rounded border border-surface bg-base px-2 py-1.5 text-[12px] text-text outline-none focus:border-blue"
+        />
+        <button
+          onClick={() => void commit()}
+          disabled={committing || !message.trim()}
+          className="mt-1.5 flex w-full items-center justify-center gap-1 rounded bg-green/20 px-2.5 py-1 text-[12px] text-green hover:bg-green/30 disabled:opacity-40"
+        >
+          <GitCommit size={13} />
+          {committing ? t("git.committing") : t("git.commitAll")}
+        </button>
+      </section>
+
       {/* 变更清单 */}
       <section className="mb-4">
         <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
@@ -256,28 +278,6 @@ export function GitPanel({ root, t }: Props) {
             })}
           </ul>
         )}
-      </section>
-
-      {/* 提交 */}
-      <section className="mb-4">
-        <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          {t("git.commitSection")}
-        </div>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={t("git.commitPlaceholder")}
-          rows={2}
-          className="w-full resize-none rounded border border-surface bg-base px-2 py-1.5 text-[12px] text-text outline-none focus:border-blue"
-        />
-        <button
-          onClick={() => void commit()}
-          disabled={committing || !message.trim()}
-          className="mt-1.5 flex items-center gap-1 rounded bg-green/20 px-2.5 py-1 text-[12px] text-green hover:bg-green/30 disabled:opacity-40"
-        >
-          <GitCommit size={13} />
-          {committing ? t("git.committing") : t("git.commitAll")}
-        </button>
       </section>
 
       {/* 最近提交 */}

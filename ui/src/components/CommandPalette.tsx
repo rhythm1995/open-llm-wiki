@@ -17,6 +17,7 @@ import type { VaultActions } from "../lib/store";
 import type { NodeOut, VaultSnapshot } from "../lib/ipc";
 import { ipc } from "../lib/ipc";
 import type { TFunc } from "../lib/i18n";
+import { isIMEComposing } from "../lib/ime";
 import { cn } from "../lib/cn";
 import {
   buildAppCommands,
@@ -192,7 +193,7 @@ export function CommandPalette({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSel((s) => (s - 1 + total) % Math.max(total, 1));
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && !isIMEComposing(e)) {
       e.preventDefault();
       if (total > 0) activate(sel);
     }

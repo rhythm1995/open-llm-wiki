@@ -8,7 +8,7 @@
 export type Theme = "light" | "dark";
 export type ThemePref = Theme | "system";
 
-export const THEME_STORAGE_KEY = "openobs.theme";
+export const THEME_STORAGE_KEY = "open-llm-wiki.theme";
 
 /** 把偏好解析成实际主题:显式优先;system 跟随系统;null/未知 → 浅色(产品默认)。 */
 export function resolveTheme(pref: ThemePref | null, systemDark: boolean): Theme {

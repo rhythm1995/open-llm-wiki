@@ -1,13 +1,14 @@
-//! openobs-app —— Tauri 桌面壳。
+//! open-llm-wiki-app —— Tauri 桌面壳。
 //!
 //! 薄薄的 IO 层:把文件系统读写 + 目录选择暴露成 Tauri 命令,真正的逻辑(解析/图谱/查询/检索)
-//! 全部委托给 `openobs-core`。前端通过 `@tauri-apps/api` 的 invoke 调用这些命令。
+//! 全部委托给 `open-llm-wiki-core`。前端通过 `@tauri-apps/api` 的 invoke 调用这些命令。
 //!
 //! 设计原则:命令函数只做 IO 与 core 之间的胶水,不写业务逻辑。
 
 mod acp;
 mod git_attr;
 mod logging;
+mod onboarding;
 mod transcript;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -19,12 +20,13 @@ use std::thread;
 use std::time::Duration;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use openobs_core::{
-    apply_entry_deltas, frontmatter_str, parse_query, tags as note_tags, type_of, EdgeKind,
-    ResultSet, Target, VaultIndex,
+use open_llm_wiki_core::{
+    apply_entry_deltas, frontmatter_str, lint_all, parse_query, tags as note_tags, type_of,
+    EdgeKind, LintReport, ResultSet, Target, VaultIndex,
 };
 use serde::Serialize;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
@@ -154,7 +156,7 @@ struct LiveVault {
     /// 相对 path → 正文(.md only)。
     entries: BTreeMap<String, String>,
     index: VaultIndex,
-    media: openobs_core::MediaIndex,
+    media: open_llm_wiki_core::MediaIndex,
 }
 
 struct LiveVaultState(Mutex<Option<LiveVault>>);
@@ -175,9 +177,9 @@ fn normalize_rel(path: &str) -> String {
 }
 
 /// 磁盘图片 → MediaMeta(仅图片扩展名;点目录已由 walk filter 排除)。
-fn media_meta_from_path(root: &Path, abs: &Path) -> Option<openobs_core::MediaMeta> {
+fn media_meta_from_path(root: &Path, abs: &Path) -> Option<open_llm_wiki_core::MediaMeta> {
     let rel = normalize_rel(&abs.strip_prefix(root).unwrap_or(abs).to_string_lossy());
-    if rel.is_empty() || !openobs_core::is_image_path(&rel) {
+    if rel.is_empty() || !open_llm_wiki_core::is_image_path(&rel) {
         return None;
     }
     let meta = fs::metadata(abs).ok()?;
@@ -187,9 +189,9 @@ fn media_meta_from_path(root: &Path, abs: &Path) -> Option<openobs_core::MediaMe
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    Some(openobs_core::MediaMeta {
+    Some(open_llm_wiki_core::MediaMeta {
         path: rel.clone(),
-        kind: openobs_core::kind_from_path(&rel),
+        kind: open_llm_wiki_core::kind_from_path(&rel),
         bytes: meta.len(),
         mtime_ms,
     })
@@ -202,8 +204,8 @@ fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
         return Err(format!("不是目录:{root}"));
     }
     let mut entries: BTreeMap<String, String> = BTreeMap::new();
-    let mut media_files: Vec<openobs_core::MediaMeta> = Vec::new();
-    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian、.openobsidian 等)。
+    let mut media_files: Vec<open_llm_wiki_core::MediaMeta> = Vec::new();
+    // 过滤掉任何点开头的文件/目录(含 .trash、.obsidian、.open-llm-wiki 等)。
     for entry in WalkDir::new(root_path)
         .min_depth(1)
         .into_iter()
@@ -227,7 +229,7 @@ fn load_live_from_disk(root: &str) -> Result<LiveVault, String> {
         }
     }
     let index = VaultIndex::build_from_map(&entries);
-    let media = openobs_core::MediaIndex::build(
+    let media = open_llm_wiki_core::MediaIndex::build(
         media_files,
         entries
             .iter()
@@ -275,7 +277,7 @@ fn live_apply(
 /// 登记/刷新单张磁盘图片进 media files 表。
 fn live_media_upsert_file(live: &mut LiveVault, root: &str, rel: &str) {
     let rel = normalize_rel(rel);
-    if !openobs_core::is_image_path(&rel) {
+    if !open_llm_wiki_core::is_image_path(&rel) {
         return;
     }
     let Ok(full) = resolve_under(root, &rel) else {
@@ -465,10 +467,10 @@ fn write_note(
 
 /// 读取图谱布局快照(B-GRAPH-POS-PERSIST)。
 /// 文件缺失 → `Ok(None)`(首次启动 / 未落盘)。其余 IO 错误透传。
-/// 路径固定为 `<root>/.openobsidian/graph-layout.json`(默认 gitignore,见 P6-7)。
+/// 路径固定为 `<root>/.open-llm-wiki/graph-layout.json`(默认 gitignore,见 P6-7)。
 #[tauri::command]
 fn read_graph_layout(root: String) -> Result<Option<String>, String> {
-    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    let full = resolve_under(&root, ".open-llm-wiki/graph-layout.json")?;
     match fs::read_to_string(&full) {
         Ok(s) => Ok(Some(s)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -476,10 +478,10 @@ fn read_graph_layout(root: String) -> Result<Option<String>, String> {
     }
 }
 
-/// 写入图谱布局快照(自动创建 `.openobsidian/` 目录)。
+/// 写入图谱布局快照(自动创建 `.open-llm-wiki/` 目录)。
 #[tauri::command]
 fn save_graph_layout(root: String, json: String) -> Result<(), String> {
-    let full = resolve_under(&root, ".openobsidian/graph-layout.json")?;
+    let full = resolve_under(&root, ".open-llm-wiki/graph-layout.json")?;
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
@@ -520,61 +522,6 @@ fn attachment_exists(root: String, path: String) -> Result<bool, String> {
     Ok(full.is_file())
 }
 
-fn is_image_rel(path: &str) -> bool {
-    Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| {
-            matches!(
-                e.to_ascii_lowercase().as_str(),
-                "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp"
-            )
-        })
-        .unwrap_or(false)
-}
-
-/// 列出 vault 内图片附件相对路径。
-/// `dir` 缺省为 `attachments`;只扫该子树下的图片扩展名,不进笔记 live index。
-#[tauri::command]
-fn list_attachments(root: String, dir: Option<String>) -> Result<Vec<String>, String> {
-    let sub = dir
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or("attachments");
-    // 与前端 normalizeAttachmentsDir 对齐:禁止 `..` 逃逸(resolve_under 也兜底)。
-    let sub_norm = normalize_rel(sub);
-    if sub_norm.is_empty() || sub_norm.split('/').any(|s| s == "..") {
-        return Err("invalid attachments dir".into());
-    }
-    let base = resolve_under(&root, &sub_norm)?;
-    if !base.is_dir() {
-        return Ok(Vec::new());
-    }
-    let root_path = Path::new(&root);
-    let mut out = Vec::new();
-    for entry in WalkDir::new(&base)
-        .into_iter()
-        .filter_entry(|e| !e.file_name().to_string_lossy().starts_with('.'))
-    {
-        let e = entry.map_err(err)?;
-        let p = e.path();
-        if !p.is_file() {
-            continue;
-        }
-        let rel = normalize_rel(
-            &p.strip_prefix(root_path)
-                .unwrap_or(p)
-                .to_string_lossy(),
-        );
-        if is_image_rel(&rel) {
-            out.push(rel);
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
 /// 媒体索引对外 DTO(serde;camelCase 由前端读 path/bytes/…)。
 #[derive(serde::Serialize)]
 struct MediaMetaOut {
@@ -606,10 +553,10 @@ struct MediaSnapshot {
     missing: Vec<String>,
 }
 
-fn media_meta_out(ix: &openobs_core::MediaIndex, m: &openobs_core::MediaMeta) -> MediaMetaOut {
+fn media_meta_out(ix: &open_llm_wiki_core::MediaIndex, m: &open_llm_wiki_core::MediaMeta) -> MediaMetaOut {
     let kind = match m.kind {
-        openobs_core::MediaKind::Image => "image",
-        openobs_core::MediaKind::Other => "other",
+        open_llm_wiki_core::MediaKind::Image => "image",
+        open_llm_wiki_core::MediaKind::Other => "other",
     };
     MediaMetaOut {
         path: m.path.clone(),
@@ -681,19 +628,7 @@ fn media_of_note(
         .collect())
 }
 
-/// 引用某附件的笔记路径列表。
-#[tauri::command]
-fn media_used_by(
-    root: String,
-    path: String,
-    state: State<LiveVaultState>,
-) -> Result<Vec<String>, String> {
-    let g = ensure_live_media(&state, &root)?;
-    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
-    Ok(live.media.used_by(&path))
-}
-
-/// 将附件移入 `.openobsidian/media-trash/`(可还原目录树),并更新 media files 表。
+/// 将附件移入 `.open-llm-wiki/media-trash/`(可还原目录树),并更新 media files 表。
 /// **不**在 delete_note 时自动调用——需 UI 确认后调用。
 #[tauri::command]
 fn trash_attachments(
@@ -719,7 +654,7 @@ fn trash_attachments(
             }
             continue;
         }
-        let trash_rel = format!(".openobsidian/media-trash/{rel}");
+        let trash_rel = format!(".open-llm-wiki/media-trash/{rel}");
         let dst = resolve_under(&root, &trash_rel)?;
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent).map_err(err)?;
@@ -932,7 +867,7 @@ fn rename_note(
                                 .map(|m| m.path)
                                 .collect();
                             // media_of 已因 entries 移除? by_note 仍 keyed by from_n until apply
-                            let moves = openobs_core::plan_media_moves_on_note_rename(
+                            let moves = open_llm_wiki_core::plan_media_moves_on_note_rename(
                                 &from_n,
                                 &to_n,
                                 media_list,
@@ -941,7 +876,7 @@ fn rename_note(
                             let mut new_body = body;
                             if !moves.is_empty() {
                                 new_body =
-                                    openobs_core::rewrite_media_paths_in_body(&new_body, &moves);
+                                    open_llm_wiki_core::rewrite_media_paths_in_body(&new_body, &moves);
                                 for m in &moves {
                                     let msrc = resolve_under(&root, &m.from)?;
                                     let mdst = resolve_under(&root, &m.to)?;
@@ -1072,11 +1007,14 @@ fn search_notes(
         .collect())
 }
 
-/// 前端→ LogBus:把 webview 的 console.error / 未捕获错误写入文件 + stderr。
-/// 兼容旧调用方;等价于 `log_write(error, webview, line)`。
+/// L1 结构 lint(B-WIKI-LINT-MCP 的人侧接通点)。**只读 live.index**,不 WalkDir;
+/// 返回候选([`LintReport`]),永不改 vault——修不修由 UI/人显式决定。
 #[tauri::command]
-fn diag_log(line: String) {
-    logging::emit(logging::LogLevel::Error, "webview", &line, None);
+fn lint_vault(root: String, state: State<LiveVaultState>) -> Result<LintReport, String> {
+    ensure_live(&state, &root)?;
+    let g = state.0.lock().map_err(|e| e.to_string())?;
+    let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
+    Ok(lint_all(live.index.graph()))
 }
 
 /// 结构化日志写入(L1 LogBus)。level: trace|debug|info|warn|error|fatal。
@@ -1094,14 +1032,6 @@ fn log_write(
         target.as_str()
     };
     logging::emit(lv, tgt, &msg, fields);
-}
-
-/// 返回应用日志目录绝对路径(macOS: ~/Library/Logs/{bundleId}/ …)。
-#[tauri::command]
-fn log_get_dir() -> Result<String, String> {
-    logging::log_dir()
-        .map(|p| p.to_string_lossy().to_string())
-        .ok_or_else(|| "log bus not initialized".into())
 }
 
 /// 在系统文件管理器中打开日志目录。
@@ -1171,6 +1101,137 @@ async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
     Ok(path)
 }
 
+/// 用户 Documents 目录(无 crate 依赖;HOME/USERPROFILE + Documents)。
+fn documents_dir() -> Result<std::path::PathBuf, String> {
+    if let Ok(d) = std::env::var("OPEN_LLM_WIKI_DOCUMENTS") {
+        // 测试 / 可控环境可覆盖落盘位置。
+        return Ok(std::path::PathBuf::from(d));
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(p) = std::env::var("USERPROFILE") {
+            return Ok(std::path::PathBuf::from(p).join("Documents"));
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return Ok(std::path::PathBuf::from(home).join("Documents"));
+        }
+    }
+    Err("cannot resolve Documents directory".into())
+}
+
+/// 首次启动示例库种子文件(与 ui `sample-vault.ts` 对齐,双语欢迎向)。
+fn sample_vault_seed_files() -> Vec<(&'static str, &'static str)> {
+    vec![
+        (
+            "Welcome.md",
+            r#"---
+type: Note
+tags: [meta]
+---
+
+# Welcome
+
+这是 **Open LLM Wiki** 的示例知识库。
+
+- 本地优先:文件即真相,目录就是 Vault
+- 用 `[[wikilink]]` 连接笔记,打开 **图谱** 看网络
+- 从左侧列表选笔记,或新建一篇开始
+
+从这里开始:
+
+- 概念 [[Local First]]
+- 概念 [[Knowledge Graph]]
+- 来源 [[Example Source]]
+"#,
+        ),
+        (
+            "concepts/local-first.md",
+            r#"---
+type: Concept
+status: Active
+tags: [method]
+---
+
+# Local First
+
+数据留在你自己的磁盘上,而不是关进别人的云。
+
+Open LLM Wiki 把任意 Markdown 文件夹当作 Vault——可同步、可 git、可备份。
+
+相关:[[Knowledge Graph]] · [[Welcome]]
+"#,
+        ),
+        (
+            "concepts/knowledge-graph.md",
+            r#"---
+type: Concept
+status: Active
+tags: [method]
+---
+
+# Knowledge Graph
+
+笔记之间的链接构成一张图:节点是页面,边是 wikilink 与 frontmatter 关系。
+
+试试顶栏 **图谱**,双击节点打开笔记。
+
+相关:[[Local First]] · [[Example Source]] · [[Welcome]]
+"#,
+        ),
+        (
+            "sources/example-source.md",
+            r#"---
+type: Source
+evidence_tier: analysis
+tags: [example]
+---
+
+# Example Source
+
+示例「来源」页:记录你读过的文章、论文或对话,再蒸馏进 Concept / Entity。
+
+被 [[Knowledge Graph]] 与 [[Welcome]] 引用。
+"#,
+        ),
+    ]
+}
+
+/// 在 Documents 下创建「Open LLM Wiki Demo」示例 vault(重名则加序号),返回绝对路径。
+#[tauri::command]
+fn create_sample_vault() -> Result<String, String> {
+    let docs = documents_dir()?;
+    fs::create_dir_all(&docs).map_err(err)?;
+    let base = "Open LLM Wiki Demo";
+    let mut root = docs.join(base);
+    let mut n = 2u32;
+    while root.exists() {
+        root = docs.join(format!("{base} {n}"));
+        n += 1;
+        if n > 100 {
+            return Err("too many sample vaults already exist".into());
+        }
+    }
+    fs::create_dir_all(&root).map_err(err)?;
+    for (rel, content) in sample_vault_seed_files() {
+        let full = root.join(rel);
+        if let Some(parent) = full.parent() {
+            fs::create_dir_all(parent).map_err(err)?;
+        }
+        fs::write(&full, content).map_err(err)?;
+    }
+    let path = root.to_string_lossy().to_string();
+    logging::emit(
+        logging::LogLevel::Info,
+        "ipc.create_sample_vault",
+        "created",
+        Some(serde_json::json!({ "path": &path })),
+    );
+    Ok(path)
+}
+
 /// 在系统文件管理器中显示笔记文件(macOS Finder / Windows 资源管理器 / Linux 文件管理器)。
 /// 供列表行右键「在 Finder 中显示」。走系统子进程,与 git 命令同一风格,不引入 opener 插件。
 #[tauri::command]
@@ -1192,6 +1253,26 @@ fn reveal_in_finder(root: String, path: String) -> Result<(), String> {
             .unwrap_or_else(|| full.to_string_lossy().to_string());
         ("xdg-open", vec![parent])
     };
+    std::process::Command::new(program)
+        .args(&args)
+        .spawn()
+        .map_err(err)?;
+    Ok(())
+}
+
+/// 用系统浏览器打开白名单 https 地址(问题反馈 → GitHub Issues)。
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    const PREFIX: &str = "https://github.com/rhythm1995/open-llm-wiki";
+    if url != PREFIX && !url.starts_with(&format!("{PREFIX}/")) {
+        return Err("blocked url".into());
+    }
+    #[cfg(target_os = "macos")]
+    let (program, args): (&str, Vec<String>) = ("open", vec![url]);
+    #[cfg(target_os = "windows")]
+    let (program, args): (&str, Vec<String>) = ("cmd", vec!["/C".into(), "start".into(), url]);
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let (program, args): (&str, Vec<String>) = ("xdg-open", vec![url]);
     std::process::Command::new(program)
         .args(&args)
         .spawn()
@@ -1536,13 +1617,6 @@ fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Resu
     Ok(())
 }
 
-/// 停止监听(drop watcher → channel 断开 → debounce 线程自然退出)。
-#[tauri::command]
-fn unwatch_vault(state: State<WatcherState>) -> Result<(), String> {
-    *state.0.lock().unwrap() = None;
-    Ok(())
-}
-
 // ───────────────────────── 应用入口 ──────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1552,24 +1626,24 @@ pub fn run() {
         .manage(WatcherState(Mutex::new(None)))
         .manage(LiveVaultState(Mutex::new(None)))
         .manage(acp::AcpState::default())
-        // §9.6 关闭善后:单窗口 app,主窗口关闭即退出 → 终止活动 agent 子进程,
-        // 防 orphan(kill_on_drop 在进程被强杀时不一定触发)。
+        // 菜单栏 app 模式:主窗口点 × 只隐藏,app 与状态栏图标常驻 → 左键状态栏图标可重开。
+        // 不在此停 agent:app 继续运行、会话保留;真正退出(Cmd+Q / tray Quit)走 PredefinedMenuItem::quit
+        // → app.exit(0)(不触发 prevent_close),进程结束时 kill_on_drop / drop 清理 agent 子进程。
         .on_window_event(move |window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(st) = window.try_state::<acp::AcpState>() {
-                    acp::stop_state(&st.0);
-                }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
             }
         })
         .setup(|app| {
             // B-AGENT-PATHFIX:GUI 启动 PATH 极简,先并回用户登录 PATH + 常见目录,
             // 否则 agent_list 检测 / AcpAgent spawn 都会失败。
             acp::augment_path();
-            // L1 客户端日志:AppLog 目录 + profile(env OPENOBS_LOG_PROFILE / debug→dev / release→prod)。
+            // L1 客户端日志:AppLog 目录 + profile(env OPEN_LLM_WIKI_LOG_PROFILE / debug→dev / release→prod)。
             let log_dir = app
                 .path()
                 .app_log_dir()
-                .unwrap_or_else(|_| std::env::temp_dir().join("openobsidian-logs"));
+                .unwrap_or_else(|_| std::env::temp_dir().join("open-llm-wiki-logs"));
             let profile = logging::resolve_profile_from_env();
             logging::init(log_dir, profile);
             logging::install_panic_hook();
@@ -1581,7 +1655,7 @@ pub fn run() {
             let file_new = MenuItemBuilder::with_id("new-note", "New Note")
                 .accelerator("CmdOrCtrl+N")
                 .build(app)?;
-            let file_canvas = MenuItemBuilder::with_id("new-canvas", "New Canvas").build(app)?;
+            let _file_canvas = MenuItemBuilder::with_id("new-canvas", "New Canvas").build(app)?; // 入口暂隐(孤立白板);builder 保留以便恢复
             let file_sheet = MenuItemBuilder::with_id("new-sheet", "New Spreadsheet").build(app)?;
             let file_open = MenuItemBuilder::with_id("open-vault", "Open Vault…")
                 .accelerator("CmdOrCtrl+O")
@@ -1599,6 +1673,8 @@ pub fn run() {
             let file_settings = MenuItemBuilder::with_id("settings", "Settings…")
                 .accelerator("CmdOrCtrl+,")
                 .build(app)?;
+            let help_issue =
+                MenuItemBuilder::with_id("report-issue", "Report Issue…").build(app)?;
             let edit_find = MenuItemBuilder::with_id("find", "Find in Note")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -1612,6 +1688,7 @@ pub fn run() {
                 MenuItemBuilder::with_id("toggle-split", "Toggle Split Preview").build(app)?;
             let view_ed = MenuItemBuilder::with_id("view-editor", "Editor").build(app)?;
             let view_gr = MenuItemBuilder::with_id("view-graph", "Graph").build(app)?;
+            let view_health = MenuItemBuilder::with_id("view-health", "Health").build(app)?;
             let view_git = MenuItemBuilder::with_id("view-git", "Git").build(app)?;
             let view_theme =
                 MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
@@ -1620,7 +1697,7 @@ pub fn run() {
 
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&file_new)
-                .item(&file_canvas)
+                // 画布「新建」入口暂隐:孤立白板,与图谱/QQL 解耦(file_canvas builder 保留)
                 .item(&file_sheet)
                 .separator()
                 .item(&file_open)
@@ -1641,6 +1718,8 @@ pub fn run() {
                 .item(&PredefinedMenuItem::cut(app, None)?)
                 .item(&PredefinedMenuItem::copy(app, None)?)
                 .item(&PredefinedMenuItem::paste(app, None)?)
+                // macOS 键等效(⌘A)由原生菜单路由:缺这一项,textarea 里全选会失效。
+                .item(&PredefinedMenuItem::select_all(app, None)?)
                 .separator()
                 .item(&edit_find)
                 .item(&edit_find_vault)
@@ -1652,15 +1731,20 @@ pub fn run() {
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&view_ed)
                 .item(&view_gr)
+                .item(&view_health)
                 .item(&view_git)
                 .separator()
                 .item(&view_theme)
                 .item(&view_refresh)
                 .build()?;
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(&help_issue)
+                .build()?;
             let menu = MenuBuilder::new(app)
                 .item(&file_menu)
                 .item(&edit_menu)
                 .item(&view_menu)
+                .item(&help_menu)
                 .build()?;
             app.set_menu(menu)?;
             let handle = app.handle().clone();
@@ -1668,6 +1752,50 @@ pub fn run() {
                 let id = event.id().as_ref().to_string();
                 let _ = handle.emit("menu-action", id);
             });
+
+            // ── 状态栏(menubar)图标:左键打开主窗口,右键 Show/Quit 菜单 ──
+            // 图标为 macOS template image(纯黑 + alpha),icon_as_template(true) → 系统
+            // 自动按菜单栏明暗反色(浅色栏 → 白),与主 app icon 的灯泡意象一致。
+            // 用 @2x(44px):Retina 原生、非 Retina 向下采样,两种屏都清晰。
+            let tray_show = MenuItemBuilder::with_id("tray-show", "Show Open LLM Wiki").build(app)?;
+            let tray_menu = MenuBuilder::new(app)
+                .item(&tray_show)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+            TrayIconBuilder::with_id("main-tray")
+                .icon(tauri::image::Image::from_bytes(include_bytes!(
+                    "../icons/tray-icon-light@2x.png"
+                ))?)
+                .icon_as_template(true)
+                .menu(&tray_menu)
+                // 左键不弹菜单,改由 on_tray_icon_event 直接显示窗口。
+                .show_menu_on_left_click(false)
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        if let Some(w) = tray.app_handle().get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                })
+                .on_menu_event(|app, event| {
+                    // tray 菜单事件独立于 app.on_menu_event(window menu);此处只处理自定义 show。
+                    if event.id().as_ref() == "tray-show" {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1679,10 +1807,8 @@ pub fn run() {
             rename_note,
             save_attachment,
             attachment_exists,
-            list_attachments,
             media_index,
             media_of_note,
-            media_used_by,
             trash_attachments,
             read_attachment_data_url,
             read_graph_layout,
@@ -1691,11 +1817,12 @@ pub fn run() {
             apply_vault_changes,
             run_qql,
             search_notes,
+            lint_vault,
             pick_vault,
+            create_sample_vault,
             reveal_in_finder,
-            diag_log,
+            open_external_url,
             log_write,
-            log_get_dir,
             log_open_dir,
             log_set_profile,
             log_get_status,
@@ -1710,13 +1837,13 @@ pub fn run() {
             git_restore_note,
             git_init,
             watch_vault,
-            unwatch_vault,
             acp::agent_list,
             acp::agent_start,
             acp::agent_prompt,
             acp::agent_stop,
             acp::agent_cancel,
             acp::agent_alive,
+            acp::agent_runtime,
             acp::agent_permission_respond,
             acp::agent_set_instant_commit,
             acp::agent_set_mode,
@@ -1727,12 +1854,20 @@ pub fn run() {
             transcript::agent_thread_list,
             transcript::agent_thread_load,
             transcript::agent_thread_append,
-            transcript::agent_thread_clear,
             transcript::agent_thread_delete,
             git_attr::agent_activity,
             git_attr::agent_diff,
             git_attr::agent_revert,
             git_attr::agent_adopt,
+            onboarding::onboard_scan,
+            onboarding::onboard_apply,
+            onboarding::onboard_remove,
+            onboarding::onboard_doctor,
+            onboarding::onboard_init,
+            onboarding::onboard_install_skill,
+            onboarding::onboard_guidance,
+            onboarding::onboard_resolve_binary,
+            onboarding::onboard_pick_binary,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
@@ -1741,11 +1876,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_base64, is_md_rel, live_apply, load_live_from_disk, normalize_rel, path_should_emit,
-        preview_of, strip_data_url_base64, LiveVault,
+        create_sample_vault, decode_base64, is_md_rel, live_apply, load_live_from_disk,
+        normalize_rel, path_should_emit, preview_of, strip_data_url_base64, LiveVault,
     };
-    use openobs_core::{parse_query, ResultSet, VaultIndex};
+    use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
     use std::collections::BTreeMap;
+    use std::fs;
+
+    #[test]
+    fn create_sample_vault_writes_welcome() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        // SAFETY: test-only env for documents_dir override; single-threaded test process.
+        unsafe {
+            std::env::set_var("OPEN_LLM_WIKI_DOCUMENTS", tmp.path());
+        }
+        let path = create_sample_vault().expect("create sample");
+        let welcome = std::path::Path::new(&path).join("Welcome.md");
+        assert!(welcome.is_file(), "Welcome.md should exist at {path}");
+        let body = fs::read_to_string(&welcome).unwrap();
+        assert!(body.contains("Open LLM Wiki"));
+        assert!(body.contains("[[Local First]]"));
+        // second call gets a numbered folder
+        let path2 = create_sample_vault().expect("create sample 2");
+        assert_ne!(path, path2);
+        unsafe {
+            std::env::remove_var("OPEN_LLM_WIKI_DOCUMENTS");
+        }
+    }
 
     #[test]
     fn normalize_and_md_helpers() {
@@ -1822,7 +1979,7 @@ mod tests {
             root: "/tmp/v".into(),
             entries: BTreeMap::new(),
             index: VaultIndex::build(vec![]),
-            media: openobs_core::MediaIndex::new(),
+            media: open_llm_wiki_core::MediaIndex::new(),
         };
         live_apply(
             &mut live,
@@ -1855,6 +2012,37 @@ mod tests {
             other => panic!("expected Count, got {other:?}"),
         }
         assert_eq!(live.index.search(&["truth"]).len(), 1);
+    }
+
+    /// `lint_vault` 命令的数据路径:delta 建起的 live 索引 → lint_all → 报告。
+    #[test]
+    fn lint_over_live_index_reports_candidates() {
+        let mut live = LiveVault {
+            root: "/tmp/v".into(),
+            entries: BTreeMap::new(),
+            index: VaultIndex::build(vec![]),
+            media: open_llm_wiki_core::MediaIndex::new(),
+        };
+        live_apply(
+            &mut live,
+            vec![
+                (
+                    "a.md".into(),
+                    Some(
+                        "---\ntype: Concept\nstatus: Active\ncontradicts:\n  - \"[[b]]\"\n---\n# A\n"
+                            .into(),
+                    ),
+                ),
+                (
+                    "b.md".into(),
+                    Some("---\ntype: Concept\nstatus: Active\n---\n# B\n".into()),
+                ),
+            ],
+        );
+        let report = open_llm_wiki_core::lint_all(live.index.graph());
+        assert_eq!(report.findings.len(), 1);
+        assert_eq!(report.findings[0].subject.path, "a.md");
+        assert_eq!(report.findings[0].other.as_ref().unwrap().path, "b.md");
     }
 
     #[test]
@@ -1894,7 +2082,7 @@ mod git_tests {
         let root = dir.path().to_str().unwrap();
         // 先 init(空目录无内容可提交,失败被 git_init 静默吞掉),再设本地身份。
         git_init(root.to_string()).unwrap();
-        run_git(root, &["config", "user.email", "test@openobs.dev"]).unwrap();
+        run_git(root, &["config", "user.email", "test@openllmwiki.dev"]).unwrap();
         run_git(root, &["config", "user.name", "Test"]).unwrap();
         run_git(root, &["config", "commit.gpgsign", "false"]).unwrap();
         dir

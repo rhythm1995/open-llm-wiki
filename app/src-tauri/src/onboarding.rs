@@ -1,0 +1,411 @@
+//! Agent 记忆接入(B-MCP-ONBOARD 桌面侧)—— `open_llm_wiki_mcp::onboard` 的薄胶水。
+//!
+//! CLI(`open-llm-wiki-mcp setup/doctor/init`)与这组命令共享同一套逻辑,UI 只是表单。
+//! 所有写操作走 onboard 的安全护栏(备份 / 原子写 / 拒碰不可解析文件);
+//! 本模块不复制任何接线逻辑。
+//!
+//! app 进程 ≠ open-llm-wiki-mcp 进程:MCP 条目的 `command` 需要 mcp 二进制路径,
+//! 由 [`resolve_mcp_binary_from`] 定位(当前 exe 同目录 → PATH → UI 手选)。
+
+use std::path::{Path, PathBuf};
+
+use open_llm_wiki_mcp::onboard;
+use serde::Serialize;
+
+/// UI 面板里的 agent 行。
+#[derive(Serialize)]
+pub struct AgentRow {
+    pub id: String,
+    pub label: String,
+    /// 检测到已安装(任一硬证据命中)。
+    pub present: bool,
+    pub evidence: Vec<String>,
+    pub hints: Vec<String>,
+    pub config_path: Option<String>,
+    pub note: String,
+    /// 无自动接线面(只给 snippet)。
+    pub manual_only: bool,
+    /// 已接线时:条目里的 command 路径。
+    pub wired_command: Option<String>,
+    /// 已接线时:条目里的 vault。
+    pub wired_vault: Option<String>,
+    /// 配置文件存在但不可解析/不可读(展示原因,不触碰文件)。
+    pub config_error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ScanOut {
+    pub home: String,
+    /// 自动解析到的 open-llm-wiki-mcp 二进制路径;null = 需用户手选。
+    pub resolved_binary: Option<String>,
+    pub agents: Vec<AgentRow>,
+    /// 可粘贴进 agent 指引文件的引导文本(UI 提供复制按钮,绝不自动写入)。
+    pub guidance: String,
+}
+
+#[tauri::command]
+pub fn onboard_scan() -> Result<ScanOut, String> {
+    let home = onboard::home_dir()?;
+    let mut agents: Vec<AgentRow> = Vec::new();
+    for status in onboard::detect_agents(&home) {
+        let spec = onboard::agents()
+            .iter()
+            .find(|s| s.id == status.id)
+            .expect("registry id mismatch");
+        let manual_only = matches!(spec.config, onboard::ConfigTarget::Manual);
+        let (wired_command, wired_vault, config_error) =
+            match onboard::read_agent_entry(spec, &home) {
+                Ok(Some(w)) => (
+                    Some(w.command.to_string_lossy().into_owned()),
+                    Some(w.vault.to_string_lossy().into_owned()),
+                    None,
+                ),
+                Ok(None) => (None, None, None),
+                Err(e) => (None, None, Some(e)),
+            };
+        agents.push(AgentRow {
+            id: status.id,
+            label: status.label,
+            present: status.present,
+            evidence: status.evidence,
+            hints: status.hints,
+            config_path: status.config_path.map(|p| p.to_string_lossy().into_owned()),
+            note: status.note,
+            manual_only,
+            wired_command,
+            wired_vault,
+            config_error,
+        });
+    }
+    Ok(ScanOut {
+        home: home.to_string_lossy().into_owned(),
+        resolved_binary: resolve_mcp_binary().map(|p| p.to_string_lossy().into_owned()),
+        agents,
+        guidance: onboard::GUIDANCE_SNIPPET.to_string(),
+    })
+}
+
+/// MCP 二进制候选文件名(同目录 / Resources / cargo target)。
+const MCP_BIN_NAMES: &[&str] = &["open-llm-wiki-mcp", "openobs-mcp"];
+
+fn is_executable_file(p: &Path) -> bool {
+    if !p.is_file() {
+        return false;
+    }
+    // Windows 无 Unix 可执行位;存在即视为可用。其它平台要求 user 可执行。
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        p.metadata()
+            .map(|m| m.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
+fn first_mcp_in_dir(dir: &Path) -> Option<PathBuf> {
+    for name in MCP_BIN_NAMES {
+        let p = dir.join(name);
+        if is_executable_file(&p) {
+            return Some(p);
+        }
+        // Tauri externalBin 在部分阶段会保留 `name-<triple>` 后缀。
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for ent in rd.flatten() {
+                let fname = ent.file_name();
+                let s = fname.to_string_lossy();
+                if s.starts_with(&format!("{name}-")) && is_executable_file(&ent.path()) {
+                    return Some(ent.path());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 定位 open-llm-wiki-mcp 二进制(纯函数,`app_exe` 注入以便测试):
+/// 1. 当前 exe 的同目录(dev: target/{debug,release} 并排;打包: Contents/MacOS 嵌入 / externalBin);
+/// 2. macOS .app 的 Contents/Resources/;
+/// 3. 沿父目录向上找 `target/{release,debug}/open-llm-wiki-mcp`(tauri dev / 工作区构建);
+/// 4. PATH 上的 `open-llm-wiki-mcp` / 旧名 `openobs-mcp`(`which`);
+/// 5. 都没有 → None,UI 可引导用户或手选。
+pub fn resolve_mcp_binary_from(app_exe: &Path) -> Option<PathBuf> {
+    let exe = app_exe.canonicalize().unwrap_or_else(|_| app_exe.to_path_buf());
+    if let Some(dir) = exe.parent() {
+        if let Some(p) = first_mcp_in_dir(dir) {
+            return Some(p);
+        }
+        // …/Foo.app/Contents/MacOS/app → …/Foo.app/Contents/Resources/
+        if dir.file_name().and_then(|s| s.to_str()) == Some("MacOS") {
+            if let Some(contents) = dir.parent() {
+                if let Some(p) = first_mcp_in_dir(&contents.join("Resources")) {
+                    return Some(p);
+                }
+            }
+        }
+        // 沿祖先找 cargo target 产物(app 在 target/debug/deps 等嵌套路径时)。
+        // 最多爬 12 层,避免扫到 `/`。
+        let mut cur = Some(dir);
+        for _ in 0..12 {
+            let Some(d) = cur else { break };
+            for profile in ["release", "debug"] {
+                if let Some(p) = first_mcp_in_dir(&d.join("target").join(profile)) {
+                    return Some(p);
+                }
+                // 已在 target/release 或 target/debug 内。
+                if d.file_name().and_then(|s| s.to_str()) == Some(profile) {
+                    if let Some(p) = first_mcp_in_dir(d) {
+                        return Some(p);
+                    }
+                }
+            }
+            cur = d.parent();
+        }
+    }
+    which::which("open-llm-wiki-mcp")
+        .or_else(|_| which::which("openobs-mcp"))
+        .ok()
+}
+
+pub fn resolve_mcp_binary() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    resolve_mcp_binary_from(&exe)
+}
+
+/// 空字符串时回落自动解析;都没有则报错(供 apply/doctor 共用)。
+fn require_mcp_binary(binary: &str) -> Result<PathBuf, String> {
+    let t = binary.trim();
+    if !t.is_empty() {
+        return Ok(PathBuf::from(t));
+    }
+    resolve_mcp_binary().ok_or_else(|| {
+        "cannot locate open-llm-wiki-mcp binary (rebuild with scripts/build-app.sh or set path under Advanced)"
+            .into()
+    })
+}
+
+/// 单 agent 操作回执(接入 / 拆线共用)。
+#[derive(Serialize)]
+pub struct AgentActionResult {
+    pub id: String,
+    pub ok: bool,
+    pub message: String,
+}
+
+fn to_action_result(id: &str, res: Result<String, String>) -> AgentActionResult {
+    match res {
+        Ok(message) => AgentActionResult {
+            id: id.into(),
+            ok: true,
+            message,
+        },
+        Err(message) => AgentActionResult {
+            id: id.into(),
+            ok: false,
+            message,
+        },
+    }
+}
+
+/// 把 open-llm-wiki-mcp 接入所选 agent(写各家 MCP 配置;护栏在 onboard)。
+/// `dry_run=true` 只报告将执行的操作,不落盘。
+#[tauri::command]
+pub fn onboard_apply(
+    binary: String,
+    vault: String,
+    agent_ids: Vec<String>,
+    dry_run: Option<bool>,
+) -> Result<Vec<AgentActionResult>, String> {
+    if vault.trim().is_empty() {
+        return Err("vault path is required".into());
+    }
+    let command = require_mcp_binary(&binary)?;
+    let home = onboard::home_dir()?;
+    let entry = onboard::McpEntry {
+        command,
+        vault: PathBuf::from(vault),
+    };
+    let mut out = Vec::new();
+    for spec in onboard::agents() {
+        if !agent_ids.iter().any(|id| id == spec.id) {
+            continue;
+        }
+        let res = onboard::wire_agent(spec, &home, &entry, dry_run.unwrap_or(false))
+            .map(|o| o.describe());
+        out.push(to_action_result(spec.id, res));
+    }
+    Ok(out)
+}
+
+/// 拆线:只删各家配置里的 `open-llm-wiki` 条目。
+#[tauri::command]
+pub fn onboard_remove(agent_ids: Vec<String>) -> Result<Vec<AgentActionResult>, String> {
+    let home = onboard::home_dir()?;
+    let mut out = Vec::new();
+    for spec in onboard::agents() {
+        if !agent_ids.iter().any(|id| id == spec.id) {
+            continue;
+        }
+        let res = onboard::unwire_agent(spec, &home, false).map(|o| o.describe());
+        out.push(to_action_result(spec.id, res));
+    }
+    Ok(out)
+}
+
+#[derive(Serialize)]
+pub struct OnboardCheck {
+    pub name: String,
+    /// "ok" | "warn" | "fail"
+    pub status: String,
+    pub detail: String,
+}
+
+/// 接线健康诊断(与 `open-llm-wiki-mcp doctor` 同一份 [`onboard::run_checks`])。
+#[tauri::command]
+pub fn onboard_doctor(vault: String, binary: Option<String>) -> Result<Vec<OnboardCheck>, String> {
+    let home = onboard::home_dir()?;
+    let exe = require_mcp_binary(binary.as_deref().unwrap_or(""))?;
+    Ok(onboard::run_checks(&PathBuf::from(vault), &home, &exe)
+        .into_iter()
+        .map(|c| OnboardCheck {
+            name: c.name,
+            status: match c.status {
+                onboard::Status::Ok => "ok".into(),
+                onboard::Status::Warn => "warn".into(),
+                onboard::Status::Fail => "fail".into(),
+            },
+            detail: c.detail,
+        })
+        .collect())
+}
+
+#[derive(Serialize)]
+pub struct SeedReportOut {
+    pub written: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
+/// 播种 wiki-starter 模板(与 `open-llm-wiki-mcp init` 同一份 [`onboard::seed_vault`])。
+/// `force=true` 合并非空目录但永不覆盖已有文件。
+#[tauri::command]
+pub fn onboard_init(dir: String, force: Option<bool>) -> Result<SeedReportOut, String> {
+    let report = onboard::seed_vault(&PathBuf::from(dir), force.unwrap_or(false))?;
+    Ok(SeedReportOut {
+        written: report.written,
+        skipped: report.skipped,
+    })
+}
+
+/// 仅给 `dir`(当前工作 vault)补装 wiki-ingest skill 到 `.agents/` + `.claude/`,
+/// 不写整套 starter 模板。一键接入调用,让「提炼进 Wiki」开箱即用。永不覆盖已有。
+#[tauri::command]
+pub fn onboard_install_skill(dir: String) -> Result<SeedReportOut, String> {
+    let report = onboard::install_wiki_ingest_skill(&PathBuf::from(dir))?;
+    Ok(SeedReportOut {
+        written: report.written,
+        skipped: report.skipped,
+    })
+}
+
+/// 引导文本(粘贴进 agent 的 CLAUDE.md / AGENTS.md 等;UI 只复制,绝不代写)。
+#[tauri::command]
+pub fn onboard_guidance() -> String {
+    onboard::GUIDANCE_SNIPPET.to_string()
+}
+
+/// 重新解析 open-llm-wiki-mcp 二进制(UI「重新检测」按钮)。
+#[tauri::command]
+pub fn onboard_resolve_binary() -> Option<String> {
+    resolve_mcp_binary().map(|p| p.to_string_lossy().into_owned())
+}
+
+/// 手动选择 open-llm-wiki-mcp 二进制(系统文件对话框)。
+#[tauri::command]
+pub async fn onboard_pick_binary(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let file = app.dialog().file().blocking_pick_file();
+    Ok(file
+        .and_then(|p| p.into_path().ok())
+        .map(|p| p.to_string_lossy().to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 同目录优先:fake app exe 旁放一个 open-llm-wiki-mcp → 命中同目录。
+    #[test]
+    fn resolve_binary_prefers_sibling_of_app_exe() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let app_exe = dir.path().join("open-llm-wiki-app");
+        std::fs::write(&app_exe, "").unwrap();
+        write_fake_bin(&dir.path().join("open-llm-wiki-mcp"));
+        let got = resolve_mcp_binary_from(&app_exe).expect("sibling should win");
+        assert!(got.ends_with("open-llm-wiki-mcp"), "got: {got:?}");
+        assert_eq!(
+            got.parent().unwrap(),
+            dir.path().canonicalize().unwrap(),
+            "应命中 app exe 同目录,而不是 PATH 上可能存在的其它副本"
+        );
+    }
+
+    /// 沿祖先找到 target/release/open-llm-wiki-mcp(模拟 tauri 嵌套产物路径)。
+    #[test]
+    fn resolve_binary_walks_up_to_cargo_target() {
+        let root = tempfile::TempDir::new().unwrap();
+        let release = root.path().join("target/release");
+        std::fs::create_dir_all(&release).unwrap();
+        write_fake_bin(&release.join("open-llm-wiki-mcp"));
+        // app 在更深的假路径里,同目录无 mcp。
+        let nested = root.path().join("target/release/deps");
+        std::fs::create_dir_all(&nested).unwrap();
+        let app_exe = nested.join("open-llm-wiki-app");
+        std::fs::write(&app_exe, "").unwrap();
+        let got = resolve_mcp_binary_from(&app_exe).expect("should walk to target/release");
+        assert!(
+            got.ends_with("open-llm-wiki-mcp"),
+            "got: {got:?}"
+        );
+        assert_eq!(got.parent().unwrap(), release.canonicalize().unwrap());
+    }
+
+    /// 同目录 triple 后缀(externalBin 中间态)也能命中。
+    #[test]
+    fn resolve_binary_accepts_target_triple_suffix() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let app_exe = dir.path().join("open-llm-wiki-app");
+        std::fs::write(&app_exe, "").unwrap();
+        write_fake_bin(&dir.path().join("open-llm-wiki-mcp-aarch64-apple-darwin"));
+        let got = resolve_mcp_binary_from(&app_exe).expect("triple sibling");
+        assert!(
+            got.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("open-llm-wiki-mcp-"),
+            "got: {got:?}"
+        );
+    }
+
+    fn write_fake_bin(p: &Path) {
+        std::fs::write(p, b"#!/bin/sh\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(p).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(p, perms).unwrap();
+        }
+    }
+
+    /// to_action_result:Ok/Err 映射不丢信息。
+    #[test]
+    fn action_result_mapping() {
+        let ok = to_action_result("cursor", Ok("wrote".into()));
+        assert!(ok.ok && ok.message == "wrote");
+        let bad = to_action_result("grok", Err("manual".into()));
+        assert!(!bad.ok && bad.message == "manual");
+    }
+}

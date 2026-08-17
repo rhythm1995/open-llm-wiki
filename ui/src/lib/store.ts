@@ -77,6 +77,11 @@ export function useVault() {
   const watchPendingRef = useRef<Set<string>>(new Set());
   /** 单调世代:每次调度 apply 递增;完成时过期则丢弃 setState。 */
   const watchGenRef = useRef(0);
+  /**
+   * 最近一次 rename/move 的路径别名(旧→新,单条)。视图卸载 flush 若在改名后
+   * 迟到,重定向到新路径,避免向已改名的旧路径写盘"复活"旧文件。
+   */
+  const pathAliasRef = useRef<Map<string, string>>(new Map());
 
   // 最近状态用 ref 同步,避免防抖回调闭包拿到旧值。
   const latest = useRef<{
@@ -129,8 +134,10 @@ export function useVault() {
   }, []);
 
   const saveNow = useCallback(async () => {
-    const { path, content, root } = latest.current;
+    const { path, content, root, dirty } = latest.current;
     if (!path || !root) return;
+    // 内容没变不写盘:避免误触发把 mtime 顶上去、第二栏跳顶。
+    if (!dirty) return;
     setState((s) => ({ ...s, saveState: "saving" }));
     try {
       await ipc.writeNote(root, path, content);
@@ -392,13 +399,44 @@ export function useVault() {
 
   const setContent = useCallback(
     (next: string) => {
-      setState((s) => ({ ...s, content: next, dirty: true }));
+      if (latest.current.content === next) return;
+      setState((s) => (s.content === next ? s : { ...s, content: next, dirty: true }));
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         void saveNow();
       }, SAVE_DEBOUNCE_MS);
     },
     [saveNow],
+  );
+
+  /**
+   * 带所有权的回写:编辑器视图(富文本/画布/表格)卸载 flush 专用。
+   * path+root 仍是当前笔记 → 走 setContent(共享槽 + 防抖落盘);
+   * 否则(stale flush:切笔记/切 tab/切 vault 后迟到)→ 定向写回视图自己的
+   * (root, path)(经 rename 别名重定向),不碰共享槽——否则旧笔记内容会污染
+   * 新笔记的 content 槽并在防抖到期后落盘到错误路径(跨笔记写坏,2026-08-15 修复)。
+   */
+  const writeScoped = useCallback(
+    (path: string | null, root: string | null, next: string) => {
+      if (!path || !root) return;
+      if (path === latest.current.path && root === latest.current.root) {
+        setContent(next);
+        return;
+      }
+      const target = pathAliasRef.current.get(path) ?? path;
+      void (async () => {
+        try {
+          await ipc.writeNote(root, target, next);
+          if (reindexTimer.current) clearTimeout(reindexTimer.current);
+          reindexTimer.current = setTimeout(() => {
+            void refreshIndex(root);
+          }, REINDEX_DEBOUNCE_MS);
+        } catch (e) {
+          setState((s) => ({ ...s, error: String(e) }));
+        }
+      })();
+    },
+    [setContent, refreshIndex],
   );
 
   const createNote = useCallback(
@@ -477,7 +515,7 @@ export function useVault() {
 
   /**
    * 新建一张画布(F-CANVAS / Excalidraw):写空 `.canvas` 文件并打开。
-   * 内容由 CanvasView 防抖回写 OpenObsidianCanvas JSON;这里只负责落空壳。
+   * 内容由 CanvasView 防抖回写 OpenLlmWikiCanvas JSON;这里只负责落空壳。
    * 与 createNote 分开:扩展名不同、初始内容为空串、不走模板。
    */
   const createCanvas = useCallback(
@@ -712,6 +750,8 @@ export function useVault() {
       try {
         if (latest.current.dirty && latest.current.path === from) await saveNow();
         await ipc.renameNote(root, from, to);
+        // 迟到的卸载 flush 仍携带旧路径 → 别名重定向到新路径,防旧文件复活。
+        pathAliasRef.current = new Map([[from, to]]);
         const entries = await ipc.listVault(root);
         setState((s) => ({
           ...s,
@@ -742,6 +782,7 @@ export function useVault() {
       try {
         if (latest.current.dirty && latest.current.path === from) await saveNow();
         await ipc.renameNote(root, from, to);
+        pathAliasRef.current = new Map([[from, to]]);
         const entries = await ipc.listVault(root);
         setState((s) => ({
           ...s,
@@ -951,6 +992,7 @@ export function useVault() {
       goBack,
       goForward,
       setContent,
+      writeScoped,
       createNote,
       createNoteFromTemplate,
       createDraftNote,

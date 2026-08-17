@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   splitFrontmatter,
+  frontmatterLineOffset,
   mergeFrontmatter,
   parseFrontmatterEntries,
   setFrontmatterValue,
@@ -31,6 +32,14 @@ describe("splitFrontmatter", () => {
   it("does not treat a mid-document fence as frontmatter", () => {
     const txt = "# T\n\n---\n\nnot fm\n";
     expect(splitFrontmatter(txt).hasFm).toBe(false);
+  });
+});
+
+describe("frontmatterLineOffset", () => {
+  it("counts the closed fence so body line 1 is the next document line", () => {
+    // WITH_FM: 5 行围栏(含起止 ---),body 以空行开头,# Title 是 body 第 2 行 = 全文第 7 行。
+    expect(frontmatterLineOffset(WITH_FM)).toBe(5);
+    expect(frontmatterLineOffset(NO_FM)).toBe(0);
   });
 });
 

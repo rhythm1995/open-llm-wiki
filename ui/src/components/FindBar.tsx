@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import type { TFunc } from "../lib/i18n";
 import { findInDocument } from "../lib/find-in-doc";
+import { isIMEComposing } from "../lib/ime";
 import type { EditorHandle } from "./Editor";
 
 interface Props {
@@ -83,7 +84,7 @@ export function FindBar({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.altKey) {
+            if (e.key === "Enter" && !e.altKey && !isIMEComposing(e)) {
               e.preventDefault();
               if (e.metaKey || e.ctrlKey) {
                 doReplaceNext();
@@ -152,7 +153,7 @@ export function FindBar({
             value={replace}
             onChange={(e) => setReplace(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && !isIMEComposing(e)) {
                 e.preventDefault();
                 if (e.metaKey || e.ctrlKey || e.altKey) doReplaceAll();
                 else doReplaceNext();

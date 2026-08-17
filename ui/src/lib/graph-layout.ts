@@ -1,7 +1,7 @@
 /**
  * graph-layout —— 图谱坐标/力参数/几何的**纯逻辑**(F-GRAPH,渲染器中立)。
  *
- * 力导向排布由 Cytoscape **cose** 完成(CytoscapeLayer 映射 ForceParams);
+ * 力导向排布由 **force-graph / d3-force** 完成(ForceGraphLayer 映射 ForceParams);
  * 本文件只保留渲染器中立的共享件:
  *   - Pt / ForceParams / DEFAULT_FORCES / normalizeForces —— 力参数模型
  *   - bbox / fitTransform / visibleNodeIds —— 坐标几何(单测覆盖;布局/落盘共用)。
@@ -17,7 +17,7 @@ export interface Pt {
  * 可调力参数(Obsidian 心智:中心引力 / 斥力 / 弹簧强度 / 弹簧理想距离)。
  * 四项**互不依赖**:repel 缩放斥力,linkDistance 缩放弹簧理想长度,
  * linkStrength 缩放弹簧吸引,center 缩放向心引力。全部默认 1 = 基线。
- * CytoscapeLayer 把四项映射到 cose 的 nodeRepulsion / idealEdgeLength 等。
+ * ForceGraphLayer 把四项映射到 d3 charge / link distance / strength 等。
  */
 export interface ForceParams {
   /** 向心引力倍率。 */

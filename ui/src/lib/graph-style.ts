@@ -1,10 +1,8 @@
 /**
- * graph-style —— 节点/边的颜色、尺寸与视觉状态(纯函数,渲染器中立)。
+ * graph-style —— 节点/边颜色、尺寸与视觉状态(纯函数,渲染器中立)。
  *
- * Cytoscape 与任何 canvas 层共用同一套取色/尺寸逻辑。CSS 变量从 document 读,
- * 失败回落 fallback(便于压暗/描边等后处理落到具体颜色值)。
- * 节点视觉状态(active/missing/selected/external)决定是否画描边环及环样式,
- * 让 canvas 渲染器复刻 inkeep 式的高亮/悬空/选中语义。
+ * 2026-08 视觉语言:对齐 OpenWiki 探索气质 —— 暗画布、克制色相、统一 accent 高亮;
+ * 不再用 Catppuccin 彩虹满屏。CSS 变量可覆盖;失败回落 hex。
  */
 
 /** 读 CSS 变量为颜色串;空则 fallback。 */
@@ -20,51 +18,69 @@ export function cssColor(varName: string, fallback: string): string {
   }
 }
 
-/** 类型 → 颜色(与 SVG GraphView 语义一致)。 */
+/**
+ * 类型 → 填充色(低饱和、同系冷暖)。
+ * 默认值刻意对齐 OpenWiki 调色板气质,而非 Catppuccin 糖果色。
+ */
 export function typeColorResolved(type: string | null): string {
   switch (type) {
     case "Source":
-      return cssColor("--color-yellow", "#df8e1d");
+      return cssColor("--graph-type-source", "#D4B56A");
     case "Concept":
-      return cssColor("--color-mauve", "#8839ef");
+      return cssColor("--graph-type-concept", "#B4A0E0");
     case "Entity":
-      return cssColor("--color-teal", "#179299");
+      return cssColor("--graph-type-entity", "#5EC4B6");
     case "Summary":
-      return cssColor("--color-green", "#40a02b");
+      return cssColor("--graph-type-summary", "#7BC47F");
     case "Note":
-      return cssColor("--color-blue", "#1e66f5");
+      return cssColor("--graph-type-note", "#7FC8FF");
+    case "Query":
+      return cssColor("--graph-type-query", "#C78EAD");
     default:
-      return cssColor("--color-overlay", "#9ca0b0");
+      return cssColor("--graph-type-default", "#6B8299");
   }
+}
+
+/** 画布背景(图空间,略深于 app base)。 */
+export function graphCanvasBgResolved(): string {
+  if (isDarkTheme()) {
+    return cssColor("--graph-canvas-bg", "#050a16");
+  }
+  return cssColor("--graph-canvas-bg-light", "#EAF5FF");
+}
+
+/** 邻域/粒子/选中统一高亮色。 */
+export function graphAccentResolved(): string {
+  return cssColor("--graph-accent", "#7FC8FF");
 }
 
 export function edgeColorResolved(
   kind: "wiki" | "relation",
   hot: boolean,
 ): string {
-  if (hot) return cssColor("--color-blue", "#1e66f5");
-  if (kind === "relation") return cssColor("--color-mauve", "#8839ef");
-  return cssColor("--color-overlay", "#9ca0b0");
-}
-
-export function clusterColorResolved(): string {
-  return cssColor("--color-blue", "#1e66f5");
-}
-
-export function baseBgResolved(): string {
-  return cssColor("--color-base", "#1e1e2e");
+  if (hot) return graphAccentResolved();
+  // 浅色图底用更深灰蓝;深色图底用略亮的边,避免「看不见线」。
+  if (kind === "relation") {
+    const base = isDarkTheme()
+      ? cssColor("--graph-edge-relation", "#9B8EC4")
+      : cssColor("--graph-edge-relation-light", "#6B5B95");
+    return colorWithAlpha(base, isDarkTheme() ? 0.85 : 0.7);
+  }
+  const base = isDarkTheme()
+    ? cssColor("--graph-edge", "#4A6078")
+    : cssColor("--graph-edge-light", "#5B7086");
+  return colorWithAlpha(base, isDarkTheme() ? 0.75 : 0.55);
 }
 
 export function labelColorResolved(): string {
-  return cssColor("--color-text", "#cdd6f4");
+  if (isDarkTheme()) {
+    return cssColor("--graph-label", "#8CA3BD");
+  }
+  return cssColor("--graph-label-light", "#3D5166");
 }
 
 export function unresolvedColorResolved(): string {
-  return cssColor("--color-red", "#d20f39");
-}
-
-export function pinColorResolved(): string {
-  return cssColor("--color-mauve", "#8839ef");
+  return cssColor("--graph-unresolved", "#B27D75");
 }
 
 /**
@@ -91,15 +107,15 @@ export function isDarkTheme(): boolean {
 }
 
 /**
- * 节点渲染尺寸(图空间固定,与 collide radius 同源):按度数开方(亚线性)。
- * 基础半径 5 保证缩到全图时叶子节点仍可见;系数 2.1 让 hub 明显更大但不爆炸。
- * collide radius = 本值 + pad,故任意缩放渲染圆都不重叠。
+ * 节点渲染半径(图空间):按度数开方亚线性。
+ * 基础 4 保证叶子可见;系数 1.8 让 hub 更大但不爆炸。
  */
 export function nodeSizeFromDegree(deg: number): number {
-  return 5 + Math.sqrt(Math.max(0, deg)) * 2.1;
+  // 收紧半径:避免 glow+大核把边盖成一坨;hub 仍可辨。
+  return 3.2 + Math.sqrt(Math.max(0, deg)) * 1.25;
 }
 
-/** 给 #rgb/#rrggbb 或已是 rgba 的颜色叠透明度(邻域压暗)。 */
+/** 给 #rgb/#rrggbb 或已是 rgba 的颜色叠透明度(邻域压暗 / glow)。 */
 export function colorWithAlpha(color: string, alpha: number): string {
   const a = Math.max(0, Math.min(1, alpha));
   const m = color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
@@ -137,8 +153,8 @@ export type NodeVisualState =
 
 export function nodeVisualState(o: {
   isCurrent?: boolean;
-  isSelected?: boolean;
   isMissing?: boolean;
+  isSelected?: boolean;
   isGhost?: boolean;
 }): NodeVisualState {
   if (o.isCurrent) return "active";
@@ -160,7 +176,7 @@ export function nodeRingStyle(state: NodeVisualState): NodeRingStyle {
   switch (state) {
     case "active":
       return {
-        ringColor: cssColor("--color-blue", "#1e66f5"),
+        ringColor: "#FFFFFF",
         ringWidth: 2,
         dashed: false,
         ringAlpha: 1,
@@ -174,17 +190,17 @@ export function nodeRingStyle(state: NodeVisualState): NodeRingStyle {
       };
     case "selected":
       return {
-        ringColor: cssColor("--color-mauve", "#8839ef"),
-        ringWidth: 1.5,
+        ringColor: graphAccentResolved(),
+        ringWidth: 1.6,
         dashed: false,
-        ringAlpha: 0.85,
+        ringAlpha: 0.95,
       };
     case "external":
       return {
-        ringColor: cssColor("--color-overlay", "#9ca0b0"),
+        ringColor: cssColor("--graph-type-default", "#6B8299"),
         ringWidth: 1,
         dashed: true,
-        ringAlpha: 0.5,
+        ringAlpha: 0.55,
       };
     case "normal":
     default:

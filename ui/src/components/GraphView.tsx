@@ -1,17 +1,16 @@
 /**
- * GraphView —— 关系图谱(F-GRAPH,Cytoscape 主路径)。
+ * GraphView —— 关系图谱(F-GRAPH,force-graph Canvas 主路径)。
  *
  * 架构:
  *   graph-filter  → 可见集
  *   graph-model   → path-stable / degree / topK / structureSig
  *   graph-modes   → type-layer / timeline preset 坐标
- *   CytoscapeLayer → 渲染 + cose 力导向(懒加载 chunk)
+ *   ForceGraphLayer → Canvas 力导向 + OpenWiki 气质 paint(懒加载 chunk)
  *
- * 数据流:GraphView 构建 {nodes,links}(稳定身份,就地改状态字段)交给 Cytoscape;
- * force 模式由 cose 排布;preset 模式用父组件写入的 x/y。结构变化才重建元素。
- *
- * 交互:过滤 / 悬停邻域高亮 / pin / 拖拽→自动钉 /
- * Shift 框选 / 右键菜单 / 缩放 fit / 焦点飞入 / 悬空边 ghost。
+ * 视野两层(用户心智):
+ *   1. 稳定偏好 scope:跟随当前笔记 | 全库
+ *   2. 临时镜头 focusId:聚焦此处 N 跳 —— 双击/右键/摘要卡同一入口;点空白或 Esc 退出
+ * 属性过滤为第三层,有徽章提示。
  */
 import {
   lazy,
@@ -26,8 +25,6 @@ import {
 } from "react";
 import {
   Funnel,
-  MagnifyingGlassPlus,
-  MagnifyingGlassMinus,
   ArrowsOutSimple,
   ArrowsClockwise,
   Graph,
@@ -71,6 +68,7 @@ import {
   GRAPH_MAX_NODES,
   type GraphNode,
 } from "../lib/graph-model";
+import { labelStatus, labelType } from "../lib/wiki-labels";
 import {
   parseLayoutJson,
   serializeLayoutJson,
@@ -90,11 +88,11 @@ import { nodeWikilink } from "../lib/wikilink";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
-import type { GraphLinkInput, GraphNodeInput } from "./CytoscapeLayer";
+import type { GraphLinkInput, GraphNodeInput } from "./ForceGraphLayer";
 
-// cytoscape 体积大:懒加载独立 chunk。
-const CytoscapeLayerLazy = lazy(() =>
-  import("./CytoscapeLayer").then((m) => ({ default: m.CytoscapeLayer })),
+// force-graph 体积大:懒加载独立 chunk。
+const ForceGraphLayerLazy = lazy(() =>
+  import("./ForceGraphLayer").then((m) => ({ default: m.ForceGraphLayer })),
 );
 
 interface Props {
@@ -109,7 +107,8 @@ interface Props {
 }
 
 /** force 模式 tick 上限(到期停摆省电;autoPauseRedraw=false 仍持续重绘)。 */
-const COOLDOWN_TICKS = 300;
+/** 力导向 tick 上限;收敛后 ForceGraphLayer 会冻结坐标,点击不再 reheat。 */
+const COOLDOWN_TICKS = 90;
 
 const TYPE_COLOR: Record<string, string> = {
   Source: "var(--color-yellow)",
@@ -175,9 +174,14 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
     types: new Set(types),
     relations: new Set<EdgeKind>(["wiki", "relation"]),
   }));
-  const [showFilters, setShowFilters] = useState(true);
+  // P2:高级过滤默认折叠,图面先干净。
+  const [showFilters, setShowFilters] = useState(false);
   // 6B4:图健康面板(Orphans / Hubs),默认关。
   const [showHealth, setShowHealth] = useState(false);
+  /** 更多(布局/范围/重排)折叠进一个面板。 */
+  const [showMore, setShowMore] = useState(false);
+  /** 视口完全看不到节点(相机层上报)。 */
+  const [viewportEmpty, setViewportEmpty] = useState(false);
   const [healthMode, setHealthMode] = useState<"orphans" | "hubs">("orphans");
   // 6A5:最短路径。pathFrom 由右键菜单设定;pathResult 为 id 序列 / 不可达 / 未计算。
   const [pathFrom, setPathFrom] = useState<number | null>(null);
@@ -206,7 +210,8 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
     node: NodeOut;
   } | null>(null);
   const [fitToken, setFitToken] = useState(0);
-  const [zoomCmd, setZoomCmd] = useState({ token: 0, factor: 1 });
+  /** 保留 zoom API 给渲染层;主路径用滚轮,角钮已撤。 */
+  const zoomCmd = { token: 0, factor: 1 };
   const [flyTo, setFlyTo] = useState<{
     x: number;
     y: number;
@@ -237,7 +242,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
   );
 
   // ── 6A1 坐标落盘 ────────────────────────────────────────────────────────
-  // 读:root 变化时读一次 `.openobsidian/graph-layout.json`,合流进 warmPositionsRef。
+  // 读:root 变化时读一次 `.open-llm-wiki/graph-layout.json`,合流进 warmPositionsRef。
   // loadedRef 在完成前为 false,阻止 save effect 把空布局写回覆盖。
   const loadedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -638,36 +643,94 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
   }, [renderIds.length, size.w, size.h, layoutReady]);
 
   const fit = useCallback(() => setFitToken((n) => n + 1), []);
-  const zoomBy = useCallback(
-    (factor: number) => setZoomCmd((c) => ({ token: c.token + 1, factor })),
-    [],
-  );
-
-  // 焦点飞入当前文档:位置就绪后取节点坐标 centerAt+zoom(每 30 tick 重试一次)。
-  const didFlyRef = useRef(false);
+  /** 临时镜头:聚焦此处(双击 / 右键 / 摘要卡同一入口)。 */
+  const focusHere = useCallback((id: number, hops = 1) => {
+    setFilters((f) => ({ ...f, focusId: id, hops }));
+  }, []);
+  /** 退出临时聚焦(点空白 / Esc / 芯片 × / 右键)。不清 scope。 */
+  const clearFocus = useCallback(() => {
+    setFilters((f) =>
+      f.focusId == null ? f : { ...f, focusId: null },
+    );
+  }, []);
+  // Esc → 退出聚焦
   useEffect(() => {
-    didFlyRef.current = false;
-  }, [currentId]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (filters.focusId == null && pathFrom == null) return;
+      e.preventDefault();
+      clearFocus();
+      setPathFrom(null);
+      setPathResult(null);
+      setShowMore(false);
+      setShowFilters(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [filters.focusId, pathFrom, clearFocus]);
+
+  /** 属性过滤生效项数(不含 focus —— focus 单独芯片)。 */
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.query.trim()) n++;
+    if (filters.hideOrphans) n++;
+    if (filters.hideUnresolved) n++;
+    // types:初始为「全选」= 与 types 全集等长,不算生效;少了才算
+    if (filters.types.size > 0 && filters.types.size < types.length) n++;
+    if (filters.tags.size > 0) n++;
+    if (filters.statuses.size > 0 && filters.statuses.size < statuses.length)
+      n++;
+    if (
+      filters.relations.size > 0 &&
+      filters.relations.size < 2
+    )
+      n++;
+    return n;
+  }, [filters, types.length, statuses.length]);
+
+  const focusTitle =
+    filters.focusId != null
+      ? (model.byId.get(filters.focusId)?.title ?? String(filters.focusId))
+      : "";
+
+  /**
+   * 焦点飞入:仅在「打开 vault / 切到图谱后首次有稳定坐标」时飞一次。
+   * 绝不要在每次 currentId 变化时飞——图内点选会改 currentId,若再用父组件
+   * 滞后的 n.x/n.y(常接近初始/原点) centerAt,相机会甩到左上角、中心大片空白。
+   * 坐标优先 positionsRef(渲染层回写的真相),不要信 GraphNodeInput 上过期字段。
+   */
+  const didFlyRef = useRef(false);
   useEffect(() => {
     didFlyRef.current = false;
   }, [root]);
   useEffect(() => {
-    if (currentId == null || didFlyRef.current) return;
-    const n = nodesByIdRef.current.get(currentId);
-    if (!n || n.x == null || n.y == null) return;
+    if (didFlyRef.current) return;
+    if (currentId == null) return;
+    if (positionsTick === 0) return; // 等 ForceGraphLayer 至少回写过一次
+    const p = positionsRef.current.get(currentId);
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
+    // 拒绝明显未布局的 (0,0) 占位,避免 badcase 甩镜
+    if (p.x === 0 && p.y === 0) return;
     didFlyRef.current = true;
     setFlyTo((f) => ({
-      x: n.x!,
-      y: n.y!,
-      zoom: 1.4,
+      x: p.x,
+      y: p.y,
+      zoom: 1.25,
       token: (f?.token ?? 0) + 1,
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId, positionsTick]);
 
   const handlePositionsStable = useCallback(
     (pos: Map<number, Pt>) => {
       positionsRef.current = pos;
+      // 回写到节点对象,避免其它逻辑读到滞后的 n.x/n.y
+      for (const [id, p] of pos) {
+        const n = nodesByIdRef.current.get(id);
+        if (n) {
+          n.x = p.x;
+          n.y = p.y;
+        }
+      }
       bumpPositions();
     },
     [],
@@ -686,14 +749,14 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
       {
         label: t("graph.menu.focus"),
         icon: <Target size={13} />,
-        onClick: () => setFilters((f) => ({ ...f, focusId: n.id, hops: 1 })),
+        onClick: () => focusHere(n.id, 1),
       },
     ];
     if (filters.focusId != null) {
       items.push({
         label: t("graph.menu.clearFocus"),
         icon: <X size={13} />,
-        onClick: () => setFilters((f) => ({ ...f, focusId: null })),
+        onClick: () => clearFocus(),
       });
     }
     const isPinned = pinned.has(n.id);
@@ -747,7 +810,18 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
       },
     );
     return items;
-  }, [menu, filters, pinned, pathFrom, model, t, actions, updatePinned]);
+  }, [
+    menu,
+    filters,
+    pinned,
+    pathFrom,
+    model,
+    t,
+    actions,
+    updatePinned,
+    focusHere,
+    clearFocus,
+  ]);
 
   if (!snapshot || allNodes.length === 0) {
     return (
@@ -759,8 +833,23 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
 
   const nodeById = nodeByIdFull;
 
+  const currentNode =
+    currentId != null ? model.byId.get(currentId) ?? null : null;
+  const currentDegree =
+    currentId != null ? (degree.get(currentId) ?? 0) : 0;
+  const neighborCount =
+    currentId != null ? (adjSet.get(currentId)?.size ?? 0) : 0;
+
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-base">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden"
+      style={{
+        background: themeIsDark
+          ? "var(--graph-canvas-bg, #050a16)"
+          : "var(--graph-canvas-bg-light, #E8F0F8)",
+      }}
+    >
       {size.w > 0 && size.h > 0 && (
         <Suspense
           fallback={
@@ -769,7 +858,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
             </div>
           }
         >
-          <CytoscapeLayerLazy
+          <ForceGraphLayerLazy
             graphData={graphData}
             width={size.w}
             height={size.h}
@@ -788,22 +877,46 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
               const n = model.byId.get(id);
               if (n) actions.selectNote(n.path);
             }}
-            onNodeDoubleClick={(id) =>
-              setFilters((f) => ({ ...f, focusId: id, hops: 1 }))
-            }
+            onNodeDoubleClick={(id) => focusHere(id, 1)}
             onNodeRightClick={(id, x, y) => {
               const n = nodeById.get(id);
               if (n) setMenu({ x, y, node: n });
             }}
             onNodeHover={(id, x, y) => {
-              if (id != null && x != null && y != null) {
+              if (id != null) {
                 const n = nodeById.get(id);
-                if (n) setPreview({ x, y, node: n });
+                if (!n) return;
+                // 同节点只更新坐标时跳过 setState,避免悬停拖垮 React
+                setPreview((prev) => {
+                  if (
+                    prev &&
+                    prev.node.id === n.id &&
+                    prev.x === (x ?? size.w / 2) &&
+                    prev.y === (y ?? 48)
+                  ) {
+                    return prev;
+                  }
+                  return {
+                    x: x ?? size.w / 2,
+                    y: y ?? 48,
+                    node: n,
+                  };
+                });
               } else {
-                setPreview(null);
+                setPreview((prev) => (prev == null ? prev : null));
               }
             }}
-            onBackgroundClick={() => setSelected(new Set())}
+            onBackgroundClick={() => {
+              // 临时模式退出:聚焦 / 路径 / 选中 / 浮层面板
+              clearFocus();
+              setPathFrom(null);
+              setPathResult(null);
+              setSelected(new Set());
+              setShowMore(false);
+              setShowFilters(false);
+              setShowHealth(false);
+              setPreview(null);
+            }}
             onNodeDragEnd={(id, _x, _y, moved) => {
               if (moved) {
                 const next = new Set(pinned);
@@ -813,24 +926,98 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
             }}
             onBoxSelect={(ids) => setSelected(new Set(ids))}
             onPositionsStable={handlePositionsStable}
+            onViewportEmptyChange={setViewportEmpty}
           />
         </Suspense>
       )}
 
-      <div className="pointer-events-none absolute left-2 top-2 rounded bg-mantle/80 px-2 py-1 text-[11px] text-overlay backdrop-blur-sm">
-        {t("graph.stats", {
-          nodes: renderIds.length,
-          edges: linksRef.current.length,
-        })}
-        {filtered.nodeIds.size > GRAPH_MAX_NODES && (
-          <span className="text-red">
-            {t("graph.truncated", { n: GRAPH_MAX_NODES })}
-          </span>
-        )}
+      {/* 视口空:不缩小世界,只救相机 */}
+      {viewportEmpty && renderIds.length > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+          <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-2 rounded-xl bg-mantle/95 px-5 py-4 text-center shadow-xl ring-1 ring-crust backdrop-blur-md">
+            <p className="text-[13px] font-medium text-text">
+              {t("graph.viewportEmpty")}
+            </p>
+            <p className="text-[11px] text-overlay">
+              {t("graph.viewportEmptyHint")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setViewportEmpty(false);
+                fit();
+              }}
+              className="mt-1 rounded-lg bg-blue/15 px-3 py-1.5 text-[12px] font-medium text-blue ring-1 ring-blue/35 hover:bg-blue/25"
+            >
+              {t("graph.backToGraph")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 左上:stats + 视野状态芯片(一等公民) */}
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[min(28rem,calc(100%-8rem))] flex-col gap-1.5">
+        <div className="w-fit rounded-lg bg-mantle/90 px-2.5 py-1 text-[11px] tracking-wide text-subtext shadow-sm ring-1 ring-crust/80 backdrop-blur-md">
+          {t("graph.stats", {
+            nodes: renderIds.length,
+            edges: linksRef.current.length,
+          })}
+          {filtered.nodeIds.size > GRAPH_MAX_NODES && (
+            <span className="text-red">
+              {t("graph.truncated", { n: GRAPH_MAX_NODES })}
+            </span>
+          )}
+        </div>
+        <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
+          {/* 稳定偏好:跟随当前 / 全库 */}
+          <button
+            type="button"
+            onClick={() =>
+              setScopeMode((s) =>
+                s === "neighborhood" ? "all" : "neighborhood",
+              )
+            }
+            title={t("graph.chip.scopeHint")}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] font-medium shadow-sm ring-1 backdrop-blur-md",
+              scopeMode === "neighborhood"
+                ? "bg-blue/15 text-blue ring-blue/35"
+                : "bg-mantle/90 text-subtext ring-crust/80 hover:text-text",
+            )}
+          >
+            {scopeMode === "neighborhood"
+              ? t("graph.chip.scopeFollow")
+              : t("graph.chip.scopeAll")}
+          </button>
+          {/* 临时镜头:聚焦 */}
+          {filters.focusId != null && (
+            <div
+              className="flex max-w-full items-center gap-1 rounded-full bg-mauve/15 py-0.5 pl-2.5 pr-1 text-[11px] font-medium text-mauve shadow-sm ring-1 ring-mauve/30 backdrop-blur-md"
+              title={t("graph.chip.exitHint")}
+            >
+              <Target size={12} className="shrink-0" />
+              <span className="truncate">
+                {t("graph.chip.focus", {
+                  name: focusTitle,
+                  hops: filters.hops,
+                })}
+              </span>
+              <button
+                type="button"
+                onClick={clearFocus}
+                className="rounded-full p-1 text-mauve/80 hover:bg-mauve/20 hover:text-mauve"
+                aria-label={t("graph.chip.focusClear")}
+                title={t("graph.chip.focusClear")}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {pathFrom != null && (
-        <div className="absolute left-2 top-11 max-w-[min(70vw,28rem)] rounded bg-mantle/95 px-2 py-1.5 text-[11px] shadow-lg ring-1 ring-crust backdrop-blur-sm">
+        <div className="absolute left-3 top-[4.75rem] z-10 max-w-[min(70vw,28rem)] rounded-xl bg-mantle/95 px-3 py-2 text-[11px] text-text shadow-lg ring-1 ring-crust backdrop-blur-md">
           <div className="flex items-center gap-1.5 text-subtext">
             <PathIcon size={12} />
             <span className="truncate">
@@ -863,7 +1050,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
                   <span key={id} className="flex items-center gap-1">
                     {i > 0 && <span className="text-overlay">→</span>}
                     <button
-                      className="rounded bg-surface px-1 py-0.5 text-subtext hover:bg-surface2"
+                      className="rounded-md bg-surface px-1.5 py-0.5 text-subtext hover:bg-surface2"
                       onClick={() => nd && actions.selectNote(nd.path)}
                       title={nd?.path}
                     >
@@ -877,93 +1064,166 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 flex flex-col gap-1">
-        <button
-          onClick={() => zoomBy(1.2)}
-          className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text backdrop-blur-sm"
-          title={t("graph.zoomIn")}
-        >
-          <MagnifyingGlassPlus size={14} />
-        </button>
-        <button
-          onClick={() => zoomBy(1 / 1.2)}
-          className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text backdrop-blur-sm"
-          title={t("graph.zoomOut")}
-        >
-          <MagnifyingGlassMinus size={14} />
-        </button>
+      {/* 仅保留适应视图(滚轮缩放足够) */}
+      <div className="absolute bottom-3 left-3 z-10">
         <button
           onClick={fit}
-          className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text backdrop-blur-sm"
+          className="rounded-lg bg-mantle p-1.5 text-text shadow-md ring-1 ring-crust backdrop-blur-md hover:text-blue"
           title={t("graph.fit")}
         >
           <ArrowsOutSimple size={14} />
         </button>
       </div>
 
-      <div className="absolute right-2 top-2 flex items-center gap-1">
-        <label className="flex items-center gap-1 rounded bg-mantle/90 px-1.5 py-1 text-[11px] text-overlay backdrop-blur-sm">
-          <span className="sr-only">{t("graph.layout")}</span>
-          <select
-            value={layoutMode}
-            onChange={(e) => setLayoutMode(e.target.value as LayoutMode)}
-            className="max-w-[7.5rem] cursor-pointer bg-transparent text-subtext outline-none"
-            title={t("graph.layout")}
-          >
-            <option value="force">{t("graph.layout.force")}</option>
-            <option value="type-layer">{t("graph.layout.typeLayer")}</option>
-            <option value="timeline">{t("graph.layout.timeline")}</option>
-          </select>
-        </label>
-        <label className="flex items-center gap-1 rounded bg-mantle/90 px-1.5 py-1 text-[11px] text-overlay backdrop-blur-sm">
-          <span className="sr-only">{t("graph.scope")}</span>
-          <select
-            value={scopeMode}
-            onChange={(e) =>
-              setScopeMode(e.target.value as "neighborhood" | "all")
-            }
-            className="max-w-[7.5rem] cursor-pointer bg-transparent text-subtext outline-none"
-            title={t("graph.scope")}
-          >
-            <option value="neighborhood">
-              {t("graph.scope.neighborhood")}
-            </option>
-            <option value="all">{t("graph.scope.all")}</option>
-          </select>
-        </label>
+      {/* 当前笔记摘要卡 */}
+      {currentNode && (
+        <div className="absolute bottom-3 left-14 z-10 max-w-[min(22rem,calc(100%-8rem))] rounded-xl bg-mantle/95 px-3 py-2.5 shadow-lg ring-1 ring-crust backdrop-blur-md">
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-1 h-2 w-2 shrink-0 rounded-full"
+              style={{
+                background:
+                  currentNode.type === "Source"
+                    ? "#D4B56A"
+                    : currentNode.type === "Concept"
+                      ? "#B4A0E0"
+                      : currentNode.type === "Entity"
+                        ? "#5EC4B6"
+                        : currentNode.type === "Summary"
+                          ? "#7BC47F"
+                          : "#7FC8FF",
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold text-text">
+                {currentNode.title}
+              </div>
+              <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10px] text-overlay">
+                {currentNode.type && (
+                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-subtext">
+                    {currentNode.type}
+                  </span>
+                )}
+                {currentNode.status && (
+                  <span className="rounded-full bg-surface px-1.5 py-0.5">
+                    {currentNode.status}
+                  </span>
+                )}
+                <span>
+                  {t("graph.focusCard.degree", {
+                    deg: currentDegree,
+                    neighbors: neighborCount,
+                  })}
+                </span>
+              </div>
+              {currentNode.preview && (
+                <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-subtext">
+                  {currentNode.preview}
+                </p>
+              )}
+            </div>
+            <button
+              className={cn(
+                "shrink-0 rounded-md px-1.5 py-1 text-[10px] ring-1 hover:bg-surface2",
+                filters.focusId === currentNode.id
+                  ? "bg-mauve/15 text-mauve ring-mauve/30"
+                  : "bg-surface text-blue ring-crust",
+              )}
+              onClick={() => {
+                if (filters.focusId === currentNode.id) clearFocus();
+                else focusHere(currentNode.id, 1);
+              }}
+              title={
+                filters.focusId === currentNode.id
+                  ? t("graph.chip.focusClear")
+                  : t("graph.focusNeighborhood")
+              }
+            >
+              <Target size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 顶栏:过滤(有徽章) + 更多(布局/重排/健康;范围已提到芯片) */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
         <button
-          onClick={() => bumpRecalc()}
-          className="rounded bg-mantle/80 p-1.5 text-overlay hover:text-text backdrop-blur-sm"
-          title={t("graph.recalculate")}
-        >
-          <ArrowsClockwise size={13} />
-        </button>
-        <button
-          onClick={() => setShowHealth((v) => !v)}
+          onClick={() => {
+            setShowFilters((v) => !v);
+            setShowMore(false);
+            setShowHealth(false);
+          }}
           className={cn(
-            "flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
-            showHealth
-              ? "bg-mauve text-crust"
-              : "bg-mantle/80 text-overlay hover:text-text",
-          )}
-          title={t("graph.health")}
-        >
-          <Graph size={13} />
-          {t("graph.health")}
-        </button>
-        <button
-          onClick={() => setShowFilters((v) => !v)}
-          className={cn(
-            "flex items-center gap-1 rounded px-2 py-1 text-[11px] backdrop-blur-sm",
-            showFilters
-              ? "bg-blue text-crust"
-              : "bg-mantle/80 text-overlay hover:text-text",
+            "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] shadow-sm ring-1 backdrop-blur-md",
+            showFilters || activeFilterCount > 0
+              ? "bg-blue/15 text-blue ring-blue/40"
+              : "bg-mantle/90 text-subtext ring-crust/80 hover:text-blue",
           )}
         >
           <Funnel size={13} />
-          {t("graph.filter")}
+          {activeFilterCount > 0
+            ? t("graph.filterActive", { n: activeFilterCount })
+            : t("graph.filter")}
+        </button>
+        <button
+          onClick={() => {
+            setShowMore((v) => !v);
+            setShowFilters(false);
+          }}
+          className={cn(
+            "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] shadow-sm ring-1 backdrop-blur-md",
+            showMore
+              ? "bg-blue/15 text-blue ring-blue/40"
+              : "bg-mantle/90 text-subtext ring-crust/80 hover:text-blue",
+          )}
+          title={t("graph.more")}
+        >
+          <Graph size={13} />
+          {t("graph.more")}
         </button>
       </div>
+
+      {showMore && (
+        <div className="absolute right-3 top-12 z-10 w-52 rounded-xl bg-mantle/95 p-2.5 text-[11px] text-text shadow-lg ring-1 ring-crust backdrop-blur-md">
+          <label className="mb-2 flex flex-col gap-1 text-overlay">
+            <span>{t("graph.layout")}</span>
+            <select
+              value={layoutMode}
+              onChange={(e) => setLayoutMode(e.target.value as LayoutMode)}
+              className="cursor-pointer rounded-md bg-surface px-2 py-1.5 text-text outline-none ring-1 ring-crust"
+            >
+              <option value="force">{t("graph.layout.force")}</option>
+              <option value="type-layer">{t("graph.layout.typeLayer")}</option>
+              <option value="timeline">{t("graph.layout.timeline")}</option>
+            </select>
+          </label>
+          <div className="flex gap-1">
+            <button
+              onClick={() => bumpRecalc()}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md bg-surface px-2 py-1.5 text-subtext ring-1 ring-crust hover:text-blue"
+              title={t("graph.recalculate")}
+            >
+              <ArrowsClockwise size={13} />
+              {t("graph.recalculate")}
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              setShowHealth((v) => !v);
+              setShowMore(false);
+            }}
+            className={cn(
+              "mt-1.5 flex w-full items-center justify-center gap-1 rounded-md px-2 py-1.5 ring-1",
+              showHealth
+                ? "bg-blue/15 text-blue ring-blue/40"
+                : "bg-surface text-subtext ring-crust hover:text-blue",
+            )}
+          >
+            <Graph size={13} />
+            {t("graph.health")}
+          </button>
+        </div>
+      )}
 
       {clusterMode !== "none" && clusterColors && (
         <GraphLegend
@@ -1089,7 +1349,7 @@ function FilterPanel({
     nodes.filter((n) => (n.status ?? STATUSLESS) === st).length;
 
   return (
-    <div className="absolute right-2 top-9 max-h-[calc(100%-3rem)] w-52 overflow-y-auto rounded bg-mantle/95 p-2 text-[11px] shadow-lg ring-1 ring-crust backdrop-blur-sm">
+    <div className="absolute right-3 top-12 max-h-[calc(100%-3rem)] w-52 overflow-y-auto rounded-xl bg-mantle/95 p-2.5 text-[11px] text-text shadow-lg ring-1 ring-crust backdrop-blur-md">
       <Section title={t("graph.searchSection")}>
         <input
           value={filters.query}
@@ -1141,7 +1401,7 @@ function FilterPanel({
               style={{ background: colorFor(tp === TYPELESS ? null : tp) }}
             />
             <span className="flex-1 truncate">
-              {tp === TYPELESS ? t("graph.typeless") : tp}
+              {tp === TYPELESS ? t("graph.typeless") : labelType(tp, t)}
             </span>
             <span className="text-overlay">{typeCount(tp)}</span>
           </label>
@@ -1189,7 +1449,9 @@ function FilterPanel({
                 className="accent-[var(--color-yellow)]"
               />
               <span className="flex-1 truncate">
-                {st === STATUSLESS ? t("graph.statusless") : st}
+                {st === STATUSLESS
+                  ? t("graph.statusless")
+                  : labelStatus(st, t)}
               </span>
               <span className="text-overlay">{statusCount(st)}</span>
             </label>
@@ -1252,10 +1514,14 @@ function FilterPanel({
               <button
                 onClick={() => onChange({ ...filters, focusId: null })}
                 className="text-overlay hover:text-red"
+                title={t("graph.chip.focusClear")}
               >
                 <X size={12} />
               </button>
             </div>
+            <p className="mb-1 text-[10px] text-overlay">
+              {t("graph.chip.exitHint")}
+            </p>
             <div className="flex items-center gap-1 text-overlay">
               <span>{t("graph.hops")}</span>
               <input
@@ -1281,7 +1547,7 @@ function FilterPanel({
             className="w-full rounded bg-surface px-1.5 py-1 text-subtext hover:bg-surface2 disabled:opacity-40"
           >
             <span className="flex items-center justify-center gap-1">
-              <Target size={11} /> {t("graph.focusCurrent")}
+              <Target size={11} /> {t("graph.focusNeighborhood")}
             </span>
           </button>
         )}
@@ -1313,16 +1579,16 @@ function HealthPanel({
   t: TFunc;
 }) {
   return (
-    <div className="absolute left-2 top-12 max-h-[calc(100%-4rem)] w-56 overflow-y-auto rounded bg-mantle/95 p-2 text-[11px] shadow-lg ring-1 ring-crust backdrop-blur-sm">
+    <div className="absolute left-3 top-12 max-h-[calc(100%-4rem)] w-56 overflow-y-auto rounded-xl bg-mantle/95 p-2.5 text-[11px] text-text shadow-lg ring-1 ring-crust backdrop-blur-md">
       <div className="mb-1.5 flex gap-1">
         {(["orphans", "hubs"] as const).map((m) => (
           <button
             key={m}
             onClick={() => onMode(m)}
             className={cn(
-              "flex-1 rounded px-1.5 py-1 text-[11px]",
+              "flex-1 rounded-md px-1.5 py-1 text-[11px]",
               mode === m
-                ? "bg-mauve text-crust"
+                ? "bg-blue/15 text-blue"
                 : "bg-surface text-overlay hover:text-text",
             )}
           >

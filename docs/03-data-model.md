@@ -114,4 +114,4 @@ struct VaultIndex {              // ← core::vault::VaultIndex(实际落地)
 
 ## 与 cairn 协议的兼容
 
-OpenObsidian **原生读懂** cairn vault:识别 `type: Source/Summary/Entity/Concept`,把 `derived_into`/`mentions`/`mentioned_in`/`contradicts` 当作关系边画进图,把 cairn 的 `wiki-health` 当作一个 query 的结果页。即:OpenObsidian 可以直接作为 cairn 协议的 GUI 运行时。
+Open LLM Wiki **原生读懂** cairn vault:识别 `type: Source/Summary/Entity/Concept`,把 `derived_into`/`mentions`/`mentioned_in`/`contradicts` 当作关系边画进图,把 cairn 的 `wiki-health` 当作一个 query 的结果页。即:Open LLM Wiki 可以直接作为 cairn 协议的 GUI 运行时。

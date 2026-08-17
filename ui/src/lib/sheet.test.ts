@@ -31,7 +31,7 @@ describe("sheet paths / schema v2", () => {
 
   it("v1 migrate + roundtrip", () => {
     const v1 = JSON.stringify({
-      openobsidianSheet: 1,
+      openLlmWikiSheet: 1,
       cells: { A1: "10", B1: "=A1+5" },
       rows: 10,
       cols: 5,

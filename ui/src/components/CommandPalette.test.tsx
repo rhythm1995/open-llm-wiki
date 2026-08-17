@@ -256,4 +256,32 @@ describe("CommandPalette", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     expect(openSettings).toHaveBeenCalled();
   });
+
+  it("IME 组合期的 Enter(keyCode 229)不执行命令", async () => {
+    const openSettings = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onOpenChange={() => {}}
+        snapshot={snapshot()}
+        actions={actions()}
+        onNewNote={() => {}}
+        onNewCanvas={() => {}}
+        onNavigate={() => {}}
+        t={t}
+        mode="commands"
+        commandExtras={{ saveNow: () => {}, openSettings }}
+      />,
+    );
+    const input = screen.getByTestId("palette-input");
+    fireEvent.change(input, { target: { value: "设置" } });
+    await waitFor(() => {
+      expect(screen.getByTestId("palette-cmd-settings")).toBeInTheDocument();
+    });
+    // 输入法组合期(拼音候选确认)的 Enter 不是「执行」。
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    expect(openSettings).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(openSettings).toHaveBeenCalled();
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterByTitles, nodeWikilink, openLinkContext, parseLinkInner, resolveWikiTarget } from "./wikilink";
+import { filterByTitles, nodeWikilink, openLinkContext, parseLinkInner, resolveTitleForTarget, resolveWikiTarget } from "./wikilink";
 import type { NodeOut } from "./ipc";
 
 const N = (id: number, path: string, title: string): NodeOut => ({
@@ -54,6 +54,25 @@ describe("resolveWikiTarget", () => {
   it("returns null for empty target", () => {
     expect(resolveWikiTarget("", NODES)).toBeNull();
     expect(resolveWikiTarget("   ", NODES)).toBeNull();
+  });
+});
+
+describe("resolveTitleForTarget", () => {
+  it("returns the node title on title hit", () => {
+    expect(resolveTitleForTarget("The Note", NODES)).toBe("The Note");
+  });
+  it("resolves a bare file stem to the node title", () => {
+    expect(resolveTitleForTarget("gamma", NODES)).toBe("Gamma Real");
+  });
+  it("resolves a path stem to the node title", () => {
+    expect(resolveTitleForTarget("dir/the-note", NODES)).toBe("The Note");
+  });
+  it("falls back to the raw target when unresolved", () => {
+    expect(resolveTitleForTarget("Ghost", NODES)).toBe("Ghost");
+  });
+  it("falls back on empty / whitespace target", () => {
+    expect(resolveTitleForTarget("", NODES)).toBe("");
+    expect(resolveTitleForTarget("   ", NODES)).toBe("   ");
   });
 });
 

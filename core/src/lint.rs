@@ -11,6 +11,9 @@
 //! - [`duplicate_names`] —— L1-B 精筛:归一化 title/alias 撞名(解析 first-wins 的隐患);
 //! - [`summaries_on_superseded`] —— L1-D:Summary 挂在已废源上;
 //! - [`refs_to_superseded`] —— L1-E:Active/Contested 页仍引用 Superseded 页。
+//!
+//! 消费面入口:[`lint_all`] 跑全部检查并把 `NodeId` 解析成 path/title
+//! ([`LintReport`]),MCP `lint_vault` 与 app `lint_vault` 命令共用它。
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -189,6 +192,82 @@ pub fn refs_to_superseded(g: &Graph) -> Vec<Finding> {
         }
     }
     out
+}
+
+// ─────────────────────────── 报告层(消费面共用)───────────────────────────
+
+/// 节点引用:把 [`Finding`] 里的 `NodeId` 解析成「人能认领」的 path/title。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct NodeRef {
+    pub path: String,
+    pub title: String,
+}
+
+/// 单条候选报告([`Finding`] 的序列化友好形态,供 IPC / MCP 直接透传)。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct FindingReport {
+    pub kind: FindingKind,
+    pub subject: NodeRef,
+    /// 边另一端的关联节点(如有);无关联节点时为 `null`。
+    pub other: Option<NodeRef>,
+}
+
+/// L1-B 撞名桶报告:一个桶 = 一组候选(≥2 篇共享同一归一化名)。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct DuplicateNameGroup {
+    /// 归一化键(小写 + trim)。
+    pub key: String,
+    pub members: Vec<NodeRef>,
+}
+
+/// L1 全量输出:一次 `lint_vault` 得到的一切。仍是**候选**,不是判决。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, Default)]
+pub struct LintReport {
+    pub findings: Vec<FindingReport>,
+    pub duplicate_names: Vec<DuplicateNameGroup>,
+}
+
+fn node_ref(notes: &[Note], id: NodeId) -> NodeRef {
+    // finding 的 NodeId 恒有效(proptest 性质守着);此处仍防御式取值,报告层不 panic。
+    match notes.get(id) {
+        Some(n) => NodeRef {
+            path: n.path.clone(),
+            title: n.title.clone(),
+        },
+        None => NodeRef {
+            path: String::new(),
+            title: String::new(),
+        },
+    }
+}
+
+/// 跑全部 L1 检查并解析成报告(消费面入口:MCP `lint_vault` / app `lint_vault` 命令)。
+///
+/// findings 顺序 = contradiction_consistency → summaries_on_superseded → refs_to_superseded;
+/// 撞名桶独立成组(一个桶 ≥2 成员,不成对)。
+pub fn lint_all(g: &Graph) -> LintReport {
+    let notes = &g.nodes;
+    let findings: Vec<FindingReport> = contradiction_consistency(g)
+        .into_iter()
+        .chain(summaries_on_superseded(g))
+        .chain(refs_to_superseded(g))
+        .map(|f| FindingReport {
+            kind: f.kind,
+            subject: node_ref(notes, f.subject),
+            other: f.other.map(|id| node_ref(notes, id)),
+        })
+        .collect();
+    let duplicate_names = duplicate_names(notes)
+        .into_iter()
+        .map(|(key, ids)| DuplicateNameGroup {
+            key,
+            members: ids.into_iter().map(|id| node_ref(notes, id)).collect(),
+        })
+        .collect();
+    LintReport {
+        findings,
+        duplicate_names,
+    }
 }
 
 #[cfg(test)]
@@ -470,6 +549,74 @@ mod tests {
         ]);
         let f = refs_to_superseded(&g);
         assert_eq!(f.len(), 1);
+    }
+    // ---- 报告层:lint_all + path/title 解析 ----
+
+    #[test]
+    fn lint_all_aggregates_findings_and_duplicates_with_paths() {
+        // A contradicts B(两端都没 Contested)+ C(Summary)挂废源 S
+        // + D(Active)引用 S + 两篇撞名 "dup"。
+        let g = Graph::build(vec![
+            note(
+                "---\ntype: Concept\nstatus: Active\ncontradicts:\n  - \"[[B]]\"\n---\n# A",
+                "a.md",
+            ),
+            note("---\ntype: Concept\nstatus: Active\n---\n# B", "b.md"),
+            note(
+                "---\ntype: Summary\nstatus: Active\nsource:\n  - \"[[S]]\"\n---\n# C",
+                "c.md",
+            ),
+            note(
+                "---\ntype: Entity\nstatus: Active\nrelated:\n  - \"[[S]]\"\n---\n# D",
+                "d.md",
+            ),
+            note("---\ntype: Source\nstatus: Superseded\n---\n# S", "s.md"),
+            note("---\naliases:\n  - Dup\n---\n# dup", "e1.md"),
+            note("---\n---\n# DUP", "e2.md"),
+        ]);
+        let report = lint_all(&g);
+
+        let kinds: Vec<FindingKind> = report.findings.iter().map(|f| f.kind).collect();
+        assert!(kinds.contains(&FindingKind::ContradictionUncontested));
+        assert!(kinds.contains(&FindingKind::SummaryOnSuperseded));
+        assert!(kinds.contains(&FindingKind::RefToSuperseded));
+
+        // subject / other 解析成 path/title。
+        let contra = report
+            .findings
+            .iter()
+            .find(|f| f.kind == FindingKind::ContradictionUncontested)
+            .unwrap();
+        assert_eq!(contra.subject.path, "a.md");
+        assert_eq!(contra.subject.title, "A");
+        assert_eq!(contra.other.as_ref().unwrap().path, "b.md");
+
+        // 撞名桶:e1 title "dup"、e2 title "DUP" 归一化同键。
+        assert_eq!(report.duplicate_names.len(), 1);
+        let group = &report.duplicate_names[0];
+        assert_eq!(group.key, "dup");
+        let paths: Vec<&str> = group.members.iter().map(|m| m.path.as_str()).collect();
+        assert_eq!(paths, vec!["e1.md", "e2.md"]);
+    }
+
+    #[test]
+    fn lint_all_on_clean_vault_is_empty() {
+        let g = Graph::build(vec![note(
+            "---\ntype: Concept\nstatus: Active\n---\n# Solo",
+            "solo.md",
+        )]);
+        let report = lint_all(&g);
+        assert!(report.findings.is_empty());
+        assert!(report.duplicate_names.is_empty());
+    }
+
+    #[test]
+    fn lint_all_report_serializes_to_json() {
+        let g = Graph::build(vec![note("---\n---\n# Only", "only.md")]);
+        let report = lint_all(&g);
+        let json = serde_json::to_string(&report).expect("LintReport 可序列化");
+        assert!(json.contains("\"findings\""));
+        assert!(json.contains("\"duplicate_names\""));
     }
 }
 

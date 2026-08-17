@@ -10,7 +10,7 @@
 //!   只动工作树,不是 `git revert` 动 HEAD。用户对工作树完全掌控。
 //! - 采纳 = 把该 turn 的 diff **提交进 HEAD**(`commit-tree` + `update-ref HEAD`),
 //!   默认隔离 → 用户在活动面板显式点「采纳」才合入真实历史;不动用户暂存区。
-//! - 非 git 仓库:**影子仓库**(§4)——`<vault>/.openobsidian/agent-shadow.git` 独立
+//! - 非 git 仓库:**影子仓库**(§4)——`<vault>/.open-llm-wiki/agent-shadow.git` 独立
 //!   git 目录镜像 vault 工作树,零污染用户文件(vault 内无 `.git`)。两条路径透明。
 //!
 //! ## 归因口径
@@ -68,11 +68,11 @@ fn is_repo(root: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// 非 git vault 的影子仓库路径:`<vault>/.openobsidian/agent-shadow.git`。
+/// 非 git vault 的影子仓库路径:`<vault>/.open-llm-wiki/agent-shadow.git`。
 /// 放在 app 私有目录里,vault 本身不被 `.git` 污染。
 fn shadow_dir(root: &str) -> std::path::PathBuf {
     std::path::Path::new(root)
-        .join(".openobsidian")
+        .join(".open-llm-wiki")
         .join("agent-shadow.git")
 }
 
@@ -137,10 +137,10 @@ fn tree_of(root: &str, refname: &str) -> Result<String, String> {
 /// agent 提交身份(避免无 user.name 时 commit-tree 失败,且明确归因来源)。
 fn identity_env() -> Vec<(String, String)> {
     vec![
-        ("GIT_AUTHOR_NAME".into(), "openobs-agent".into()),
-        ("GIT_AUTHOR_EMAIL".into(), "agent@openobs.local".into()),
-        ("GIT_COMMITTER_NAME".into(), "openobs-agent".into()),
-        ("GIT_COMMITTER_EMAIL".into(), "agent@openobs.local".into()),
+        ("GIT_AUTHOR_NAME".into(), "open-llm-wiki-agent".into()),
+        ("GIT_AUTHOR_EMAIL".into(), "agent@openllmwiki.local".into()),
+        ("GIT_COMMITTER_NAME".into(), "open-llm-wiki-agent".into()),
+        ("GIT_COMMITTER_EMAIL".into(), "agent@openllmwiki.local".into()),
     ]
 }
 
@@ -163,7 +163,7 @@ pub fn snapshot_turn(
     // 临时 index:read-tree 基线 → add -A 工作树 → write-tree。事后删除。
     let seq = CALL_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let tmp = std::env::temp_dir().join(format!(
-        "openobs-agent-idx-{agent_id}-{phase}-{}-{seq}",
+        "open-llm-wiki-agent-idx-{agent_id}-{phase}-{}-{seq}",
         std::process::id()
     ));
     let _ = std::fs::remove_file(&tmp);
@@ -345,7 +345,7 @@ pub fn revert_turn(root: &str, oid: &str) -> Result<(), String> {
     if diff.trim().is_empty() {
         return Ok(());
     }
-    let tmp = std::env::temp_dir().join(format!("openobs-revert-{oid}.diff"));
+    let tmp = std::env::temp_dir().join(format!("open-llm-wiki-revert-{oid}.diff"));
     std::fs::write(&tmp, &diff).map_err(|e| e.to_string())?;
     let r = run(
         root,
@@ -433,7 +433,7 @@ mod tests {
 
     /// 在临时目录建一个 git 仓库(有初始提交),返回其路径。
     fn tmp_repo(tag: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("openobs-gitattr-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("open-llm-wiki-gitattr-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let run = |args: &[&str]| {
@@ -445,7 +445,7 @@ mod tests {
                 .unwrap()
         };
         // 设身份避免 commit 失败。
-        run(&["config", "user.email", "test@openobs.local"]);
+        run(&["config", "user.email", "test@openllmwiki.local"]);
         run(&["config", "user.name", "test"]);
         run(&["init"]);
         run(&["add", "-A"]);
@@ -522,12 +522,12 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// 非 git 仓库 → 影子仓库:快照照常落进 `<vault>/.openobsidian/agent-shadow.git`,
+    /// 非 git 仓库 → 影子仓库:快照照常落进 `<vault>/.open-llm-wiki/agent-shadow.git`,
     /// vault 本身无 `.git`;活动可查;撤销逆向 apply 工作树。两条路径透明(§4)。
     #[test]
     fn non_git_vault_uses_shadow_repo() {
         let dir = std::env::temp_dir().join(format!(
-            "openobs-gitattr-shadow-{}",
+            "open-llm-wiki-gitattr-shadow-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -545,7 +545,7 @@ mod tests {
         // vault 仍无 .git(零污染),影子仓库已建。
         assert!(!dir.join(".git").exists(), "vault 不应被 .git 污染");
         assert!(
-            dir.join(".openobsidian/agent-shadow.git").exists(),
+            dir.join(".open-llm-wiki/agent-shadow.git").exists(),
             "影子仓库应已建"
         );
 

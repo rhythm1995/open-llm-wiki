@@ -9,7 +9,7 @@
 
 1. **编辑器 / 写作** — **主路径 + 保真门禁已收敛** ✅(见 §Editor)  
 2. **非图杂项** — 已收口:IPC 日志打点 ✅ · source 任务按钮 ✅ · **wiki 脚手架(§I-D)✅** · **universal dmg 脚本 ✅** · AGENTS tldraw 叙述 ✅;剩签名 / Updater(🔑 凭证门)  
-3. **图 / Agent / §I** — **人侧本期不做,推迟到很后**(图打磨 ROI 低 / 图不好做;2026-08-02 决策);6B agent 侧 MCP 与 6D wiki 脚手架**已交付**  
+3. **图 / Agent / §I** — 人侧图 polish 仍推迟。**例外(2026-08-15)**:6B NL 表面按「库健康 + Agent 短指令」落地,不重建 QueryPanel。6B MCP 与 6D wiki 脚手架已交付。
 
 `feat/phase1-core` 已合 main(`84accb0`);当前开发在 `release/v0.1.0`(v0.1.0 tag 已打)。下一刀:真机验收(B-GRAPH-FPS / 应用内 Agent 端到端)+ 发布收口;或产品点名新项。
 
@@ -50,7 +50,7 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 > **2026-08-02 决策**:§I 图谱 polish(6A)整期推迟——图打磨 ROI 低、实现成本高(「图不好做」)。引擎保留,远期重启。
 
 见 [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) 与 backlog §I。  
-**不主动开 6A 帧率 / 6B MCP links / 6C 语义**,除非产品再改优先级。
+**不主动开 6A 图 polish / 6C 语义**,除非产品再改优先级。6B 人侧查库已按库健康 + Agent seed 交付(见 backlog `B-HEALTH-DASH`)。
 
 | 可后续 | 说明 |
 |---|---|
@@ -62,7 +62,7 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 
 ## 评估后不做:core+mcp 抽独立通用库(2026-08-06)
 
-曾评估把「人机共用记忆系统」(core 引擎 + MCP server + wiki-starter 方法论)拆成**独立项目/项目无关通用库**。**探查结论:技术可行、接缝干净**——`core` 已是 IO-free 独立 crate(依赖仅 serde + serde_yaml,特有残留只有 lint 的 LLM Wiki 本体字面量、media 的 `tauri:`/`asset:` scheme、命名);`mcp` 结构上已独立(单二进制、自带 walker、零 Tauri 耦合,唯一系带是 `path = "../core"` + 品牌命名);templates/docs 14 无代码引用可整体搬。**人拍板:不做**——记忆系统继续作为 OpenObsidian 内置模块演化。若未来重启,上述探查事实可直接复用(mcp 去品牌化 + 换依赖源即可 standalone)。
+曾评估把「人机共用记忆系统」(core 引擎 + MCP server + wiki-starter 方法论)拆成**独立项目/项目无关通用库**。**探查结论:技术可行、接缝干净**——`core` 已是 IO-free 独立 crate(依赖仅 serde + serde_yaml,特有残留只有 lint 的 LLM Wiki 本体字面量、media 的 `tauri:`/`asset:` scheme、命名);`mcp` 结构上已独立(单二进制、自带 walker、零 Tauri 耦合,唯一系带是 `path = "../core"` + 品牌命名);templates/docs 14 无代码引用可整体搬。**人拍板:不做**——记忆系统继续作为 Open LLM Wiki 内置模块演化。若未来重启,上述探查事实可直接复用(mcp 去品牌化 + 换依赖源即可 standalone)。
 
 ---
 

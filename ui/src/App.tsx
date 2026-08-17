@@ -1,8 +1,8 @@
 /**
- * App —— OpenObsidian 主壳。
+ * App —— Open LLM Wiki 主壳。
  *
  * 三栏布局(参考 Obsidian):
- *   左:Sidebar(文件树)  中:主视图(编辑器/图谱/QQL/搜索)  右:Inspector(反链/属性)
+ *   左:Sidebar(文件树)  中:主视图(编辑器/图谱/库健康/Git)  右:Inspector(反链/属性)
  * 顶 Toolbar 切换主视图;底 StatusBar 显示保存状态。
  *
  * ⌘K 唤起命令面板。mock 模式下首挂载自动打开种子 vault,浏览器即开即用。
@@ -15,7 +15,7 @@ import { NoteListView } from "./components/NoteListView";
 import type { NavSelection } from "./lib/nav-filter";
 import { selectionLabel } from "./lib/nav-filter";
 import { Editor, type EditorHandle } from "./components/Editor";
-import { WysiwygView } from "./components/WysiwygView";
+import { WysiwygView, type WysiwygHandle } from "./components/WysiwygView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ReadingPane } from "./components/ReadingPane";
 import { FindBar } from "./components/FindBar";
@@ -25,10 +25,12 @@ import { AgentPanel } from "./components/AgentPanel";
 import { ColResizeHandle, COL } from "./components/ColResizeHandle";
 import { GraphView } from "./components/GraphView";
 import { GitPanel } from "./components/GitPanel";
+import { HealthView } from "./components/HealthView";
 import { CommandPalette, type MainView } from "./components/CommandPalette";
 import { CenterToolbar } from "./components/CenterToolbar";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { HelpGuideDialog } from "./components/HelpGuideDialog";
 import { useVault } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
@@ -36,9 +38,23 @@ import { usePersistentState } from "./lib/usePersistentState";
 import { GRAPH_FORCES_KEY } from "./lib/settings";
 import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./lib/graph-layout";
 import { ipc } from "./lib/ipc";
+import { frontmatterLineOffset } from "./lib/frontmatter";
+import { openProjectIssues } from "./lib/project";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
 import { isSheetPath } from "./lib/sheet";
+import {
+  buildIngestPrompt,
+  detectWikiIngestSkill,
+  digestEligibility,
+} from "./lib/wiki-digest";
+import { buildVaultQueryPrompt } from "./lib/vault-query";
+import {
+  isHealthLoadPath,
+  matchHealthQuestion,
+  type HealthMetricId,
+  type HealthQueryNote,
+} from "./lib/health-catalog";
 import {
   collectPluginCommands,
   loadPluginFromManifest,
@@ -48,7 +64,17 @@ import {
   sampleHelloManifest,
   type PluginCommand,
 } from "./lib/plugin-host";
-import { writeLastPath, readLastRoot, clearLastRoot } from "./lib/last-note";
+import {
+  writeLastPath,
+  readLastRoot,
+  forgetRecentRoot,
+} from "./lib/last-note";
+import { WelcomeEmpty } from "./components/WelcomeEmpty";
+import {
+  readWelcomeMgPlacement,
+  writeWelcomeMgPlacement,
+  type WelcomeMgPlacement,
+} from "./lib/welcome-mg-pref";
 import {
   EDIT_MODE_KEY,
   EDIT_MODE_MIGRATED_KEY,
@@ -87,7 +113,7 @@ const SheetView = lazy(() =>
 export default function App() {
   const { state, currentNode, backlinks, navInfo, actions } = useVault();
   // 默认落地编辑页:不再记忆上次主视图(用户要求每次进入都是编辑器,而非图谱)。
-  // 旧值 "openobs.view" 仍可能残留在 localStorage,直接忽略即可。
+  // 旧值 "open-llm-wiki.view" 仍可能残留在 localStorage,直接忽略即可。
   const [view, setView] = useState<MainView>("editor");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>("commands");
@@ -100,9 +126,37 @@ export default function App() {
   const { theme, toggle: toggleTheme, setTheme } = useTheme();
   const { locale, setLocale, toggle: toggleLocale, t } = useLocale();
   const editorRef = useRef<EditorHandle>(null);
+  const wysiwygRef = useRef<WysiwygHandle>(null);
   /** 稳定句柄:FindBar 订阅此 state,避免 ref.current 在首渲为 null。 */
   const [editorHandle, setEditorHandle] = useState<EditorHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** 设置打开时默认 tab;记忆接入直达用 "agent"。 */
+  const [settingsTab, setSettingsTab] = useState<
+    "general" | "agent" | "diagnostics"
+  >("general");
+  const [helpOpen, setHelpOpen] = useState(false);
+  const openSettings = useCallback((tab: "general" | "agent" | "diagnostics" = "general") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  }, []);
+  const openAgentOnboard = useCallback(() => openSettings("agent"), [openSettings]);
+  /** 「提炼进 Wiki」→ Agent composer 预填(token 变化触发写入)。 */
+  const [agentComposerSeed, setAgentComposerSeed] = useState<{
+    text: string;
+    token: number;
+    banner?: "digest" | "query";
+  } | null>(null);
+  const [agentSeedToast, setAgentSeedToast] = useState<string | null>(null);
+  const [queryNotes, setQueryNotes] = useState<HealthQueryNote[]>([]);
+  const [healthFocusId, setHealthFocusId] = useState<HealthMetricId | null>(
+    null,
+  );
+  /** 点过「提炼」后顶栏改文案,直到换笔记。 */
+  const [digestArmed, setDigestArmed] = useState(false);
+  /** vault 是否已装 wiki-ingest skill(null=探测中)。 */
+  const [wikiSkillPresent, setWikiSkillPresent] = useState<boolean | null>(
+    null,
+  );
   const [modeHint, setModeHint] = useState<string | null>(null);
   // 附件目录 / 布局 / 并排(B-ED-MEDIA / B-ED-READING)。
   const [attachmentsDir, setAttachmentsDir] = useState(() => {
@@ -186,27 +240,27 @@ export default function App() {
   );
   // 四区布局:三个非编辑器面板各自可隐藏,状态持久化。切换入口集中在 CenterToolbar
   // 右侧的 Xcode 式切换簇(面板边缘不放按钮)。编辑器常驻,不参与切换。
-  const [navOpen, setNavOpen] = usePersistentState("openobs.navOpen", true);
-  const [listOpen, setListOpen] = usePersistentState("openobs.listOpen", true);
+  const [navOpen, setNavOpen] = usePersistentState("open-llm-wiki.navOpen", true);
+  const [listOpen, setListOpen] = usePersistentState("open-llm-wiki.listOpen", true);
   const [propsOpen, setPropsOpen] = usePersistentState(
-    "openobs.propsOpen",
+    "open-llm-wiki.propsOpen",
     true,
   );
   // 栏宽拖拽(B-COL-RESIZE):各栏可拖拽调宽,持久化;最小/默认见 COL。
   const [navWidth, setNavWidth] = usePersistentState<number>(
-    "openobs.colW.nav",
+    "open-llm-wiki.colW.nav",
     COL.nav.default,
   );
   const [listWidth, setListWidth] = usePersistentState<number>(
-    "openobs.colW.list",
+    "open-llm-wiki.colW.list",
     COL.list.default,
   );
   const [rightWidth, setRightWidth] = usePersistentState<number>(
-    "openobs.colW.right",
+    "open-llm-wiki.colW.right",
     COL.right.default,
   );
-  // 图谱力参数(6A2):持久化;CytoscapeLayer 映射到 cose 时夹取,这里存原值即可。
-  const [forces, setForces] = usePersistentState<ForceParams>(
+  // 图谱力参数(6A2):持久化默认;设置里已不提供调参 UI,图谱视图直接用此值。
+  const [forces] = usePersistentState<ForceParams>(
     GRAPH_FORCES_KEY,
     DEFAULT_FORCES,
   );
@@ -229,7 +283,7 @@ export default function App() {
     const iframe = document.createElement("iframe");
     iframe.setAttribute("sandbox", "allow-scripts");
     iframe.style.display = "none";
-    iframe.title = "openobs-plugin-hello";
+    iframe.title = "open-llm-wiki-plugin-hello";
     document.body.appendChild(iframe);
     const onMsg = (ev: MessageEvent) => {
       if (ev.source !== iframe.contentWindow) return;
@@ -271,8 +325,9 @@ export default function App() {
   // 除非用户本就关了列表(listOpen=false)。——任务4:视图切换不再吞掉第二栏。
   const showList = listOpen && hasVault;
   // 右栏 tab:inspector(仅 editor 非画布) | agent(任意视图)。doc 11 B-AGENT-RIGHTCOL-TABS。
+  // key 加 .v2:旧版默认 agent,现已改为 inspector;新 key 读不到旧值 → 落回 inspector 默认。
   const [rightTab, setRightTab] = usePersistentState<"inspector" | "agent">(
-    "openobs.rightTab",
+    "open-llm-wiki.rightTab.v2",
     "inspector",
   );
   const agentOpen = propsOpen && rightTab === "agent";
@@ -312,6 +367,153 @@ export default function App() {
     for (const n of state.snapshot?.nodes ?? []) if (n.type) set.add(n.type);
     return [...set].sort();
   }, [state.snapshot]);
+
+  /** Source 笔记 → 是否展示「提炼进 Wiki」(图谱优先判已有 Summary)。 */
+  const digestInfo = useMemo(() => {
+    if (isSpecialFile || !state.currentPath) {
+      return { phase: "hidden" as const, type: null, kind: null };
+    }
+    return digestEligibility({
+      path: state.currentPath,
+      content: state.content,
+      snapshotType: currentNode?.type ?? null,
+      nodes: state.snapshot?.nodes ?? [],
+      edges: state.snapshot?.edges ?? [],
+    });
+  }, [
+    isSpecialFile,
+    state.currentPath,
+    state.content,
+    state.snapshot,
+    currentNode?.type,
+  ]);
+
+  // 换笔记 / 换库:顶栏武装态和 leftover 种子一起丢掉。
+  // 不在这里清,提炼完成后换一篇再开 Agent 会把旧指令再发一遍。
+  useEffect(() => {
+    setDigestArmed(false);
+    setAgentComposerSeed(null);
+  }, [state.currentPath, state.root]);
+
+  // 探测 vault 内 wiki-ingest skill(引导安装);关设置后重探(用户可能刚 npx 安装)。
+  // mock 浏览器无点目录文件,不拦提炼。
+  useEffect(() => {
+    if (!state.root || ipc.isMock()) {
+      setWikiSkillPresent(ipc.isMock() ? true : null);
+      return;
+    }
+    let cancelled = false;
+    setWikiSkillPresent(null);
+    void detectWikiIngestSkill((rel) => ipc.readNote(state.root!, rel)).then(
+      (ok) => {
+        if (!cancelled) setWikiSkillPresent(ok);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [state.root, settingsOpen]);
+
+  const openAgentMemorySettings = useCallback(() => {
+    openAgentOnboard();
+  }, [openAgentOnboard]);
+
+  const startWikiDigest = useCallback(() => {
+    const path = state.currentPath;
+    if (!path || digestInfo.phase === "hidden") return;
+    // 无 skill 时仍可预填(后备 prompt),但优先引导去设置安装。
+    if (wikiSkillPresent === false) {
+      setAgentSeedToast(t("wiki.digest.skillMissing"));
+      window.setTimeout(() => setAgentSeedToast(null), 6000);
+      openAgentMemorySettings();
+      return;
+    }
+    setAgentComposerSeed({
+      text: buildIngestPrompt(path, undefined, {
+        promoteUntyped: digestInfo.kind === "untyped",
+      }),
+      token: Date.now(),
+      banner: "digest",
+    });
+    // 强制露出右侧 Agent 栏(持久化偏好可能把右栏关了)。
+    setPropsOpen(true);
+    setRightTab("agent");
+    setDigestArmed(true);
+    setAgentSeedToast(t("wiki.digest.seedNote"));
+    window.setTimeout(() => setAgentSeedToast(null), 5000);
+  }, [
+    state.currentPath,
+    digestInfo.phase,
+    digestInfo.kind,
+    wikiSkillPresent,
+    openAgentMemorySettings,
+    t,
+  ]);
+
+  const consumeAgentComposerSeed = useCallback((token: number) => {
+    setAgentComposerSeed((cur) => (cur?.token === token ? null : cur));
+  }, []);
+
+  const startVaultQuery = useCallback((question?: string) => {
+    if (!state.root) return;
+    const hit = question ? matchHealthQuestion(question) : null;
+    if (hit) {
+      setHealthFocusId(hit);
+      setView("health");
+      return;
+    }
+    setAgentComposerSeed({
+      text: buildVaultQueryPrompt(question),
+      token: Date.now(),
+      banner: "query",
+    });
+    setPropsOpen(true);
+    setRightTab("agent");
+    setAgentSeedToast(t("wiki.query.seedNote"));
+    window.setTimeout(() => setAgentSeedToast(null), 5000);
+  }, [state.root, t]);
+
+  const openHealthNote = useCallback(
+    (path: string) => {
+      actions.selectNote(path);
+      setView("editor");
+    },
+    [actions],
+  );
+
+  // 库健康:每次进入视图 / snapshot 换新时重读 0–11 条 Query 笔记。离开即丢缓存。
+  useEffect(() => {
+    if (view !== "health" || !state.root) {
+      setQueryNotes([]);
+      return;
+    }
+    let cancelled = false;
+    const load = (state.snapshot?.nodes ?? []).filter(
+      (n) =>
+        (n.type ?? "").toLowerCase() === "query" && isHealthLoadPath(n.path),
+    );
+    void Promise.all(
+      load.map(async (n) => {
+        try {
+          const content = await ipc.readNote(state.root!, n.path);
+          return {
+            path: n.path,
+            type: n.type,
+            content,
+          } satisfies HealthQueryNote;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((rows) => {
+      if (!cancelled) {
+        setQueryNotes(rows.filter((r): r is HealthQueryNote => r != null));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, state.root, state.snapshot]);
 
   /** `[[wikilink]]` 跟随:解析为路径则跳转,否则提示新建(编辑器与阅读视图共用)。 */
   const handleFollow = useCallback(
@@ -406,20 +608,39 @@ export default function App() {
     setView("editor");
   }, []);
 
-  // mock:打开种子 vault;Tauri:恢复上次打开的 vault(无则留空态,等用户点「打开」)。
+  /**
+   * 启动门闩:有 lastRoot 时先 pending,避免异步 openVault 完成前闪一下欢迎台/MG。
+   * - pending: 冷启动且正在恢复 vault
+   * - ready: 已有 root 或已确认无 vault 可显示欢迎台
+   */
+  const [vaultBootReady, setVaultBootReady] = useState(() => {
+    if (ipc.isMock()) return false;
+    return !readLastRoot();
+  });
+  const [mgPlacement, setMgPlacement] = useState<WelcomeMgPlacement>(() =>
+    readWelcomeMgPlacement(),
+  );
+
+  // mock:打开种子 vault;Tauri:恢复上次打开的 vault(无则留欢迎台,等用户点「打开」)。
   useEffect(() => {
     if (ipc.isMock()) {
-      void actions.openVault("/mock-vault");
+      void (async () => {
+        await actions.openVault("/mock-vault");
+        setVaultBootReady(true);
+      })();
       return;
     }
     const last = readLastRoot();
-    if (last) {
-      void (async () => {
-        // 目录已不存在等失败:清掉记录,下次走空态,不反复撞坏路径。
-        const ok = await actions.openVault(last);
-        if (!ok) clearLastRoot();
-      })();
+    if (!last) {
+      setVaultBootReady(true);
+      return;
     }
+    void (async () => {
+      // 目录已不存在等失败:清 last + 最近列表中该项,再放行欢迎台。
+      const ok = await actions.openVault(last);
+      if (!ok) forgetRecentRoot(last);
+      setVaultBootReady(true);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -485,12 +706,13 @@ export default function App() {
     const mode = editModeRef.current;
     if (mode !== "source") {
       findPrevModeRef.current = mode;
-      persistEditMode("source");
+      // 只临时切源码做高亮,不写进默认编辑模式。
+      setEditMode("source");
     } else {
       findPrevModeRef.current = null;
     }
     setFindOpen(true);
-  }, [persistEditMode, setView]);
+  }, [setView]);
 
   const closeFind = useCallback(() => {
     editorRef.current?.clearFind();
@@ -502,8 +724,8 @@ export default function App() {
     // 还原打开 Find 前的编辑模式。
     const prev = findPrevModeRef.current;
     findPrevModeRef.current = null;
-    if (prev && prev !== "source") persistEditMode(prev);
-  }, [persistEditMode]);
+    if (prev && prev !== "source") setEditMode(prev);
+  }, []);
 
   const commandExtras = useMemo((): Omit<
     CommandDeps,
@@ -527,7 +749,13 @@ export default function App() {
       toggleTheme,
       theme,
       toggleLocale,
-      openSettings: () => setSettingsOpen(true),
+      openSettings: () => openSettings("general"),
+      reportIssue: () => openProjectIssues(),
+      openAgentOnboard: () => openAgentOnboard(),
+      startWikiDigest: () => startWikiDigest(),
+      canWikiDigest:
+        digestInfo.phase === "ready" || digestInfo.phase === "done",
+      startVaultQuery: state.root ? startVaultQuery : undefined,
       toggleSplitLayout: () => {
         if (editModeRef.current !== "source") {
           persistEditMode("source");
@@ -602,6 +830,11 @@ export default function App() {
     setEditorLayout,
     openNewSheet,
     pluginCommands,
+    openSettings,
+    openAgentOnboard,
+    startWikiDigest,
+    startVaultQuery,
+    digestInfo.phase,
     t,
   ]);
 
@@ -777,6 +1010,27 @@ export default function App() {
     writeLastPath(state.root, state.currentPath);
   }, [state.root, state.currentPath]);
 
+  // 右栏宽度收敛:① 旧持久化值可能低于当前 COL.right.min(常量上调过,读取时不校验);
+  // ② 窗口缩到固定宽度列装不下时会互相遮挡。mount + resize 时把右栏夹回 [min, max],
+  // 优先保住 agent 面板,编辑器(唯一 flex 栏)最多让到 COL.editor.min。值没变就不写,
+  // 避免拖窗口边时每帧都刷 localStorage。
+  const rightWidthRef = useRef(rightWidth);
+  rightWidthRef.current = rightWidth;
+  useEffect(() => {
+    const fit = () => {
+      const max = Math.max(
+        COL.right.min,
+        window.innerWidth - COL.nav.min - COL.list.min - COL.editor.min,
+      );
+      const w = rightWidthRef.current;
+      const next = Math.min(max, Math.max(COL.right.min, w));
+      if (next !== w) setRightWidth(next);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [setRightWidth]);
+
   return (
     <div className="flex h-screen flex-col">
       {/* 上半区横向并排:左半(顶栏 + 导航/列表/编辑器)+ 右栏。右栏**全高**——与顶栏
@@ -814,6 +1068,8 @@ export default function App() {
         onNewNote={openNewNote}
         onNewCanvas={openNewCanvas}
         onOpenVault={() => void actions.openPicker()}
+        showBrandLogo
+        onBrandLogoClick={() => setHelpOpen(true)}
       />
       {state.error && (
         <div className="flex items-center gap-2 border-b border-red/40 bg-red/10 px-3 py-1.5 text-[12px] text-red">
@@ -887,9 +1143,39 @@ export default function App() {
           />
         )}
 
-        {/* 区 3:编辑器(常驻,不参与切换)。主视图内容(CenterToolbar 已提到全宽顶栏)。 */}
+        {/* 区 3:编辑器(常驻,不参与切换)。无 vault → 欢迎台;有 vault → 主视图。 */}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 min-w-0">
+            {!vaultBootReady ? (
+              <div
+                data-testid="vault-boot"
+                className="flex h-full items-center justify-center bg-base"
+                aria-busy="true"
+              >
+                <img
+                  src="/olw-mark.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 animate-pulse object-contain opacity-70"
+                  draggable={false}
+                />
+              </div>
+            ) : !state.root ? (
+              <WelcomeEmpty
+                t={t}
+                onOpenVault={() => void actions.openPicker()}
+                onOpenRoot={(root) => actions.openVault(root)}
+                onCreateSample={async () => {
+                  const path = await ipc.createSampleVault();
+                  const ok = await actions.openVault(path);
+                  return ok ? path : null;
+                }}
+                onMgPlacementChange={setMgPlacement}
+                onOpenAgentOnboard={openAgentOnboard}
+              />
+            ) : (
+              <>
             {view === "editor" && (
               <div className="flex h-full flex-col">
                 <TabBar
@@ -899,6 +1185,53 @@ export default function App() {
                   actions={actions}
                   t={t}
                 />
+                {digestInfo.phase !== "hidden" && !isSpecialFile && (
+                  <div
+                    data-testid="wiki-digest-bar"
+                    className={
+                      wikiSkillPresent === false
+                        ? "flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-yellow)]/40 bg-[var(--color-yellow)]/10 px-3 py-1.5"
+                        : digestArmed
+                          ? "flex shrink-0 items-center gap-2 border-b border-blue/40 bg-blue/10 px-3 py-1.5"
+                          : "flex shrink-0 items-center gap-2 border-b border-crust bg-mantle px-3 py-1.5"
+                    }
+                  >
+                    <p className="min-w-0 flex-1 text-[11px] leading-snug text-subtext">
+                      {wikiSkillPresent === false
+                        ? t("wiki.digest.skillMissing")
+                        : digestArmed
+                          ? t("wiki.digest.armed")
+                          : digestInfo.phase === "done"
+                            ? t("wiki.digest.hintDone")
+                            : digestInfo.kind === "untyped"
+                              ? t("wiki.digest.hintUntyped")
+                              : t("wiki.digest.hint")}
+                    </p>
+                    {wikiSkillPresent === false ? (
+                      <button
+                        type="button"
+                        data-testid="wiki-digest-install-skill"
+                        onClick={openAgentMemorySettings}
+                        className="shrink-0 rounded-md bg-blue px-2.5 py-1 text-[11px] font-medium text-white hover:opacity-90"
+                      >
+                        {t("wiki.digest.skillMissingAction")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid="wiki-digest-btn"
+                        onClick={startWikiDigest}
+                        className="shrink-0 rounded-md bg-blue px-2.5 py-1 text-[11px] font-medium text-white hover:opacity-90"
+                      >
+                        {digestArmed
+                          ? t("wiki.digest.actionAgain")
+                          : digestInfo.phase === "ready"
+                            ? t("wiki.digest.action")
+                            : t("wiki.digest.actionAgain")}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="relative min-h-0 flex-1">
                   {isCanvas ? (
                     <Suspense
@@ -913,6 +1246,9 @@ export default function App() {
                         content={state.content}
                         onSave={actions.setContent}
                         t={t}
+                        notePath={state.currentPath}
+                        root={state.root}
+                        onFlush={actions.writeScoped}
                       />
                     </Suspense>
                   ) : isSheet ? (
@@ -928,6 +1264,9 @@ export default function App() {
                         content={state.content}
                         onSave={actions.setContent}
                         t={t}
+                        notePath={state.currentPath}
+                        root={state.root}
+                        onFlush={actions.writeScoped}
                       />
                     </Suspense>
                   ) : editMode === "source" ? (
@@ -990,9 +1329,11 @@ export default function App() {
                       }
                     >
                       <WysiwygView
+                        ref={wysiwygRef}
                         key={state.currentPath ?? "empty"}
                         content={state.content}
                         onChange={actions.setContent}
+                        onFlush={actions.writeScoped}
                         onFollow={handleFollow}
                         noteTitles={noteTitles}
                         hasNote={state.currentPath !== null}
@@ -1080,7 +1421,21 @@ export default function App() {
                 t={t}
               />
             )}
+            {view === "health" && state.root && (
+              <HealthView
+                root={state.root}
+                snapshot={state.snapshot}
+                queryNotes={queryNotes}
+                t={t}
+                focusMetric={healthFocusId}
+                onFocusConsumed={() => setHealthFocusId(null)}
+                onOpenNote={openHealthNote}
+                onAskAgent={startVaultQuery}
+              />
+            )}
             {view === "git" && <GitPanel root={state.root} t={t} />}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1092,6 +1447,11 @@ export default function App() {
           <ColResizeHandle
             width={rightWidth}
             min={COL.right.min}
+            // 拖拽上限:给编辑器留保底,防把 agent 拖到过宽反过来挤死中间栏。
+            max={Math.max(
+              COL.right.min,
+              window.innerWidth - COL.nav.min - COL.list.min - COL.editor.min,
+            )}
             side="left"
             onChange={setRightWidth}
           />
@@ -1107,6 +1467,9 @@ export default function App() {
                 t={t}
                 getAiContext={actions.buildAiContextMd}
                 getContextCandidates={actions.contextCandidates}
+                onOpenMemoryOnboard={openAgentOnboard}
+                composerSeed={agentComposerSeed}
+                onSeedConsumed={consumeAgentComposerSeed}
               />
             ) : (
               <Inspector
@@ -1114,7 +1477,16 @@ export default function App() {
                 content={state.content}
                 backlinks={backlinks}
                 actions={actions}
-                onJumpToLine={(line) => editorRef.current?.scrollToLine(line)}
+                onJumpToHeading={(target) => {
+                  if (editModeRef.current === "source") {
+                    editorRef.current?.scrollToLine(
+                      target.bodyLine +
+                        frontmatterLineOffset(state.content),
+                    );
+                    return;
+                  }
+                  wysiwygRef.current?.scrollToHeading(target.index);
+                }}
                 noteTitles={noteTitles}
                 typeOptions={typeOptions}
                 vaultNodes={state.snapshot?.nodes ?? []}
@@ -1157,9 +1529,24 @@ export default function App() {
         commandExtras={commandExtras}
       />
 
+      <HelpGuideDialog
+        open={helpOpen}
+        onOpenChange={setHelpOpen}
+        t={t}
+        showRestoreMg={mgPlacement === "corner"}
+        onRestoreMg={() => {
+          writeWelcomeMgPlacement("hero");
+          setMgPlacement("hero");
+        }}
+        onOpenAgentOnboard={openAgentOnboard}
+        onOpenSettings={() => openSettings("general")}
+      />
+
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        initialTab={settingsTab}
+        vaultRoot={state.root}
         settings={{
           theme,
           locale,
@@ -1182,12 +1569,18 @@ export default function App() {
           if (patch.editorLayout != null) {
             setEditorLayout(patch.editorLayout);
           }
-          if (patch.graphForces != null) {
-            setForces(normalizeForces(patch.graphForces));
-          }
         }}
         t={t}
       />
+
+      {agentSeedToast && (
+        <div
+          data-testid="agent-seed-toast"
+          className="fixed bottom-2 left-1/2 z-30 -translate-x-1/2 rounded border border-crust bg-mantle px-3 py-1.5 text-[12px] text-text shadow"
+        >
+          {agentSeedToast}
+        </div>
+      )}
     </div>
   );
 }

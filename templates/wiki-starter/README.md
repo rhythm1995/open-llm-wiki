@@ -1,8 +1,12 @@
+---
+type: Note
+---
+
 # wiki-starter — LLM Wiki 起步脚手架
 
 把一个空 vault 变成一台**可查询的知识复利引擎**:Raw(不可变源)→ Wiki(派生知识)→ Schema(类型契约)→ Navigation(索引)→ Health(度量反馈)。五层全靠 `type:` 软类型 + `[[wikilink]]` 关系边 + QQL 实时聚合,**不靠文件夹**。
 
-> 这是 OpenObsidian 自带的方法论脚手架(MIT,原创)。它定义「怎么用类型和关系组织知识」,不绑定任何特定笔记格式。完整工作流见 [docs/14-llm-wiki-workflow.md](../../docs/14-llm-wiki-workflow.md)。
+> 这是 Open LLM Wiki 自带的方法论脚手架(MIT,原创)。它定义「怎么用类型和关系组织知识」,不绑定任何特定笔记格式。完整工作流见 [docs/14-llm-wiki-workflow.md](../../docs/14-llm-wiki-workflow.md)。
 
 ## 怎么用
 
@@ -17,9 +21,12 @@
 |---|---|
 | [`types/`](./types/) | 五个软类型的契约:`Source` / `Summary` / `Entity` / `Concept` / `Query`。每个是一篇 `type: Type` 的笔记,说明该类型的字段、关系与 `status` 取值。 |
 | [`index.md`](./index.md) | Navigation 层:wiki 的目录 / 入口。 |
+| [`hot.md`](./hot.md) | 会话缓存(整页覆写,约 500 词)。应用内 Agent 启动/长会话再注入;改过库后提醒更新。 |
 | [`health/`](./health/) | Health 层:11 条健康指标,每条是一篇 `type: Query` 的笔记,正文里是可直接跑的 QQL。前五条量图谱结构(矛盾/孤儿/饥饿度/证据/综合度),后六条量溯源与漂移(provenance 三值约定 + 复审超期 + 同名撞车,见 `docs/research/trust-provenance-frontmatter.md` / `content-lint-contradiction.md`)。 |
 | [`examples/`](./examples/) | 一条最小示例链(Source→Summary→Entity→Concept),演示关系怎么连。可删。 |
-| [`prompts/`](./prompts/) | 可复制给 agent 的提示词。现有 [`ingest-distill.md`](./prompts/ingest-distill.md):对已有 Source 做蒸馏式 ingest(docs/14 §1.1 L2a)。 |
+| [`skills/wiki-ingest/`](./skills/wiki-ingest/) | **主规程**:agent skill。seed 时写入 vault 的 `.agents/skills/` 与 `.claude/skills/`。升级:`npx open-llm-wiki-skills install .` |
+| [`AGENTS.md`](./AGENTS.md) | 指向 wiki-ingest skill + MCP 工具习惯(agent 读 vault 时的短指引)。 |
+| [`prompts/`](./prompts/) | 后备长提示词 [`ingest-distill.md`](./prompts/ingest-distill.md)(skill 缺失时用)。 |
 
 ## 三条铁律
 
@@ -29,7 +36,7 @@
 
 ## 跑 Health 查询
 
-`health/` 里每篇笔记的 ```qql ``` 块就是一条 QQL。复制它,通过 MCP `run_qql`、或 core 直接求值即可:
+桌面应用顶栏「库健康」会一键跑这些模板(内置目录与 `health/*.md` 按文件名对齐)。也可以复制 fence,通过 MCP `run_qql` 或 core 直接求值:
 
 ```bash
 # MCP(Claude Code / Cursor 等):把 QQL 字符串传给 run_qql 工具
@@ -37,4 +44,4 @@
 ```
 
 这十一条查询的语法与语义由 [`core/tests/wiki_health_qql.rs`](../../core/tests/wiki_health_qql.rs) 锁住,改引擎或改模板都会被测试挡下。
-QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名精筛、挂废源 / 引用废源)在 core 的 `lint` 模块(`core/src/lint.rs`,只产候选、不做判决)。
+QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名精筛、挂废源 / 引用废源)在 core 的 `lint` 模块(`core/src/lint.rs`,只产候选、不做判决),agent 经 MCP `lint_vault` 工具一次调用拿到全部结构候选(见 `docs/14` §3.2.2 / §4)。

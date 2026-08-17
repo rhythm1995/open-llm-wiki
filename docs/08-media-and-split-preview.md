@@ -8,7 +8,7 @@
 1. 附件是 vault 普通文件,**不进**笔记 `VaultIndex` / 图谱 / 全文检索。  
 2. 媒体一等索引:`MediaIndex`(files + by_note + by_media)。  
 3. 链接 **vault 根相对** → 改笔记名默认不断图。  
-4. GC:**不**在删笔记时静默删图;⌘K 确认 → `.openobsidian/media-trash/`。
+4. GC:**不**在删笔记时静默删图;⌘K 确认 → `.open-llm-wiki/media-trash/`。
 
 ## 已落地
 

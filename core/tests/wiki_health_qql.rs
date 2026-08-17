@@ -6,7 +6,7 @@
 //! 入度(反链)由正文 `[[wikilink]]` 生成:`mentioned_in.len()` 即图的反链入度,
 //! 与 frontmatter 是否写了 `mentioned_in:` 键无关。
 
-use openobs_core::{parse_query, ResultSet, VaultIndex};
+use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
 
 /// 一个微型 LLM Wiki:2 个 Source(不同 evidence_tier)、2 个 Summary、
 /// 2 个 Entity(其一无人引用 = 孤儿)、3 个 Concept(其一 Contested、其一深、其一浅)。

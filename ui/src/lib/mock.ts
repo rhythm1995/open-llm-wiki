@@ -112,7 +112,7 @@ tags: [meta]
 
 # Index
 
-欢迎来到 OpenObsidian 的 mock vault(浏览器预览模式)。
+欢迎来到 Open LLM Wiki 的 mock vault(浏览器预览模式)。
 
 - 看 [[Zettelkasten]] 方法论
 - 看 [[Evergreen Notes]] 的对比
@@ -151,6 +151,40 @@ last_verified: 2026-07-25
 # Karpathy LLM Wiki
 
 一份用 LLM 维护的 wiki 流水线设想。被 [[Zettelkasten]] 提及。
+也关联 [[Evergreen Notes]] 与 [[Agent Memory]]。
+`,
+    "concepts/agent-memory.md": `---
+type: Concept
+status: Active
+tags: [method, ai]
+---
+
+# Agent Memory
+
+agent 长期记忆:wiki 路线 vs 向量库。参见 [[Zettelkasten]]、[[Karpathy LLM Wiki]]、[[Index]]。
+
+related_to: "[[Evergreen Notes]]"
+`,
+    "concepts/knowledge-graph.md": `---
+type: Concept
+status: Active
+tags: [method]
+---
+
+# Knowledge Graph
+
+笔记网络可视化与检索。链接到 [[Agent Memory]] 与 [[Index]]。
+`,
+    "summaries/bitunix-margin.md": `---
+type: Summary
+status: Active
+tags: [finance]
+source: "[[Karpathy LLM Wiki]]"
+---
+
+# Summary — 从成本中心到利润中心
+
+派生自源笔记。交叉引用 [[Knowledge Graph]] 与 [[Agent Memory]]。
 `,
     // 模板示例:演示 F-TEMPLATES(`{{title}}` / `{{date}}` 占位符)。
     "templates/concept.md": `---
@@ -423,6 +457,17 @@ export async function handle<T>(
     case "pick_vault":
       return MOCK_ROOT as unknown as T;
 
+    case "create_sample_vault": {
+      // 灌入精简示例库(与 ui/sample-vault.ts 对齐);mock 共用内存 Map。
+      const { sampleVaultNotes, SAMPLE_VAULT_MOCK_ROOT } = await import(
+        "./sample-vault"
+      );
+      for (const n of sampleVaultNotes()) {
+        vault.set(n.path, n.content);
+      }
+      return SAMPLE_VAULT_MOCK_ROOT as unknown as T;
+    }
+
     case "list_vault": {
       const entries: VaultEntry[] = [];
       // 与 Rust 一致:隐藏任何点开头的路径段(含 .trash、.obsidian 等)。
@@ -496,35 +541,11 @@ export async function handle<T>(
       return attachments.has(path) as unknown as T;
     }
 
-    case "list_attachments": {
-      const dirRaw = args.dir == null || args.dir === ""
-        ? "attachments"
-        : String(args.dir).replace(/\\/g, "/").replace(/^\/+/, "");
-      const prefix = dirRaw.endsWith("/") ? dirRaw : `${dirRaw}/`;
-      const imgRe = /\.(png|jpe?g|gif|webp|svg|bmp)$/i;
-      const out = [...attachments.keys()]
-        .filter((p) => (p === dirRaw || p.startsWith(prefix)) && imgRe.test(p))
-        .sort();
-      return out as unknown as T;
-    }
-
     case "media_index":
       return mockMediaSnapshot() as unknown as T;
 
     case "media_of_note":
       return mockMediaOfNote(String(args.path)) as unknown as T;
-
-    case "media_used_by": {
-      const target = String(args.path).replace(/\\/g, "/");
-      const notes: string[] = [];
-      for (const [notePath, content] of vault.entries()) {
-        if (!notePath.endsWith(".md")) continue;
-        if (extractMarkdownImagePaths(content).includes(target)) {
-          notes.push(notePath);
-        }
-      }
-      return notes.sort() as unknown as T;
-    }
 
     case "trash_attachments": {
       const paths = (args.paths as string[] | undefined) ?? [];
@@ -555,6 +576,14 @@ export async function handle<T>(
       return null as unknown as T;
     case "save_graph_layout":
       return undefined as unknown as T;
+
+    case "run_qql":
+      // Honest empty: core is not ported to TS. Do not resurrect mock-qql.
+      return { List: [] } as unknown as T;
+
+    case "lint_vault":
+      // mock:空候选报告(不跑完整 core lint)。
+      return { findings: [], duplicate_names: [] } as unknown as T;
 
     case "index_vault":
       // force 在 mock 无差异(内存 map 即真相)。
@@ -595,7 +624,6 @@ export async function handle<T>(
       throw new Error("mock 模式下 git 不可用;请在桌面 app 中打开 git 仓库。");
 
     case "watch_vault":
-    case "unwatch_vault":
       // mock 无 OS fs,不监听;种子静态,浏览器 dev 靠手动 refresh。
       return undefined as unknown as T;
 

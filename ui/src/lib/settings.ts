@@ -1,7 +1,7 @@
 /**
  * settings —— 应用偏好聚合(纯逻辑,无 DOM)。
  *
- * 键复用既有 localStorage:`openobs.theme` / locale / editMode /
+ * 键复用既有 localStorage:`open-llm-wiki.theme` / locale / editMode /
  * attachmentsDir / editorLayout。Settings 面板与各 hook 读写同一套键。
  */
 import type { EditMode } from "./edit-mode";
@@ -25,7 +25,7 @@ import {
 import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./graph-layout";
 
 /** 图谱力参数存储键(6A2)。存 JSON。 */
-export const GRAPH_FORCES_KEY = "openobs.graph.forces";
+export const GRAPH_FORCES_KEY = "open-llm-wiki.graph.forces";
 
 export interface AppSettings {
   theme: Theme;

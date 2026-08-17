@@ -3,7 +3,7 @@
  *
  * 两层结构:第一层 = 分组标题行(可折叠),第二层 = 组内条目。
  *   - 智能视图(无标题,顶部平铺):Inbox / All Notes / Archive,各带计数。
- *   - ▼ VIEWS:已保存的 QQL 查询(`type: Query` 笔记);点击 → List 运行该查询。
+ *   - TYPES 里的 `type: Query` 笔记只是普通笔记(打开编辑);跑查询走「库健康」视图。
  *   - ▼ TYPES:`type` 去重 + 计数(动态);未分类(type 缺失)单列一行。
  *   - ▼ FOLDERS:目录树(复用 buildTree,只列目录;文件由中间 List 呈现)。
  *
@@ -20,19 +20,22 @@ import {
   CaretDown,
   CaretRight,
   Copy,
+  Files,
   Folder,
   FolderOpen,
   Funnel,
   Hash,
-  NoteBlank,
   Plus,
-  Tag,
+  Question,
+  SquaresFour,
   Tray,
 } from "@phosphor-icons/react";
 import type { VaultEntry, VaultSnapshot } from "../lib/ipc";
 import { isInbox, sameSelection, type NavSelection } from "../lib/nav-filter";
+import { typeColor, typeIcon } from "../lib/nav-icons";
 import { cn } from "../lib/cn";
 import type { TFunc } from "../lib/i18n";
+import { labelType } from "../lib/wiki-labels";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface TreeNode {
@@ -78,7 +81,7 @@ interface Props {
   t: TFunc;
 }
 
-const NOTE_DRAG_MIME = "application/x-openobs-note";
+const NOTE_DRAG_MIME = "application/x-open-llm-wiki-note";
 
 export function Nav({
   entries,
@@ -148,7 +151,11 @@ export function Nav({
   // type 去重 + 计数;typed 升序,未分类("")排末尾。
   const types = useMemo(() => {
     const m = new Map<string, number>();
-    for (const n of nodes) m.set(n.type ?? "", (m.get(n.type ?? "") ?? 0) + 1);
+    for (const n of nodes) {
+      // 操作系统未标 type 不进「未分类」桶(与 isInbox 一致)。
+      if (n.type == null && !isInbox(n)) continue;
+      m.set(n.type ?? "", (m.get(n.type ?? "") ?? 0) + 1);
+    }
     return [...m.entries()].sort((a, b) => {
       if (a[0] === "") return 1;
       if (b[0] === "") return -1;
@@ -284,19 +291,23 @@ export function Nav({
           onDragLeave={() => setDropTarget((cur) => (cur === node.path ? null : cur))}
           onDrop={(e) => acceptNoteDrop(e, node.path)}
         >
-          <button
-            onClick={() => toggleFolder(node.path)}
-            className="shrink-0 rounded p-0.5 text-overlay hover:text-text"
-            tabIndex={-1}
-            aria-label={open ? t("nav.section.folders") : t("nav.section.folders")}
-          >
-            {open ? <CaretDown size={11} weight="bold" /> : <CaretRight size={11} weight="bold" />}
-          </button>
+          {kids.length > 0 ? (
+            <button
+              onClick={() => toggleFolder(node.path)}
+              className="shrink-0 rounded p-0.5 text-overlay hover:text-text"
+              tabIndex={-1}
+              aria-label={open ? t("nav.section.folders") : t("nav.section.folders")}
+            >
+              {open ? <CaretDown size={11} weight="bold" /> : <CaretRight size={11} weight="bold" />}
+            </button>
+          ) : (
+            <span className="inline-block size-[15px] shrink-0" aria-hidden />
+          )}
           <button
             onClick={() => onNavSelect({ kind: "folder", id: node.path })}
             className="flex min-w-0 flex-1 items-center gap-1.5 rounded py-1"
           >
-            {open ? (
+            {open && kids.length > 0 ? (
               <FolderOpen size={14} className="shrink-0 text-yellow" weight="fill" />
             ) : (
               <Folder size={14} className="shrink-0 text-yellow" weight="fill" />
@@ -328,7 +339,7 @@ export function Nav({
             )}
             {itemRow(
               { kind: "all" },
-              <NoteBlank size={14} />,
+              <Files size={14} />,
               t("nav.allNotes"),
               isEditorView && sameSelection(navSelection, { kind: "all" }),
               nodes.length,
@@ -350,19 +361,22 @@ export function Nav({
 
           <div className="my-2 border-t border-crust" />
 
-          {/* ▼ TYPES:type 去重 + 计数。 */}
-          {sectionHeader("types", <Tag size={12} />, t("nav.section.types"), types.length)}
+          {/* ▼ TYPES:type 去重 + 计数;每个 type 按名挑图标 + 配色(见 nav-icons)。 */}
+          {sectionHeader("types", <SquaresFour size={12} />, t("nav.section.types"), types.length)}
           {openSections.has("types") && (
             <div className="mb-1 mt-0.5 flex flex-col gap-0.5">
-              {types.map(([id, count]) =>
-                itemRow(
+              {types.map(([id, count]) => {
+                // 未分类(type 缺失)用专属 Question 图标,不跟随 typeIcon 的 BookmarkSimple 回退
+                const isUntyped = id === "";
+                const TypeIcon = isUntyped ? Question : typeIcon(id);
+                return itemRow(
                   { kind: "type", id },
-                  <Tag size={13} />,
-                  id === "" ? t("nav.untyped") : id,
+                  <TypeIcon size={13} className={isUntyped ? "text-overlay" : typeColor(id)} weight="fill" />,
+                  isUntyped ? t("nav.untyped") : labelType(id, t),
                   isEditorView && sameSelection(navSelection, { kind: "type", id }),
                   count,
-                ),
-              )}
+                );
+              })}
             </div>
           )}
 
@@ -386,35 +400,56 @@ export function Nav({
             </div>
           )}
 
-          {/* ▼ FOLDERS:目录树(默认收起);可接受列表拖放。 */}
-          {sectionHeader("folders", <Folder size={12} weight="fill" />, t("nav.section.folders"))}
-          {openSections.has("folders") && (
-            <div className="mt-0.5">
-              {/* 根目录放置区:把笔记拖回 vault 根。 */}
-              {onMoveNote && (
-                <div
-                  className={cn(
-                    "mb-0.5 rounded px-2 py-1 text-[12px] text-overlay",
-                    dropTarget === "" ? "bg-blue/10 ring-1 ring-blue text-text" : "hover:bg-surface",
-                  )}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    setDropTarget("");
-                  }}
-                  onDragLeave={() => setDropTarget((cur) => (cur === "" ? null : cur))}
-                  onDrop={(e) => acceptNoteDrop(e, "")}
-                >
-                  {t("nav.dropToRoot")}
-                </div>
-              )}
-              {entries.length === 0 ? (
-                <p className="px-2 py-1 text-[12px] text-overlay">{t("sidebar.empty")}</p>
-              ) : (
-                renderFolder(tree, 0)
-              )}
-            </div>
-          )}
+          {/* ▼ FOLDERS:目录树(默认收起)。拖到空白区/分组头 = 移到根(无单独根节点,
+              参考 Tolaria);拖到子文件夹 = 移入该目录。 */}
+          <div
+            className={cn(
+              "rounded",
+              dropTarget === "" && !openSections.has("folders") && "ring-1 ring-blue/40 bg-blue/5",
+            )}
+            onDragOver={(e) => {
+              if (!onMoveNote) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDropTarget("");
+            }}
+            onDragLeave={() => setDropTarget((cur) => (cur === "" ? null : cur))}
+            onDrop={(e) => {
+              if (onMoveNote) acceptNoteDrop(e, "");
+            }}
+          >
+            {sectionHeader("folders", <Folder size={12} weight="fill" />, t("nav.section.folders"))}
+            {openSections.has("folders") && (
+              <div
+                className={cn(
+                  "mt-0.5 min-h-[1.5rem]",
+                  dropTarget === "" && "rounded ring-1 ring-blue/40 bg-blue/5",
+                )}
+                onDragOver={(e) => {
+                  if (!onMoveNote) return;
+                  // 仅容器自身(空白区);子文件夹事件不冒泡到这里(stopPropagation in acceptNoteDrop)
+                  if (e.target !== e.currentTarget) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDropTarget("");
+                }}
+                onDragLeave={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  setDropTarget((cur) => (cur === "" ? null : cur));
+                }}
+                onDrop={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  acceptNoteDrop(e, "");
+                }}
+              >
+                {entries.length === 0 ? (
+                  <p className="px-2 py-1 text-[12px] text-overlay">{t("sidebar.empty")}</p>
+                ) : (
+                  renderFolder(tree, 0)
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       <ContextMenu

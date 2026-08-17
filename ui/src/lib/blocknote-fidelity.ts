@@ -79,6 +79,14 @@ export const DISABLED_OR_RISKY_PATTERNS: string[] = [
   "BlockNote-only custom block types without md mapping",
   "YAML frontmatter inside body (must stay in Properties sidebar)",
   "full GFM byte-identity (BN lossy may normalize list markers -/* )",
+  // 2026-08-15 实测(见 blocknote-fidelity-sweep.test.ts 对应 risky 用例):
+  // 引用内段落空隙 `> A` / `>` / `> B` 往返塌成硬换行(`> A\` + `\n> B`);
+  // ZWSP 占位桥实验无效(输出更乱)。BN 引用序列化以硬换行合并段落,属边界。
+  "blank line inside blockquote (paragraph gap) collapses to hard line break",
+  // 链接标签内行内代码 [`code`](url):BN 解析不支持标签内 code span,往返丢链接
+  // (只留 code span,URL 数据丢失);导入哨兵桥可救回链接,但导出侧 BN 对
+  // code-styled 文本会再次丢链接——双向保真需完整 preprocess/restore seam,后置。
+  "inline code as markdown link label drops the link (URL lost) on rich-mode round trip",
 ];
 
 /**

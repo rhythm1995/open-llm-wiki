@@ -1,4 +1,4 @@
-//! openobs-core —— OpenObsidian 的纯逻辑内核。
+//! open-llm-wiki-core —— Open LLM Wiki 的纯逻辑内核。
 //!
 //! 全部 IO-free、纯函数、穷尽单测。设计见 `docs/02-architecture.md` 与 `docs/03-data-model.md`。
 //! 分层铁律:本 crate 不碰文件系统、不碰网络、不碰时间。所有副作用在 `app` 层。
@@ -27,7 +27,11 @@ pub mod search;
 pub mod vault;
 
 pub use graph::{aliases_of, Edge, EdgeKind, Graph, NodeId, OrphanMode, Target};
-pub use lint::{contradiction_consistency, duplicate_names, refs_to_superseded, summaries_on_superseded, Finding, FindingKind};
+pub use lint::{
+    contradiction_consistency, duplicate_names, lint_all, refs_to_superseded,
+    summaries_on_superseded, DuplicateNameGroup, Finding, FindingKind, FindingReport, LintReport,
+    NodeRef,
+};
 pub use index::{
     enrich, frontmatter_str, parse_frontmatter, relationship_links, tags, type_of, Frontmatter,
     Note,

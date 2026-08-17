@@ -1,18 +1,26 @@
-//! openobs-mcp —— stdio MCP server(B-MCP v1)。
+//! open-llm-wiki-mcp —— stdio MCP server(B-MCP v1)。
 //!
 //! 让 agent 通过 Model Context Protocol 读写 vault。
 //! 传输:stdin/stdout JSON-RPC 2.0(Content-Length framing 可选;也接受 NDJSON 单行)。
 //!
 //! 用法:
-//!   openobs-mcp /path/to/vault
-//!   OPENOBS_VAULT=/path/to/vault openobs-mcp
+//!   open-llm-wiki-mcp /path/to/vault
+//!   OPEN_LLM_WIKI_VAULT=/path/to/vault open-llm-wiki-mcp
 //!
-//! Tools: list_notes, read_note, write_note, search_notes, run_qql, vault_info, links
+//! onboarding 子命令(B-MCP-ONBOARD,逻辑在 lib `open_llm_wiki_mcp::onboard`):
+//!   open-llm-wiki-mcp setup [--vault P] [--agent ID]... [--yes] [--dry-run] [--remove]
+//!   open-llm-wiki-mcp doctor [--vault P]
+//!   open-llm-wiki-mcp init <dir> [--force]
+//!   open-llm-wiki-mcp help
+//!
+//! Tools: list_notes, read_note, write_note, search_notes, run_qql, vault_info, links, lint_vault
 //!
 //! graph-aware 增量(6B):
 //! - `links`:图谱查询——backlinks / forward / dead / orphans / hubs / suggest。
 //! - `read_note`:附带 graph 简报(backlinks / forward / dead / degree)。
 //! - `write_note`:返回 broken_links + orphan_hint(写后即审)。
+//! - `lint_vault`:L1 结构 lint(B-WIKI-LINT-MCP)——QQL 够不到的跨笔记检查,
+//!   只产候选、不做判决;修不修由 agent/人经 `write_note` 显式决定。
 
 use std::collections::{BTreeMap, HashSet};
 use std::env;
@@ -20,26 +28,76 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
-use openobs_core::{
-    parse_query, EdgeKind, Graph, NodeId, OrphanMode, ResultSet, Target, VaultIndex,
+use open_llm_wiki_core::{
+    lint_all, parse_query, EdgeKind, FindingKind, Graph, LintReport, NodeId, OrphanMode,
+    ResultSet, Target, VaultIndex,
 };
+use open_llm_wiki_mcp::list_md;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use walkdir::WalkDir;
 
 fn main() {
-    let vault = resolve_vault_root();
-    if let Err(e) = run_server(&vault) {
-        eprintln!("openobs-mcp error: {e}");
+    let args: Vec<String> = env::args().skip(1).collect();
+    match dispatch(&args) {
+        Action::Serve => {
+            let vault = resolve_vault_root_from(&args);
+            if let Err(e) = run_server(&vault) {
+                eprintln!("open-llm-wiki-mcp error: {e}");
+                std::process::exit(1);
+            }
+        }
+        Action::Setup => exit_with(open_llm_wiki_mcp::onboard::run_setup(&args)),
+        Action::Doctor => exit_with(open_llm_wiki_mcp::onboard::run_doctor(&args)),
+        Action::Init => exit_with(open_llm_wiki_mcp::onboard::run_init(&args)),
+        Action::Help => println!("{}", open_llm_wiki_mcp::onboard::USAGE),
+        Action::UnknownFlag(f) => {
+            eprintln!("open-llm-wiki-mcp: unknown option `{f}` (see `open-llm-wiki-mcp help`)");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn exit_with(res: Result<(), String>) {
+    if let Err(e) = res {
+        eprintln!("open-llm-wiki-mcp error: {e}");
         std::process::exit(1);
     }
 }
 
-fn resolve_vault_root() -> PathBuf {
-    if let Some(a) = env::args().nth(1) {
+#[derive(Debug, PartialEq)]
+enum Action {
+    Serve,
+    Setup,
+    Doctor,
+    Init,
+    Help,
+    UnknownFlag(String),
+}
+
+/// 纯分派:首词是保留词则进子命令;其余一律当 vault 路径(向后兼容裸跑与 `<path>` 形式)。
+fn dispatch(args: &[String]) -> Action {
+    match args.first().map(String::as_str) {
+        Some("setup") => Action::Setup,
+        Some("doctor") => Action::Doctor,
+        Some("init") => Action::Init,
+        Some("help" | "--help" | "-h") => Action::Help,
+        Some("serve") => Action::Serve,
+        Some(s) if s.starts_with('-') => Action::UnknownFlag(s.to_string()),
+        _ => Action::Serve,
+    }
+}
+
+/// vault 决议:第一个位置参数(跳过可选的显式 `serve`)> `$OPEN_LLM_WIKI_VAULT` > 当前目录。
+fn resolve_vault_root_from(args: &[String]) -> PathBuf {
+    let rest: &[String] = if args.first().map(String::as_str) == Some("serve") {
+        &args[1..]
+    } else {
+        args
+    };
+    if let Some(a) = rest.first() {
         return PathBuf::from(a);
     }
-    if let Ok(v) = env::var("OPENOBS_VAULT") {
+    if let Ok(v) = env::var("OPEN_LLM_WIKI_VAULT") {
         return PathBuf::from(v);
     }
     env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
@@ -122,7 +180,7 @@ fn handle_message(vault: &Path, raw: &str, out: &mut impl Write) -> Result<(), S
                 "protocolVersion": "2024-11-05",
                 "capabilities": { "tools": {} },
                 "serverInfo": {
-                    "name": "openobsidian",
+                    "name": "open-llm-wiki",
                     "version": env!("CARGO_PKG_VERSION"),
                 }
             }),
@@ -224,7 +282,7 @@ fn tool_defs() -> Vec<Value> {
         ),
         tool(
             "run_qql",
-            "Run a QQL query (openobs-core evaluator).",
+            "Run a QQL query (open-llm-wiki-core evaluator).",
             json!({
                 "type": "object",
                 "properties": { "qql": { "type": "string" } },
@@ -234,6 +292,11 @@ fn tool_defs() -> Vec<Value> {
         tool(
             "vault_info",
             "Vault root path and note count.",
+            json!({ "type": "object", "properties": {} }),
+        ),
+        tool(
+            "lint_vault",
+            "Run L1 structural lint over the whole vault (cross-note checks QQL cannot express): contradicts↔Contested consistency, normalized title/alias collisions, summaries anchored to Superseded sources, Active/Contested pages referencing Superseded pages. CANDIDATES ONLY — never mutates the vault; fixing is an explicit write_note decision by agent/human. Returns JSON {summary, findings[], duplicate_names[]}; each finding carries kind, hint, subject{path,title}, other{path,title}|null.",
             json!({ "type": "object", "properties": {} }),
         ),
     ]
@@ -340,6 +403,11 @@ fn tools_call(vault: &Path, params: &Value) -> Result<Value, String> {
                 "notes": n,
             }))
             .map_err(|e| e.to_string())?
+        }
+        "lint_vault" => {
+            let index = load_index(vault)?;
+            let report = lint_all(index.graph());
+            format_lint_report(&report)
         }
         other => return Err(format!("unknown tool: {other}")),
     };
@@ -577,35 +645,6 @@ fn resolve_under(root: &Path, path: &str) -> Result<PathBuf, String> {
     Ok(root.join(path))
 }
 
-fn list_md(root: &Path) -> Result<Vec<String>, String> {
-    if !root.is_dir() {
-        return Err(format!("not a directory: {}", root.display()));
-    }
-    let mut out = Vec::new();
-    for entry in WalkDir::new(root).min_depth(1) {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let p = entry.path();
-        if p.components().any(|c| {
-            c.as_os_str()
-                .to_str()
-                .map(|s| s.starts_with('.'))
-                .unwrap_or(false)
-        }) {
-            continue;
-        }
-        if p.extension().and_then(|e| e.to_str()) == Some("md") && p.is_file() {
-            let rel = p
-                .strip_prefix(root)
-                .unwrap_or(p)
-                .to_string_lossy()
-                .replace('\\', "/");
-            out.push(rel);
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
 fn load_index(root: &Path) -> Result<VaultIndex, String> {
     let mut entries: BTreeMap<String, String> = BTreeMap::new();
     for rel in list_md(root)? {
@@ -641,6 +680,69 @@ fn format_result_set(rs: &ResultSet, index: &VaultIndex) -> String {
     }
 }
 
+// ── lint_vault(B-WIKI-LINT-MCP)──────────────────────────────────────────
+
+/// FindingKind → (slug, hint)。hint 只解释「为什么被提名」,不指示具体改法——
+/// 判决权在 agent/人(docs/14 §3.2.3)。
+fn lint_kind_info(k: FindingKind) -> (&'static str, &'static str) {
+    match k {
+        FindingKind::ContradictionUncontested => (
+            "contradiction_uncontested",
+            "a contradicts edge exists but neither endpoint is status: Contested; the rebutted side should be marked Contested after review",
+        ),
+        FindingKind::ContestedWithoutContradiction => (
+            "contested_without_contradiction",
+            "status: Contested but no inbound contradicts edge; state and graph disagree — add the missing edge or clear the status",
+        ),
+        FindingKind::SummaryOnSuperseded => (
+            "summary_on_superseded",
+            "this Summary's source: points at a Superseded page; re-ingest the live source or retire this summary too",
+        ),
+        FindingKind::RefToSuperseded => (
+            "ref_to_superseded",
+            "an Active/Contested page still references a Superseded page; repoint to its successor or archive the reference",
+        ),
+    }
+}
+
+fn format_lint_report(report: &LintReport) -> String {
+    let findings: Vec<Value> = report
+        .findings
+        .iter()
+        .map(|f| {
+            let (slug, hint) = lint_kind_info(f.kind);
+            json!({
+                "kind": slug,
+                "hint": hint,
+                "subject": { "path": f.subject.path, "title": f.subject.title },
+                "other": f.other.as_ref().map(|o| json!({ "path": o.path, "title": o.title })),
+            })
+        })
+        .collect();
+    let duplicate_names: Vec<Value> = report
+        .duplicate_names
+        .iter()
+        .map(|g| {
+            json!({
+                "key": g.key,
+                "hint": "normalized title/alias collision: link resolution silently prefers the first note; rename or dedupe",
+                "members": g.members.iter()
+                    .map(|m| json!({ "path": m.path, "title": m.title }))
+                    .collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+    serde_json::to_string_pretty(&json!({
+        "summary": {
+            "findings": findings.len(),
+            "duplicate_groups": duplicate_names.len(),
+        },
+        "findings": findings,
+        "duplicate_names": duplicate_names,
+    }))
+    .unwrap_or_else(|_| "{}".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -656,7 +758,7 @@ mod tests {
     /// 临时 vault:a→b(wiki)、a→Ghost(悬空)、c→a(wiki);d 孤立。
     /// a 正文提到 "Gamma"(c 的标题)但未链接 → suggest 命中。
     /// 用非 `.` 前缀的临时目录:生产 `list_md` 会跳过任何含 `.` 分量的路径
-    /// (用于隐藏 vault 内的 `.git` / `.openobsidian`),默认 `tempfile::tempdir()`
+    /// (用于隐藏 vault 内的 `.git` / `.open-llm-wiki`),默认 `tempfile::tempdir()`
     /// 生成的 `.tmpXXXX` 名字会触发该规则,故这里显式给一个干净前缀。
     fn fixture() -> tempfile::TempDir {
         let dir = tempfile::Builder::new().prefix("oomcp-").tempdir().unwrap();
@@ -880,5 +982,141 @@ mod tests {
         );
         assert_eq!(r["broken_links"].as_array().unwrap().len(), 0);
         assert_eq!(r["orphan_hint"], ""); // 链到 a(已解析)→ 非孤儿
+    }
+
+    // ── lint_vault(B-WIKI-LINT-MCP)────────────────────────────────────────
+
+    /// 每类 L1 违规各布一点:
+    /// - a contradicts b,两端都 Active → contradiction_uncontested
+    /// - sum(Active Summary)source 指向 old-src(Superseded)→ summary_on_superseded
+    /// - reader(Active Entity)引用 old-src → ref_to_superseded
+    /// - dup1/dup2 归一化撞名 → duplicate 桶
+    fn lint_fixture() -> tempfile::TempDir {
+        let dir = tempfile::Builder::new().prefix("oomcp-lint-").tempdir().unwrap();
+        let put = |name: &str, body: &str| {
+            fs::write(dir.path().join(name), body).unwrap();
+        };
+        put(
+            "a.md",
+            "---\ntype: Concept\nstatus: Active\ncontradicts:\n  - \"[[b]]\"\n---\n# A\n",
+        );
+        put("b.md", "---\ntype: Concept\nstatus: Active\n---\n# B\n");
+        put(
+            "sum.md",
+            "---\ntype: Summary\nstatus: Active\nsource:\n  - \"[[old-src]]\"\n---\n# Sum\n",
+        );
+        put(
+            "reader.md",
+            "---\ntype: Entity\nstatus: Active\nrelated:\n  - \"[[old-src]]\"\n---\n# Reader\n",
+        );
+        put("old-src.md", "---\ntype: Source\nstatus: Superseded\n---\n# OldSrc\n");
+        put("dup1.md", "# Dup\n");
+        put("dup2.md", "# DUP\n");
+        dir
+    }
+
+    #[test]
+    fn lint_vault_reports_all_kinds_with_paths() {
+        let dir = lint_fixture();
+        let r = call_json(dir.path(), "lint_vault", json!({}));
+        let findings = r["findings"].as_array().unwrap();
+        let kinds: Vec<&str> = findings.iter().map(|f| f["kind"].as_str().unwrap()).collect();
+        assert!(kinds.contains(&"contradiction_uncontested"));
+        assert!(kinds.contains(&"summary_on_superseded"));
+        assert!(kinds.contains(&"ref_to_superseded"));
+
+        // subject/other 是 path/title,agent 可直接认领。
+        let contra = findings
+            .iter()
+            .find(|f| f["kind"] == "contradiction_uncontested")
+            .unwrap();
+        assert_eq!(contra["subject"]["path"], "a.md");
+        assert_eq!(contra["other"]["path"], "b.md");
+
+        // 撞名桶:dup1/dup2 同组。
+        let dups = r["duplicate_names"].as_array().unwrap();
+        assert_eq!(dups.len(), 1);
+        let members: Vec<&str> = dups[0]["members"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["path"].as_str().unwrap())
+            .collect();
+        assert_eq!(members, ["dup1.md", "dup2.md"]);
+
+        // summary 计数与明细一致。
+        assert_eq!(r["summary"]["findings"], findings.len() as u64);
+        assert_eq!(r["summary"]["duplicate_groups"], 1);
+    }
+
+    #[test]
+    fn lint_vault_clean_vault_empty() {
+        // 基础 fixture 无任何 L1 违规(无 status/contradicts/Superseded/撞名)。
+        let dir = fixture();
+        let r = call_json(dir.path(), "lint_vault", json!({}));
+        assert_eq!(r["findings"].as_array().unwrap().len(), 0);
+        assert_eq!(r["duplicate_names"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn lint_vault_listed_in_tools() {
+        let defs = tool_defs();
+        let names: Vec<&str> = defs.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"lint_vault"));
+    }
+
+    // ── dispatch(B-MCP-ONBOARD)────────────────────────────────────────────
+
+    fn args(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn dispatch_bare_and_path_are_serve() {
+        // 向后兼容:裸跑与 `<path>` 一律 Serve。
+        assert_eq!(dispatch(&args(&[])), Action::Serve);
+        assert_eq!(dispatch(&args(&["/tmp/vault"])), Action::Serve);
+        assert_eq!(dispatch(&args(&["serve", "/tmp/vault"])), Action::Serve);
+    }
+
+    #[test]
+    fn dispatch_reserved_words() {
+        assert_eq!(dispatch(&args(&["setup"])), Action::Setup);
+        assert_eq!(dispatch(&args(&["setup", "--dry-run"])), Action::Setup);
+        assert_eq!(dispatch(&args(&["doctor"])), Action::Doctor);
+        assert_eq!(dispatch(&args(&["init", "/tmp/x"])), Action::Init);
+        assert_eq!(dispatch(&args(&["help"])), Action::Help);
+        assert_eq!(dispatch(&args(&["--help"])), Action::Help);
+        assert_eq!(dispatch(&args(&["-h"])), Action::Help);
+    }
+
+    #[test]
+    fn dispatch_unknown_flag_rejected() {
+        // 今天会被静默当 vault 路径;改为显式拒绝。
+        assert_eq!(
+            dispatch(&args(&["--bogus"])),
+            Action::UnknownFlag("--bogus".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_vault_root_from_variants() {
+        assert_eq!(resolve_vault_root_from(&args(&["/v"])), PathBuf::from("/v"));
+        assert_eq!(
+            resolve_vault_root_from(&args(&["serve", "/v"])),
+            PathBuf::from("/v")
+        );
+        // env 回退(清掉可能的环境值再设)。
+        env::remove_var("OPEN_LLM_WIKI_VAULT");
+        env::set_var("OPEN_LLM_WIKI_VAULT", "/env-vault");
+        assert_eq!(
+            resolve_vault_root_from(&args(&[])),
+            PathBuf::from("/env-vault")
+        );
+        assert_eq!(
+            resolve_vault_root_from(&args(&["serve"])),
+            PathBuf::from("/env-vault")
+        );
+        env::remove_var("OPEN_LLM_WIKI_VAULT");
     }
 }

@@ -2,7 +2,7 @@
  * plugin-host —— F-PLUGIN v1 本地插件宿主(纯逻辑 + 契约)。
  *
  * 设计:
- * - 插件目录:vault 内 `.openobs/plugins/<id>/`
+ * - 插件目录:vault 内 `.open-llm-wiki/plugins/<id>/`
  * - 清单:`plugin.json`(id/name/version/main/permissions)
  * - 运行:宿主加载 main 脚本进 iframe sandbox,经 postMessage 调白名单 API
  * - v1 权限:`commands.register` / `notes.read` / `ui.notify`(无任意 fs/net)
@@ -10,8 +10,7 @@
  * 本模块 IO-free:解析清单、校验权限、合并命令表;加载/沙箱在 UI 层。
  */
 
-export const PLUGIN_ROOT = ".openobs/plugins";
-export const PLUGIN_MANIFEST = "plugin.json";
+export const PLUGIN_ROOT = ".open-llm-wiki/plugins";
 
 /** v1 可声明权限。 */
 export type PluginPermission =
@@ -109,10 +108,6 @@ export function pluginEntryPath(pluginId: string, main: string): string {
   return `${PLUGIN_ROOT}/${pluginId}/${main}`.replace(/\/+/g, "/");
 }
 
-export function pluginManifestPath(pluginId: string): string {
-  return `${PLUGIN_ROOT}/${pluginId}/${PLUGIN_MANIFEST}`;
-}
-
 /** 是否允许某权限。 */
 export function hasPermission(
   m: PluginManifest,
@@ -162,38 +157,6 @@ export function collectPluginCommands(
   return plugins.filter((p) => p.enabled).flatMap((p) => p.commands);
 }
 
-/** 启用状态表持久化键。 */
-export const PLUGIN_ENABLED_KEY = "openobs.pluginEnabled";
-
-export function loadEnabledMap(
-  raw: string | null,
-): Record<string, boolean> {
-  if (!raw) return {};
-  try {
-    const o = JSON.parse(raw) as unknown;
-    if (typeof o !== "object" || o === null) return {};
-    const out: Record<string, boolean> = {};
-    for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
-      if (typeof v === "boolean") out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-export function applyEnabledMap(
-  plugins: LoadedPlugin[],
-  map: Record<string, boolean>,
-): LoadedPlugin[] {
-  return plugins.map((p) => {
-    if (p.manifest.id in map) {
-      return { ...p, enabled: map[p.manifest.id]! };
-    }
-    return p;
-  });
-}
-
 /**
  * 宿主 → iframe 请求 envelope。
  * 插件只能回 `commands.register` / `ui.notify` 等白名单 method。
@@ -239,7 +202,7 @@ export function parsePluginMessage(data: unknown): PluginToHost | null {
 export function sampleHelloManifest(): PluginManifest {
   return {
     id: "hello",
-    name: "Hello OpenObsidian",
+    name: "Hello Open LLM Wiki",
     version: "0.1.0",
     main: "main.js",
     description: "Sample plugin: registers a palette command.",
@@ -250,7 +213,7 @@ export function sampleHelloManifest(): PluginManifest {
 
 /** 示例插件 main.js 源码(iframe 内执行;仅 postMessage API)。 */
 export function sampleHelloMainSource(): string {
-  return `// OpenObsidian sample plugin (sandboxed)
+  return `// Open LLM Wiki sample plugin (sandboxed)
 parent.postMessage({ type: "ready" }, "*");
 parent.postMessage({
   type: "registerCommand",

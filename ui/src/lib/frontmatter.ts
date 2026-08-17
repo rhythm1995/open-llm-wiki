@@ -35,6 +35,19 @@ export function splitFrontmatter(content: string): {
 }
 
 /**
+ * 正文行号(1-based,相对 body)加上本值 = 全文行号。
+ * 大纲从剥离 fm 的 body 解析,源码编辑器按全文定位,跳转时必须补这个差。
+ */
+export function frontmatterLineOffset(content: string): number {
+  const { body } = splitFrontmatter(content);
+  if (body.length === content.length) return 0;
+  const prefix = content.slice(0, content.length - body.length);
+  if (!prefix) return 0;
+  const parts = prefix.split(/\r?\n/);
+  return prefix.endsWith("\n") ? parts.length - 1 : parts.length;
+}
+
+/**
  * 合并 frontmatter 内文与正文为完整笔记(与 {@link splitFrontmatter} 对偶)。
  * WysiwygView 用它把 BlockNote 序列化出的 body 与(从最新 content 取的)frontmatter
  * 拼回——frontmatter 段永远跟随 store 真相,body 段永远跟随编辑器,两者解耦。
@@ -106,13 +119,6 @@ export function parseFrontmatterEntries(content: string): FmEntry[] {
     i++;
   }
   return out;
-}
-
-/** 对象视图(App 展示用;遇同键后者覆盖,丢失顺序)。无 frontmatter 返回 null。 */
-export function parseFrontmatterObject(content: string): Record<string, unknown> | null {
-  const entries = parseFrontmatterEntries(content);
-  if (entries.length === 0) return null;
-  return Object.fromEntries(entries);
 }
 
 const YAML_SPECIAL = /[:#\[\]{},&*!|>'"%@`]/;

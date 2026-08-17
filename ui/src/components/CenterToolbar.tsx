@@ -17,6 +17,7 @@
 import {
   PencilSimple,
   Graph,
+  Heartbeat,
   GitBranch,
   SidebarSimple,
   TextAlignLeft,
@@ -24,7 +25,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Plus,
-  Rectangle,
   FolderPlus,
   FolderOpen,
   Robot,
@@ -33,6 +33,10 @@ import type { MainView } from "./CommandPalette";
 import type { TFunc } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { HoverPop } from "./HoverPop";
+
+// 画布(Excalidraw .canvas)是孤立白板:与图谱/QQL/wikilink/搜索完全解耦,不进
+// build_index。UI 入口默认隐藏(底层保留,已存在的 .canvas 仍可打开编辑)。
+// 详见 docs/research/canvas-isolation.md。onNewCanvas prop 保留以维持接口稳定。
 
 interface Props {
   view: MainView;
@@ -67,6 +71,9 @@ interface Props {
   onNewNote: () => void;
   onNewCanvas: () => void;
   onOpenVault: () => void;
+  /** ⌘K 右侧品牌 logo;点击打开帮助手册。 */
+  showBrandLogo?: boolean;
+  onBrandLogoClick?: () => void;
 }
 
 const VIEWS: {
@@ -78,7 +85,7 @@ const VIEWS: {
 }[] = [
   { id: "editor", key: "view.editor", tip: "view.editorTip", icon: PencilSimple },
   { id: "graph", key: "view.graph", tip: "view.graphTip", icon: Graph },
-  // 搜索/查询视图已移除:文档内查找用 ⌘F;快速打开笔记用 ⌘P;查询留待 agent(见 docs/04 F-QUERY)。
+  { id: "health", key: "view.health", tip: "view.healthTip", icon: Heartbeat },
   { id: "git", key: "view.git", tip: "view.gitTip", icon: GitBranch },
 ];
 
@@ -110,8 +117,10 @@ export function CenterToolbar({
   listWidth,
   vaultName,
   onNewNote,
-  onNewCanvas,
+  // onNewCanvas:画布入口暂隐(CANVAS_HIDDEN);Props 保留以维持接口稳定
   onOpenVault,
+  showBrandLogo = true,
+  onBrandLogoClick,
 }: Props) {
   const hasVault = vaultName !== null;
   // 最左侧可见列:决定交通灯拖拽区挂在哪个表头。
@@ -219,15 +228,7 @@ export function CenterToolbar({
               <Plus size={15} weight="bold" />
             </button>
           </HoverPop>
-          <HoverPop side="down" align="right" text={t("sidebar.newCanvasTip")}>
-            <button
-              onClick={onNewCanvas}
-              aria-label={t("sidebar.newCanvas")}
-              className="shrink-0 rounded p-1 text-subtext hover:bg-surface hover:text-text"
-            >
-              <Rectangle size={15} weight="bold" />
-            </button>
-          </HoverPop>
+          {/* 画布「新建」入口暂隐:孤立白板,与图谱/QQL 解耦(CANVAS_HIDDEN)。onNewCanvas prop 保留以维持接口稳定。 */}
           <HoverPop side="down" align="right" text={t("sidebar.openVaultTip")}>
             <button
               onClick={onOpenVault}
@@ -253,6 +254,7 @@ export function CenterToolbar({
                 <HoverPop key={v.id} side="down" text={t(v.tip as Parameters<TFunc>[0])}>
                   <button
                     onClick={() => onNavigate(v.id)}
+                    data-testid={v.id === "health" ? "view-health" : undefined}
                     aria-label={t(v.key)}
                     aria-pressed={active}
                     className={cn(
@@ -275,6 +277,27 @@ export function CenterToolbar({
                 ⌘K
               </button>
             </HoverPop>
+            {/* 品牌 logo:紧挨 ⌘K,不与右侧面板簇混排;点击打开帮助手册。 */}
+            {showBrandLogo && (
+              <HoverPop side="down" text={t("toolbar.brandLogoTip")}>
+                <button
+                  type="button"
+                  data-testid="toolbar-brand-logo"
+                  onClick={onBrandLogoClick}
+                  className="flex h-7 w-7 items-center justify-center rounded hover:bg-surface"
+                  aria-label={t("toolbar.brandLogoTip")}
+                >
+                  <img
+                    src="/olw-mark.png"
+                    alt=""
+                    width={18}
+                    height={18}
+                    className="h-[18px] w-[18px] object-contain"
+                    draggable={false}
+                  />
+                </button>
+              </HoverPop>
+            )}
 
             {/* 居中标签:绝对居中于编辑列,穿透拖拽。 */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -283,7 +306,7 @@ export function CenterToolbar({
               </span>
             </div>
 
-            {/* 右簇:Xcode 式面板切换 + 后退/前进(最右)。 */}
+            {/* 右簇:仅面板切换。 */}
             <div className="ml-auto flex items-center gap-0.5">
               {toggles.map((tg) => {
                 const Icon = tg.icon;
@@ -308,13 +331,35 @@ export function CenterToolbar({
             </div>
           </>
         ) : (
-          <button
-            onClick={onOpenVault}
-            className="ml-auto flex items-center gap-1.5 rounded bg-blue px-3 py-1 text-[12px] font-medium text-crust hover:opacity-90"
-          >
-            <FolderOpen size={14} weight="bold" />
-            {t("sidebar.openVault")}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {showBrandLogo && (
+              <HoverPop side="down" align="right" text={t("toolbar.brandLogoTip")}>
+                <button
+                  type="button"
+                  data-testid="toolbar-brand-logo"
+                  onClick={onBrandLogoClick}
+                  className="flex h-7 w-7 items-center justify-center rounded hover:bg-surface"
+                  aria-label={t("toolbar.brandLogoTip")}
+                >
+                  <img
+                    src="/olw-mark.png"
+                    alt=""
+                    width={18}
+                    height={18}
+                    className="h-[18px] w-[18px] object-contain"
+                    draggable={false}
+                  />
+                </button>
+              </HoverPop>
+            )}
+            <button
+              onClick={onOpenVault}
+              className="flex items-center gap-1.5 rounded bg-blue px-3 py-1 text-[12px] font-medium text-crust hover:opacity-90"
+            >
+              <FolderOpen size={14} weight="bold" />
+              {t("sidebar.openVault")}
+            </button>
+          </div>
         )}
       </div>
 

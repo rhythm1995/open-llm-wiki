@@ -1,7 +1,7 @@
 //! QQL TS↔Rust 差分:与 `fixtures/qql-parity/cases.json` 对齐。
 //! UI 侧 `ui/src/lib/qql/parity.test.ts` 消费同一文件。
 
-use openobs_core::{parse_query, ResultSet, VaultIndex};
+use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 

@@ -21,7 +21,7 @@
 | QQL 求值(引擎) | F-QUERY | `core/src/query.rs` + `qql.rs` |
 | 全文检索 | F-SEARCH | `core/src/search.rs` |
 | VaultIndex 聚合 | — | `core/src/vault.rs` |
-| **内容级 lint L1**(结构启发式,只产候选) | B-WIKI-LINT-CORE | `core/src/lint.rs`(`contradiction_consistency` / `duplicate_names` / `summaries_on_superseded` / `refs_to_superseded`);规格 [14](./14-llm-wiki-workflow.md) §3.2.2 |
+| **内容级 lint L1**(结构启发式,只产候选) | B-WIKI-LINT-CORE / -MCP | `core/src/lint.rs`(`contradiction_consistency` / `duplicate_names` / `summaries_on_superseded` / `refs_to_superseded` + `lint_all` 报告层);消费面 MCP `lint_vault` + app `lint_vault` 命令(B-WIKI-LINT-MCP);规格 [14](./14-llm-wiki-workflow.md) §3.2.2 |
 | **MediaIndex**(附件文件表+引用正排/倒排) | B-ED-MEDIA-INDEX | `core/src/media.rs` |
 | Live 增量索引 | — | `app/src-tauri/src/lib.rs`(`LiveVault`) |
 
@@ -35,7 +35,7 @@
 | `attachment_exists` / `list_attachments` / data URL 读图 | — | `app` IPC + `ipc.ts` |
 | 阅读侧相对路径 img 改写 | B-ED-MEDIA | `ReadingPane.tsx`,`rewriteHtmlImageSrcs` |
 | 本笔记附件(Inspector) | B-ED-MEDIA-INDEX | `Inspector.tsx` tab media |
-| 孤儿清理 → `.openobsidian/media-trash/` | B-ED-MEDIA-GC | ⌘K `clean-orphan-media`,`trash_attachments` |
+| 孤儿清理 → `.open-llm-wiki/media-trash/` | B-ED-MEDIA-GC | ⌘K `clean-orphan-media`,`trash_attachments` |
 | 并排阅读 | B-ED-READING | `editorLayout` + `ReadingPane` |
 | Wiki 嵌入图 `![[img]]` 阅读渲染 + 短名解析 | B-ED-MEDIA-WIKI | `render.ts` wikiImageEmbed*;`ReadingPane` |
 | 迁笔记受限搬图(同目录 / stem 桶,refcount==1) | B-ED-MEDIA-MOVE | `core/media.rs` plan+rewrite;`rename_note` |
@@ -48,7 +48,7 @@
 | Source(CM6) + WYSIWYG(BlockNote) 双模 | B-ED-MODE-UX | `Editor.tsx`,`WysiwygView.tsx`,`edit-mode.ts` |
 | 格式条 / 右键 | B-ED-FMT-BAR / CTX-MENU | `Editor.tsx` |
 | ⌘F 查找替换 | B-ED-FIND-* | `FindBar.tsx`,`find-in-doc.ts` |
-| 大纲 | B-ED-OUTLINE | Inspector outline + `scrollToLine` |
+| 大纲 | B-ED-OUTLINE | Inspector 树形大纲(竖线+折叠)+ 源码 `scrollToLine` / WYSIWYG `scrollToHeading` |
 | wikilink 补全/跳转 | F-WIKILINK | `wikilink.ts`,两侧编辑器 |
 | 阅读渲染 + sanitize | F-READING | `ui/src/lib/render.ts` |
 | WYSIWYG 格式条(粗斜/标题/列表/引用/链接/图) | B-ED-WYSIWYG-FMT | `WysiwygView.tsx` fmt bar |
@@ -59,9 +59,9 @@
 
 | 功能 | ID | 代码入口 |
 |---|---|---|
-| Cytoscape 渲染 + cose/preset | Phase6 栈 | `GraphView.tsx`,`CytoscapeLayer.tsx` |
+| force-graph Canvas 渲染 + d3-force / preset | Phase6 栈 | `GraphView.tsx`,`ForceGraphLayer.tsx` |
 | 过滤 / 健康 / 分层 / 时间轴 | B-GRAPH-* | `graph-*.ts` |
-| 布局落盘 `.openobsidian/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
+| 布局落盘 `.open-llm-wiki/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
 | 规划(未完项) | §I | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) |
 
 ## 导航 / 命令 / 设置
@@ -69,6 +69,9 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 文件树 / 标签 / 类型视图 | — | `Nav.tsx`,`nav-filter.ts` |
+| 库健康看板(11 条锁定 QQL + 总览分数) | B-HEALTH-DASH | `HealthView.tsx`,`health-score.ts`,`health-catalog.ts`,`qql-result.ts`;IPC `runQql`;总览含前沿打分 |
+| vault `hot.md` 会话缓存 | B-WIKI-HOT | `hot-cache.ts`;AgentPanel 注入 + 写库提醒;`templates/wiki-starter/hot.md` |
+| Agent「查询 Vault」短指令 | B-VAULT-QUERY-SEED | `vault-query.ts`;App `startVaultQuery`;⌘K `vault-query` |
 | 命令注册表 + ⌘K / 菜单 | B-CMD-* / 10 | `ui/src/lib/commands/*` |
 | 三层搜索 ⌘P / ⌘⇧F | 10 | CommandPalette modes |
 | Settings(主题/语言/附件/布局/日志) | — | `SettingsPanel.tsx`,`settings.ts` |
@@ -79,13 +82,16 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 表格 F-SHEET | B-SHEET | `SheetView.tsx`,`sheet.ts` |
-| 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx` |
+| 画布 Excalidraw MIT | F-CANVAS | `CanvasView.tsx`(孤立白板;「新建」入口默认隐藏,见 [research/canvas-isolation](./research/canvas-isolation.md)) |
 | 插件宿主(不深化) | B-PLUGIN ⛔ | 保留宿主 |
-| MCP server v1 + 图工具(links / brief / write 审计;7 tools) | B-MCP / §I-B | `mcp/` |
+| MCP server v1 + 图工具(links / brief / write 审计;8 tools,含 `lint_vault`) | B-MCP / §I-B / §I-D | `mcp/` |
+| Agent 一键接入(CLI `setup`/`doctor`/`init` + 桌面 Settings「Agent 记忆接入」) | B-MCP-ONBOARD | `mcp/src/onboard.rs`(lib 共用);`app/src-tauri/src/onboarding.rs`;`ui/src/components/AgentOnboardingSection.tsx`;`mcp/README.md` §Agent onboarding |
 | LLM Wiki 脚手架(5 类型契约 + Health QQL **11** 条) | B-WIKI-STARTER / HEALTH-QQL | `templates/wiki-starter/`;`core/tests/wiki_health_qql.rs`;规格 [14](./14-llm-wiki-workflow.md) |
 | provenance / reviewed / trust 软字段约定(P0 L1) | B-WIKI-PROVENANCE | `templates/wiki-starter/types/*` + `health/agent-unreviewed` 等;规格 [14](./14-llm-wiki-workflow.md) §3.1 / [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) |
 | 对话→vault 蒸馏 L2a(零代码工作流 + 提示词) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §1.1;`templates/wiki-starter/prompts/ingest-distill.md` |
+| 提炼/收件箱排除 wiki 操作系统 | B-WIKI-INGEST-SKILL | `isWikiOsPath`(`wiki-digest.ts`)+ `isInbox`;AGENTS/skills/prompts/README 不当未分类原料 |
 | 内容级 lint L2 工作流(agent-in-the-loop,零新工具) | B-WIKI-AGENT-DOC | [14](./14-llm-wiki-workflow.md) §3.2.3;调研 [research/content-lint-contradiction.md](./research/content-lint-contradiction.md) |
+| OWF-1 格式规范(**档 1** ✅:装订现状 + 钉版本,零新词汇) | B-WIKI-FORMAT | 规格 [15](./15-owf-format.md);`format: owf/1` 声明在 `templates/wiki-starter/index.md`;宽容规则测试锁 `core/tests/owf_conformance.rs` |
 | 规格 | — | [09-big-features-v1.md](./09-big-features-v1.md) |
 
 ## 应用内 Agent(ACP 托管 · Phase 7 ✅)
@@ -116,7 +122,7 @@
 | 功能 | ID | 代码入口 |
 |---|---|---|
 | 客户端文件日志(NDJSON + profile)+ 导出 bundle | B-LOG-BUS / UI / IPC-SPANS | `app/src-tauri/src/logging.rs`,`ui/src/lib/logger.ts` |
-| TCP 日志端口(`OPENOBS_LOG_PORT`,`nc` 实时看 NDJSON;默认关) | B-LOG-PORT | `logging.rs` PortSink |
+| TCP 日志端口(`OPEN_LLM_WIKI_LOG_PORT`,`nc` 实时看 NDJSON;默认关) | B-LOG-PORT | `logging.rs` PortSink |
 | 规格 | — | [13-client-logging.md](./13-client-logging.md) |
 
 ## 架构总览

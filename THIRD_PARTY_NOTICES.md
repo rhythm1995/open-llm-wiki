@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(原创、独立的实现)。本文件
+Open LLM Wiki 本身的代码以 [Apache-2.0](./LICENSE) 许可(原创、独立的实现)。本文件
 诚实记录所有**直接依赖**及其许可。**默认分发无 source-available 生产限制** ——
 可本地与托管部署(仍须遵守各依赖自身的 OSI 条款,如 MPL 文件级 copyleft)。
 
@@ -13,7 +13,7 @@ OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(原创、独立的实现
 | CodeMirror 6 | MIT | 编辑器(md 源码模式)。 |
 | BlockNote 0.52 | MPL-2.0 | 块编辑器(md WYSIWYG 模式,弱 copyleft,见下节)。 |
 | **@excalidraw/excalidraw** | **MIT** | 无限画布(F-CANVAS)。懒加载隔离在 `CanvasView` chunk。 |
-| **cytoscape** | **MIT** | 图谱渲染与布局(F-GRAPH;`CytoscapeLayer` 懒加载;cose 力导向)。 |
+| **force-graph** | **MIT** | 图谱 Canvas 渲染与 d3-force 布局(F-GRAPH;`ForceGraphLayer` 懒加载;glow/粒子观感)。 |
 | Radix UI | MIT | 无障碍组件(对话框 / 下拉 / 标签页 / 工具提示)。 |
 | Tailwind CSS 4 | MIT | 原子 CSS。 |
 | Phosphor icons | MIT | 图标。 |
@@ -22,6 +22,8 @@ OpenObsidian 本身的代码以 [MIT](./LICENSE) 许可(原创、独立的实现
 | **@ironcalc/wasm** | **MIT / Apache-2.0** | 表格公式引擎增强(F-SHEET);可选,失败回退内置求值。 |
 | serde / serde_yaml | MIT / Apache-2.0 | Rust 序列化。 |
 | walkdir | MIT / Unlicense | Rust 目录遍历。 |
+| which | MIT | PATH 二进制解析(app ACP 配方探测 + mcp agent 接入)。 |
+| toml_edit | MIT / Apache-2.0 | mcp 接入写 Codex `~/.codex/config.toml`(保格式保注释)。 |
 | Vitest / esbuild | MIT | 测试与构建(仅开发期)。 |
 
 完整传递依赖以 `cargo license`、`pnpm licenses list` 为准;上线前复核无
@@ -30,7 +32,7 @@ GPL/AGPL 直染依赖(本项目严禁引入任何 copyleft 源码 —— 见 [RE
 
 ## 商用 / 托管部署
 
-OpenObsidian **默认以 MIT 分发**,画布使用 Excalidraw(MIT),**不**再捆绑
+Open LLM Wiki **默认以 MIT 分发**,画布使用 Excalidraw(MIT),**不**再捆绑
 tldraw。因此:**本地单机与作为托管 web 服务对公众部署**均不因画布引擎触发
 额外商用许可(仍须遵守 MIT 与其它依赖条款,如 BlockNote MPL-2.0)。
 
@@ -53,4 +55,4 @@ BlockNote 是 **MPL-2.0**(弱 copyleft,OSI 认证):商用、生产部署、闭�
 
 BlockNote 由 TypeCellOS/BlockNote 维护(https://github.com/TypeCellOS/BlockNote)。
 Excalidraw 由 Excalidraw 项目维护(https://github.com/excalidraw/excalidraw)。
-Cytoscape.js 由 Cytoscape Consortium 等维护(https://github.com/cytoscape/cytoscape.js)。
+force-graph 由 Vasco Asturiano 维护(https://github.com/vasturiano/force-graph)。

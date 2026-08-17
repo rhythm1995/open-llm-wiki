@@ -1,0 +1,11 @@
+{
+  "$schema_note": "Copy to .cursor/hooks.json (project) or merge into ~/.cursor/hooks.json. Exact event names may vary by Cursor version — adjust to match your Cursor hooks docs.",
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "node .agents/hooks/olw-post-write.mjs"
+      }
+    ]
+  }
+}

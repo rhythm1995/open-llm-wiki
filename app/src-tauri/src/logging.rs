@@ -92,9 +92,9 @@ impl LogProfile {
     }
 }
 
-/// Resolve profile: env `OPENOBS_LOG_PROFILE` → else debug_assertions → Dev else Prod.
+/// Resolve profile: env `OPEN_LLM_WIKI_LOG_PROFILE` → else debug_assertions → Dev else Prod.
 pub fn resolve_profile_from_env() -> LogProfile {
-    if let Ok(raw) = std::env::var("OPENOBS_LOG_PROFILE") {
+    if let Ok(raw) = std::env::var("OPEN_LLM_WIKI_LOG_PROFILE") {
         if let Some(p) = LogProfile::parse(&raw) {
             return p;
         }
@@ -136,11 +136,11 @@ pub fn format_ndjson_line(
 }
 
 pub fn daily_log_filename(ymd: &str) -> String {
-    format!("openobs-{ymd}.log")
+    format!("open-llm-wiki-{ymd}.log")
 }
 
 pub fn error_log_filename(ymd: &str) -> String {
-    format!("openobs-{ymd}.error.log")
+    format!("open-llm-wiki-{ymd}.error.log")
 }
 
 /// UTC date `YYYY-MM-DD` from unix seconds.
@@ -174,7 +174,7 @@ pub fn utc_ts_now() -> String {
     format!("{ymd}T{h:02}:{min:02}:{s:02}.{millis:03}Z")
 }
 
-/// Keep `keep_days` of `openobs-YYYY-MM-DD*.log`; return paths to delete (oldest first).
+/// Keep `keep_days` of `open-llm-wiki-YYYY-MM-DD*.log`; return paths to delete (oldest first).
 pub fn prune_candidates(
     names: &[String],
     today_ymd: &str,
@@ -183,8 +183,8 @@ pub fn prune_candidates(
     let mut dated: Vec<(String, String)> = names
         .iter()
         .filter_map(|n| {
-            // openobs-YYYY-MM-DD.log or .error.log
-            let rest = n.strip_prefix("openobs-")?;
+            // open-llm-wiki-YYYY-MM-DD.log or .error.log
+            let rest = n.strip_prefix("open-llm-wiki-")?;
             let ymd = rest.get(0..10)?;
             if ymd.len() != 10 || ymd.as_bytes()[4] != b'-' {
                 return None;
@@ -223,7 +223,7 @@ fn short_session_id() -> String {
 
 // ─── PortSink (optional TCP live-stream, dev/debug only) ─────────
 
-/// Parse the `OPENOBS_LOG_PORT` value into a port. Pure (env lookup done by
+/// Parse the `OPEN_LLM_WIKI_LOG_PORT` value into a port. Pure (env lookup done by
 /// the caller) so it is unit-testable. Empty / non-numeric / 0 → None.
 pub fn parse_log_port(raw: Option<&str>) -> Option<u16> {
     let p: u16 = raw?.trim().parse().ok()?;
@@ -247,21 +247,21 @@ pub(crate) fn start_port_sink(listener: TcpListener) -> SyncSender<String> {
     // Acceptor (blocking accept; connections queue in the OS backlog meanwhile).
     let acc_clients = clients.clone();
     let _ = std::thread::Builder::new()
-        .name("openobs-log-port-accept".into())
+        .name("open-llm-wiki-log-port-accept".into())
         .spawn(move || {
             while let Ok((stream, addr)) = listener.accept() {
                 let _ = stream.set_write_timeout(Some(write_timeout));
                 if let Ok(mut g) = acc_clients.lock() {
                     g.push(stream);
                 }
-                eprintln!("[openobs] log port: client connected {addr}");
+                eprintln!("[open-llm-wiki] log port: client connected {addr}");
             }
         });
 
     // Writer (fan-out; drop dead clients).
     let wr_clients = clients;
     std::thread::Builder::new()
-        .name("openobs-log-port-writer".into())
+        .name("open-llm-wiki-log-port-writer".into())
         .spawn(move || {
             while let Ok(line) = rx.recv() {
                 let mut payload = line.into_bytes();
@@ -279,24 +279,24 @@ pub(crate) fn start_port_sink(listener: TcpListener) -> SyncSender<String> {
                 }
             }
         })
-        .expect("spawn openobs-log-port-writer");
+        .expect("spawn open-llm-wiki-log-port-writer");
     tx
 }
 
-/// Bind + start the PortSink when `OPENOBS_LOG_PORT` is set. Best-effort: a
+/// Bind + start the PortSink when `OPEN_LLM_WIKI_LOG_PORT` is set. Best-effort: a
 /// bind failure is logged to stderr and returns None (app keeps running).
 fn start_log_port_sink_from_env() -> Option<SyncSender<String>> {
-    let port = parse_log_port(std::env::var("OPENOBS_LOG_PORT").ok().as_deref())?;
+    let port = parse_log_port(std::env::var("OPEN_LLM_WIKI_LOG_PORT").ok().as_deref())?;
     match TcpListener::bind(("127.0.0.1", port)) {
         Ok(listener) => {
             eprintln!(
-                "[openobs] log port: live NDJSON stream on 127.0.0.1:{port} \
+                "[open-llm-wiki] log port: live NDJSON stream on 127.0.0.1:{port} \
                  (tail with: nc 127.0.0.1 {port})"
             );
             Some(start_port_sink(listener))
         }
         Err(e) => {
-            eprintln!("[openobs] log port: failed to bind 127.0.0.1:{port}: {e}");
+            eprintln!("[open-llm-wiki] log port: failed to bind 127.0.0.1:{port}: {e}");
             None
         }
     }
@@ -315,7 +315,7 @@ struct BusInner {
     /// Per-target 级别覆盖(放宽):key 存在时,该 target 用 min(全局, 覆盖)。
     /// 用于让「acp」等排查必需的 target 在 release(prod = error+)下也记到 debug。
     target_mins: Mutex<HashMap<String, LogLevel>>,
-    /// Optional TCP PortSink sender (Some only when OPENOBS_LOG_PORT is set).
+    /// Optional TCP PortSink sender (Some only when OPEN_LLM_WIKI_LOG_PORT is set).
     port_tx: Mutex<Option<SyncSender<String>>>,
 }
 
@@ -348,7 +348,7 @@ pub fn init(log_dir: PathBuf, profile: LogProfile) {
             session_id,
             inner.dir.display()
         );
-        eprintln!("[openobs] {banner}");
+        eprintln!("[open-llm-wiki] {banner}");
         // Write info line if allowed
         let fields = json!({ "profile": profile.as_str() });
         emit_raw(
@@ -493,7 +493,7 @@ fn emit_raw(
     );
     let main_path = b.dir.join(daily_log_filename(&ymd));
     if let Err(e) = append_line(&main_path, &line) {
-        eprintln!("[openobs] log file write failed: {e}");
+        eprintln!("[open-llm-wiki] log file write failed: {e}");
     }
     if level >= LogLevel::Error {
         let err_path = b.dir.join(error_log_filename(&ymd));
@@ -553,7 +553,7 @@ pub fn export_bundle(keep_days: u32) -> Result<PathBuf, String> {
         .filter_map(|e| e.ok())
         .filter_map(|e| {
             let n = e.file_name().into_string().ok()?;
-            if n.starts_with("openobs-") && n.ends_with(".log") {
+            if n.starts_with("open-llm-wiki-") && n.ends_with(".log") {
                 Some(n)
             } else {
                 None
@@ -567,11 +567,11 @@ pub fn export_bundle(keep_days: u32) -> Result<PathBuf, String> {
         names = names.split_off(names.len() - take);
     }
     let ts = utc_ts_now().replace(':', "").replace('.', "");
-    let out_name = format!("openobs-export-{ts}.txt");
+    let out_name = format!("open-llm-wiki-export-{ts}.txt");
     let out_path = dir.join(&out_name);
     let mut out = String::new();
     out.push_str(&format!(
-        "# OpenObsidian log export\n# session={}\n# files={}\n\n",
+        "# Open LLM Wiki log export\n# session={}\n# files={}\n\n",
         b.session_id,
         names.len()
     ));
@@ -668,11 +668,11 @@ mod tests {
     #[test]
     fn prune_keeps_recent() {
         let names = vec![
-            "openobs-2026-07-01.log".into(),
-            "openobs-2026-07-01.error.log".into(),
-            "openobs-2026-07-20.log".into(),
-            "openobs-2026-08-01.log".into(),
-            "openobs-2026-08-02.log".into(),
+            "open-llm-wiki-2026-07-01.log".into(),
+            "open-llm-wiki-2026-07-01.error.log".into(),
+            "open-llm-wiki-2026-07-20.log".into(),
+            "open-llm-wiki-2026-08-01.log".into(),
+            "open-llm-wiki-2026-08-02.log".into(),
             "notes.txt".into(),
         ];
         let drop = prune_candidates(&names, "2026-08-02", 2);
@@ -758,7 +758,7 @@ mod tests {
     #[test]
     fn export_bundle_writes_file() {
         let dir = std::env::temp_dir().join(format!(
-            "openobs-log-test-{}",
+            "open-llm-wiki-log-test-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&dir);
@@ -774,7 +774,7 @@ mod tests {
         );
         if let Ok(path) = export_bundle(7) {
             let body = fs::read_to_string(&path).unwrap();
-            assert!(body.contains("OpenObsidian log export") || body.contains("export probe") || body.contains("openobs-"));
+            assert!(body.contains("Open LLM Wiki log export") || body.contains("export probe") || body.contains("open-llm-wiki-"));
             let _ = fs::remove_file(&path);
         }
         // cleanup best-effort

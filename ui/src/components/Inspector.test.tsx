@@ -7,8 +7,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import type { NodeOut } from "../lib/ipc";
-import type { VaultActions } from "../lib/store";
+import type { EdgeOut, NodeOut } from "../lib/ipc";
+import type { Backlink, VaultActions } from "../lib/store";
 import type { TFunc } from "../lib/i18n";
 import { parseFrontmatterEntries } from "../lib/frontmatter";
 
@@ -58,28 +58,38 @@ function makeActions() {
   return { setContent: vi.fn(), selectNote: vi.fn(), copyAiContext: vi.fn() };
 }
 
-function renderInspector(content: string) {
+const BASE_NODE: NodeOut = {
+  id: 1,
+  path: "n.md",
+  title: "N",
+  type: "Concept",
+  tags: ["a"],
+  status: "Active",
+  created: "2026-01-01",
+  modified: 0,
+  preview: "",
+};
+
+function renderInspector(
+  content: string,
+  opts: {
+    backlinks?: Backlink[];
+    vaultNodes?: NodeOut[];
+    node?: NodeOut;
+    onJumpToHeading?: (target: { bodyLine: number; index: number }) => void;
+  } = {},
+) {
   const actions = makeActions();
-  const node: NodeOut = {
-    id: 1,
-    path: "n.md",
-    title: "N",
-    type: "Concept",
-    tags: ["a"],
-    status: "Active",
-    created: "2026-01-01",
-    modified: 0,
-    preview: "",
-  };
   render(
     <Inspector
-      node={node}
+      node={opts.node ?? BASE_NODE}
       content={content}
-      backlinks={[]}
+      backlinks={opts.backlinks ?? []}
       actions={actions as unknown as VaultActions}
-      onJumpToLine={() => {}}
+      onJumpToHeading={opts.onJumpToHeading ?? (() => {})}
       noteTitles={["Foo", "Bar", "Baz"]}
       typeOptions={["Concept", "Source"]}
+      vaultNodes={opts.vaultNodes}
       t={t}
     />,
   );
@@ -157,5 +167,138 @@ describe("Inspector 属性面板", () => {
     fireEvent.change(inputs[inputs.length - 1], { target: { value: "me" } });
     fireEvent.keyDown(inputs[inputs.length - 1], { key: "Enter" });
     expect(lastEntries(actions.setContent)).toContainEqual(["author", "me"]);
+  });
+
+  it("关系 chip 显示解析标题而非文件名,删除仍按 target 写回", () => {
+    const vaultNodes: NodeOut[] = [
+      {
+        ...BASE_NODE,
+        id: 2,
+        path: "concepts/concept-unlearn.md",
+        title: "Unlearn Individual Agency",
+        type: "Concept",
+        tags: [],
+      },
+    ];
+    const { actions } = renderInspector(
+      "---\nrelated: [[concept-unlearn]]\n---\n\nbody\n",
+      { vaultNodes },
+    );
+    const row = propsRow("related");
+    expect(within(row).getByText("Unlearn Individual Agency")).toBeTruthy();
+    expect(within(row).queryByText("concept-unlearn")).toBeNull();
+    fireEvent.click(within(row).getAllByRole("button")[0]);
+    expect(lastEntries(actions.setContent)).toContainEqual(["related", []]);
+  });
+
+  it("definition 走 textarea,Header 显示摘要", () => {
+    const def = "AI Native 人才的判定标准是能独立完成五步工作定义。";
+    renderInspector(
+      `---\ntype: Concept\ndefinition: ${def}\n---\n\n# N\n`,
+    );
+    expect(screen.getByTestId("inspector-definition").textContent).toContain(def);
+    fireEvent.click(screen.getByRole("tab", { name: /tab\.props/ }));
+    const row = screen.getByText(
+      (_, el) => el?.tagName === "DT" && el.textContent === "definition",
+    ).parentElement as HTMLElement;
+    expect(within(row).getByRole("textbox").tagName).toBe("TEXTAREA");
+  });
+
+  it("同来源 wiki+relation 反链合并为一行双徽标,Tab 角标为篇数", () => {
+    const from: NodeOut = {
+      ...BASE_NODE,
+      id: 8,
+      path: "notes/mindset.md",
+      title: "三层 AI Mindset",
+      type: "Concept",
+      tags: [],
+    };
+    const wiki: EdgeOut = {
+      from: 8,
+      to: 1,
+      unresolved: null,
+      kind: "wiki",
+      relation: null,
+      anchor: null,
+    };
+    const rel: EdgeOut = {
+      from: 8,
+      to: 1,
+      unresolved: null,
+      kind: "relation",
+      relation: "related",
+      anchor: null,
+    };
+    renderInspector(CONTENT, {
+      backlinks: [
+        { from, edge: wiki },
+        { from, edge: rel },
+      ],
+    });
+    expect(screen.getByRole("tab", { name: /tab\.backlinks\s+1\b/ })).toBeTruthy();
+    expect(screen.getByText("三层 AI Mindset")).toBeTruthy();
+    expect(screen.getAllByTestId("backlink-kind-wiki")).toHaveLength(1);
+    expect(screen.getAllByTestId("backlink-kind-relation")).toHaveLength(1);
+    expect(screen.getByText("related")).toBeTruthy();
+  });
+
+  it("有 type 无 typeDoc 时不渲染类型说明", () => {
+    renderInspector(CONTENT, { vaultNodes: [BASE_NODE] });
+    expect(screen.queryByTestId("inspector-type-doc")).toBeNull();
+    expect(screen.queryByText("inspector.typeDoc.none")).toBeNull();
+  });
+
+  it("点大纲标题带上 body 行号与序号", () => {
+    const onJumpToHeading = vi.fn();
+    renderInspector(CONTENT, { onJumpToHeading });
+    fireEvent.click(screen.getByRole("tab", { name: /tab\.outline/ }));
+    fireEvent.click(screen.getByTestId("outline-heading"));
+    // CONTENT body 以空行开头,`# N` 是 body 第 2 行。
+    expect(onJumpToHeading).toHaveBeenCalledWith({ bodyLine: 2, index: 0 });
+  });
+
+  it("大纲树形嵌套,折叠父级会藏子标题,点标题仍跳转", () => {
+    const onJumpToHeading = vi.fn();
+    const md =
+      "---\ntype: Concept\n---\n# A\n\n## B\n\n### C\n\n## D\n";
+    renderInspector(md, { onJumpToHeading });
+    fireEvent.click(screen.getByRole("tab", { name: /tab\.outline/ }));
+    expect(screen.getByText("A")).toBeTruthy();
+    expect(screen.getByText("B")).toBeTruthy();
+    expect(screen.getByText("C")).toBeTruthy();
+    expect(screen.getByText("D")).toBeTruthy();
+
+    // B 是 index 1,折叠后 C 消失,D 仍在。
+    const foldB = screen
+      .getAllByTestId("outline-collapse")
+      .find((el) => el.getAttribute("data-outline-index") === "1");
+    expect(foldB).toBeTruthy();
+    fireEvent.click(foldB!);
+    expect(screen.queryByText("C")).toBeNull();
+    expect(screen.getByText("D")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("A"));
+    expect(onJumpToHeading).toHaveBeenCalledWith({ bodyLine: 1, index: 0 });
+  });
+
+  it("有 typeDoc 时默认收起,点 type pill 后展开可跳转", () => {
+    const typeDocNode: NodeOut = {
+      ...BASE_NODE,
+      id: 9,
+      path: "types/Concept.md",
+      title: "Concept type guide",
+      type: "TypeDoc",
+      tags: [],
+      preview: "关于 Concept 的约定",
+    };
+    const { actions } = renderInspector(CONTENT, {
+      vaultNodes: [BASE_NODE, typeDocNode],
+    });
+    expect(screen.getByTestId("inspector-type-doc")).toBeTruthy();
+    expect(screen.queryByText("Concept type guide")).toBeNull();
+    fireEvent.click(screen.getByTitle("inspector.typeDoc.title"));
+    expect(screen.getByText("Concept type guide")).toBeTruthy();
+    fireEvent.click(screen.getByText("Concept type guide"));
+    expect(actions.selectNote).toHaveBeenCalledWith("types/Concept.md");
   });
 });

@@ -9,7 +9,11 @@ afterEach(() => {
   cleanup();
 });
 
-// jsdom 不实现布局方法(故意为之);TabBar 的 scrollIntoView 等 effect 调用到时需要空实现。
+// jsdom 不实现布局方法(故意为之);TabBar 的 scrollIntoView、AgentPanel 的
+// scrollTo(滚到底)等 effect 调用到时需要空实现。
 if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+if (typeof Element !== "undefined" && !Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = function scrollTo() {};
 }

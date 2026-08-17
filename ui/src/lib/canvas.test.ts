@@ -3,39 +3,22 @@
  */
 import { describe, it, expect } from "vitest";
 import {
-  emptyCanvasContent,
   parseCanvasContent,
   serializeCanvasContent,
   isCanvasPath,
   isLegacyTldrawCanvas,
-  createEmptyCanvasDoc,
   canvasDocFromExcalidraw,
   CANVAS_SCHEMA_VERSION,
   CANVAS_ENGINE,
 } from "./canvas";
 
 const DOC = {
-  openobsidianCanvas: CANVAS_SCHEMA_VERSION,
+  openLlmWikiCanvas: CANVAS_SCHEMA_VERSION,
   engine: CANVAS_ENGINE,
   elements: [{ id: "a", type: "rectangle" }],
   appState: { theme: "dark" },
   files: {},
 };
-
-describe("emptyCanvasContent", () => {
-  it("返回空串", () => {
-    expect(emptyCanvasContent()).toBe("");
-  });
-});
-
-describe("createEmptyCanvasDoc", () => {
-  it("带 schema 标记与空 elements", () => {
-    const d = createEmptyCanvasDoc();
-    expect(d.openobsidianCanvas).toBe(1);
-    expect(d.engine).toBe("excalidraw");
-    expect(d.elements).toEqual([]);
-  });
-});
 
 describe("isLegacyTldrawCanvas", () => {
   it("识别 tldraw {document,session}", () => {
@@ -76,7 +59,7 @@ describe("parseCanvasContent", () => {
   it("缺 engine / elements → null", () => {
     expect(
       parseCanvasContent(
-        JSON.stringify({ openobsidianCanvas: 1, engine: "excalidraw" }),
+        JSON.stringify({ openLlmWikiCanvas: 1, engine: "excalidraw" }),
       ),
     ).toBeNull();
   });
@@ -88,7 +71,7 @@ describe("serializeCanvasContent round-trip", () => {
     expect(parseCanvasContent(s)).toEqual(DOC);
   });
   it("美化 JSON", () => {
-    const out = serializeCanvasContent(createEmptyCanvasDoc());
+    const out = serializeCanvasContent(DOC);
     expect(out).toContain("\n  ");
     expect(out).toContain('"engine": "excalidraw"');
   });

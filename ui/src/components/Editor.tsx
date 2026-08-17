@@ -229,7 +229,7 @@ function makeWikilinkCompletions(
 }
 
 export interface EditorHandle {
-  /** 把编辑器滚动到某行(1-based),尽量居中。供大纲面板点击跳转。 */
+  /** 把光标放到某行(1-based)开头并滚到视口中间。供大纲面板点击跳转。 */
   scrollToLine: (line: number) => void;
   /**
    * 文档内查找:设置 SearchQuery(全文高亮全部匹配)+ 跳到下一/上一处。
@@ -299,8 +299,10 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
         const ln = Math.min(Math.max(1, lineNo), v.state.doc.lines);
         const line = v.state.doc.line(ln);
         v.dispatch({
+          selection: { anchor: line.from },
           effects: EditorView.scrollIntoView(line.from, { y: "center" }),
         });
+        v.focus();
       },
       find: (query: string, backward = false) => {
         const v = view.current;

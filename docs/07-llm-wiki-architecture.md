@@ -1,6 +1,6 @@
 # 07 — LLM Wiki × 软件架构（双视角总览）
 
-> 本文回答一个问题:**OpenObsidian 这个项目,把「LLM Wiki 方法论」和「它自己的软件架构」是怎么叠在一起的?**
+> 本文回答一个问题:**Open LLM Wiki 这个项目,把「LLM Wiki 方法论」和「它自己的软件架构」是怎么叠在一起的?**
 >
 > 它既是 (a) 一个有清晰分层的软件(`core` Rust 内核 → `app` Tauri 壳 → `ui` React 前端),
 > 又是 (b) 一套**实现 LLM Wiki 思想**的本地引擎(Raw → Wiki → Schema → Navigation → Health)。
@@ -14,7 +14,7 @@
 
 ## 0. 一句话定位
 
-> **OpenObsidian = 一个本地优先、文件即真相的引擎,用 Rust 纯逻辑内核把「笔记 + frontmatter 软类型」
+> **Open LLM Wiki = 一个本地优先、文件即真相的引擎,用 Rust 纯逻辑内核把「笔记 + frontmatter 软类型」
 > 索引成一张可查询的图谱,让 LLM Wiki 的五层（Raw / Wiki / Schema / Navigation / Health）都成为一等公民——
 > 尤其是 Health 层,它不靠手写快照,而靠 QQL 聚合查询实时算出来。**
 
@@ -30,14 +30,14 @@ flowchart TD
     G[("git 仓库<br/>唯一版本真相 · 删除可还原")]
   end
 
-  subgraph CORE["🦀 openobs-core · Rust 纯逻辑(99 单测 · IO-free · TDD 心脏)"]
+  subgraph CORE["🦀 open-llm-wiki-core · Rust 纯逻辑(99 单测 · IO-free · TDD 心脏)"]
     direction TB
     PIPE["parse → index → graph → { query/qql, search }"]
     VI["VaultIndex<br/>{ notes, graph, by_type, by_tag }<br/>.build() · .query() · .search()"]
     PIPE --> VI
   end
 
-  subgraph APP["⚙️ openobs-app · Tauri 2(Rust 壳 · 无 git2)"]
+  subgraph APP["⚙️ open-llm-wiki-app · Tauri 2(Rust 壳 · 无 git2)"]
     direction TB
     CMD["18 个 #[tauri::command]<br/>note CRUD · index_vault · run_qql · search_notes<br/>git_status/log/commit · git_is_repo/deleted/restore/init · pick_vault · diag_log"]
     GIT["run_git 子进程(std::process)"]
@@ -100,23 +100,23 @@ flowchart LR
 
 ---
 
-## 3. 视角二:LLM Wiki 五层 → OpenObsidian 机制
+## 3. 视角二:LLM Wiki 五层 → Open LLM Wiki 机制
 
-LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 OpenObsidian 的具体类型 / 命令 / 组件上——
-你会看到:前四层 OpenObsidian 已经原生支持,第五层(Health)是**用 QQL 把它从"手写快照"升级成"实时可查"**。
+LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Open LLM Wiki 的具体类型 / 命令 / 组件上——
+你会看到:前四层 Open LLM Wiki 已经原生支持,第五层(Health)是**用 QQL 把它从"手写快照"升级成"实时可查"**。
 
-| LLM Wiki 层 | 含义 | OpenObsidian 的落点 | 类型 / 命令 / 组件 |
+| LLM Wiki 层 | 含义 | Open LLM Wiki 的落点 | 类型 / 命令 / 组件 |
 |---|---|---|---|
 | **Raw** | 不可变原始源 | 笔记的 `type: Source`;不可变语义由 **git 版本真相**保证(re-ingest 产新 Summary,旧版可还原) | `type: Source` · `git_restore_note` · ArchiveView |
 | **Wiki** | LLM 生成的派生知识 | `Summary` / `Entity` / `Concept` 软类型 + 关系边(`derived_into` / `mentioned_in` / `contradicts`) | `type: Summary\|Entity\|Concept` · Inspector 关系编辑 · GraphView |
 | **Schema** | 类型与关系的契约 | `core::index` 解析 `type:`/frontmatter;`Type` 文档定义软类型;`AGENTS.md` 作 schema 提示(兼容 cairn) | `type_of()` · `relationship_links()` · Type 文档 · AGENTS.md |
-| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(Cytoscape)+ **QQL IR**(MCP `run_qql`,用户面 UI 已撤)+ **⌘F/⌘P/⌘K**+ Nav 智能视图 | GraphView/CytoscapeLayer · FindBar · CommandPalette · `index_vault` |
-| **Health** | 度量与反馈环 | **用 QQL 实时算**,而非手写 wiki-health 快照 —— 见下文「Health 即查询」 | `run_qql` + saved `type: Query` 笔记 |
+| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(Cytoscape)+ **库健康**(锁定 QQL)+ **QQL IR**(MCP / Agent)+ **⌘F/⌘P/⌘K** | GraphView · HealthView · FindBar · CommandPalette · `index_vault` |
+| **Health** | 度量与反馈环 | **用 QQL 实时算** —— 应用里跑 = 库健康视图;agent 跑 = `run_qql` | `HealthView` + `ipc.runQql` + MCP `run_qql` + `type: Query` 笔记 |
 
 ### Health 即查询(核心洞察)
 
 传统 LLM Wiki 的 Health 层是一篇**手写刷新**的 `wiki-health` 快照(因为通用笔记工具没有原生聚合)。
-OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是一条 QQL,存成 `type: Query` 的笔记,自举进图谱/检索:
+Open LLM Wiki 把它变成**一等查询**——任何一个 Health 指标都是一条 QQL,存成 `type: Query` 的笔记,自举进图谱/检索:
 
 | Health 指标 | 对应 QQL |
 |---|---|
@@ -142,9 +142,10 @@ OpenObsidian 把它变成**一等查询**——任何一个 Health 指标都是�
 > 并由 [`core/tests/wiki_health_qql.rs`](../core/tests/wiki_health_qql.rs) 锁住「能解析 + 语义正确」——改引擎或改模板都会被它挡下。
 > 后六条依赖 `provenance`/`reviewed`/`trust` 软字段约定(可选、永不校验,见 [docs/14](./14-llm-wiki-workflow.md) §3.1/§5
 > 与 [`docs/research/trust-provenance-frontmatter.md`](./research/trust-provenance-frontmatter.md));
-> QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名、挂废源/引用废源)在 core `lint` 模块(只产候选、不做判决)。
+> QQL 够不到的跨笔记结构检查(contradicts↔Contested 一致性、归一化撞名、挂废源/引用废源)在 core `lint` 模块(只产候选、不做判决);
+> 消费面为 MCP `lint_vault` 工具 + 桌面端 `lint_vault` Tauri 命令(2026-08-06,B-WIKI-LINT-MCP;见 [docs/14](./14-llm-wiki-workflow.md) §3.2.2)。
 >
-> 这是「LLM Wiki 结合本身设计」最浓缩的一处:**OpenObsidian 不存 Health,它存"能算出 Health 的查询"**。
+> 这是「LLM Wiki 结合本身设计」最浓缩的一处:**Open LLM Wiki 不存 Health,它存"能算出 Health 的查询"**。
 > 查询本身又是笔记,所以 Health 指标可以被 `[[link]]`、被别的查询再聚合——自举到第二层。
 
 ---
@@ -156,8 +157,8 @@ sequenceDiagram
   participant U as 用户
   participant UI as React UI
   participant IPC as Tauri IPC
-  participant App as openobs-app
-  participant Core as openobs-core
+  participant App as open-llm-wiki-app
+  participant Core as open-llm-wiki-core
   participant FS as 文件系统 + git
 
   U->>UI: 打开 vault(pick_vault)
@@ -180,12 +181,12 @@ sequenceDiagram
   UI->>IPC: index_vault(重建快照)
 
   Note over UI,Core: 实时聚合查询
-  U->>UI: QQL / 内联 ```qql / 全文搜索
+  U->>UI: 库健康瓷砖 / 问 Agent / ⌘⇧F 全文
   UI->>IPC: run_qql / search_notes
   IPC->>App: 转发
   App->>Core: VaultIndex.query(q) / .search(terms)
   Core-->>App: ResultSet / SearchHit[]
-  App-->>UI: 渲染结果(GraphView / ⌘F FindBar / MCP 侧 agent 消费 ResultSet)
+  App-->>UI: HealthView 表 / FindBar / MCP 或 Agent 消费 ResultSet
 ```
 
 ---
@@ -201,7 +202,7 @@ sequenceDiagram
 | UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 + 少量 Radix** | 降依赖体积 |
 | Canvas | — | **Excalidraw(MIT)** 懒加载 | 已替换 tldraw;默认纯 MIT 分发 |
 | 索引 | 每次全量 WalkDir | **LiveVault 路径级 delta** + force 自愈 | open 一次全量;写/watcher 增量 |
-| QQL 用户面 | 内联块 + QueryPanel | **已撤**;仅 core + MCP `run_qql`(IR) | 见 04 F-QUERY |
+| QQL 用户面 | 内联块 + QueryPanel | **已撤**;人侧 = 库健康 + Agent 短指令;引擎 = core + `run_qql` | 见 04 F-QUERY;勿重建 QueryPanel |
 
 > 原则没变:依赖只选成熟 + MIT/Apache(或 MPL 弱 copyleft);画布不再引入 source-available 生产限制。
 

@@ -8,6 +8,8 @@
  */
 import type { NodeOut } from "./ipc";
 import type { TFunc } from "./i18n";
+import { labelType } from "./wiki-labels";
+import { isWikiOsPath } from "./wiki-digest";
 
 /**
  * Nav 选择模型。`type` 的 `id:""` 代表"未分类"(type 缺失)——与 type 字面量
@@ -24,9 +26,12 @@ export type NavSelection =
   | { kind: "tag"; id: string }
   | { kind: "folder"; id: string };
 
-/** Inbox 定义:未分类(无 type)的笔记——待整理进类型体系。 */
+/**
+ * Inbox / TYPES「未分类」:无 type 的原料。
+ * wiki 操作系统(AGENTS.md / skills / prompts…)即使未标 type 也不进收件箱。
+ */
 export function isInbox(n: NodeOut): boolean {
-  return n.type == null;
+  return n.type == null && !isWikiOsPath(n.path);
 }
 
 /**
@@ -42,6 +47,7 @@ export function filterByNav(nodes: NodeOut[], sel: NavSelection): NodeOut[] {
       // 归档数据来自 git 历史(不在 nodes 里);NoteListView 对 archive 委派给 ArchiveView。
       return [];
     case "type":
+      if (sel.id === "") return nodes.filter(isInbox);
       return nodes.filter((n) => (n.type ?? "") === sel.id);
     case "tag":
       return nodes.filter((n) => n.tags.includes(sel.id));
@@ -73,7 +79,7 @@ export function selectionLabel(sel: NavSelection, t: TFunc): string {
     case "archive":
       return t("nav.archive");
     case "type":
-      return sel.id === "" ? t("nav.untyped") : sel.id;
+      return sel.id === "" ? t("nav.untyped") : labelType(sel.id, t);
     case "tag":
       return `#${sel.id}`;
     case "folder":

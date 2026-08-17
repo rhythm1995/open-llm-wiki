@@ -8,7 +8,7 @@
  *   - structureSignature(布局 gate:结构未变则不重跑 FR)
  *   - topKByDegree(大图截断枢纽优先)
  *
- * 无 IO、无 React;GraphView / CytoscapeLayer 都吃这里。
+ * 无 IO、无 React;GraphView / ForceGraphLayer 都吃这里。
  */
 import type { EdgeOut, NodeOut } from "./ipc";
 

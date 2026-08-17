@@ -32,6 +32,14 @@ const CORPUS: Case[] = [
   { id: "nested-task-list", md: "- [ ] a\n  - [ ] b\n", risky: true },
   { id: "blockquote", md: "> quoted\n> more line\n" },
   { id: "nested-blockquote", md: "> outer\n> > inner\n" },
+  // 引用内的段落空隙(`> A` / `>` / `> B`):BN 把空引用行塌成硬换行
+  // (`> A\` + `\n> B`)。2026-08-15 实测 ZWSP 占位桥无效(输出更乱),
+  // 属 BN 引用序列化边界 → 标 risky,登记 DISABLED_OR_RISKY_PATTERNS。
+  { id: "blockquote-blank-paragraph", md: "> A\n>\n> B\n", risky: true },
+  // 链接标签内是行内代码([`code`](url)):BN 解析不支持标签内 code span,
+  // 往返**丢链接**(只留 code span,URL 数据丢失)。导入哨兵桥可救链接但导出侧
+  // 仍丢(code 样式与 link 在 BN 序列化里互斥)→ 标 risky,完整 seam 后置。
+  { id: "linked-inline-code", md: "[`cargo test`](https://example.com)\n", risky: true },
   { id: "code-fenced-lang", md: "```js\nconst x = 1;\n```\n" },
   { id: "code-fenced-plain", md: "```\nplain code block\n```\n" },
   // 回归:代码块里夹 wikilink。若 hydrate 误把 [[x]] 升级进 codeBlock,

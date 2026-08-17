@@ -11,8 +11,50 @@ export interface Heading {
   line: number;
 }
 
+/** 按标题层级嵌成树;index 是 parseOutline 平坦序,给跳转 / 折叠用。 */
+export interface OutlineNode {
+  heading: Heading;
+  index: number;
+  children: OutlineNode[];
+}
+
+/** 把平坦大纲收成树。后一项 level 更深则挂到最近的更浅祖先下;同级或更浅则出栈。 */
+export function nestOutline(headings: Heading[]): OutlineNode[] {
+  const roots: OutlineNode[] = [];
+  const stack: OutlineNode[] = [];
+  headings.forEach((heading, index) => {
+    const node: OutlineNode = { heading, index, children: [] };
+    while (
+      stack.length > 0 &&
+      stack[stack.length - 1]!.heading.level >= heading.level
+    ) {
+      stack.pop();
+    }
+    const parent = stack[stack.length - 1];
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+    stack.push(node);
+  });
+  return roots;
+}
+
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE_RE = /^\s*```/;
+
+/** BlockNote 文档里按出现顺序收集 heading(含嵌套 children),与大纲条目下标对齐。 */
+export function collectHeadingBlocks<T extends { type: string; children?: T[] }>(
+  blocks: T[],
+): T[] {
+  const out: T[] = [];
+  const walk = (bs: T[]) => {
+    for (const b of bs) {
+      if (b.type === "heading") out.push(b);
+      if (b.children?.length) walk(b.children);
+    }
+  };
+  walk(blocks);
+  return out;
+}
 
 export function parseOutline(md: string): Heading[] {
   const out: Heading[] = [];

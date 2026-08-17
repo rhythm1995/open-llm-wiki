@@ -11,7 +11,9 @@ import {
   FolderOpen,
   GitBranch,
   Graph,
+  Heartbeat,
   MagnifyingGlass,
+  Robot,
   Moon,
   PencilSimple,
   Plus,
@@ -21,11 +23,21 @@ import {
   Table,
   TextT,
   Gear,
+  Bug,
   Image as ImageIcon,
   Translate,
   X,
+  PlugsConnected,
+  Sparkle,
 } from "@phosphor-icons/react";
 import type { AppCommand, CommandDeps, CommandIcon } from "./types";
+
+/**
+ * 画布(Excalidraw .canvas)定位为孤立白板,与图谱/QQL/wikilink/搜索完全解耦。
+ * 「新建画布」入口默认隐藏(底层保留,已存在的 .canvas 仍可打开编辑)。
+ * 详见 docs/research/canvas-isolation.md。
+ */
+const CANVAS_HIDDEN = true;
 
 /** 从依赖构建完整命令表(含 only-menu / only-palette 项)。 */
 export function buildAppCommands(deps: CommandDeps): AppCommand[] {
@@ -51,7 +63,10 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       inMenu: true,
       run: () => deps.onNewNote(),
     },
-    {
+  ];
+
+  if (!CANVAS_HIDDEN) {
+    cmds.push({
       id: "new-canvas",
       label: t("palette.action.newCanvas"),
       category: "file",
@@ -59,8 +74,8 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       keywords: ["canvas", "画布"],
       inMenu: true,
       run: () => deps.onNewCanvas(),
-    },
-  ];
+    });
+  }
 
   if (deps.onNewSheet) {
     cmds.push({
@@ -127,9 +142,77 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       category: "file",
       icon: Gear as CommandIcon,
       shortcut: "⌘,",
-      keywords: ["preferences", "设置"],
+      keywords: ["preferences", "设置", "settings"],
       inMenu: true,
       run: () => deps.openSettings!(),
+    });
+  }
+
+  if (deps.reportIssue) {
+    cmds.push({
+      id: "report-issue",
+      label: t("palette.action.reportIssue"),
+      category: "file",
+      icon: Bug as CommandIcon,
+      keywords: ["feedback", "bug", "issue", "反馈", "问题", "github"],
+      inMenu: true,
+      run: () => deps.reportIssue!(),
+    });
+  }
+
+  if (deps.openAgentOnboard) {
+    cmds.push({
+      id: "agent-onboard",
+      label: t("palette.action.agentOnboard"),
+      category: "go",
+      icon: PlugsConnected as CommandIcon,
+      keywords: [
+        "mcp",
+        "agent",
+        "memory",
+        "记忆",
+        "接入",
+        "cursor",
+        "claude",
+        "codex",
+        "外部",
+      ],
+      inMenu: true,
+      run: () => deps.openAgentOnboard!(),
+    });
+  }
+
+  if (deps.startWikiDigest && deps.canWikiDigest) {
+    cmds.push({
+      id: "wiki-digest",
+      label: t("palette.action.wikiDigest"),
+      category: "edit",
+      icon: Sparkle as CommandIcon,
+      keywords: [
+        "ingest",
+        "digest",
+        "source",
+        "summary",
+        "提炼",
+        "消化",
+        "wiki",
+        "llm",
+        "蒸馏",
+      ],
+      inMenu: true,
+      run: () => deps.startWikiDigest!(),
+    });
+  }
+
+  if (deps.startVaultQuery) {
+    cmds.push({
+      id: "vault-query",
+      label: t("palette.action.vaultQuery"),
+      category: "go",
+      icon: Robot as CommandIcon,
+      keywords: ["query", "qql", "health", "查询", "库健康", "agent"],
+      inMenu: false,
+      run: () => deps.startVaultQuery!(),
     });
   }
 
@@ -269,6 +352,15 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       icon: Graph as CommandIcon,
       inMenu: true,
       run: () => deps.onNavigate("graph"),
+    },
+    {
+      id: "view-health",
+      label: `${t("palette.action.viewPrefix")}${t("view.health")}`,
+      category: "view",
+      icon: Heartbeat as CommandIcon,
+      keywords: ["health", "健康", "qql", "orphans", "库健康"],
+      inMenu: true,
+      run: () => deps.onNavigate("health"),
     },
     {
       id: "view-git",

@@ -7,7 +7,7 @@
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
-| Q1 | 项目正式名 | ✅【已定】OpenObsidian | 正式名定为 OpenObsidian。 |
+| Q1 | 项目正式名 | ✅【已定】Open LLM Wiki | 正式名定为 Open LLM Wiki。 |
 | Q2 | YAML 解析库 | ✅【默认已落地】`serde_yaml 0.9.34` | 已确认编译/运行通过。维护模式但稳定;想换活跃分支 `serde_yml` 可一行替换(仅 `parse_frontmatter` 一处)。 |
 | Q3 | 编辑器 | ✅【已升级】CodeMirror + BlockNote 双模 | 源码 + WYSIWYG 读写同一 `.md`;保真见 FEATURE-INDEX / plan §Editor。 |
 | Q4 | UI 组件库 | ✅【MVP 默认】Tailwind 4 + Radix + Phosphor + shadcn(cva/clsx/tw-merge) | MVP 不引入 Mantine(避免与 Tailwind 的 reset/provider 冲突);Mantine 的 Combobox 等可在 v2 按需引入。 |
@@ -44,7 +44,7 @@
 | P6-1 | 下一阶段顺序 | ✅【已定】先图 polish(6A)→ agent 图面(6B)→ wiki(6D)→ 可选语义(6C) | 2026-08-01 产品确认。文档阶段名统一 **6A–6D**(非裸 A/B/C/D)。 |
 | P6-2 | 图谱引擎 | ✅【已定 · 2026-08 翻案】**Cytoscape.js** 主路径 + cose/preset | 废止 sigma;过渡 `GraphForceLayer`/rfg/d3-force 已删(2026-08-02)。 |
 | P6-3 | 参考项目代码 | ✅【已定】仅概念;GPL(inkeep)零拷贝;MIT(varshithm7x)亦不整文件移植 | 原创实现 + MIT 红线(零逐字复制)。 |
-| P6-4 | 布局坐标落盘**位置** | ✅【默认已落地】vault 内 **`.openobsidian/graph-layout.json`**(B-GRAPH-POS-PERSIST) | **新约定**:本库此前无统一 per-vault 配置目录;6A1 建立之。localStorage 仅无 vault/mock 回退。内存跨帧暖启动**已有**,本项仅加磁盘层。 |
+| P6-4 | 布局坐标落盘**位置** | ✅【默认已落地】vault 内 **`.open-llm-wiki/graph-layout.json`**(B-GRAPH-POS-PERSIST) | **新约定**:本库此前无统一 per-vault 配置目录;6A1 建立之。localStorage 仅无 vault/mock 回退。内存跨帧暖启动**已有**,本项仅加磁盘层。 |
 | P6-7 | 布局文件是否进 git / 自动提交 | ✅【默认已落地】**gitignore 布局文件**;写盘**不**走结构自动 commit | 与「结构自动 + 正文手动」策略对齐:频繁拖拽/reheat 若 auto-commit 会污染 log。用户可手动 un-ignore 以共享布局。若要「团队共享默认布局」可再改为 tracked + 仅 pin/导出时提交。 |
 | P6-5 | 语义边 / embedding(6C) | 【待定】未开 | 选项:不做 / 可选本地模型 / 可选外部 API / 先 mock 向量只做 UI。**默认关向量主索引**。开 6C 前必须拍板。 |
 | P6-6 | MCP `suggest`(未链提及) | ✅【已落地】随 B-MCP-LINKS 交付(`links` 的 `suggest` kind) | 完整 mention 扫描可二期;不阻塞 dead/orphans/hubs。 |

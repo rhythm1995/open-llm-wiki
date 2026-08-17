@@ -9,12 +9,6 @@ import type { Pt } from "./graph-layout";
 
 export type LayoutMode = "force" | "type-layer" | "timeline";
 
-export const LAYOUT_MODES: LayoutMode[] = ["force", "type-layer", "timeline"];
-
-export function isLayoutMode(s: string): s is LayoutMode {
-  return (LAYOUT_MODES as string[]).includes(s);
-}
-
 export interface ModeLayoutOpts {
   w: number;
   h: number;

@@ -1,12 +1,21 @@
-# Prompt: ingest a Source (distill L2a)
+---
+type: Note
+---
+
+# Prompt: ingest a Source (distill L2a) — fallback
+
+> **Preferred:** use the vault skill **wiki-ingest**  
+> (`.agents/skills/wiki-ingest/SKILL.md` or `.claude/skills/wiki-ingest/SKILL.md`).  
+> Install/upgrade skills: `npx open-llm-wiki-skills install .`  
+> This file is a **fallback** long prompt if the skill is missing.
 
 > Copy into an external agent (MCP) or the in-app agent (ACP).  
-> Workflow spec: `docs/14-llm-wiki-workflow.md` §1 + §1.1.  
+> Workflow: skill wiki-ingest / docs/14 §1.  
 > Replace `<SOURCE_PATH>` with the vault-relative path of the Source note.
 
 ---
 
-Please run **ingest** on this Source per OpenObsidian LLM Wiki workflow (`docs/14-llm-wiki-workflow.md` §1).
+Please run skill **wiki-ingest** (or the checklist below) on this Source.
 
 **Source path:** `<SOURCE_PATH>`
 

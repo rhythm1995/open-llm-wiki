@@ -9,8 +9,8 @@
  */
 
 export const DEFAULT_ATTACHMENTS_DIR = "attachments";
-export const ATTACHMENTS_DIR_KEY = "openobs.attachmentsDir";
-export const ATTACHMENT_LAYOUT_KEY = "openobs.attachmentLayout";
+export const ATTACHMENTS_DIR_KEY = "open-llm-wiki.attachmentsDir";
+export const ATTACHMENT_LAYOUT_KEY = "open-llm-wiki.attachmentLayout";
 
 /**
  * 附件落盘布局:
@@ -307,7 +307,7 @@ export function rewriteHtmlImageSrcs(
 }
 
 export type EditorLayoutMode = "edit" | "split";
-export const EDITOR_LAYOUT_KEY = "openobs.editorLayout";
+export const EDITOR_LAYOUT_KEY = "open-llm-wiki.editorLayout";
 
 export function normalizeEditorLayout(
   raw: string | null | undefined,

@@ -5,7 +5,7 @@
 #   bash scripts/build-app.sh      # 或在仓库根:pnpm build:app
 #
 # 产物:
-#   target/release/bundle/macos/OpenObsidian.app   ← 可直接 `open` / 双击运行
+#   target/release/bundle/macos/Open LLM Wiki.app   ← 可直接 `open` / 双击运行
 #
 # 与 `tauri build`(默认 --bundles all)的区别:跳过 dmg 打包,
 # 只产出独立 .app;本地构建无 quarantine 标记,无需安装即可运行。
@@ -38,12 +38,32 @@ command -v pnpm >/dev/null 2>&1 || {
 TAURI="$ROOT/ui/node_modules/.bin/tauri"
 [ -x "$TAURI" ] || { echo "✗ 找不到 tauri 二进制($TAURI)。先在 ui/ 下 pnpm install。" >&2; exit 1; }
 
+echo "▸ 准备 open-llm-wiki-mcp sidecar(Tauri externalBin + 同目录嵌入)…"
+bash "$ROOT/scripts/prepare-mcp-sidecar.sh" --release
+
 echo "▸ 构建独立 .app(--bundles app,跳过 dmg,免安装)…"
 "$TAURI" build --bundles app
 
-APP="$ROOT/target/release/bundle/macos/OpenObsidian.app"
+APP="$ROOT/target/release/bundle/macos/Open LLM Wiki.app"
+MCP_BIN="$ROOT/target/release/open-llm-wiki-mcp"
 echo
 if [ -d "$APP" ]; then
+  # 双保险:externalBin 应已嵌入;若缺失再手动拷进 Contents/MacOS/
+  # (resolve_mcp_binary 同目录命中 → 用户无需手填路径)。
+  MACOS_DIR="$APP/Contents/MacOS"
+  EMBEDDED="$MACOS_DIR/open-llm-wiki-mcp"
+  if [ ! -x "$EMBEDDED" ]; then
+    if [ -x "$MCP_BIN" ]; then
+      cp -f "$MCP_BIN" "$EMBEDDED"
+      chmod +x "$EMBEDDED"
+      echo "✓ 已补嵌入 open-llm-wiki-mcp → Contents/MacOS/"
+    else
+      echo "✗ 未找到 open-llm-wiki-mcp($MCP_BIN),一键接入会失败。请检查 prepare-mcp-sidecar。" >&2
+      exit 1
+    fi
+  else
+    echo "✓ open-llm-wiki-mcp 已在 Contents/MacOS/(externalBin 或既有)"
+  fi
   echo "✓ 完成。可直接运行(无需安装):"
   echo "    open \"$APP\""
 else

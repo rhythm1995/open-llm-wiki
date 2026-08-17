@@ -3,7 +3,7 @@
  *
  * 与 useTheme / useLocale 同构:懒读初值、变更即写。用于让"上次的主视图 / 编辑·阅读
  * 模式"在重启后恢复。读写均 try/catch:隐私模式 / 禁用 localStorage 时静默退化为
- * 纯内存 state(不抛、不崩)。key 命名约定 `openobs.<feature>`。
+ * 纯内存 state(不抛、不崩)。key 命名约定 `open-llm-wiki.<feature>`。
  */
 import { useCallback, useRef, useState } from "react";
 

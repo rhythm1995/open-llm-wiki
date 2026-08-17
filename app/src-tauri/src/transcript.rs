@@ -41,7 +41,7 @@ fn db_path(app: &AppHandle, root: &str) -> PathBuf {
     let base = app
         .path()
         .app_data_dir()
-        .unwrap_or_else(|_| std::env::temp_dir().join("openobsidian"));
+        .unwrap_or_else(|_| std::env::temp_dir().join("open-llm-wiki"));
     // FNV-1a-ish:稳定、无依赖、足够区分 vault。
     let mut h: u64 = 0xcbf29ce484222325;
     for b in root.bytes() {
@@ -177,15 +177,6 @@ pub fn agent_thread_append(
     Ok(())
 }
 
-/// 清空某线程的消息(保留线程壳)。
-#[tauri::command]
-pub fn agent_thread_clear(app: AppHandle, root: String, thread_id: i64) -> Result<(), String> {
-    let conn = open(&app, &root)?;
-    conn.execute("DELETE FROM messages WHERE thread_id = ?1", params![thread_id])
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 /// 删除某线程及其全部消息。
 #[tauri::command]
 pub fn agent_thread_delete(app: AppHandle, root: String, thread_id: i64) -> Result<(), String> {
@@ -205,7 +196,7 @@ mod tests {
     #[test]
     fn threads_messages_roundtrip_and_cascade() {
         let dir = std::env::temp_dir().join(format!(
-            "openobs-transcript-threads-{}",
+            "open-llm-wiki-transcript-threads-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);

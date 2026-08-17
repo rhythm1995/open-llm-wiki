@@ -28,6 +28,8 @@ const NODES: NodeOut[] = [
   N(3, "sources/karpathy.md", "Karpathy", "Source"),
   N(4, "scratch.md", "Scratch", null), // 未分类 → inbox
   N(5, "sub/deep/nested.md", "Nested", "Note"),
+  N(6, "AGENTS.md", "AGENTS", null), // OS, 无 type, 不当 inbox
+  N(7, "skills/wiki-ingest/SKILL.md", "wiki-ingest", null),
 ];
 
 describe("isInbox", () => {
@@ -35,11 +37,15 @@ describe("isInbox", () => {
     expect(isInbox(NODES[4])).toBe(true);
     expect(isInbox(NODES[0])).toBe(false);
   });
+  it("wiki 操作系统即使无 type 也不是 inbox", () => {
+    expect(isInbox(NODES[6])).toBe(false);
+    expect(isInbox(NODES[7])).toBe(false);
+  });
 });
 
 describe("filterByNav — all", () => {
   it("放行全部", () => {
-    expect(filterByNav(NODES, { kind: "all" })).toHaveLength(6);
+    expect(filterByNav(NODES, { kind: "all" })).toHaveLength(8);
   });
 });
 
@@ -55,7 +61,7 @@ describe("filterByNav — type", () => {
     const r = filterByNav(NODES, { kind: "type", id: "Concept" });
     expect(r.map((n) => n.id).sort()).toEqual([1, 2]);
   });
-  it('id:"" → 未分类(与 inbox 等价)', () => {
+  it('id:"" → 未分类(与 inbox 等价,不含 OS)', () => {
     const r = filterByNav(NODES, { kind: "type", id: "" });
     expect(r.map((n) => n.id)).toEqual([4]);
   });
