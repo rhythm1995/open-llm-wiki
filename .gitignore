@@ -42,6 +42,7 @@ graph-demo/
 
 # 临时截图与脚本(开发期验收用,留本地不进仓库)
 ui/tmp-shots/
+site/tmp-*.png
 
 # ZCode agent 内部产物(计划/会话草稿)
 .zcode/

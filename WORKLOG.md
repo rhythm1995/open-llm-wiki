@@ -15,6 +15,17 @@
 
 ---
 
+### 2026-08-18 Grok — 独立官网 site/ + 渲染 docs/user + Site CI / Pages
+
+- **branch**: `release/v0.1.0`
+- **做了**:
+  1. 新建 `site/`(Vite + React + Tailwind 4)。视觉按 Antimetal 纸面编辑风自写，不抄源码。Test Signifier 用 Source Serif 4 替代。
+  2. `/docs/:slug` 用 `import.meta.glob` 直接读 `docs/user/*.md`，图片走 `/docs-media`。默认英文，`?lang=zh` 切中文。
+  3. 独立 CI `.github/workflows/site.yml`：typecheck + build；push 到 `main` / `release/v0.1.0` 部署 GitHub Pages(`SITE_BASE=/open-llm-wiki/`)。
+- **下一步 / 接手注意**: 仓库 Settings → Pages 须选 GitHub Actions。本地 `pnpm --dir site dev` → :5174。
+
+---
+
 ### 2026-08-18 Grok — 文档默认英文，中文改为可切换 sibling
 
 - **branch**: `release/v0.1.0`(未 push)

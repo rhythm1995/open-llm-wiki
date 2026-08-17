@@ -46,7 +46,7 @@ Dual-mode editor, relationship graph, vault-health board, canvas and sheets, plu
 
 ![Command palette ⌘K](docs/user/images/palette-en.png)
 
-The full walkthrough is in the [user guide](./docs/user/README.md).
+The full walkthrough is in the [user guide](./docs/user/README.md). The same files render on the [marketing site](./site/README.md) under `/docs`.
 
 ## Getting started
 

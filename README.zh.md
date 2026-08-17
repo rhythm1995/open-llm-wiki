@@ -46,7 +46,7 @@
 
 ![命令面板 ⌘K](docs/user/images/palette-zh.png)
 
-完整操作说明见 [用户文档](./docs/user/README.zh.md)。
+完整操作说明见 [用户文档](./docs/user/README.zh.md)。同一批文件也会由 [营销站](./site/README.md) 渲到 `/docs`。
 
 ## 快速开始
 
