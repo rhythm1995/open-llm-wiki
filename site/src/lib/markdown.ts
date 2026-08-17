@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import { localizeShotFile } from "./shots";
 
 const FILE_TO_SLUG: Record<string, string> = {
   "README.md": "start",
@@ -39,7 +40,7 @@ function rewriteWikiLinks(href: string, locale: "en" | "zh"): string {
   const hash = href.includes("#") ? href.slice(href.indexOf("#")) : "";
   const base = clean.replace(/^\.\//, "");
   if (base.startsWith("images/")) {
-    const file = base.slice("images/".length);
+    const file = localizeShotFile(base.slice("images/".length), locale);
     return `${import.meta.env.BASE_URL}docs-media/${file}`;
   }
   if (FILE_TO_SLUG[base]) {
@@ -76,8 +77,13 @@ export function renderUserMarkdown(source: string, locale: "en" | "zh"): string 
   );
 
   const withImages = withLinks.replace(
-    /src="(\.\/images\/[^"]+)"/g,
-    (_m, src: string) => `src="${rewriteWikiLinks(src, locale)}"`,
+    /src="([^"]+\.png)"/g,
+    (_m, src: string) => {
+      if (src.startsWith("./images/") || src.startsWith("images/")) {
+        return `src="${rewriteWikiLinks(src.startsWith("./") ? src : `./${src}`, locale)}"`;
+      }
+      return `src="${src}"`;
+    },
   );
 
   return DOMPurify.sanitize(withImages, {

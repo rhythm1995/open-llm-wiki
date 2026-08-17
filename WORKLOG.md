@@ -15,6 +15,14 @@
 
 ---
 
+### 2026-08-18 Grok — 文档/官网截图按界面语言成对
+
+- **branch**: `release/v0.1.0`
+- **做了**: 补 `help-en` / `agent-en`；中英手册各挂对应图；官网 `localizeShotFile` 切语言时强制 `*-zh` / `*-en`。
+- **下一步**: 推送后 Pages 会带上新图。
+
+---
+
 ### 2026-08-18 Grok — 推送官网、仓库改公开、GitHub Pages 上线
 
 - **branch**: `release/v0.1.0`(已 push)

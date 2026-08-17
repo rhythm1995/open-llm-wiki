@@ -3,15 +3,16 @@ import { Link } from "react-router-dom";
 import { Lattice } from "../components/Lattice";
 import { DOC_PAGES } from "../lib/docs";
 import { copy, faqs, type Locale } from "../lib/locale";
+import { localizeShotFile } from "../lib/shots";
 
 const RELEASES = "https://github.com/rhythm1995/open-llm-wiki/releases";
-const media = (name: string) => `${import.meta.env.BASE_URL}docs-media/${name}`;
+const media = (name: string, locale: Locale) =>
+  `${import.meta.env.BASE_URL}docs-media/${localizeShotFile(name, locale)}`;
 
 export function Home({ locale }: { locale: Locale }) {
   const t = copy[locale];
   const items = faqs[locale];
   const [open, setOpen] = useState(0);
-  const shot = locale === "zh" ? "zh" : "en";
   const q = locale === "zh" ? "?lang=zh" : "";
 
   return (
@@ -58,7 +59,7 @@ export function Home({ locale }: { locale: Locale }) {
           </p>
           <figure className="mt-12">
             <img
-              src={media(`editor-${shot}.png`)}
+              src={media("editor.png", locale)}
               alt={t.editorCap}
               className="w-full"
             />
@@ -68,13 +69,13 @@ export function Home({ locale }: { locale: Locale }) {
           </figure>
           <div className="mt-10 grid gap-8 md:grid-cols-2">
             <figure>
-              <img src={media(`graph-${shot}.png`)} alt={t.graphCap} className="w-full" />
+              <img src={media("graph.png", locale)} alt={t.graphCap} className="w-full" />
               <figcaption className="mt-3 font-mono text-[10px] uppercase tracking-[0.1em] text-graphite">
                 {t.graphCap}
               </figcaption>
             </figure>
             <figure>
-              <img src={media(`health-${shot}.png`)} alt={t.healthCap} className="w-full" />
+              <img src={media("health.png", locale)} alt={t.healthCap} className="w-full" />
               <figcaption className="mt-3 font-mono text-[10px] uppercase tracking-[0.1em] text-graphite">
                 {t.healthCap}
               </figcaption>

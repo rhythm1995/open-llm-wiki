@@ -89,7 +89,7 @@ await shot("zh", "agent-zh", async (page) => {
   await page.waitForTimeout(500);
 });
 
-// English UI
+// English UI — same six surfaces as Chinese
 await shot("en", "editor-en", async (page) => {
   await openNote(page, "Zettelkasten");
 });
@@ -110,6 +110,16 @@ await shot("en", "palette-en", async (page) => {
     timeout: 8_000,
   });
   await page.waitForTimeout(250);
+});
+await shot("en", "help-en", async (page) => {
+  await page.getByTestId("toolbar-brand-logo").click();
+  await page.getByTestId("help-guide-dialog").waitFor({ timeout: 8_000 });
+  await page.waitForTimeout(250);
+});
+await shot("en", "agent-en", async (page) => {
+  await openNote(page, "Zettelkasten");
+  await page.getByTestId("toggle-agent").click();
+  await page.waitForTimeout(500);
 });
 
 await browser.close();
