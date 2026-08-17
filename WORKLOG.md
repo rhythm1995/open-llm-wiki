@@ -15,6 +15,27 @@
 
 ---
 
+### 2026-08-18 Grok — 文档默认英文，中文改为可切换 sibling
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**: 按 readme-i18n 把用户向文档改成 `README.md` = 英文、`README.zh.md` = 中文。根 README、`docs/README`、`docs/user/` 四类手册都是页顶 **English** | [简体中文]。删掉旧的 `README.en.md` / `*.en.md`。设计规格正文仍是中文实现真相。
+- **下一步 / 接手注意**: 未 commit。GitHub 仓库首页现在直接显示英文 README。
+
+---
+
+### 2026-08-18 Grok — 双语 README + Diátaxis 用户文档 + 实机截图
+
+- **branch**: `release/v0.1.0`(未 push)
+- **做了**:
+  1. 按 create-readme 重写 `README.md` / `README.en.md`(logo、徽章、GitHub admonition、界面截图；去掉 LICENSE/CONTRIBUTING/CHANGELOG 专节)。
+  2. 按 documentation-writer / Diátaxis 写 `docs/user/`：教程、操作指南、参考、概念，中英各一份；语言切换器与仓库既有 `README.md` + `README.en.md` 模式一致。
+  3. Playwright 从 mock UI 截 10 张图进 `docs/user/images/`；脚本 `scripts/capture-user-docs.mjs` 可重跑。
+  4. `docs/README.md` 顶部加上用户文档入口。
+- **理由 / 影响**: 用户要求「用 create-readme 写 README、用写用户文档的 skill 写用户文档、中英双语、配截图」。截图是浏览器 mock 实机画面，不是生成图。
+- **下一步 / 接手注意**: 未 commit。桌面端库健康 QQL 角标在截图里看不到（mock 不求值）。重截：`pnpm --dir ui dev` 后 `node scripts/capture-user-docs.mjs`。
+
+---
+
 ### 2026-08-18 Grok — 一次提交 release/v0.1.0 积压改动
 
 - **branch**: `release/v0.1.0`(未 push,领先 origin 6)

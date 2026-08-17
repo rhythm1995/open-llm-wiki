@@ -1,119 +1,128 @@
+<div align="center">
+
+<img src="./ui/public/olw-mark.png" alt="Open LLM Wiki" width="72" />
+
 # Open LLM Wiki
 
-本地优先、文件即真相、Apache 2.0 许可的知识管理桌面应用 —— 你的纯 Markdown 文件是唯一真相。双模编辑器、Cytoscape 图谱、Excalidraw 画布、Sheet 表格,集成 git 与内置 MCP server,全部跑在你自己的机器上,无需账号、无云同步。
+A local-first, file-as-truth knowledge-base desktop app — your Markdown files are the only source of truth.
+
+[![CI](https://img.shields.io/github/actions/workflow/status/rhythm1995/open-llm-wiki/ci.yml?style=flat-square)](https://github.com/rhythm1995/open-llm-wiki/actions)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square)](./LICENSE)
 
 <!-- README-I18N:START -->
 
-**简体中文** | [English](./README.en.md)
+**English** | [简体中文](./README.zh.md)
 
 <!-- README-I18N:END -->
 
-## 功能
+[Features](#features) · [Getting started](#getting-started) · [User guide](./docs/user/README.md) · [Architecture](#architecture)
 
-- **双模编辑器** —— CodeMirror 6 源码模式 + BlockNote 所见即所得(WYSIWYG);二者切换有真引擎 Markdown↔block 往返门禁(诊断套件守护),切换不丢内容。
-- **图谱视图** —— Cytoscape 渲染 wikilink 与 frontmatter 关系;力导向 / 按 type 分层 / 时间轴布局切换;按类型·标签过滤。
-- **画布** —— Excalidraw 无限白板(MIT);`.canvas` 文件即真相,与笔记同构保存。
-- **Sheet** —— 嵌入式表格(v2);笔记内类 CSV 编辑。
-- **命令面板** —— ⌘K 命令、⌘P 快开、⌘⇧F 库内全文检索(含 canvas / sheet)。
-- **媒体管理** —— 粘贴 / 拖入 / 插入图片进 `attachments/`;MediaIndex 一等索引 + 孤儿附件清理。
-- **编辑体验** —— 查找替换、大纲(标题)、source｜reading 并排预览、当前笔记断链提示、任务列表按钮。
-- **Git** —— status / log / commit / pull / push / restore + 自动提交,走系统 `git`,仅在 Tauri 桌面 app 内、vault 为 git 仓库时生效。
-- **AI 上下文导出** —— 一键把当前笔记 + 其链接到的邻居正文复制为 LLM 友好的 markdown。
-- **应用内 Agent** —— 右侧栏 ACP 托管会话:配方 picker(opencode / claude-code)、权限三档、`@`-笔记上下文、跨 agent 移交、会话转录回放;agent 写入按 turn 级 git 快照归因,可采纳 / 撤销。
-- **本地优先** —— 一切在本地运行;偏好存于本地配置,绝不上传。
-- **面向 AI(MCP)** —— 内置 MCP server 暴露 8 个工具(`list_notes` / `read_note` / `write_note` / `links` / `search_notes` / `run_qql` / `vault_info` / `lint_vault`),Claude Desktop 等 agent 可读写你的库;`lint_vault` 跑结构 lint,只产候选、不判决。
-- **i18n** —— 简体中文 / English 界面。
+</div>
 
-## 快速开始
+![Editor: note list, WYSIWYG body, and backlinks](docs/user/images/editor-en.png)
 
-### 方式 A —— 从源码构建(当前可用)
+Dual-mode editor, relationship graph, vault-health board, canvas and sheets, plus git and a built-in MCP server. Everything runs on your machine. No account, no cloud sync.
+
+> [!NOTE]
+> A vault is just a folder of Markdown files on disk. Leave whenever you want — take the files with you.
+
+## Features
+
+- **Dual-mode editing** — CodeMirror source + BlockNote WYSIWYG, with a lossless round-trip. `[[wikilink]]` complete, follow, and backlinks.
+- **Graph** — wikilinks and frontmatter relations as an interactive network; force / type layers / timeline.
+- **Vault health** — scores and a next action on entry; 11 locked queries grouped as structure / evidence / trust. Nobody has to learn a query language.
+- **In-app agent** — sidebar ACP session: recipe picker, three-tier permissions, `@`-note context, git snapshots for agent writes.
+- **External agents** — built-in MCP (8 tools) so Cursor / Claude Code and friends can read and write the current vault. One-click memory onboarding.
+- **Commands and search** — `⌘K` commands, `⌘P` quick-open, `⌘⇧F` full-text search.
+- **Media** — paste / drag images into `attachments/`; orphan cleanup.
+- **Git** — desktop-only status / commit / pull / push / restore via system `git` when the vault is a repo.
+- **Local-first** — preferences stay on the machine. UI: 简体中文 / English.
+
+## Interface
+
+| Graph | Vault health |
+| --- | --- |
+| ![Graph view: note nodes and directed edges](docs/user/images/graph-en.png) | ![Health overview scores and next action](docs/user/images/health-en.png) |
+
+![Command palette ⌘K](docs/user/images/palette-en.png)
+
+The full walkthrough is in the [user guide](./docs/user/README.md).
+
+## Getting started
+
+### Build from source (works today)
 
 ```bash
 git clone https://github.com/rhythm1995/open-llm-wiki.git
 cd open-llm-wiki
 pnpm install --dir ui
-pnpm build:app          # = bash scripts/build-app.sh → target/release/bundle/macos/Open LLM Wiki.app
+pnpm build:app          # → target/release/bundle/macos/Open LLM Wiki.app
 open target/release/bundle/macos/Open LLM Wiki.app
 ```
 
-浏览器开发预览(实时重载,内存 mock 后端,无需编译 Rust):
+Browser preview (in-memory mock, no Rust compile):
 
 ```bash
 pnpm --dir ui dev       # → http://localhost:5173
 ```
 
-从源码跑完整桌面应用(真 Rust core):
+Full desktop app (real Rust core). Launch from the **repo root**:
 
 ```bash
 ui/node_modules/.bin/tauri dev
 ```
 
-> Tauri 配置在 `app/src-tauri/`,故须从**仓库根**启动 Tauri CLI(它会递归发现 `app/src-tauri`)。勿用 `pnpm --dir ui exec tauri` —— `--dir` 会把 CWD 切到 `ui/`,递归发现失败。
+> [!IMPORTANT]
+> The Tauri config lives in `app/src-tauri/`. Do not use `pnpm --dir ui exec tauri` — `--dir` changes CWD and discovery fails.
 
-### 方式 B —— 下载预编译版(发布后)
+### Prebuilt app (once published)
 
-发布后从 [Releases](https://github.com/rhythm1995/open-llm-wiki/releases) 取 `Open LLM Wiki.app`:
+Grab `Open LLM Wiki.app` from [Releases](https://github.com/rhythm1995/open-llm-wiki/releases) and move it to `/Applications`. Builds are **unsigned**. If Gatekeeper blocks the first launch:
 
-- **macOS**:拖入 `/Applications`;若已存在选「替换」。构建**未签名**,首次运行被 Gatekeeper 拦 —— 系统设置 → 隐私与安全性 → 仍要打开,或:
-  ```bash
-  xattr -cr /Applications/Open LLM Wiki.app
-  ```
-  需 macOS 10.15+。Bundle ID 固定为 `dev.openllmwiki.desktop`,**请直接替换旧版**,勿并排留存多个「Open LLM Wiki」。本地偏好(localStorage / 配置)**替换 .app 不会被清**。
+```bash
+xattr -cr "/Applications/Open LLM Wiki.app"
+```
 
-## 配置
+Or: *System Settings → Privacy & Security → Open Anyway*. Requires macOS 10.15+. Bundle ID is `dev.openllmwiki.desktop` — replace the old copy; do not keep two apps side by side.
 
-设置在应用内(⌘K → Settings):主题(深/浅)、语言(zh/en)、默认编辑模式(source/wysiwyg)、附件布局、图谱力参数、日志 profile。全部本地持久化。
+After launch: open a Markdown folder as your vault, or create the sample wiki. Click the toolbar logo for the in-app overview.
 
-## 架构
+## User guide
+
+| You want to… | Open |
+| --- | --- |
+| Do this for the first time | [Tutorial](./docs/user/tutorial.md) |
+| Finish a specific job | [How-to](./docs/user/how-to.md) |
+| Look up shortcuts / views / file types | [Reference](./docs/user/reference.md) |
+| Understand file-as-truth and types | [Concepts](./docs/user/concepts.md) |
+
+Design and implementation notes live in [docs/](./docs/README.md) (for contributors and agents).
+
+## Architecture
 
 ```
 ui (React 19 + Vite + Tailwind 4 + CodeMirror 6 + BlockNote)
-        │ IPC (@tauri-apps/api invoke)
+        │  IPC (@tauri-apps/api invoke)
         ▼
-app/src-tauri (Tauri 2 薄壳:文件 IO + 命令,无业务逻辑)
-        │
+app/src-tauri (Tauri 2 shell: file IO + commands, no business logic)
         ▼
-core (Rust:解析 / 图谱 / 检索 —— 纯逻辑,IO-free,TDD)
+core (Rust: parsing / graph / search — pure logic, IO-free)
 ```
 
-- `core/` —— 纯函数、无 IO,单测 + proptest 守护。
-- `app/src-tauri/` —— Tauri 命令,串起文件 IO、git 与 `core`。
-- `mcp/` —— 内置 MCP server(8 工具),供 AI agent。
-- `ui/` —— 三栏布局(文件树 / 编辑器 / Inspector);可切换图谱 / Git 视图;⌘K 命令面板。浏览器开发走 `src/lib/mock.ts`(内存后端),无需编译 Rust 即可预览。
+- `core/` — pure functions, no IO.
+- `app/src-tauri/` — wires files, git, and core.
+- `mcp/` — built-in MCP server.
+- `ui/` — three-pane UI. Browser dev uses `src/lib/mock.ts`.
 
-## 环境要求
+Stack: [Tauri 2](https://tauri.app/) · [React 19](https://react.dev/) · [CodeMirror 6](https://codemirror.net/) · [BlockNote](https://blocknotejs.org/) · [force-graph](https://github.com/vasturiano/force-graph) · [Excalidraw](https://excalidraw.com/) · [ironcalc](https://www.ironcalc.com/)
 
-- macOS 10.15+(预编译);Windows / Linux 可从源码构建。
-- Node.js + pnpm(前端 / 开发)。
-- Rust 工具链(`core` 与 Tauri 壳)。
+## Requirements
 
-## 技术栈
+- macOS 10.15+ (prebuilt); Windows / Linux buildable from source.
+- Node.js + pnpm (frontend / dev).
+- Rust toolchain (`core` and the Tauri shell).
 
-- [Tauri 2](https://tauri.app/) —— 桌面壳(Rust)。
-- [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS 4](https://tailwindcss.com/) —— UI。
-- [CodeMirror 6](https://codemirror.net/) —— 源码编辑器。
-- [BlockNote](https://blocknotejs.org/) —— WYSIWYG 编辑器。
-- [force-graph](https://github.com/vasturiano/force-graph) —— 图谱 Canvas 力导向。
-- [Excalidraw](https://excalidraw.com/) —— 画布。
-- [ironcalc](https://www.ironcalc.com/) —— Sheet。
+> [!WARNING]
+> Builds are unsigned and there is no auto-update. The browser mock does not evaluate Health QQL details (graph scores still work). Do not write the query language by hand — ad-hoc questions go to **Ask Agent**.
 
-## 贡献
-
-本项目是**原创、独立的实现**,Apache 2.0 许可。**红线:绝不把 GPL/AGPL 等 copyleft 源码(逐字或近似逐字)引入本仓库**——那会让「Apache 2.0 许可」落空。只参考公开的思想、架构与功能概念(多为不可版权的思想/方法);所有源码、组件实现与视觉表达一律自写。Obsidian 仅作公开功能对照,不复制其源码。详见 [docs/](./docs/)(先读 [docs/README.md](./docs/README.md))。
-
-- 仓库:[https://github.com/rhythm1995/open-llm-wiki](https://github.com/rhythm1995/open-llm-wiki)
-- 问题反馈:[Issues](https://github.com/rhythm1995/open-llm-wiki/issues)
-- 已做功能:[docs/FEATURE-INDEX.md](./docs/FEATURE-INDEX.md)
-- 路线图 / 待办:[docs/backlog.md](./docs/backlog.md)
-- 新增依赖请登记 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md);任何 PR 不得引入 copyleft 源码的逐字片段,review 时查重。
-
-## 已知限制
-
-- **未签名构建** —— 暂无代码签名 / 公证;macOS 首次运行需上文 Gatekeeper 处理。
-- **图谱打磨推迟** —— 图谱可用但未达商业精致(布局坐标落盘、力参数面板、最短路径高亮等推迟;见 [CHANGELOG](./CHANGELOG.md))。
-- **无 QueryPanel** —— 不教人写 QQL。桌面「库健康」跑锁定模板;自然语言走应用内 Agent 或外部 MCP `run_qql`。浏览器 mock 不求值。
-- **无自动更新。**
-
-## 许可
-
-[Apache-2.0](./LICENSE)。依赖清单见 [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md)。画布用 [Excalidraw](https://github.com/excalidraw/excalidraw)(MIT);BlockNote 为 MPL-2.0。
+Repo: [rhythm1995/open-llm-wiki](https://github.com/rhythm1995/open-llm-wiki) · Feedback: [Issues](https://github.com/rhythm1995/open-llm-wiki/issues)
