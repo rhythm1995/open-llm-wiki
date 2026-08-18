@@ -15,6 +15,21 @@
 
 ---
 
+### 2026-08-18 Grok — 推送官网动效 + 明星风 README，更新 Pages
+
+- **branch**: `release/v0.1.0`(即将 push)
+- **做了**: 提交并推送晶格/滚动动效、Jump sections、README 明星项目结构。等 Site workflow 部署 Pages。
+
+---
+
+### 2026-08-18 Grok — 官网动效按 Antimetal 纸面节奏重做
+
+- **branch**: `release/v0.1.0`
+- **做了**: `motion` 滚动入场；52 点晶格生长/呼吸/指针微移；液态导航胶囊 + 深色 pill；引言下沉字母；FAQ 高度动画；Jump sections。自写，不抄源码。
+- **下一步**: 未 push。本地 `pnpm --dir site dev`。
+
+---
+
 ### 2026-08-18 Grok — 文档/官网截图按界面语言成对
 
 - **branch**: `release/v0.1.0`

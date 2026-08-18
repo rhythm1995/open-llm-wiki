@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom";
+import { Reveal } from "../components/Reveal";
 import { DOC_PAGES, loadDocSource, pageBySlug } from "../lib/docs";
 import { renderUserMarkdown } from "../lib/markdown";
 import { copy, type Locale } from "../lib/locale";
@@ -41,10 +42,12 @@ export function DocsPage({ locale }: { locale: Locale }) {
             : "Sourced from docs/user/ in this repo. Loaded at build time. Not a second copy."}
         </p>
       </aside>
-      <article
-        className="prose-docs"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <Reveal>
+        <article
+          className="prose-docs"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </Reveal>
     </div>
   );
 }

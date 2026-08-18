@@ -29,6 +29,7 @@ Open LLM Wiki 本身的代码以 [Apache-2.0](./LICENSE) 许可(原创、独立�
 | marked | MIT | 官网渲染 `docs/user` Markdown(与 UI 阅读视图同库)。 |
 | DOMPurify | Apache-2.0 / MPL | 官网文档 HTML 清洗。 |
 | Source Serif 4 / Geist / Geist Mono (Fontsource) | OFL-1.1 | 官网字体(自托管)。 |
+| motion | MIT | 官网滚动入场与晶格动画(`site/`)。 |
 
 完整传递依赖以 `cargo license`、`pnpm licenses list` 为准;上线前复核无
 GPL/AGPL 直染依赖(本项目严禁引入任何 copyleft 源码 —— 见 [README](./README.md)
