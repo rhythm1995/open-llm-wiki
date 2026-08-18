@@ -37,6 +37,7 @@ jobs:
           - platform: ubuntu-22.04
           - platform: windows-latest
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -67,16 +68,38 @@ jobs:
       - name: Install frontend deps
         run: pnpm --dir ui install --frozen-lockfile
 
+      # macOS: 未配置签名证书时,空字符串的 APPLE_* env 会让 Tauri 仍走证书导入路径,
+      # `security import` 直接失败(macos-13 上甚至挂起到 24h 超时)。所以只在 secret
+      # 非空时才写入这些 env;否则只设 APPLE_SIGNING_IDENTITY=- 走 ad-hoc 签名
+      # (arm64 必须至少 ad-hoc 才能启动)。
+      - name: Export macOS signing env
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERT_PASS: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASS: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM: ${{ secrets.APPLE_TEAM }}
+        run: |
+          if [ -n "$APPLE_CERT" ]; then
+            {
+              echo "APPLE_CERTIFICATE<<EOF"
+              echo "$APPLE_CERT"
+              echo "EOF"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERT_PASS"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_IDENTITY"
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_PASSWORD=$APPLE_PASS"
+              echo "APPLE_TEAM=$APPLE_TEAM"
+            } >> "$GITHUB_ENV"
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # ── macOS 代码签名 + 公证(可选)──
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM: ${{ secrets.APPLE_TEAM }}
           # ── Tauri Updater 签名 + 更新清单(可选:配置后启用自动更新)──
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
