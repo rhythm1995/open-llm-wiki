@@ -6,7 +6,7 @@
 
 <!-- README-I18N:END -->
 
-This is a lesson, not a menu dump. When you finish you should have: opened a vault, read a note, followed a link to another note, and seen those notes connected on the graph.
+This is a lesson, not a menu dump. When you finish you should have: opened a vault, read a note, followed a link, seen those notes on the graph, and read Health. The folder you walked is already a compiled wiki — and it is already memory, even before you attach an agent.
 
 You need: a Mac (or the browser preview already running) and about fifteen minutes. Do not change settings or wire an agent yet — those belong in the [how-to](./how-to.md).
 
@@ -57,7 +57,7 @@ That loop — **read → follow → read** — is the basic motion of this app.
 
 ## 5. Look at the graph
 
-Click the Graph icon in the toolbar (the network mark in the cluster to the left of `⌘K`).
+Click the **Graph** icon in the toolbar (the network-shaped icon).
 
 ![Graph: nodes are notes, edges are wikilinks](./images/graph-en.png)
 
@@ -80,11 +80,13 @@ The browser preview says it will not run QQL; scores still come from the graph. 
 
 ## You are done with the lesson
 
-You can open a vault, read, follow links, read the graph, and read health. Next, pick by need:
+You can open a vault, read, follow links, read the graph, and read health. You did not attach an agent — you do not need to, to have a wiki. The same folder is what Cursor, Claude Code, or the in-app sidebar will later use as memory.
 
-- Write notes, insert images, distill a source, connect an agent → [How-to](./how-to.md)
-- Look up shortcuts → [Reference](./reference.md)
-- Understand types and `status` → [Concepts](./concepts.md)
+Next, pick by need:
+
+- Write notes, insert images, distill a source, attach this vault as AI memory → [How-to](./how-to.md)
+- Look up shortcuts, types, MCP tools → [Reference](./reference.md)
+- Why compile, why Health, why files are memory → [Concepts](./concepts.md)
 
 Stuck? Click the toolbar logo for the in-app overview.
 

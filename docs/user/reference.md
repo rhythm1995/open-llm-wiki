@@ -8,6 +8,15 @@
 
 Facts only. For recipes see the [how-to](./how-to.md).
 
+## Help menu
+
+| Item | Opens |
+| --- | --- |
+| User Guide | <https://rhythm1995.github.io/open-llm-wiki/docs/start> |
+| Report Issue… | GitHub Issues for this repo |
+
+The in-app overview (logo next to `⌘K`) is a short card, not this handbook.
+
 ## Keyboard shortcuts
 
 macOS. On Windows / Linux use `Ctrl` in place of `⌘`.
@@ -23,7 +32,7 @@ macOS. On Windows / Linux use `Ctrl` in place of `⌘`.
 | `⌘W` | Close current tab |
 | `⌘F` | Find / replace in the current note |
 | `⌘,` | Settings |
-| `⌘A` | Select all (needs the desktop menu item so the key reaches inputs) |
+| `⌘A` | Select all (desktop app) |
 
 In-app overview: click the logo next to `⌘K`.
 
@@ -95,9 +104,16 @@ Built-in catalog, aligned with starter `health/*.md` by basename. Read the title
 
 The six overview tiles are computed live from the graph (same inbound degree as backlinks). They are not a twelfth query. The three trust tiles depend on `reviewed` / `provenance`; empty fields make them look red. The group caption explains that.
 
-## `hot.md`
+## Agent memory
 
-A short note at the vault root, about 500 words, rewritten as a whole page — not a log. The in-app agent injects it on the first turn and again every few turns. After a turn that wrote the vault, you are asked to update it. External agents should read it before `index.md`.
+| Path | What it is |
+| --- | --- |
+| Settings → Agent memory | One-click MCP for Cursor / Claude Code / others; installs `wiki-ingest` |
+| Agent pane (toolbar robot) | In-app ACP session |
+| `hot.md` | ~500-word cache at the vault root, rewritten as a whole page, not a log |
+| `index.md` | Catalog the agent should read after `hot.md` |
+
+The in-app agent injects `hot.md` on the first turn and again every few turns. After a turn that wrote the vault, you are asked to update it. Chat transcripts never enter the vault.
 
 ## MCP tools
 

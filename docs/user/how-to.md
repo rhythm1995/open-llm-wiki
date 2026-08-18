@@ -6,7 +6,16 @@
 
 <!-- README-I18N:END -->
 
-Each section solves one job. If you already have a vault open, start here. First time? Use the [tutorial](./tutorial.md).
+Each section is one job. First time in the app? Use the [tutorial](./tutorial.md).
+
+| Job | Jump |
+| --- | --- |
+| Open a folder | [Open or switch a vault](#open-or-switch-a-vault) |
+| Write and link | [Create a note](#create-a-note) · [Wikilink](#link-two-notes-with-a-wikilink) |
+| Find things | [Editor, find, split](#switch-editor-mode-find-split-preview) · [Palette](#use-the-command-palette) |
+| See the graph | [Graph](#read-the-graph-and-jump-to-a-note) · [Health](#read-vault-health-and-pick-the-next-action) |
+| Use it as AI memory | [Attach the vault](#use-this-vault-as-ai-memory) |
+| Grow the wiki | [Distill a source](#distill-a-source-into-the-wiki) |
 
 ## Open or switch a vault
 
@@ -64,7 +73,7 @@ To remove unreferenced files: `⌘K` and search for “orphan” or “clean”.
 
 ## Use the command palette
 
-`⌘K` opens the command list. Type to filter. Frequent items: Open Vault, Settings, Connect external agent memory, Query vault, Report an issue.
+`⌘K` opens the command list. Type to filter. Frequent items: Open Vault, Settings, User guide, Connect external agent memory, Distill into Wiki, Query vault, Report an issue.
 
 ![Command palette](./images/palette-en.png)
 
@@ -93,18 +102,29 @@ Canvas files (`.canvas`) are a separate whiteboard. They are not on the graph an
 
 Hunger targets: an `Active` concept wants at least two inbound links; `Contested` wants at least three. Short rows are highlighted.
 
-## Distill a source into the wiki
+## Use this vault as AI memory
 
-Use this when you have a `type: Source` (or untyped material) and you want an agent to produce Summary / Entity / Concept pages from it.
+The folder is the memory. Chat logs are not. Attach an agent to the same files you browse.
 
-1. Open that note.
-2. Settings → Agent memory → one-click connect (installs MCP and the `wiki-ingest` skill). Desktop only.
-3. `⌘K` → **Distill into Wiki**, or the distill control on the note.
-4. Pick an installed agent and send.
+### One-click for Cursor / Claude Code / others (desktop)
 
-The agent should follow wiki-ingest: write a new Summary, mark the Source `Digested`, create Entity / Concept pages, and add a line to `index.md`. It must not rewrite the Source body (treat the Source as immutable).
+1. `⌘,` → **Agent memory** → one-click connect.
+2. The app writes user-level MCP config for the agents it finds, installs the `wiki-ingest` skill into this vault, and can seed wiki-starter if the folder is empty.
 
-## Use the in-app agent
+CLI equivalent (published on npm; the GitHub line installs the latest source):
+
+```bash
+# in the vault root
+npx --yes open-llm-wiki-skills install . --hooks
+
+# or, straight from this repository:
+# npx --yes --package=github:rhythm1995/open-llm-wiki#path:packages/open-llm-wiki-skills \
+#   open-llm-wiki-skills install . --hooks
+```
+
+The agent then has eight tools: `list_notes`, `read_note`, `write_note`, `links`, `search_notes`, `run_qql`, `vault_info`, `lint_vault`. See the [reference](./reference.md#mcp-tools).
+
+### In-app sidebar
 
 1. Toggle the Agent pane (robot control, top right).
 2. Pick a recipe installed on this machine (opencode, claude-code, …).
@@ -113,23 +133,27 @@ The agent should follow wiki-ingest: write a new Summary, mark the Source `Diges
 
 ![In-app Agent sidebar](./images/agent-en.png)
 
-The browser mock cannot see local agents and will tell you to install one. After a turn that wrote the vault, if `hot.md` exists, the app asks you to rewrite that session cache as a whole page (it does not write it for you).
+The browser preview cannot see local agents and will tell you to install one.
 
-**Query vault** seeds a short natural-language instruction so the agent can answer health or ad-hoc questions. It does not open a query editor.
+**Query vault** (`⌘K`) seeds a short natural-language instruction. It does not open a query editor.
 
-## Connect an external agent to this vault
+### What the agent should read first
 
-Desktop: Settings → Agent memory → one-click connect. The app detects Cursor / Claude Code / etc., writes user-level MCP config, and can seed the vault from wiki-starter.
+Cheap order: `hot.md` → `index.md` → then `read_note` / `links` as needed. Do not start with a full-vault search.
 
-CLI equivalent:
+`hot.md` is a short cache at the vault root, rewritten as a whole page — not a log. After a turn that wrote the vault, the in-app agent asks you to rewrite it. It does not write it for you.
 
-```bash
-# in the vault root
-npx --yes --package=github:rhythm1995/open-llm-wiki#path:packages/open-llm-wiki-skills \
-  open-llm-wiki-skills install . --hooks
-```
+A useful answer that should survive the chat: write it as a new note. That is how memory compounds.
 
-Cheap read order for agents: `hot.md` → `index.md` → then `read_note` / `links` as needed. Do not start with a full-vault search.
+## Distill a source into the wiki
+
+Use this when you have a `type: Source` (or untyped material) and you want an agent to produce Summary / Entity / Concept pages from it. Attach memory first ([above](#use-this-vault-as-ai-memory)).
+
+1. Open that note.
+2. `⌘K` → **Distill into Wiki**, or the distill control on the note.
+3. Pick an installed agent and send.
+
+The agent should follow wiki-ingest: write a new Summary, mark the Source `Digested`, create Entity / Concept pages, and add a line to `index.md`. It must not rewrite the Source body.
 
 ## Change language, theme, default edit mode
 
@@ -139,4 +163,4 @@ The `EN` / `中` control in the status bar switches the UI language immediately.
 
 ## Report a problem
 
-`⌘K` → **Report an issue**, or the card in the help guide, or Settings → Diagnostics. That opens [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues). On desktop, export diagnostic logs from Settings first.
+Help → **Report Issue…**, or `⌘K` → **Report an issue**, or the card in the help guide, or Settings → Diagnostics. That opens [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues). On desktop, export diagnostic logs from Settings first.
