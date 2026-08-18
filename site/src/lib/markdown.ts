@@ -63,7 +63,19 @@ export function renderUserMarkdown(source: string, locale: "en" | "zh"): string 
     async: false,
   }) as string;
 
-  const withLinks = html.replace(
+  const withHeadingIds = html.replace(
+    /<h([2-4])>([\s\S]*?)<\/h\1>/g,
+    (_m, level: string, inner: string) => {
+      const text = inner.replace(/<[^>]+>/g, "").trim();
+      const id = text
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s-]/gu, "")
+        .replace(/\s+/g, "-");
+      return `<h${level} id="${id}">${inner}</h${level}>`;
+    },
+  );
+
+  const withLinks = withHeadingIds.replace(
     /href="([^"]+)"/g,
     (_m, href: string) => {
       if (/^(https?:|mailto:|#)/i.test(href)) {

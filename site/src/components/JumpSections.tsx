@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
+import { gsap, scrollToId, ScrollTrigger, useGSAP } from "../lib/gsap";
 import { copy, type Locale } from "../lib/locale";
 
 export interface JumpItem {
@@ -13,54 +14,79 @@ export function JumpSections({
   items: JumpItem[];
   locale: Locale;
 }) {
+  const root = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(items[0]?.id ?? "");
+  const ids = items.map((item) => item.id).join("|");
 
-  useEffect(() => {
-    const els = items
-      .map((item) => document.getElementById(item.id))
-      .filter((el): el is HTMLElement => !!el);
-    if (!els.length) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const hit = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (hit?.target.id) setActive(hit.target.id);
-      },
-      { rootMargin: "-28% 0px -55% 0px", threshold: [0.1, 0.35, 0.6] },
-    );
-    for (const el of els) io.observe(el);
-    return () => io.disconnect();
-  }, [items.map((i) => i.id).join("|")]);
+  useGSAP(
+    () => {
+      for (const item of items) {
+        const trigger = document.getElementById(item.id);
+        if (!trigger) continue;
+        ScrollTrigger.create({
+          trigger,
+          start: "top 38%",
+          end: "bottom 38%",
+          onToggle: (self) => {
+            if (self.isActive) setActive(item.id);
+          },
+        });
+      }
+    },
+    { scope: root, dependencies: [ids] },
+  );
+
+  useGSAP(
+    () => {
+      if (!open) return;
+      const menu = root.current?.querySelector(".jump-menu");
+      if (!menu) return;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      gsap.fromTo(
+        menu,
+        { autoAlpha: 0, scale: 0.94, y: 10 },
+        {
+          autoAlpha: 1,
+          scale: 1,
+          y: 0,
+          duration: reduce ? 0 : 0.26,
+          ease: "power3.out",
+        },
+      );
+    },
+    { scope: root, dependencies: [open] },
+  );
 
   return (
-    <div className="fixed bottom-5 right-4 z-40 md:bottom-8 md:right-7">
+    <div ref={root} className="fixed bottom-5 right-4 z-40 md:bottom-8 md:right-7">
       <button
         type="button"
-        className="nav-glass rounded-full px-4 py-2 text-[11px] font-medium tracking-[-0.01em] text-bistre"
+        className="nav-chip jump-trigger px-4 text-[12px] font-medium tracking-[-0.01em] text-bistre"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {copy[locale].jump}
       </button>
-      {open ? (
-        <ul className="nav-glass mt-2 min-w-[180px] overflow-hidden rounded-2xl py-2">
-          {items.map((item) => (
-            <li key={item.id}>
-              <a
-                href={`#${item.id}`}
-                className={`block px-4 py-1.5 text-[13px] ${
-                  active === item.id ? "text-bistre" : "text-graphite"
-                }`}
-                onClick={() => setOpen(false)}
-              >
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <ul className={`jump-menu nav-chip ${open ? "is-open" : ""}`}>
+        {items.map((item) => (
+          <li key={item.id} className="w-full">
+            <a
+              href={`#${item.id}`}
+              className={`block rounded-full px-3 py-1.5 text-[13px] ${
+                active === item.id ? "text-bistre" : "text-graphite"
+              }`}
+              onClick={(event) => {
+                event.preventDefault();
+                setOpen(false);
+                scrollToId(item.id);
+              }}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

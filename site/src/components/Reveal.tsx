@@ -1,6 +1,5 @@
-import { motion } from "motion/react";
-import type { ReactNode } from "react";
-import { enterTransition, revealHidden, revealShow, useMotionSafe } from "../lib/motion";
+import { type ReactNode, useRef } from "react";
+import { gsap, useGSAP } from "../lib/gsap";
 
 export function Reveal({
   children,
@@ -11,16 +10,35 @@ export function Reveal({
   className?: string;
   delay?: number;
 }) {
-  const live = useMotionSafe();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useGSAP(
+    () => {
+      const el = ref.current;
+      if (!el) return;
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap.from(el, {
+          autoAlpha: 0,
+          y: 16,
+          duration: 0.45,
+          delay,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: el,
+            start: "top 86%",
+            once: true,
+          },
+        });
+      });
+      return () => mm.revert();
+    },
+    { scope: ref, dependencies: [delay] },
+  );
+
   return (
-    <motion.div
-      className={className}
-      initial={live ? revealHidden : false}
-      whileInView={revealShow}
-      viewport={{ once: true, amount: 0.24 }}
-      transition={{ ...enterTransition, delay }}
-    >
+    <div ref={ref} className={className}>
       {children}
-    </motion.div>
+    </div>
   );
 }

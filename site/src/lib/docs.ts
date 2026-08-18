@@ -18,8 +18,8 @@ export const DOC_PAGES: readonly DocPage[] = [
     file: { en: "README.md", zh: "README.zh.md" },
     nav: { en: "Start here", zh: "从这里开始" },
     blurb: {
-      en: "Map of the four kinds of user docs.",
-      zh: "四类用户文档的入口。",
+      en: "Five rules and the four kinds of handbook.",
+      zh: "五条规则，四类手册。",
     },
   },
   {
@@ -36,8 +36,8 @@ export const DOC_PAGES: readonly DocPage[] = [
     file: { en: "how-to.md", zh: "how-to.zh.md" },
     nav: { en: "How-to", zh: "操作指南" },
     blurb: {
-      en: "Recipes for a specific job.",
-      zh: "完成一件具体的事。",
+      en: "Recipes — including attach this vault as AI memory.",
+      zh: "菜谱，含把这座库当成 AI 记忆。",
     },
   },
   {
@@ -45,8 +45,8 @@ export const DOC_PAGES: readonly DocPage[] = [
     file: { en: "reference.md", zh: "reference.zh.md" },
     nav: { en: "Reference", zh: "参考" },
     blurb: {
-      en: "Shortcuts, views, types, MCP tools.",
-      zh: "快捷键、视图、类型、MCP。",
+      en: "Shortcuts, Help menu, types, MCP tools.",
+      zh: "快捷键、Help 菜单、类型、MCP。",
     },
   },
   {
@@ -54,8 +54,8 @@ export const DOC_PAGES: readonly DocPage[] = [
     file: { en: "concepts.md", zh: "concepts.zh.md" },
     nav: { en: "Concepts", zh: "概念" },
     blurb: {
-      en: "Why files are the truth.",
-      zh: "为什么文件即真相。",
+      en: "Why compile a wiki, and why the folder is memory.",
+      zh: "为什么编译 wiki，以及为什么文件夹就是记忆。",
     },
   },
 ];
