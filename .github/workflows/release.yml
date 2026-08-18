@@ -91,6 +91,6 @@ jobs:
           # 故用 npx 拉 @tauri-apps/cli@2,避免 `pnpm --dir ui exec`(会改 CWD 到 ui/ 致发现失败)。
           tauriScript: npx --yes --package @tauri-apps/cli@^2 tauri
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "Open LLM Wiki ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseName: "${{ github.event.inputs.tag || github.ref_name }}"
           releaseDraft: true
           prerelease: false
