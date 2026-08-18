@@ -87,3 +87,5 @@ You can open a vault, read, follow links, read the graph, and read health. Next,
 - Understand types and `status` → [Concepts](./concepts.md)
 
 Stuck? Click the toolbar logo for the in-app overview.
+
+![In-app overview](./images/help-en.png)

@@ -6,7 +6,7 @@
 
 <!-- README-I18N:END -->
 
-To **use** the app (install, write notes, graph, health, agents), start with the **[user guide](./user/README.md)** ([简体中文](./user/README.zh.md)). Everything below is for contributors and coding agents.
+To **use** the app (install, write notes, graph, health, agents), start with the **[user guide](./user/README.md)** ([简体中文](./user/README.zh.md)). The marketing site in [`site/`](../site/) renders those same Markdown files under `/docs`. Everything below is for contributors and coding agents.
 
 ## Quick entry
 

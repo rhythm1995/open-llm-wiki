@@ -111,6 +111,8 @@ The agent should follow wiki-ingest: write a new Summary, mark the Source `Diges
 3. `@`-mention the current note or others.
 4. Send. Tool calls fold into cards. Permissions are three-tier: ask every time / relaxed / high-risk still gated.
 
+![In-app Agent sidebar](./images/agent-en.png)
+
 The browser mock cannot see local agents and will tell you to install one. After a turn that wrote the vault, if `hot.md` exists, the app asks you to rewrite that session cache as a whole page (it does not write it for you).
 
 **Query vault** seeds a short natural-language instruction so the agent can answer health or ad-hoc questions. It does not open a query editor.

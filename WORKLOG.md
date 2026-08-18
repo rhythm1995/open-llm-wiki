@@ -15,6 +15,53 @@
 
 ---
 
+### 2026-08-18 Grok — 推送官网动效 + 明星风 README，更新 Pages
+
+- **branch**: `release/v0.1.0`(即将 push)
+- **做了**: 提交并推送晶格/滚动动效、Jump sections、README 明星项目结构。等 Site workflow 部署 Pages。
+
+---
+
+### 2026-08-18 Grok — 官网动效按 Antimetal 纸面节奏重做
+
+- **branch**: `release/v0.1.0`
+- **做了**: `motion` 滚动入场；52 点晶格生长/呼吸/指针微移；液态导航胶囊 + 深色 pill；引言下沉字母；FAQ 高度动画；Jump sections。自写，不抄源码。
+- **下一步**: 未 push。本地 `pnpm --dir site dev`。
+
+---
+
+### 2026-08-18 Grok — 文档/官网截图按界面语言成对
+
+- **branch**: `release/v0.1.0`
+- **做了**: 补 `help-en` / `agent-en`；中英手册各挂对应图；官网 `localizeShotFile` 切语言时强制 `*-zh` / `*-en`。
+- **下一步**: 推送后 Pages 会带上新图。
+
+---
+
+### 2026-08-18 Grok — 推送官网、仓库改公开、GitHub Pages 上线
+
+- **branch**: `release/v0.1.0`(已 push)
+- **做了**:
+  1. 推送 `c3f3759` / `a46b15f`(`@types/node` 修 CI typecheck)。
+  2. 私有仓免费套餐不能开 Pages，把 `rhythm1995/open-llm-wiki` 改为 **public**。
+  3. Pages source = GitHub Actions；`github-pages` 环境允许 `main` + `release/v0.1.0`。
+  4. Site workflow 绿：typecheck + build + deploy。
+- **线上**: https://rhythm1995.github.io/open-llm-wiki/ （首页、`/docs/start`、中文 tutorial、截图均已浏览器验收）
+- **下一步 / 接手注意**: 深链服务端仍是 404.html 回退 SPA，浏览器可用。若必须 HTTP 200 再预渲染路径。
+
+---
+
+### 2026-08-18 Grok — 独立官网 site/ + 渲染 docs/user + Site CI / Pages
+
+- **branch**: `release/v0.1.0`
+- **做了**:
+  1. 新建 `site/`(Vite + React + Tailwind 4)。视觉按 Antimetal 纸面编辑风自写，不抄源码。Test Signifier 用 Source Serif 4 替代。
+  2. `/docs/:slug` 用 `import.meta.glob` 直接读 `docs/user/*.md`，图片走 `/docs-media`。默认英文，`?lang=zh` 切中文。
+  3. 独立 CI `.github/workflows/site.yml`：typecheck + build；push 到 `main` / `release/v0.1.0` 部署 GitHub Pages(`SITE_BASE=/open-llm-wiki/`)。
+- **下一步 / 接手注意**: 仓库 Settings → Pages 须选 GitHub Actions。本地 `pnpm --dir site dev` → :5174。
+
+---
+
 ### 2026-08-18 Grok — 文档默认英文，中文改为可切换 sibling
 
 - **branch**: `release/v0.1.0`(未 push)

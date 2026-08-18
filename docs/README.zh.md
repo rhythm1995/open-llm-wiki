@@ -6,7 +6,7 @@
 
 <!-- README-I18N:END -->
 
-想**使用**这款应用（安装、写笔记、看图谱、库健康、接 Agent）请先读 **[用户文档](./user/README.zh.md)**（[English](./user/README.md)）。下面是给贡献者和编码 agent 的设计 / 实现文档。
+想**使用**这款应用（安装、写笔记、看图谱、库健康、接 Agent）请先读 **[用户文档](./user/README.zh.md)**（[English](./user/README.md)）。[`site/`](../site/) 会把同一批 Markdown 渲成 `/docs`。下面是给贡献者和编码 agent 的设计 / 实现文档。
 
 ## AI / 施工快速入口
 
