@@ -1345,3 +1345,16 @@
   3. 本地 CI 门全绿:core cargo test ✓ · ui typecheck + test:cov(80 files/772 tests) ✓ · ui build ✓ · app cargo test(57) ✓ · e2e 21/21 ✓ · site typecheck + build ✓。
   4. 分块提交 4 个 commit(site / ui+app / docs / release-infra),push 后由 site.yml(已配置 release/v0.1.0 分支部署)发布官网;删除旧 v0.1.0 tag(指向 8 月 3 日旧 commit、从未挂 release)重打到发布 commit 触发 release.yml 全平台矩阵(macos aarch64/x64 + ubuntu + windows)起草 release,再以双语 notes(英前中后、title=v0.1.0)发布。
 - **下一步**: 等 release workflow 四平台产物上传完成后 publish release;首版全平台包均为未签名,正式分发前按 backlog「F. 分发与工程」补签名/公证。
+
+### 2026-08-19 ZCode — v0.1.0 发布(官网上线 + GitHub Release 双语)
+
+- **branch**: `release/v0.1.0`(5 个 commit 推送,tag `v0.1.0` 重打到发布 commit)。
+- **结果**:
+  1. **官网已上线**:site workflow 部署成功,https://rhythm1995.github.io/open-llm-wiki/ 为新版(金属环 hero / 全宽规则行 / Jump 修复 / 文档易读性 pass 后的渲染)。
+  2. **GitHub Release v0.1.0 已发布**:title 纯版本号,notes 英文在前中文在后;资产:macOS Apple Silicon `aarch64.dmg`、Windows `x64-setup.exe` + `x64_en-US.msi`(链接见 https://github.com/rhythm1995/open-llm-wiki/releases/tag/v0.1.0)。
+  3. **发版 CI 修复**(旧 8 月 3 日 run 的失败根因):未配置签名证书时空字符串 `APPLE_*` env 让 Tauri 仍走 keychain 导入,macOS job `security import` 失败/挂起 24h;改为条件导出(有证书才写全套,否则 `APPLE_SIGNING_IDENTITY=-` ad-hoc)+ job 超时上限。修复后 macos-latest 8m17s ✓、windows 11m3s ✓。
+  4. **两个平台按用户指示跳过**:ubuntu-22.04 卡 `apt-get install` 60 分钟超时(runner 暂态,非代码问题);macos-13(Intel)首次无缓存冷编译 1h 未完成被取消。已在 release.yml 为 macos-13 放宽 timeout 到 100 分钟;两平台产物可后续 `workflow_dispatch`(tag=v0.1.0)重跑追加到同一 release(notes 中已注明)。
+- **遗留 / 下一步**:
+  - 补挂 Intel dmg + Linux deb/AppImage:`gh workflow run release.yml -f tag=v0.1.0`(建议先确认 runner 不再抽风)。
+  - 首版包均未签名;签名/公证按 backlog「F. 分发与工程」另立任务。
+  - main 分支尚未合并本轮 release/v0.1.0 的 5 个 commit(README badge 的 CI 只在 main push 时跑);合并时机由人拍板。

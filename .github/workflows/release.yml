@@ -32,12 +32,17 @@ jobs:
         include:
           # macos-latest = Apple Silicon(aarch64);macos-13 = Intel(x86_64)。
           # 两个各打一份 dmg,覆盖 Intel 与 Apple Silicon mac(不做 universal 合并,骨架够用)。
+          # macos-13 是 Intel runner,首次无 rust 缓存时冷编译可超 60 分钟,单独放宽到 100。
           - platform: macos-latest
+            timeout: 60
           - platform: macos-13
+            timeout: 100
           - platform: ubuntu-22.04
+            timeout: 60
           - platform: windows-latest
+            timeout: 60
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       - uses: actions/checkout@v4
 
