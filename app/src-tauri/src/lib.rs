@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use open_llm_wiki_core::{
@@ -1260,24 +1260,78 @@ fn reveal_in_finder(root: String, path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// 用系统浏览器打开白名单 https 地址(问题反馈 → GitHub Issues)。
-#[tauri::command]
-fn open_external_url(url: String) -> Result<(), String> {
-    const PREFIX: &str = "https://github.com/rhythm1995/open-llm-wiki";
-    if url != PREFIX && !url.starts_with(&format!("{PREFIX}/")) {
+const GITHUB_REPO_URL: &str = "https://github.com/rhythm1995/open-llm-wiki";
+const GITHUB_PAGES_URL: &str = "https://rhythm1995.github.io/open-llm-wiki";
+const PROJECT_ISSUES_URL: &str = "https://github.com/rhythm1995/open-llm-wiki/issues";
+const USER_DOCS_URL: &str = "https://rhythm1995.github.io/open-llm-wiki/docs/start";
+
+fn url_under_prefix(url: &str, prefix: &str) -> bool {
+    url == prefix || url.starts_with(&format!("{prefix}/"))
+}
+
+fn is_allowed_external_url(url: &str) -> bool {
+    url_under_prefix(url, GITHUB_REPO_URL) || url_under_prefix(url, GITHUB_PAGES_URL)
+}
+
+fn should_open_external_now(
+    prev: Option<(&str, Duration)>,
+    url: &str,
+    window: Duration,
+) -> bool {
+    match prev {
+        Some((prev_url, elapsed)) if prev_url == url && elapsed < window => false,
+        _ => true,
+    }
+}
+
+struct LastExternalOpen {
+    url: String,
+    at: Instant,
+}
+
+static LAST_EXTERNAL_OPEN: Mutex<Option<LastExternalOpen>> = Mutex::new(None);
+const EXTERNAL_OPEN_WINDOW: Duration = Duration::from_millis(800);
+
+fn open_url_in_browser(url: &str) -> Result<(), String> {
+    if !is_allowed_external_url(url) {
         return Err("blocked url".into());
     }
+    {
+        let mut guard = LAST_EXTERNAL_OPEN
+            .lock()
+            .map_err(|e| e.to_string())?;
+        if let Some(prev) = guard.as_ref() {
+            if !should_open_external_now(
+                Some((prev.url.as_str(), prev.at.elapsed())),
+                url,
+                EXTERNAL_OPEN_WINDOW,
+            ) {
+                return Ok(());
+            }
+        }
+        *guard = Some(LastExternalOpen {
+            url: url.to_string(),
+            at: Instant::now(),
+        });
+    }
     #[cfg(target_os = "macos")]
-    let (program, args): (&str, Vec<String>) = ("open", vec![url]);
+    let (program, args): (&str, Vec<String>) = ("open", vec![url.to_string()]);
     #[cfg(target_os = "windows")]
-    let (program, args): (&str, Vec<String>) = ("cmd", vec!["/C".into(), "start".into(), url]);
+    let (program, args): (&str, Vec<String>) =
+        ("cmd", vec!["/C".into(), "start".into(), url.to_string()]);
     #[cfg(all(unix, not(target_os = "macos")))]
-    let (program, args): (&str, Vec<String>) = ("xdg-open", vec![url]);
+    let (program, args): (&str, Vec<String>) = ("xdg-open", vec![url.to_string()]);
     std::process::Command::new(program)
         .args(&args)
         .spawn()
         .map_err(err)?;
     Ok(())
+}
+
+/// 用系统浏览器打开白名单 https 地址(Issues / 用户文档)。
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    open_url_in_browser(&url)
 }
 
 // ───────────────────────── git(F-GIT)─────────────────────────
@@ -1673,6 +1727,8 @@ pub fn run() {
             let file_settings = MenuItemBuilder::with_id("settings", "Settings…")
                 .accelerator("CmdOrCtrl+,")
                 .build(app)?;
+            let help_docs =
+                MenuItemBuilder::with_id("user-docs", "User Guide").build(app)?;
             let help_issue =
                 MenuItemBuilder::with_id("report-issue", "Report Issue…").build(app)?;
             let edit_find = MenuItemBuilder::with_id("find", "Find in Note")
@@ -1738,6 +1794,8 @@ pub fn run() {
                 .item(&view_refresh)
                 .build()?;
             let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(&help_docs)
+                .separator()
                 .item(&help_issue)
                 .build()?;
             let menu = MenuBuilder::new(app)
@@ -1747,10 +1805,23 @@ pub fn run() {
                 .item(&help_menu)
                 .build()?;
             app.set_menu(menu)?;
-            let handle = app.handle().clone();
-            app.on_menu_event(move |_app, event| {
+            app.on_menu_event(move |app, event| {
                 let id = event.id().as_ref().to_string();
-                let _ = handle.emit("menu-action", id);
+                // URL 项在壳里直接打开,不再 emit:前端曾因异步 listen 泄漏把同一
+                // 事件派发多次,Report Issue 会连开多个浏览器窗口。
+                match id.as_str() {
+                    "report-issue" => {
+                        let _ = open_url_in_browser(PROJECT_ISSUES_URL);
+                    }
+                    "user-docs" => {
+                        let _ = open_url_in_browser(USER_DOCS_URL);
+                    }
+                    _ => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.emit("menu-action", id);
+                        }
+                    }
+                }
             });
 
             // ── 状态栏(menubar)图标:左键打开主窗口,右键 Show/Quit 菜单 ──
@@ -1876,9 +1947,11 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        create_sample_vault, decode_base64, is_md_rel, live_apply, load_live_from_disk,
-        normalize_rel, path_should_emit, preview_of, strip_data_url_base64, LiveVault,
+        create_sample_vault, decode_base64, is_allowed_external_url, is_md_rel, live_apply,
+        load_live_from_disk, normalize_rel, path_should_emit, preview_of,
+        should_open_external_now, strip_data_url_base64, LiveVault,
     };
+    use std::time::Duration;
     use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
     use std::collections::BTreeMap;
     use std::fs;
@@ -1909,6 +1982,55 @@ mod tests {
         assert_eq!(normalize_rel(r".\a\b.md"), "a/b.md");
         assert!(is_md_rel("x.md"));
         assert!(!is_md_rel("x.canvas"));
+    }
+
+    #[test]
+    fn external_url_allowlist_repo_and_pages() {
+        assert!(is_allowed_external_url(
+            "https://github.com/rhythm1995/open-llm-wiki"
+        ));
+        assert!(is_allowed_external_url(
+            "https://github.com/rhythm1995/open-llm-wiki/issues"
+        ));
+        assert!(is_allowed_external_url(
+            "https://rhythm1995.github.io/open-llm-wiki"
+        ));
+        assert!(is_allowed_external_url(
+            "https://rhythm1995.github.io/open-llm-wiki/docs/start"
+        ));
+        assert!(is_allowed_external_url(
+            "https://rhythm1995.github.io/open-llm-wiki/docs/start?lang=zh"
+        ));
+        assert!(!is_allowed_external_url("https://evil.example/phish"));
+        assert!(!is_allowed_external_url(
+            "https://github.com/rhythm1995/open-llm-wiki.evil"
+        ));
+        assert!(!is_allowed_external_url(
+            "https://rhythm1995.github.io.evil/open-llm-wiki/docs/start"
+        ));
+        assert!(!is_allowed_external_url("http://github.com/rhythm1995/open-llm-wiki"));
+    }
+
+    #[test]
+    fn external_url_dedupes_same_url_inside_window() {
+        let window = Duration::from_millis(800);
+        let url = "https://github.com/rhythm1995/open-llm-wiki/issues";
+        assert!(should_open_external_now(None, url, window));
+        assert!(!should_open_external_now(
+            Some((url, Duration::from_millis(400))),
+            url,
+            window
+        ));
+        assert!(should_open_external_now(
+            Some((url, Duration::from_millis(801))),
+            url,
+            window
+        ));
+        assert!(should_open_external_now(
+            Some((url, Duration::from_millis(10))),
+            "https://rhythm1995.github.io/open-llm-wiki/docs/start",
+            window
+        ));
     }
 
     #[test]

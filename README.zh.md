@@ -40,20 +40,30 @@
 
 ## 为什么做这个
 
-多数知识应用要么锁引擎，要么逼你学一门查询语言。Open LLM Wiki 是**原创的 Apache-2.0 桌面应用**：文件系统即真相，并把两件最缺的能力做成原生——**关系图谱**，以及**不用手写 QQL 也能信的实时聚合**。
+多数「LLM + 文档」产品在提问时检索片段，把综合扔掉。下一问又从零开始。不以模型为卖点的知识应用，通常要么锁死引擎，要么让你学一门查询语言。
+
+Open LLM Wiki 是**原创的 Apache-2.0 桌面应用**，走另一条回路：在你和原始材料之间，维护一座持久的 Markdown wiki。提炼是编译，库健康是 lint。同一座文件夹也是应用内 Agent、以及 Cursor / Claude Code（内置 MCP）的长期记忆。文件系统是唯一真相。图谱和即时分数是原生的——你不用写 QQL。
 
 Vault 就是一个文件夹。想走，带上文件即可。
 
-| | Open LLM Wiki | 常见闭源笔记应用 |
+| | Open LLM Wiki | 常见的其它选择 |
 | --- | --- | --- |
 | 文件 | 磁盘上的纯 `.md` + frontmatter | 文件加专有引擎 |
 | 许可 | Apache-2.0，原创源码 | 闭源内核 |
 | 图谱 | 原生一等公民 | 偏弱，或靠插件 |
-| 查询 | 库健康 + 问 Agent | 给人用的 DSL |
-| AI | 应用内 ACP + 8 个 MCP 工具 | 外挂插件 |
-| 同步 | 你自己的 git | 厂商云 |
+| 查询 | 库健康 + 问 Agent | 给人用的 DSL，或提问时现检索 |
+| AI | Vault 就是记忆（MCP + ACP） | 聊天记录或外挂插件 |
+| 同步 | 你自己的 git 或任意同步工具 | 厂商云 |
 
-Obsidian 只作公开功能对照。本仓库不复制其源码。
+## 原则
+
+产品约束，不是功能清单。展开写在 [概念](./docs/user/concepts.zh.md)。
+
+- **文件即真相。** Vault 是一夹 Markdown。没有账号，没有第二份库。列表、图谱、健康分都从这些文件算。想走，带走文件夹。
+- **编译，不要每次检索。** 源消化一次。问 wiki。用库健康做 lint。有用的回答写回文件。不要每问一次都从片段重做综合。
+- **Vault 就是记忆。** 应用内 ACP，以及一键 MCP（Cursor、Claude Code 和八个工具）读写同一批文件。聊天不是记忆。`hot.md` 只是短缓存。
+- **链接优先于文件夹。** 关系写在 `[[wikilink]]` 和 frontmatter。`type:` / `status:` 只是标签，从不挡保存。
+- **库健康，不是查询语言。** 人看到分数、锁定检查、下一步。QQL 留给程序和 Agent。
 
 ## 亮点
 
@@ -93,7 +103,7 @@ Wikilink 和 frontmatter 关系画成可交互网络。力导向、按类型分�
 </details>
 
 <details>
-<summary><strong>两条 Agent 路径</strong> — 应用内侧栏，或任意 MCP 客户端</summary>
+<summary><strong>Vault 就是记忆</strong> — 应用内 Agent，或任意 MCP 客户端</summary>
 
 <br />
 
@@ -191,6 +201,9 @@ ui (React 19 + Vite + Tailwind 4 + CodeMirror 6 + BlockNote)
 app/src-tauri (Tauri 2 薄壳：文件 IO + 命令，无业务逻辑)
         ▼
 core (Rust：解析 / 图谱 / 检索 —— 纯逻辑，IO-free，TDD)
+        ▲
+        │  同一个 core，同一批文件
+外部 Agent（Cursor / Claude Code / …）──► mcp/（stdio MCP server）
 ```
 
 | 目录 | 作用 |

@@ -12,11 +12,12 @@ import {
   Robot,
   Command,
   Sparkle,
+  BookOpen,
   Bug,
   X,
 } from "@phosphor-icons/react";
 import type { TFunc } from "../lib/i18n";
-import { openProjectIssues } from "../lib/project";
+import { openProjectIssues, openUserDocs } from "../lib/project";
 
 export function HelpGuideDialog({
   open,
@@ -130,6 +131,17 @@ export function HelpGuideDialog({
                       }
                     : undefined
               }
+            />
+            <GuideCard
+              icon={<BookOpen size={16} weight="fill" className="text-blue" />}
+              title={t("help.docsTitle")}
+              body={t("help.docsBody")}
+              action={{
+                label: t("help.docsAction"),
+                onClick: () => {
+                  openUserDocs();
+                },
+              }}
             />
             <GuideCard
               icon={<Bug size={16} weight="bold" className="text-blue" />}

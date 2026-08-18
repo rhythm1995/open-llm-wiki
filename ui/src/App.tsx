@@ -39,7 +39,8 @@ import { GRAPH_FORCES_KEY } from "./lib/settings";
 import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./lib/graph-layout";
 import { ipc } from "./lib/ipc";
 import { frontmatterLineOffset } from "./lib/frontmatter";
-import { openProjectIssues } from "./lib/project";
+import { openProjectIssues, openUserDocs } from "./lib/project";
+import { subscribeMenuAction } from "./lib/menu-action";
 import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
 import { isSheetPath } from "./lib/sheet";
@@ -750,6 +751,7 @@ export default function App() {
       theme,
       toggleLocale,
       openSettings: () => openSettings("general"),
+      openUserDocs: () => openUserDocs(),
       reportIssue: () => openProjectIssues(),
       openAgentOnboard: () => openAgentOnboard(),
       startWikiDigest: () => startWikiDigest(),
@@ -862,19 +864,17 @@ export default function App() {
     ],
   );
 
-  // 桌面应用菜单 → 注册表 id。
+  // 桌面应用菜单 → 注册表 id。listen 异步 + dispatch 常换身份时必须只订一次。
+  const dispatchCommandRef = useRef(dispatchCommand);
+  dispatchCommandRef.current = dispatchCommand;
   useEffect(() => {
     if (ipc.isMock()) return;
-    let unlisten: (() => void) | undefined;
-    void listen<string>("menu-action", (ev) => {
-      dispatchCommand(ev.payload);
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, [dispatchCommand]);
+    return subscribeMenuAction(
+      (event, handler) =>
+        listen<string>(event, (ev) => handler({ payload: ev.payload })),
+      () => (id) => dispatchCommandRef.current(id),
+    );
+  }, []);
 
   // 顶部拖拽区(data-drag-region):单击拖动窗口,双击切换最大化/还原。
   // 用 mousedown 延迟启动拖拽,给双击留判定窗口 —— 双击的第一次按下不会立即

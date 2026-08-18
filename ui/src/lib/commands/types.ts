@@ -82,6 +82,8 @@ export interface CommandDeps {
   hasOpenTab?: boolean;
   canReveal?: boolean;
   openSettings?: () => void;
+  /** 打开在线用户文档(GitHub Pages)。 */
+  openUserDocs?: () => void;
   /** 打开 GitHub Issues(问题反馈)。 */
   reportIssue?: () => void;
   /** 直达「设置 → Agent 记忆接入」(外部 MCP)。 */

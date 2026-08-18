@@ -53,6 +53,12 @@ ui/node_modules/.bin/tauri build
 - **commit 正文只写技术改动**——不出现 licensing / 合规 / 协议 / agreement 类字眼,那些属于本文件与 README,不进 git 历史。
 - 未被明确要求时**不要 commit / push**;push 前先确认。
 
+## 发版规范
+
+- Release notes 用**双语版:英文在前,中文在后**。
+- Release **title 只写版本号**(如 `v0.1.0`),不带产品名等前缀。
+- 发版走 `.github/workflows/release.yml`(推 `v*` tag 触发,全平台矩阵 macos aarch64/x64 + linux + windows,产物进草稿 Release);全平台 CI 必须先绿再发版。
+
 ## 许可红线(最重要)
 
 - **绝不逐字或近似逐字复制任何 GPL/AGPL 等 copyleft 源码(哪怕单行)**。逐字复制的那部分仍受原许可约束,会让"Apache 2.0"落空。只参考公开的架构 / 数据流 / 算法思路与功能概念(多为不可版权的思想/方法);具体源码、组件实现、视觉表达一律自写。本项目是原创、独立的 Apache-2.0 实现。Obsidian 仅作公开功能对照,同样不复制其源码。

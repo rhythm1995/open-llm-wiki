@@ -32,11 +32,17 @@ jobs:
         include:
           # macos-latest = Apple Silicon(aarch64);macos-13 = Intel(x86_64)。
           # 两个各打一份 dmg,覆盖 Intel 与 Apple Silicon mac(不做 universal 合并,骨架够用)。
+          # macos-13 是 Intel runner,首次无 rust 缓存时冷编译可超 60 分钟,单独放宽到 100。
           - platform: macos-latest
+            timeout: 60
           - platform: macos-13
+            timeout: 100
           - platform: ubuntu-22.04
+            timeout: 60
           - platform: windows-latest
+            timeout: 60
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: ${{ matrix.timeout }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,16 +73,38 @@ jobs:
       - name: Install frontend deps
         run: pnpm --dir ui install --frozen-lockfile
 
+      # macOS: 未配置签名证书时,空字符串的 APPLE_* env 会让 Tauri 仍走证书导入路径,
+      # `security import` 直接失败(macos-13 上甚至挂起到 24h 超时)。所以只在 secret
+      # 非空时才写入这些 env;否则只设 APPLE_SIGNING_IDENTITY=- 走 ad-hoc 签名
+      # (arm64 必须至少 ad-hoc 才能启动)。
+      - name: Export macOS signing env
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERT_PASS: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASS: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM: ${{ secrets.APPLE_TEAM }}
+        run: |
+          if [ -n "$APPLE_CERT" ]; then
+            {
+              echo "APPLE_CERTIFICATE<<EOF"
+              echo "$APPLE_CERT"
+              echo "EOF"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERT_PASS"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_IDENTITY"
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_PASSWORD=$APPLE_PASS"
+              echo "APPLE_TEAM=$APPLE_TEAM"
+            } >> "$GITHUB_ENV"
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # ── macOS 代码签名 + 公证(可选)──
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM: ${{ secrets.APPLE_TEAM }}
           # ── Tauri Updater 签名 + 更新清单(可选:配置后启用自动更新)──
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -91,6 +119,6 @@ jobs:
           # 故用 npx 拉 @tauri-apps/cli@2,避免 `pnpm --dir ui exec`(会改 CWD 到 ui/ 致发现失败)。
           tauriScript: npx --yes --package @tauri-apps/cli@^2 tauri
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: "Open LLM Wiki ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseName: "${{ github.event.inputs.tag || github.ref_name }}"
           releaseDraft: true
           prerelease: false

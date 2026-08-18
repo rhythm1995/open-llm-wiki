@@ -40,20 +40,32 @@ No account. No cloud. Apache-2.0.
 
 ## Why this exists
 
-Most knowledge apps either lock the engine or push you into a query language. Open LLM Wiki is an **original Apache-2.0 desktop app** that treats the filesystem as truth and makes two missing pieces native: a **relationship graph** and **live aggregation you can trust without writing QQL**.
+Most LLM-and-documents products retrieve chunks at question time and throw the synthesis away. The next question starts from zero. Knowledge apps that are not about models usually lock the engine or hand you a query language.
+
+Open LLM Wiki is an **original Apache-2.0 desktop app** for the other loop: a persistent wiki of Markdown files between you and the raw sources. Ingest compiles. Health lints. The same folder is long-term memory for the in-app agent and for Cursor / Claude Code through built-in MCP. The filesystem is the only source of truth. The graph and the live scores are native — you do not write QQL.
 
 A vault is a folder. Leave whenever you want. Take the files with you.
 
-| | Open LLM Wiki | Typical closed notes app |
+| | Open LLM Wiki | The usual alternatives |
 | --- | --- | --- |
 | Files | Plain `.md` + frontmatter on disk | Files plus a proprietary engine |
 | License | Apache-2.0, original source | Closed core |
 | Graph | Native, first-class | Weak, or a plugin |
-| Queries | Health board + Ask Agent | Human-facing DSL |
-| AI | In-app ACP + 8 MCP tools | Bolt-on plugin |
-| Sync | Your git | Vendor cloud |
+| Queries | Health board + Ask Agent | Human-facing DSL, or chunks at question time |
+| AI | The vault is the memory (MCP + ACP) | Chat log or a bolt-on plugin |
+| Sync | Your git, or any sync you use | Vendor cloud |
 
 Obsidian is a public feature comparison only. This repo does not copy its source.
+
+## Principles
+
+Product rules, not a feature list. The long form is [Concepts](./docs/user/concepts.md).
+
+- **Files are the truth.** A vault is a folder of Markdown. No account, no hidden database. List, graph, and health are computed from those files. Leave with the folder.
+- **Compile, don't retrieve.** Ingest a source once. Ask the wiki. Lint with Health. File a useful answer back. Do not rebuild a synthesis from chunks on every question.
+- **The vault is the memory.** In-app ACP and one-click MCP (Cursor, Claude Code, and the eight tools) read and write the same files. Chat is not memory. `hot.md` is only a short cache.
+- **Links over folders.** Relationships live in `[[wikilinks]]` and frontmatter. `type:` and `status:` label a page; they never block a save.
+- **Health, not a query language.** People get scores, locked checks, and a next action. QQL stays for programs and agents.
 
 ## Highlights
 
@@ -93,7 +105,7 @@ Six live scores from the graph. Eleven locked checks grouped as structure / evid
 </details>
 
 <details>
-<summary><strong>Agents, two paths</strong> — in-app sidebar or any MCP client</summary>
+<summary><strong>The vault is the memory</strong> — in-app agent or any MCP client</summary>
 
 <br />
 
@@ -191,6 +203,9 @@ ui (React 19 + Vite + Tailwind 4 + CodeMirror 6 + BlockNote)
 app/src-tauri (Tauri 2 shell: file IO + commands, no business logic)
         ▼
 core (Rust: parse / graph / search — pure logic, IO-free, TDD)
+        ▲
+        │  same core, same files
+external agents (Cursor / Claude Code / …) ──► mcp/ (stdio MCP server)
 ```
 
 | Crate / dir | Role |

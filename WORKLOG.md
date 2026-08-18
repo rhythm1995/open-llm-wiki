@@ -15,6 +15,78 @@
 
 ---
 
+### 2026-08-18 Grok — 原则区改左右卡图，放出主标
+
+- **branch**: `release/v0.1.0`(未 commit / 未 push)
+- **做了**:
+  1. Five rules：左列可选卡片(选中深底) + 右列暗底晶格，对照用户给的 Antimetal 构图自写。
+  2. 首页主标 lockup(52px) + 收尾 lockup；英雄「获取应用」加到 52px。
+  3. 收尾改为 “When you leave, the wiki leaves with you.” / 「你走的时候，wiki 跟你一起走。」
+- **下一步**: 未 commit。本地 `http://127.0.0.1:5174/`。
+
+### 2026-08-18 Grok — improve-animations 审计后收 Five rules + 三胶囊顶栏
+
+- **branch**: `release/v0.1.0`(未 commit / 未 push)
+- **做了**:
+  1. 安装 `emilkowalski/improve-animations`，按 Purpose / Easing / Performance 审 `site/`。
+  2. Five rules：去掉 5 屏 pin 翻牌，改成 `max-w-[640px]` 直列。
+  3. 顶栏改成 Antimetal 那种左/中/右三颗独立玻璃胶囊，不再一根 920px 宽条。
+  4. FAQ 改 CSS grid 开合(不再 height + ease-in)；Reveal 收到 450ms / 16px。
+- **下一步**: 用户确认后再 commit / 推 Pages。本地 `http://127.0.0.1:5174/`。
+
+### 2026-08-18 Grok — 安装 gsap-skills，官网改 GSAP 滚动叙事
+
+- **branch**: `release/v0.1.0`(未 commit / 未 push)
+- **做了**:
+  1. 全局安装官方 `greensock/gsap-skills`(core / timeline / ScrollTrigger / plugins / react / performance / utils / frameworks)。
+  2. `site/` 去掉 Motion，改 `gsap` + `@gsap/react`：英雄 SplitText、晶格 DrawSVG、原则区 pin+scrub、界面横滑、Jump ScrollTo。减动效走 matchMedia 静态回退。
+- **理由 / 影响**: 上一版 Motion 入场不够 Antimetal 那种卷轴叙事。内容与奶油纸 token 未改。本地 `http://127.0.0.1:5174/`。
+- **下一步**: 用户确认后再 commit / 推 Pages。
+
+### 2026-08-18 Grok — 用户文档按五条原则重排，官网同步
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. `docs/user`：入口改成五条规则；how-to 增加「把这座库当成 AI 记忆」专节；concepts 按五条收口去重；reference 补 Help 菜单与记忆入口。
+  2. 官网：原则改成五条列表；界面加 Agent 截图；FAQ 对齐编译/记忆/不学 QQL。
+- **下一步**: 未 commit。Pages 需推送。
+
+### 2026-08-18 Grok — 原则收成五条，补「Vault 就是记忆」
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: README 原则 9→5（文件 / 编译 / 记忆 / 链接 / 健康）。把一键 MCP、ACP、`hot.md` 写成第三条「Vault 就是记忆」。概念、手册三件事、官网 pillar/FAQ 同步。
+- **下一步**: 未 commit。
+
+### 2026-08-18 Grok — 把 LLM Wiki「编译而非检索」融进用户文档
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 对照 Karpathy gist 的模式(思想/方法,自写条文):README 原则补「编译不要检索」+「提炼/提问/体检」;概念页补三层三事对照表;用户手册三件事与官网 Why 同步。刻意不写「人从不写 wiki」——我们允许人写,Agent 是簿记。
+- **下一步**: 未 commit。Pages 需推送后才更新官网。
+
+### 2026-08-18 Grok — README 抽出七条产品原则
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**: 对照 Tolaria README 的「原则单独成节」结构,从 `docs/user/concepts` 抽出七条写进 `README.md` / `README.zh.md`。自写,不抄对方条文。刻意没写「每座 vault 都是 git 库」和「万条笔记日常使用」——那两条对我们不成立。
+- **下一步**: 未 commit。需要可再把同一组原则挂到官网页。
+
+### 2026-08-18 Grok — Help 菜单连开 Issues + 用户文档入口
+
+- **branch**: `release/v0.1.0`(未 commit)
+- **做了**:
+  1. 修 Help → Report Issue 一次开 3 个窗口:前端 `menu-action` 异步 listen 在 `dispatchCommand` 换身份时泄漏订阅;改为 `subscribeMenuAction` 只订一次,URL 项由 Rust 直接 `open` 且 800ms 去重。
+  2. Help 新增 **User Guide**,打开 `https://rhythm1995.github.io/open-llm-wiki/docs/start`;白名单放行 github.io Pages。⌘K / 顶栏帮助手册同步入口。
+- **验证**: ui 772 · app lib 57 · typecheck 绿。
+- **下一步**: 覆盖安装后再点 Help 验收(应只开 1 个 Issues / 1 个文档)。
+
+### 2026-08-18 Grok — 打包并覆盖安装桌面 .app
+
+- **branch**: `release/v0.1.0`(已与 origin 同步,工作区干净)
+- **做了**:
+  1. `bash scripts/build-app.sh`(`--bundles app`,嵌入 `open-llm-wiki-mcp` sidecar)。
+  2. 退出旧进程后覆盖 `/Applications/Open LLM Wiki.app`,`xattr -cr`,再 `open`。
+- **产物**: `target/release/bundle/macos/Open LLM Wiki.app` → `/Applications/Open LLM Wiki.app`(bundle id `dev.openllmwiki.desktop`, v0.1.0, 11:33 启动)。
+- **下一步**: 真机验收 Inspector 知识卡片 / Health / hot.md。未 commit(仅本地安装)。
+
 ### 2026-08-18 Grok — 推送官网动效 + 明星风 README，更新 Pages
 
 - **branch**: `release/v0.1.0`(即将 push)
@@ -1239,3 +1311,50 @@
 - **做了**: 调研 [AgriciDaniel/claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian)(MIT,★ 10.9k / fork 1.3k,2026-04 建仓,v1.9.2)——同源 Karpathy LLM Wiki pattern 的 Claude Code 插件形态实现。产出调研报告 `docs/research/claude-obsidian-survey.md`(格式对齐 openkb-survey):机制拆解(v1.7 chunk 级混合检索 +32pp top-1 基准 / hot cache + PostCompact 再注入 / 按文件 advisory lock / DragonScale 四机制 / 10 类 lint)、与我们逐项对照、P1-P3 借鉴建议(hot cache 会话闭环、frontier 打分进 doc 14 §3.3、语义去重的校准纪律)、定位与许可结论(MIT、零复制零依赖、无 THIRD_PARTY_NOTICES 登记义务)。
 - **理由 / 影响**: 赛道需求被 10.9k★ 验证;其公开短板(无增量摄取、结构操作烧 token、无查询语言、检索栈自装依赖)是我们 core 路线图的对照卖点。纯文档,不影响代码。
 - **下一步**: 待人拍板是否采纳 P1 三项(以及是否把报告挂进 docs/README.md 文档地图);生态页提示的 `llm-wiki`、`obsidian-wiki` 两个邻近实现未调研,可作后续扫描。
+
+### 2026-08-19 ZCode — 官网首屏/Principles 交互升级 + JumpSections 定位 bug 修复(site/)
+
+- **branch**: `release/v0.1.0`(未 commit;工作区原有改动未动)。
+- **做了**(浏览器实测审查后按方案修一版):
+  1. `JumpSections.tsx`:修复根元素 `relative fixed` 类冲突——Tailwind v4 中 `.relative` 覆盖 `.fixed`,导致按钮退化为文档流末尾的相对定位块、被 `right-7` 顶出左视口边缘 28px、菜单锚点错位。删 `relative` 后恢复 `fixed` 右下悬浮;另加菜单展开 GSAP 动画(scale+fade,reduce 降级为 0)。
+  2. `Lattice.tsx` 重写:新增 `variant`(burst/converge/dense/mesh/health 五形态,对应五条产品规则)与 `tilt` props;保留原 52 节点随机序列(布局不变),新增卫星点/弦线/脉冲环/光点包等元素;常驻动效 = 整体 150s 慢旋(transformOrigin 50% 50%,修过 SVG 默认左上角原点的坑)+ 节点错峰 twinkle + burst/converge 周期性"归档光点"(hub↔节点,elastic 落点)+ 3D 倾斜视差(perspective 1100px)。全部只用 transform/opacity/drawSVG;`prefers-reduced-motion` 分支静态呈现对应形态。
+  3. `PrinciplesStage.tsx`:左侧改为 GSAP 滑动高亮背板(`.rule-cursor`,ResizeObserver 跟踪,首帧无动画、reduce 直达);右侧舞台随选中规则切换 Lattice 变体并显示 `NN / LABEL` 标签;黑色舞台方块加浅色虚线描边 + 内边距减重,呼应整站 hairline 语言。
+  4. `index.css`:rule-cursor/stage-frame/stage-label/lattice-tilt 样式;rule 卡文字颜色补进 transition(修选中态文字瞬变);reduce 列表同步扩充。
+  5. `Home.tsx`:hero Lattice 启用 tilt。
+- **验证**: `pnpm --dir site typecheck` clean;浏览器(1440×900 与 390×844)实测:hero 晶格居中正常、Five rules 五变体切换/背板像素级对齐(点击 Files/Links/Health 目视确认 burst/mesh/health)、Jump 按钮 computed position=fixed 且右下就位、菜单自按钮上方弹出并高亮当前区块;移动端单列布局背板与按钮正常。site dev server 原进程已停,已用 `pnpm --dir site dev --port 5174 --strictPort` 后台重启。
+- **影响**: 纯 site/,不触及 ui/core/app;无新增依赖(全部用已登记的 gsap)。
+- **下一步**: hero 常驻动效(旋转/twinkle/光点)为持续动画,静态截图已确认布局无回归,建议人眼过一遍手感;若觉得 150s 旋转干扰可调 duration 或去掉。
+
+### 2026-08-19 ZCode — hero 换原创金属环 + Five rules 改全宽规则行(site/)
+
+- **branch**: `release/v0.1.0`(未 commit)。
+- **做了**(应用户要求:删 Five rules 右图并重设计;hero 动画参考 antimetal.com 的旋转金属环概念):
+  1. 新增 `components/OrbitRing.tsx`:Canvas 2D 渲染的线框圆环面(torus,44 经线×48 段 + 4 纬线×110 段),预计算旋转矩阵 + 透视投影,法线点积做金属光照(亮面加粗、背面淡出),黄绿色镜面高光带绕环扫射;缓慢自转 + 轻微进动摆动 + 指针视差(yaw/pitch lerp);DPR 适配 + ResizeObserver;`prefers-reduced-motion` 下只渲染静态一帧。**纯原创实现**,仅参考"旋转金属环"这一公开概念,未复制 antimetal 任何代码/资产(许可红线)。
+  2. `Home.tsx`:hero 右侧 Lattice → OrbitRing;删除 `components/Lattice.tsx`(已无引用,连带其全部 lattice-*/stage-* 样式清理)。
+  3. `PrinciplesStage.tsx` 重设计:删右侧黑色 stage 与左侧滑动背板交互,五条规则改为**全宽规则行**(mono 编号+label | serif 标题 | 说明,三栏,移动端纵排,虚线分隔),hover 时整行 bistre 墨水从左向右填充(伪元素 scaleX)文字反白,`focus-within` 同效;每行 Reveal 错峰进场。
+- **验证**: typecheck clean · `pnpm --dir site build` OK(仅既有的 chunk>500kB 提示)。IAB 面板 webview 中途挂死无法恢复,改用 ui 依赖里的 playwright-core 驱动系统 Chrome 无头截图:桌面/移动 hero 金属环、规则行布局、hover 墨水填充全部确认(注意:页面含 pinned SurfacesStage,自动滚动需循环校正位置)。
+- **影响**: 纯 site/;hero 旧 lattice 蒲公英视觉退场,品牌符号由环+hub 延续;五规则区信息密度更编辑化。
+- **下一步**: 环的线框密度/转速/高光宽度等参数在 OrbitRing.tsx 顶部常量区,可按手感微调;若想要更接近 antimetal 的写实质感,后续可评估 three.js(MIT,需登记 THIRD_PARTY_NOTICES)。
+
+### 2026-08-19 ZCode — 发版准备:文档易读性 pass、CI 全绿、v0.1.0 全平台发布
+
+- **branch**: `release/v0.1.0`。
+- **做了**:
+  1. 用户文档中英双语易读性 pass(本日第 4 轮):concepts "四层成本"改直白、向量库歧义句改陈述句;how-to 技能安装首选 npm 源(GitHub path 保留为注释)、"browser mock"→"browser preview"、目录"看晶格"→"看图谱";tutorial 图标按形状描述;reference ⌘A 去实现细节;中文量词修正("这座应用"→"这个应用"等);README(中英)对比表列名改"常见的其它选择"+Queries/Sync 行补全,架构图补 `外部 Agent ──► mcp/ ──► core` 路径。
+  2. AGENTS.md 新增「发版规范」(人类指示):Release notes 双语英文在前中文在后;title 只写版本号;全平台 CI 先绿再发版。release.yml 的 releaseName 去掉产品名前缀。
+  3. 本地 CI 门全绿:core cargo test ✓ · ui typecheck + test:cov(80 files/772 tests) ✓ · ui build ✓ · app cargo test(57) ✓ · e2e 21/21 ✓ · site typecheck + build ✓。
+  4. 分块提交 4 个 commit(site / ui+app / docs / release-infra),push 后由 site.yml(已配置 release/v0.1.0 分支部署)发布官网;删除旧 v0.1.0 tag(指向 8 月 3 日旧 commit、从未挂 release)重打到发布 commit 触发 release.yml 全平台矩阵(macos aarch64/x64 + ubuntu + windows)起草 release,再以双语 notes(英前中后、title=v0.1.0)发布。
+- **下一步**: 等 release workflow 四平台产物上传完成后 publish release;首版全平台包均为未签名,正式分发前按 backlog「F. 分发与工程」补签名/公证。
+
+### 2026-08-19 ZCode — v0.1.0 发布(官网上线 + GitHub Release 双语)
+
+- **branch**: `release/v0.1.0`(5 个 commit 推送,tag `v0.1.0` 重打到发布 commit)。
+- **结果**:
+  1. **官网已上线**:site workflow 部署成功,https://rhythm1995.github.io/open-llm-wiki/ 为新版(金属环 hero / 全宽规则行 / Jump 修复 / 文档易读性 pass 后的渲染)。
+  2. **GitHub Release v0.1.0 已发布**:title 纯版本号,notes 英文在前中文在后;资产:macOS Apple Silicon `aarch64.dmg`、Windows `x64-setup.exe` + `x64_en-US.msi`(链接见 https://github.com/rhythm1995/open-llm-wiki/releases/tag/v0.1.0)。
+  3. **发版 CI 修复**(旧 8 月 3 日 run 的失败根因):未配置签名证书时空字符串 `APPLE_*` env 让 Tauri 仍走 keychain 导入,macOS job `security import` 失败/挂起 24h;改为条件导出(有证书才写全套,否则 `APPLE_SIGNING_IDENTITY=-` ad-hoc)+ job 超时上限。修复后 macos-latest 8m17s ✓、windows 11m3s ✓。
+  4. **两个平台按用户指示跳过**:ubuntu-22.04 卡 `apt-get install` 60 分钟超时(runner 暂态,非代码问题);macos-13(Intel)首次无缓存冷编译 1h 未完成被取消。已在 release.yml 为 macos-13 放宽 timeout 到 100 分钟;两平台产物可后续 `workflow_dispatch`(tag=v0.1.0)重跑追加到同一 release(notes 中已注明)。
+- **遗留 / 下一步**:
+  - 补挂 Intel dmg + Linux deb/AppImage:`gh workflow run release.yml -f tag=v0.1.0`(建议先确认 runner 不再抽风)。
+  - 首版包均未签名;签名/公证按 backlog「F. 分发与工程」另立任务。
+  - main 分支尚未合并本轮 release/v0.1.0 的 5 个 commit(README badge 的 CI 只在 main push 时跑);合并时机由人拍板。

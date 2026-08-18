@@ -8,6 +8,15 @@
 
 只列事实。怎么完成任务见 [操作指南](./how-to.zh.md)。
 
+## Help 菜单
+
+| 项 | 打开 |
+| --- | --- |
+| User Guide | <https://rhythm1995.github.io/open-llm-wiki/docs/start> |
+| Report Issue… | 本仓库的 GitHub Issues |
+
+顶栏 logo（`⌘K` 旁）打开的是应用内短卡片，不是这本手册。
+
 ## 键盘快捷键
 
 macOS。Windows / Linux 把 `⌘` 换成 `Ctrl`。
@@ -23,7 +32,7 @@ macOS。Windows / Linux 把 `⌘` 换成 `Ctrl`。
 | `⌘W` | 关闭当前标签 |
 | `⌘F` | 当前笔记内查找 / 替换 |
 | `⌘,` | 设置 |
-| `⌘A` | 全选（桌面菜单项，才能进到输入框） |
+| `⌘A` | 全选（桌面端） |
 
 应用内简介：点顶栏 `⌘K` 旁的 logo。
 
@@ -95,9 +104,16 @@ macOS。Windows / Linux 把 `⌘` 换成 `Ctrl`。
 
 总览六格来自图谱即时计算（与反链同一口径），不是第 12 条查询。信任三条依赖 `reviewed` / `provenance`；字段全空时数字会偏红，组下有说明。
 
-## `hot.md`
+## Agent 记忆
 
-vault 根上一篇短笔记，约 500 词，整页覆写，不是 log。应用内 Agent 首轮和之后每隔数轮会静默读入。写过库则提醒你更新。外部 Agent 应先读它再读 `index.md`。
+| 入口 | 是什么 |
+| --- | --- |
+| 设置 → Agent 记忆 | 一键给 Cursor / Claude Code 等写 MCP；安装 `wiki-ingest` |
+| Agent 栏（工具栏机器人） | 应用内 ACP 会话 |
+| `hot.md` | 库根约 500 词的缓存，整页覆写，不是日志 |
+| `index.md` | Agent 在 `hot.md` 之后该读的目录 |
+
+应用内 Agent 首轮和之后每隔数轮会读入 `hot.md`。写过库则请你更新。聊天记录永不进 vault。
 
 ## MCP 工具
 
