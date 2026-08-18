@@ -23,6 +23,7 @@ import {
   Table,
   TextT,
   Gear,
+  BookOpen,
   Bug,
   Image as ImageIcon,
   Translate,
@@ -145,6 +146,26 @@ export function buildAppCommands(deps: CommandDeps): AppCommand[] {
       keywords: ["preferences", "设置", "settings"],
       inMenu: true,
       run: () => deps.openSettings!(),
+    });
+  }
+
+  if (deps.openUserDocs) {
+    cmds.push({
+      id: "user-docs",
+      label: t("palette.action.userDocs"),
+      category: "file",
+      icon: BookOpen as CommandIcon,
+      keywords: [
+        "docs",
+        "guide",
+        "help",
+        "手册",
+        "文档",
+        "tutorial",
+        "用户文档",
+      ],
+      inMenu: true,
+      run: () => deps.openUserDocs!(),
     });
   }
 

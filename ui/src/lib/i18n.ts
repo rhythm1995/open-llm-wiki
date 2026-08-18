@@ -257,10 +257,15 @@ export const dict: Record<Locale, Record<string, string>> = {
     "help.restoreMg": "恢复中央欢迎动画",
     "help.footerHint": "随时点顶栏 ⌘K 旁的 logo 打开本手册",
     "help.gotIt": "知道了",
+    "help.docsTitle": "用户文档",
+    "help.docsBody":
+      "教程、操作指南、参考和概念说明在官网，可随时对照界面查阅。",
+    "help.docsAction": "打开用户文档",
     "help.feedbackTitle": "问题反馈",
     "help.feedbackBody":
       "遇到崩溃、错保存、翻译或交互不对，请到 GitHub Issues 开一条。附上复现步骤；桌面端可先在设置里导出诊断日志。",
     "help.feedbackAction": "去 GitHub 反馈",
+    "palette.action.userDocs": "用户文档",
     "palette.action.reportIssue": "问题反馈…",
     "common.close": "关闭",
     "common.confirm": "确认",
@@ -954,10 +959,15 @@ export const dict: Record<Locale, Record<string, string>> = {
     "help.restoreMg": "Restore full welcome animation",
     "help.footerHint": "Click the logo next to ⌘K anytime for this guide",
     "help.gotIt": "Got it",
+    "help.docsTitle": "User guide",
+    "help.docsBody":
+      "Tutorials, how-tos, reference, and explanation live on the site—open them next to the app.",
+    "help.docsAction": "Open the user guide",
     "help.feedbackTitle": "Feedback",
     "help.feedbackBody":
       "Crashes, bad saves, translation or interaction bugs: open a GitHub Issue. Include repro steps; on desktop, export diagnostic logs from Settings first.",
     "help.feedbackAction": "Open GitHub Issues",
+    "palette.action.userDocs": "User guide",
     "palette.action.reportIssue": "Report an issue…",
     "common.close": "Close",
     "common.confirm": "Confirm",

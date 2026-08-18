@@ -37,6 +37,15 @@ describe("buildAppCommands", () => {
     expect(reportIssue).toHaveBeenCalled();
   });
 
+  it("user-docs 打开用户文档", () => {
+    const openUserDocs = vi.fn();
+    const cmds = buildAppCommands(deps({ openUserDocs }));
+    const c = cmds.find((x) => x.id === "user-docs");
+    expect(c?.inMenu).toBe(true);
+    c!.run();
+    expect(openUserDocs).toHaveBeenCalled();
+  });
+
   it("含 open-vault 且 shortcut ⌘O", () => {
     const cmds = buildAppCommands(deps());
     const open = cmds.find((c) => c.id === "open-vault");
@@ -249,6 +258,7 @@ describe("menu id contract", () => {
     "archive",
     "close-tab",
     "settings",
+    "user-docs",
     "report-issue",
     "agent-onboard",
     "find",
@@ -283,6 +293,7 @@ describe("menu id contract", () => {
           revealCurrent: () => {},
           canReveal: true,
           openSettings: () => {},
+          openUserDocs: () => {},
           reportIssue: () => {},
           openAgentOnboard: () => {},
         }),
