@@ -178,7 +178,7 @@ export function Home({ locale }: { locale: Locale }) {
                 <div key={item.q} className="border border-dashed hairline bg-cream">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left md:px-6"
+                    className="faq-head flex w-full items-center justify-between gap-4 px-5 py-5 text-left md:px-6"
                     aria-expanded={on}
                     onClick={() => setOpen(on ? -1 : i)}
                   >

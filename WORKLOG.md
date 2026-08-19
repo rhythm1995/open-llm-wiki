@@ -1371,3 +1371,10 @@
 - **branch**: `release/v0.1.0` → PR #15 合入 main;后续 ci.yml 修复走 PR #16。
 - **做了**: 用户指示合并代码。PR #15(FAQ 替换 + 用户文档去开发化)已合入 main;main 的 CI(PR #14 时)app job 失败,根因:tauri `externalBin` 要求 `app/src-tauri/binaries/open-llm-wiki-mcp-<triple>` 存在,CI 全新环境没有,build.rs 直接失败(本地被历史产物掩盖)。修复:ci.yml app job 在测试前加「构建 mcp sidecar 并按 rustc host triple 放置」步骤;本地以移走 binaries/ 复现失败、按新步骤恢复 57 用例全绿验证。
 - **遗留**: 无;main CI 待 PR #16 后复绿确认。
+
+### 2026-08-19 ZCode — 官网 hover 动效与指针梳理
+
+- **branch**: `release/v0.1.0`(随后合 main)。
+- **做了**: ① 基础指针规则:链接/按钮/summary 一律 pointer(浏览器 button 默认是箭头),装饰性 hover(规则行墨水)保持默认箭头不误导可点击;补 :focus-visible 虚线描边。② hover 动效(克制、纸张风):nav 项加浅色胶囊底;handbook 文档行 hover 背景微染 + 标题右移 6px + mono 副文提亮;FAQ 问题头背景微染(新增 .faq-head 钩子);Jump 菜单项 hover 胶囊;Surfaces 截图卡 hover 上浮 6px。全部 transition 240-320ms 自定义 ease,reduce-motion 下 transition 与位移一并禁用。
+- **验证**: typecheck/build 过;无头 Chrome 断言 cursor(pointer)、nav 背景、log-row 位移(translateX 6px)、faq-head 背景全部生效。
+- **另答用户问**: 首次创建示例库不会 git init(create_sample_vault 只建目录+种子文件);git 初始化是归档视图空态的手动按钮(git_init = init + add -A + 尽力 initial commit)。
