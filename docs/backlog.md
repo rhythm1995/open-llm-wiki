@@ -7,7 +7,7 @@
 
 **边界变更(2026-07-30)**:原「v1 刻意不做」三项改为正式交付目标并已落地(§A ✅)。软类型原则不变:`type` 永不强制校验、永不阻止保存。  
 **优先级(2026-08-02)**:图 / Agent(§I)降优;主线 **§C 编辑器** + 非图杂项。切片见 [plan.md](./plan.md)。  
-**发布(2026-08-19)**:v0.1.0 已发布并合回 main;真机验收(图谱帧率 / 应用内 Agent 端到端)已全部完成。剩余活跃项只有 **§F 发布面**(Linux + macOS x64 补产物 / 签名 / Updater)与各「等信号」项。
+**发布(2026-08-19)**:v0.1.0 已发布并合回 main;真机验收(图谱帧率 / 应用内 Agent 端到端)已全部完成;**四平台产物已补齐**(`B-RELEASE-ASSETS` ✅,macos-13→macos-15-intel + apt 加固)。剩余活跃项只有 **§F 签名 / Updater**(凭证门)与各「等信号」项。
 
 ---
 
@@ -102,7 +102,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-RELEASE-ASSETS | v0.1.0 全平台产物补齐 | 🟢 | ⏳ | Release run 被取消,只剩 macOS aarch64 + Windows;**缺 Linux(ubuntu)与 macOS x64(macos-13)**。重跑 tag `v0.1.0` 的 release workflow 即可 |
+| B-RELEASE-ASSETS | v0.1.0 全平台产物补齐 | 🟢 | ✅ | 2026-08-19:根因 = macos-13 runner 已退役(永远排队)+ ubuntu apt 镜像挂死;修复 = 换 `macos-15-intel` + apt 超时重试(`fix(ci)`),重跑 release 后 Linux(deb/AppImage/rpm)+ macOS x64(dmg/app.tar.gz)全齐 |
 | B-SIGN-MAC | macOS 签名 + 公证 | 🟢 | 🔑 | 需 APPLE_* secrets |
 | B-SIGN-WIN | Windows 安装包签名 | 🟢 | 🔑 | 需证书 |
 | B-UPDATER | 自动更新 | 🟡 | 🔑 | 需密钥 + 是否上线决策 |
@@ -230,7 +230,7 @@
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / 媒体~~ ✅(QQL 差分 CI 随用户面删除,不再需要)  
 2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
 3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6B 库健康 + Agent 查库** ✅(2026-08-15) · **6D wiki 脚手架** ✅;剩图 polish / 可选死链 / 6C 随 §I 远期
-4. ~~**本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 发布收口~~ ✅(2026-08-19 验收完成;v0.1.0 已发布并合 main);剩 `B-RELEASE-ASSETS` 补产物 + 签名/Updater(凭证门)  
+4. ~~**本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 发布收口~~ ✅(2026-08-19 验收完成;v0.1.0 已发布并合 main);~~`B-RELEASE-ASSETS` 补产物~~ ✅(2026-08-19 四平台产物齐);剩签名/Updater(凭证门)  
 5. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
 
 完整竖切与验收见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。

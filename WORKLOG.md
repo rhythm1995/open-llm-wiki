@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-08-19 ZCode — 补齐 v0.1.0 全平台发布产物(release 修复)
+
+- **branch**: `zcode/docs-anti-drift`(已 push;`00832c2` fix(ci))
+- **做了**:
+  1. 排查上次 release run(32168090407)两 job 被取消的根因:① **macos-13 runner 已退役**(2025-12),job 永远排队、零步骤、拿不到 runner;② **ubuntu apt 镜像挂死**(`apt-get update` 连 azure.archive.ubuntu.com 无响应,卡满 60 分钟 job 超时)。
+  2. 修 `.github/workflows/release.yml`:macos-13 → 官方 Intel 替代 **macos-15-intel**(支持至 2027-08);ubuntu apt 加 `Acquire::Timeout` + 三轮重试。
+  3. 从修复分支手动 `workflow_dispatch`(tag=v0.1.0)重跑 release,四 job 全绿(8–13 分钟)。
+- **理由 / 影响**: v0.1.0 Release 产物补齐——新增 macOS x64 dmg/app.tar.gz + Linux deb/AppImage/rpm;四平台(macOS aarch64/x64 + Windows x64 + Linux x86_64)齐。backlog `B-RELEASE-ASSETS` → ✅。
+- **下一步 / 接手注意**: 本分支(docs 梳理 + release 修复)待开 PR 合回 main。剩 §F 签名 / Updater(凭证门)。GitHub Actions 提示 actions/checkout@v4、setup-node@v4、pnpm/action-setup@v4 走 Node 20 弃用警告(被强制 Node 24),不阻塞,可后续升级。
+
 ### 2026-08-19 ZCode — 真机验收标记完成 + 全库文档防漂移梳理
 
 - **branch**: `release/v0.1.0`(未 commit / 未 push)

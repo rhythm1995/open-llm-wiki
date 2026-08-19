@@ -11,7 +11,7 @@
 2. **非图杂项** — 已收口:IPC 日志打点 ✅ · source 任务按钮 ✅ · **wiki 脚手架(§I-D)✅** · **universal dmg 脚本 ✅** · AGENTS tldraw 叙述 ✅;剩签名 / Updater(🔑 凭证门)  
 3. **图 / Agent / §I** — 人侧图 polish 仍推迟。**例外(2026-08-15)**:6B NL 表面按「库健康 + Agent 短指令」落地,不重建 QueryPanel。6B MCP 与 6D wiki 脚手架已交付。
 
-**v0.1.0 已发布并合回 main**(2026-08-19);真机验收(B-GRAPH-FPS / 应用内 Agent 端到端)已全部完成。下一刀:**发布面补全**(`B-RELEASE-ASSETS` 补 Linux + macOS x64 产物;签名 / Updater 凭证门);或产品点名新项。
+**v0.1.0 已发布并合回 main**(2026-08-19);真机验收(B-GRAPH-FPS / 应用内 Agent 端到端)已全部完成;**四平台产物已补齐**(`B-RELEASE-ASSETS` ✅:macos-13 runner 退役 → 换 `macos-15-intel`,ubuntu apt 挂死 → 超时/重试)。下一刀:签名 / Updater(凭证门);或产品点名新项。
 
 ---
 

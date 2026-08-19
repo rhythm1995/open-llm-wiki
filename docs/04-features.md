@@ -95,7 +95,7 @@
 
 **当前仍开放 / 值得做**(非「功能空白」):
 
-1. **发布面**(`B-RELEASE-ASSETS` + 凭证门):v0.1.0 已发布并合 main;**缺 Linux + macOS x64 产物**(release run 被取消);签名 / Updater 需 secrets  
+1. **发布面**(凭证门):v0.1.0 已发布并合 main,四平台产物齐(`B-RELEASE-ASSETS` ✅);签名 / Updater 需 secrets  
 2. ~~**真机验收**~~ ✅ 全部完成(2026-08-19):图谱帧率(B-GRAPH-FPS)+ 应用内 Agent 端到端  
 3. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)  
 4. **远期**:§I 人侧 6A 图 polish 与 6C 语义。6B MCP + 库健康/Agent 查库 + 6D 已交付。不要重开 QueryPanel。
