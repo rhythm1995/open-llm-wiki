@@ -98,7 +98,7 @@
 
 ### ⚠️ 已知限制
 
-- **发布产物缺 Linux + macOS x64**(release run 被取消,`B-RELEASE-ASSETS`);现有:macOS aarch64 + Windows x64。
+- ~~发布产物缺 Linux + macOS x64~~ 已补齐(2026-08-19,`B-RELEASE-ASSETS` ✅):四平台产物齐(macOS aarch64/x64 + Windows x64 + Linux deb/AppImage/rpm)。
 - **图谱打磨推迟**:力参数面板、最短路径高亮、隐藏悬空节点、图健康 UI 增强整期转远期。图谱主路径可用(帧率已真机验收),未达商业级精致。
 - **未签名 / 未公证**:macOS 构建 ad-hoc 签名(凭证门),首次运行被 Gatekeeper 拦截 —— 右键「打开」,或 `xattr -cr /path/to/Open LLM Wiki.app`。Windows 未签名。
 - **无自动更新**(凭证门)。
