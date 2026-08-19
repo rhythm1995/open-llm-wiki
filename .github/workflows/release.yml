@@ -30,12 +30,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macos-latest = Apple Silicon(aarch64);macos-13 = Intel(x86_64)。
+          # macos-latest = Apple Silicon(aarch64);macos-15-intel = Intel(x86_64)。
           # 两个各打一份 dmg,覆盖 Intel 与 Apple Silicon mac(不做 universal 合并,骨架够用)。
-          # macos-13 是 Intel runner,首次无 rust 缓存时冷编译可超 60 分钟,单独放宽到 100。
+          # 注意:macos-13 runner 已于 2025-12 退役(任务会永远排队等不到 runner),
+          # 故用官方 Intel 替代标签 macos-15-intel(可用至 2027-08)。
+          # Intel runner 首次无 rust 缓存时冷编译可超 60 分钟,单独放宽到 100。
           - platform: macos-latest
             timeout: 60
-          - platform: macos-13
+          - platform: macos-15-intel
             timeout: 100
           - platform: ubuntu-22.04
             timeout: 60
@@ -46,11 +48,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ubuntu runner 偶发 apt 镜像连接挂死(azure.archive.ubuntu.com 无响应,
+      # 曾整卡 60 分钟直到 job 超时):加请求超时 + 三轮重试兜底。
       - name: Install Linux system deps
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          ACQ_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          for i in 1 2 3; do
+            sudo apt-get update $ACQ_OPTS && break
+            echo "::warning::apt-get update 失败,15 秒后重试($i/3)"
+            sleep 15
+          done
+          sudo apt-get install -y $ACQ_OPTS \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
             librsvg2-dev patchelf
 
@@ -74,7 +83,7 @@ jobs:
         run: pnpm --dir ui install --frozen-lockfile
 
       # macOS: 未配置签名证书时,空字符串的 APPLE_* env 会让 Tauri 仍走证书导入路径,
-      # `security import` 直接失败(macos-13 上甚至挂起到 24h 超时)。所以只在 secret
+      # `security import` 直接失败(老 Intel runner 上甚至挂起到 24h 超时)。所以只在 secret
       # 非空时才写入这些 env;否则只设 APPLE_SIGNING_IDENTITY=- 走 ad-hoc 签名
       # (arm64 必须至少 ad-hoc 才能启动)。
       - name: Export macOS signing env
