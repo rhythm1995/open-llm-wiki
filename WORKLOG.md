@@ -1365,3 +1365,9 @@
 - **做了**: 用户指出教程里「浏览器预览(pnpm --dir ui dev)」对最终用户不合理。按「用户文档只做用户文档」标准全量清理 docs/user(中英同步,行数保持镜像):① tutorial 删浏览器预览整块与前提提法,前提改「装好应用」;② user README 删「截图来自浏览器预览」说明行;③ how-to 删 3 处预览提法(欢迎屏/QQL NOTE/Agent 探测);④ 失去意义的 "desktop only / (desktop)" 限定语一并清除(how-to 明细与一键接入口、reference ⌘A 与 Git 行、concepts 桌面扫描→后台扫描)。开发向内容回归主 README(浏览器预览步骤仍在那里,受众正确)。
 - **验证**: grep 复扫 browser preview/pnpm/localhost/mock 零残留;中英文件行数逐对一致;site build 过;dev server 四个文档页 DOM 断言 clean。
 - **影响**: site /docs/* 与应用内 User Guide 随之更新(push 后自动部署)。
+
+### 2026-08-19 ZCode — main 合并(v0.1.0 后续)+ CI app job sidecar 修复
+
+- **branch**: `release/v0.1.0` → PR #15 合入 main;后续 ci.yml 修复走 PR #16。
+- **做了**: 用户指示合并代码。PR #15(FAQ 替换 + 用户文档去开发化)已合入 main;main 的 CI(PR #14 时)app job 失败,根因:tauri `externalBin` 要求 `app/src-tauri/binaries/open-llm-wiki-mcp-<triple>` 存在,CI 全新环境没有,build.rs 直接失败(本地被历史产物掩盖)。修复:ci.yml app job 在测试前加「构建 mcp sidecar 并按 rustc host triple 放置」步骤;本地以移走 binaries/ 复现失败、按新步骤恢复 57 用例全绿验证。
+- **遗留**: 无;main CI 待 PR #16 后复绿确认。

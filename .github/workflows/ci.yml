@@ -78,6 +78,16 @@ jobs:
       - name: Build frontend (ui/dist)
         run: pnpm --dir ui build
 
+      # tauri-build(build.rs)校验 externalBin:必须先把 mcp sidecar 构建并放进
+      # app/src-tauri/binaries/。本地能过是历史产物掩盖了这一步;全新环境(如 CI)
+      # 直接 cargo test -p open-llm-wiki-app 会在 build.rs 阶段失败。
+      - name: Stage MCP sidecar binary (tauri externalBin)
+        run: |
+          cargo build -p open-llm-wiki-mcp --release
+          mkdir -p app/src-tauri/binaries
+          cp target/release/open-llm-wiki-mcp \
+            "app/src-tauri/binaries/open-llm-wiki-mcp-$(rustc -vV | sed -n 's|host: ||p')"
+
       - name: App integration tests (open-llm-wiki-app, incl. git_tests)
         run: cargo test -p open-llm-wiki-app
 
