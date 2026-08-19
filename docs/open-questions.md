@@ -18,7 +18,7 @@
 
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
-| P1 | 图谱默认布局 | ✅【已定】力导向(**cose**,Cytoscape)为默认 | type 分层 + 时间轴可切换(B-GRAPH-LAYER/TIME)。 |
+| P1 | 图谱默认布局 | ✅【已定】力导向(**d3-force-3d**,force-graph)为默认 | type 分层 + 时间轴可切换(B-GRAPH-LAYER/TIME)。 |
 | P2 | QQL 语法 | ✅【已定】DQL 风格基线 | 基线已落地;继续扩展常用子集(B-QQL-EXPAND),不追求 Dataview 逐字全兼容。 |
 | P3 | 是否支持 cairn 协议原生 | 【默认】是 | 识别 Source/Summary/Entity/Concept + 关系键。 |
 | P4 | 类型文档 | ✅【已定要做】仅 UI 提示 | **做**(B-TYPE-DOC):关联说明笔记/字段提示;**永不** schema 校验或阻止保存(防止类型绑人)。原「v1 不做」作废。 |
@@ -42,7 +42,7 @@
 | # | 问题 | 选项 / 默认 | 说明 |
 |---|---|---|---|
 | P6-1 | 下一阶段顺序 | ✅【已定】先图 polish(6A)→ agent 图面(6B)→ wiki(6D)→ 可选语义(6C) | 2026-08-01 产品确认。文档阶段名统一 **6A–6D**(非裸 A/B/C/D)。 |
-| P6-2 | 图谱引擎 | ✅【已定 · 2026-08 翻案】**Cytoscape.js** 主路径 + cose/preset | 废止 sigma;过渡 `GraphForceLayer`/rfg/d3-force 已删(2026-08-02)。 |
+| P6-2 | 图谱引擎 | ✅【已定 · 2026-08-09 再换】**force-graph Canvas + d3-force-3d** 主路径 + preset | 历史:sigma → Cytoscape + cose(2026-08-02 翻案)→ force-graph(2026-08-09,`ForceGraphLayer`,视觉/交互重做)。 |
 | P6-3 | 参考项目代码 | ✅【已定】仅概念;GPL(inkeep)零拷贝;MIT(varshithm7x)亦不整文件移植 | 原创实现 + MIT 红线(零逐字复制)。 |
 | P6-4 | 布局坐标落盘**位置** | ✅【默认已落地】vault 内 **`.open-llm-wiki/graph-layout.json`**(B-GRAPH-POS-PERSIST) | **新约定**:本库此前无统一 per-vault 配置目录;6A1 建立之。localStorage 仅无 vault/mock 回退。内存跨帧暖启动**已有**,本项仅加磁盘层。 |
 | P6-7 | 布局文件是否进 git / 自动提交 | ✅【默认已落地】**gitignore 布局文件**;写盘**不**走结构自动 commit | 与「结构自动 + 正文手动」策略对齐:频繁拖拽/reheat 若 auto-commit 会污染 log。用户可手动 un-ignore 以共享布局。若要「团队共享默认布局」可再改为 tracked + 仅 pin/导出时提交。 |

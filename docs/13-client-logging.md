@@ -2,8 +2,8 @@
 
 > **状态**:设计 + **L1 已落地**（2026-08-02）。**先详细、后裁剪**；中间件多 sink；开发日常可查。  
 > **L1 实现**:`app/src-tauri/src/logging.rs` + 命令 `log_write` / `log_get_dir` / `log_open_dir` / `log_set_profile` / `log_get_status`；UI `logger.ts` + Settings 诊断区；`diag-log` 走 LogBus。  
-> **仍待 L2**:导出 zip(当前为单 txt,by design)。PortSink 已落地(见 §PortSink)。  
-> **约束**:MIT；`core` 仍 IO-free；不默认上报云端。
+> **L2 收口**:导出为单 txt(`log_export_bundle`,by design,不做 zip)。PortSink 已落地(见 §PortSink)。§J 全部落地,见 [backlog](./backlog.md)。  
+> **约束**:Apache-2.0；`core` 仍 IO-free；不默认上报云端。
 
 ---
 
@@ -19,7 +19,7 @@
 
 | 非目标（本阶段） | 说明 |
 |---|---|
-| 云端遥测 / Sentry 默认开启 | 隐私与 MIT 本地优先；可选插件以后再说 |
+| 云端遥测 / Sentry 默认开启 | 隐私与 Apache-2.0 本地优先；可选插件以后再说 |
 | 在日志里完整 dump 笔记正文 | 默认**不记 body**；路径/ID/错误即可（见 §5） |
 | 改 core 塞 log 宏到处跑 | core 保持纯；边界在 app 命令层打点 |
 
@@ -218,7 +218,7 @@ installConsoleForwarder()
 |---|---|---|
 | 打开 vault / 索引 | `ipc.index_vault` | info + 耗时 fields |
 | 写笔记 / 冲突 | `ipc.write_note` | info / error |
-| 图布局 / Cytoscape 交互 | `ui.graph` | debug |
+| 图布局 / force-graph 交互 | `ui.graph` | debug |
 | QQL 失败 | `qql` | warn/error |
 | git 子进程 | `git` | info 命令名；error 带 exit |
 | MCP（若同机） | `mcp` | 独立文件或同 bus |

@@ -30,7 +30,7 @@
 | 方向 | Open LLM Wiki = **MCP server**,被动等连 | Open LLM Wiki = **ACP client**,主动拉起 agent 子进程 |
 | 宿主 | Claude Desktop / Cursor / 任意 MCP 客户端 | Open LLM Wiki 自己的侧栏 |
 | 上下文 | 客户端自带,我们只给工具 | 我们要管对话、转录、移交 |
-| 当前状态 | MCP 已落地(7 工具:`list_notes`/`read_note`/`write_note`/`links`/`search_notes`/`run_qql`/`vault_info`;README/backlog 口径仍写 6,见 §9.8) | **完全空白**——这是要补的差距 |
+| 当前状态(2026-08-19 更新) | MCP 已落地(**8 工具**:7 工具 + `lint_vault`) | ✅ 已落地(Phase 7 完工 + 真机验收,见 §10) |
 
 inkeep(open-knowledge)有应用内侧栏 agent,我们没有。用户判定这是真实差距,要补;且**第一版就做完整版**(完整 ACP,而非先做轻量终端),只是**不在当前阶段动工**。
 
@@ -233,7 +233,7 @@ inkeep 的活动面板有两层,我们只取其**可移植**的那层:
 5. **Mode / config 表面**:agent 自报的 `configOptions` 如何映射到 picker 旁的「模式」下拉(§2.3 占位);「写入语义(隔离/即时提交)」开关也归这个表面。
 6. **多窗口 / 多 vault**:多个 vault 窗口各自跑 agent 时,子进程 / 转录库的隔离边界。转录库方向已定(每 vault 一 db + WAL);**遗留**=子进程归属与窗口关闭时的善后(kill or 留存)。
 7. **标注层注入点**:归因骨干已改为 turn 级快照(§4,不再依赖拦截);**遗留**=`writer` 语义标注在 core / mcp / Tauri 命令层哪儿加最干净——只影响元数据完整度,不再影响覆盖率。
-8. **README / backlog 的 MCP 工具数口径**:代码已 7 工具(`links` 已落地),README/backlog 仍写 6——doc 12 §6B 的收尾项,本文仅记录该 drift,不在本路线内修。
+8. ~~**README / backlog 的 MCP 工具数口径**~~:已闭合(2026-08-19 文档核对)——全库口径统一为 **8 工具**(含 `links` / `lint_vault`)。
 
 ---
 
@@ -273,7 +273,7 @@ Phase 7 已完工:第一版 **Tier 1 + 完整 Tier 2** 全部落代码、自测�
 - `cargo test --lib`:**38 passed / 1 ignored**(ignored = `opencode_roundtrip`,需真实 opencode;spike 期已手动验证 PONG)。覆盖:git_attr(ref 落点 / post diff 纯写入 / revert 逆向 apply / 非 git vault 走影子仓库 / 采纳入 HEAD 不污染暂存区)、transcript(多线程 + 级联删除)、acp(终端 run-and-capture 输出与退出码、`is_high_risk_value` 危险动词、`tool_kind_slug` 白名单键、`line_diff` 增删/编辑/相等/大文件回退、`serve_output_*`)。
 - `npx tsc --noEmit`:clean。`agent-session.test.ts` 6 测试覆盖 SessionUpdate 解析 + Model C 归一化。
 - `npx vitest run`:**550 passed**(56 文件)。`npx vite build`:clean。
-- 真机端到端(`cargo tauri dev`)需本机装 opencode / claude-code,留作用户验收。
+- 真机端到端 ✅(2026-08-19 用户验收完成;本机 opencode / claude-code 闭环)。
 
 ### 已知近似(不阻塞首版,记为后续)
 
@@ -284,7 +284,7 @@ Phase 7 已完工:第一版 **Tier 1 + 完整 Tier 2** 全部落代码、自测�
 
 ### 整体推迟
 
-- 无。第一版(Tier 1 + 完整 Tier 2)无整体推迟项,仅真机端到端验收留作用户。
+- 无。第一版(Tier 1 + 完整 Tier 2)无整体推迟项;真机端到端验收已于 2026-08-19 完成。
 
 ---
 
@@ -297,3 +297,4 @@ Phase 7 已完工:第一版 **Tier 1 + 完整 Tier 2** 全部落代码、自测�
 | 2026-08-04 | **Phase 7 开工落地**:Tier 1 git 归因安全核心 + Tier 2 ACP 功能 v1 全部落代码。ACP 主线对真实 opencode 闭环验证;新增 `acp.rs` / `transcript.rs` / `git_attr.rs` + `AgentPanel.tsx` / `AgentActivity.tsx` / `ColResizeHandle.tsx`。26 测试过、tsc/vite clean。`B-AGENT-CTX-MODELC` 整体推迟;其余 Tier 2 项以「功能 v1 + 完整形态 backlog」交付(详见 §10)。状态:plan → 🚧 主干可用(待真机验收)。 |
 | 2026-08-04 | **Phase 7 完工(完整 Tier 2)**:补齐此前「功能 v1 / 推迟」的完整形态——`B-AGENT-CTX-MODELC`(Model C 移交:归一化 seed)、`B-AGENT-PERM`(三档 + 高危门控 + 宽松琥珀点)、`B-AGENT-COMPOSER`(`@`-context 药丸 + Queue)、`B-AGENT-THREADVIEW`(tool_call 折叠 + 二级折叠,`ToolCard.tsx`)、`B-AGENT-TRANSCRIPT`(threads 表 + WAL + raw_blob)、`B-AGENT-GIT-ATTR`(影子仓库 + 采纳入 HEAD)、`B-AGENT-SHELL`(存活检测 `agent_alive` + 脏退出 emit + resume 边界文档)。27 测试过、tsc/vitest(550)/vite clean。状态:🚧 → ✅ 第一版(Tier 1 + 完整 Tier 2)完工,无推迟项(待真机验收)。 |
 | 2026-08-04 | **完工复核 · 补齐 9 处缝隙**:对「功能 v1」做诚实复核,发现并补齐 9 项与「完整 Tier 2」之间的残留——ACP 终端闭环(Create/Output/Wait/Kill/Release + 进程组 kill)、权限白名单档(按工具分类持久白名单)、`@`-context 选择器 popover、标注层 writer 注入 + LCS 行 diff、即时提交模式(原记「后续可加」,已落地)、mode/config 下拉、多窗口/多 vault 隔离 + 关闭善后、Node 缺失运行时引导、历史会话切换 UI。修正 §10 把即时提交/Model C 误记为「近似 / 推迟」的过时口径。38 测试过、tsc/vitest(550)/vite/cargo check clean。状态维持:✅ 完工,无推迟项(待真机验收)。 |
+| 2026-08-19 | **真机端到端验收完成**:用户本机(opencode / claude-code)验收通过;Phase 7 全部收口,无遗留验收项。 |

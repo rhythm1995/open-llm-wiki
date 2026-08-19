@@ -1,6 +1,6 @@
 # 12 — 图谱打磨 → Agent 结合（下一阶段规划）
 
-> **⚠ 状态(2026-08-02 更新):§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留(Cytoscape + graph-* 纯逻辑 + QQL IR/MCP + Rust core),远期重启时按本文 6A→6B→6D→6C 推进。  
+> **⚠ 状态(2026-08-02 更新,2026-08-19 核对):§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留(**force-graph Canvas + d3-force-3d**,2026-08-09 起;Cytoscape 已退役 + graph-* 纯逻辑 + QQL IR/MCP + Rust core),远期重启时按本文 6A→6B→6D→6C 推进。真机帧率 B-GRAPH-FPS ✅(2026-08-19)。  
 > **已交付(无需再开)**:**6B agent 侧 MCP 工具** + **6B 人侧库健康 / Agent 查库**(2026-08-15,`B-HEALTH-DASH` / `B-VAULT-QUERY-SEED`;**不是 QueryPanel**)与 **6D wiki 脚手架**(Health QQL **11** 条)。§I 剩余 = **6A 人侧图 polish + `B-GRAPH-HEALTH-UI` 死链列表(可选) + 6C(可选)**。`B-WIKI-LINT-UI` 等信号。  
 > **历史状态**:产品曾拍板(2026-08-01)先优化图再 agent;**已被 2026-08-02 决策覆盖**,下文规划作为远期参考保留。  
 > **阶段命名（全库统一）**:**Phase 6** 下分子阶段 **6A / 6B / 6C / 6D**（与 [06-roadmap](./06-roadmap.md)、[backlog §I](./backlog.md)、[open-questions P6-*](./open-questions.md) 一致）。下文 **不再**单独使用无前缀的 A/B/C/D 作阶段名。  
@@ -14,7 +14,7 @@
 > **我们的最优解**（合成两条参考线 + 自有内核）:
 >
 > ```text
-> 保留: Cytoscape.js 渲染 + cose/preset 布局 + graph-filter/health/modes + QQL(IR/MCP) + MIT + Rust IO-free core
+> 保留: force-graph Canvas 渲染 + d3-force/preset 布局 + graph-filter/health/modes/camera + QQL(IR/MCP) + Apache-2.0 + Rust IO-free core(2026-08-09 起;原 Cytoscape 口径作废)
 > 6A: 图可调 / 可记住 / 可审计入口（人）
 > 6B: 图健康 + MCP 图工具化（agent）
 > 6D: LLM wiki 脚手架 + QQL Health 看板
@@ -38,7 +38,7 @@
 **默认顺序:6A → 6B → 6D → 6C**（语义层可跳过）。若只做一刀 agent 向：**6B** 杠杆最大。  
 单次会话原则：优先 **6A1–6A4 或 6B1–6B4 一整条竖切**，不平行半截 6C/6D。
 
-**MCP v1 工具清单（6 个，勿漏）**:`list_notes` · `read_note` · `write_note` · `search_notes` · `run_qql` · **`vault_info`**。
+**MCP 工具清单(现 8 个,勿漏)**:`list_notes` · `read_note` · `write_note` · `links` · `search_notes` · `run_qql` · `vault_info` · `lint_vault`(v1 六项起步,2026-08-05/06 补 `links` / `lint_vault`)。
 
 > **NL→QQL(2026-08-15 修订)**:QQL 的 **QueryPanel / 内联 ```qql / `MainView:"query"` 保持删除**(2026-08-02:DSL 四层门槛)。**不要重建查询 IDE。** 人侧交付 = **库健康看板**(11 条锁定模板,零模型,`MainView: "health"`)+ **Agent 短指令「查询 Vault」**(NL → 可审查 QQL → 若 agent 已有 `run_qql` 再跑;不假设应用内 ACP 已注入 MCP)。QQL 长期定位 = IR。外部 agent 仍可经 MCP `run_qql` 做 NL→QQL。
 >
@@ -55,7 +55,7 @@
 **架构红线（2026-08 修订）**:
 
 - `core` 纯函数、无 IO；图算法 / QQL 可测。
-- 渲染主路径为 **Cytoscape.js**（懒加载 `CytoscapeLayer`）+ **cose** 力导向 / preset 多布局——**不再**以 sigma WebGL 或自研 FR Worker 为主路径（历史路径已退役）。
+- 渲染主路径为 **force-graph Canvas**（懒加载 `ForceGraphLayer`）+ **d3-force-3d** 力导向 / preset 多布局（2026-08-09 起）——Cytoscape/sigma WebGL/自研 FR Worker 均已退役。
 - 数据与交互逻辑继续在 `graph-filter` / `graph-model` / `graph-health` / `graph-modes` 等纯函数层，渲染器可替换。
 - GPL 项目只借鉴 **工具面与工作流语义**；实现自写。
 - 不做：xlsx 全量、live collab、Obsidian 插件兼容深化、默认向量库 RAG。
@@ -323,7 +323,7 @@ log.md            # append-only
 ## 9. 明确不做（本路线内）
 
 - 引入 GPL 代码或 `@inkeep/*` 依赖  
-- **回退**到 sigma/graphology WebGL 或自研 FR Worker 主路径（除非 Cytoscape 证明不可接受后再开专项评审）  
+- **回退**到 Cytoscape / sigma / graphology WebGL 或自研 FR Worker 主路径（除非 force-graph 证明不可接受后再开专项评审）  
 - 以 **react-force-graph-2d** / 自研 FR Worker 作生产主路径（过渡层已删）  
 - 默认云端向量库 / Spaces / Supabase  
 - Obsidian 插件 API 兼容深化  
@@ -343,3 +343,4 @@ log.md            # append-only
 | 2026-08-02 | **图栈翻案**:主路径 **Cytoscape + cose**；废止「保留 sigma WebGL」旧口径 |
 | 2026-08-05 | **6D 交付**:`templates/wiki-starter/`(5 类型契约)+ Health QQL 5 条(`core/tests/wiki_health_qql.rs` 门禁)+ [14](./14-llm-wiki-workflow.md);backlog §I-D ✅。§I 剩余 = 6A 人侧 + `B-GRAPH-HEALTH-UI` + 6C |
 | 2026-08-15 | **6B 人侧 NL 表面**:库健康看板 + Agent 查库短指令。**禁止重建 QueryPanel**。6D Health 模板已是 11 条。三项排序写入本文 §0。`B-GRAPH-HEALTH-UI` / `B-WIKI-LINT-UI` 不并进 `MainView:"health"`。 |
+| 2026-08-19 | **文档核对**:图栈口径统一为 force-graph Canvas + d3-force-3d(2026-08-09 换栈,本文原 Cytoscape 表述为历史口径);B-GRAPH-FPS 真机验收 ✅;MCP 工具数为 8(本文 §0 的「6 tools」是 2026-08-01 规划时点叙述)。 |

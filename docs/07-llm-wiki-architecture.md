@@ -53,7 +53,7 @@ flowchart TD
   subgraph REACT["🎨 React 19 + Tailwind v4(组件)"]
     direction LR
     ED["Editor(CodeMirror 6 + FindBar)<br/>WysiwygView(BlockNote) · CanvasView(Excalidraw)"]
-    GR["GraphView + CytoscapeLayer<br/>(cose / preset 多布局)"]
+    GR["GraphView + ForceGraphLayer<br/>(force-graph + d3-force / preset 多布局)"]
     NAV["Nav · NoteListView · ArchiveView<br/>Inspector · GitPanel · CommandPalette"]
   end
 
@@ -110,7 +110,7 @@ LLM Wiki(Karpathy 式)把知识库切成五层。下表把每一层**落**到 Op
 | **Raw** | 不可变原始源 | 笔记的 `type: Source`;不可变语义由 **git 版本真相**保证(re-ingest 产新 Summary,旧版可还原) | `type: Source` · `git_restore_note` · ArchiveView |
 | **Wiki** | LLM 生成的派生知识 | `Summary` / `Entity` / `Concept` 软类型 + 关系边(`derived_into` / `mentioned_in` / `contradicts`) | `type: Summary\|Entity\|Concept` · Inspector 关系编辑 · GraphView |
 | **Schema** | 类型与关系的契约 | `core::index` 解析 `type:`/frontmatter;`Type` 文档定义软类型;`AGENTS.md` 作 schema 提示(兼容 cairn) | `type_of()` · `relationship_links()` · Type 文档 · AGENTS.md |
-| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(Cytoscape)+ **库健康**(锁定 QQL)+ **QQL IR**(MCP / Agent)+ **⌘F/⌘P/⌘K** | GraphView · HealthView · FindBar · CommandPalette · `index_vault` |
+| **Navigation** | 索引 / 目录 / 浏览 | **图谱**(force-graph Canvas)+ **库健康**(锁定 QQL)+ **QQL IR**(MCP / Agent)+ **⌘F/⌘P/⌘K** | GraphView · HealthView · FindBar · CommandPalette · `index_vault` |
 | **Health** | 度量与反馈环 | **用 QQL 实时算** —— 应用里跑 = 库健康视图;agent 跑 = `run_qql` | `HealthView` + `ipc.runQql` + MCP `run_qql` + `type: Query` 笔记 |
 
 ### Health 即查询(核心洞察)
@@ -198,7 +198,7 @@ sequenceDiagram
 | 维度 | 02 初版设计 | 实际落地 | 原因 / 记录 |
 |---|---|---|---|
 | 编辑器 | BlockNote(主)+ CodeMirror(raw) | **CodeMirror 源码 + BlockNote WYSIWYG** 双模,同一 `.md` | WYSIWYG 落地;源码仍为 round-trip 逃生舱 |
-| 图谱 | react-force-graph-2d → sigma WebGL | **Cytoscape.js + cose/preset**(懒加载层) | 2026-08 再迁;path-stable `graph-model`;见 [12](./12-graph-and-agent-roadmap.md) 与 [backlog §I](./backlog.md) |
+| 图谱 | react-force-graph-2d → sigma WebGL → Cytoscape.js | **force-graph Canvas + d3-force-3d/preset**(懒加载 `ForceGraphLayer`) | 2026-08-09 再迁;path-stable `graph-model`;见 [12](./12-graph-and-agent-roadmap.md) 与 [backlog §I](./backlog.md) |
 | UI 库 | Mantine + Radix + shadcn 模式 | **Tailwind v4 + 少量 Radix** | 降依赖体积 |
 | Canvas | — | **Excalidraw(MIT)** 懒加载 | 已替换 tldraw;默认纯 MIT 分发 |
 | 索引 | 每次全量 WalkDir | **LiveVault 路径级 delta** + force 自愈 | open 一次全量;写/watcher 增量 |
@@ -215,7 +215,7 @@ sequenceDiagram
 3. **文件即真相 + git 唯一版本源** —— 删除/还原全走 git;结构操作自动提交、正文手动提交。
 4. **软类型,不靠文件夹** —— `type:` + wikilink + 关系键;文件夹不承载语义。
 5. **画布 MIT** —— Excalidraw 懒加载隔离;旧 tldraw 文件只读兼容。
-6. **原创 MIT 实现** —— 严禁引入任何 GPL/AGPL 等 copyleft 源码。
+6. **原创 Apache-2.0 实现** —— 严禁引入任何 GPL/AGPL 等 copyleft 源码。
 
 ---
 

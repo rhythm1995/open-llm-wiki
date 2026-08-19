@@ -15,6 +15,19 @@
 
 ---
 
+### 2026-08-19 ZCode — 真机验收标记完成 + 全库文档防漂移梳理
+
+- **branch**: `release/v0.1.0`(未 commit / 未 push)
+- **做了**:
+  1. 用户确认真机验收全部完成:`B-GRAPH-FPS` 🧪→✅、应用内 Agent 端到端 ✅;backlog(§E/§F 增 `B-RELEASE-ASSETS`/建议顺序)/ plan / 04 / 06 / docs README×2 / doc 11(§10+修订记录)同步。
+  2. **图栈口径统一**:2026-08-09 已换 force-graph Canvas + d3-force-3d,但 01/02/04/06/07/12/backlog/open-questions 十余处仍写 Cytoscape——全部改为现栈并保留换栈历史;FEATURE-INDEX 补 `graph-camera` 行。
+  3. **许可口径**:项目 2026-08-11 已转 Apache-2.0,01/02/07/13 残留 MIT 表述修正。
+  4. **MCP 工具数**:全库统一为 **8 tools**(doc 09 / 11 / 12 的 5/6/7 旧口径修正)。
+  5. **02-architecture 仓库布局**:补 mcp / templates / site / packages 目录;members 与命令数对齐(60+);13-client-logging L2 收口表述修正。
+  6. **CHANGELOG 合并**:[Unreleased] 并入 [0.1.0]——tag 已移至 `b537f74`,发布产物实际包含这些变更;补记 8/9 后缺失大件(ACP / 库健康 / hot.md / 一键接入 / tray / OWF-1 / 官网等);修正 Cytoscape/6 tools/MIT;已知限制补「缺 Linux + macOS x64 产物」。
+- **理由 / 影响**: 文档与代码事实对齐,消除下一个 agent 被旧口径误导的风险;未动任何代码,CI 不受影响。
+- **下一步 / 接手注意**: 未 commit。剩余活跃项见 backlog §F:`B-RELEASE-ASSETS`(重跑 release 补 Linux + macOS x64)+ 签名/Updater 凭证门;其余皆「等信号」或远期 §I。
+
 ### 2026-08-18 Grok — 原则区改左右卡图，放出主标
 
 - **branch**: `release/v0.1.0`(未 commit / 未 push)

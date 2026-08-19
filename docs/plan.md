@@ -11,7 +11,7 @@
 2. **非图杂项** — 已收口:IPC 日志打点 ✅ · source 任务按钮 ✅ · **wiki 脚手架(§I-D)✅** · **universal dmg 脚本 ✅** · AGENTS tldraw 叙述 ✅;剩签名 / Updater(🔑 凭证门)  
 3. **图 / Agent / §I** — 人侧图 polish 仍推迟。**例外(2026-08-15)**:6B NL 表面按「库健康 + Agent 短指令」落地,不重建 QueryPanel。6B MCP 与 6D wiki 脚手架已交付。
 
-`feat/phase1-core` 已合 main(`84accb0`);当前开发在 `release/v0.1.0`(v0.1.0 tag 已打)。下一刀:真机验收(B-GRAPH-FPS / 应用内 Agent 端到端)+ 发布收口;或产品点名新项。
+**v0.1.0 已发布并合回 main**(2026-08-19);真机验收(B-GRAPH-FPS / 应用内 Agent 端到端)已全部完成。下一刀:**发布面补全**(`B-RELEASE-ASSETS` 补 Linux + macOS x64 产物;签名 / Updater 凭证门);或产品点名新项。
 
 ---
 
@@ -54,7 +54,7 @@ M1 wiki 图嵌入 · M2 迁笔记搬图 · MediaIndex · 孤儿清理 — 见 FE
 
 | 可后续 | 说明 |
 |---|---|
-| B-GRAPH-FPS | 真机验收(图相关唯一活跃项) |
+| ~~B-GRAPH-FPS~~ | ✅ 2026-08-19 真机验收完成(图相关已无活跃项) |
 | ~~B-MCP-LINKS / READ-BRIEF / WRITE-FEEDBACK / CONFIG~~ | 6B agent 侧 ✅(backlog §I-B) |
 | ~~B-WIKI-STARTER / HEALTH-QQL / AGENT-DOC~~ | 6D ✅(`templates/wiki-starter/` + [14](./14-llm-wiki-workflow.md)) |
 

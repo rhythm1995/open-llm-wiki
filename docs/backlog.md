@@ -6,7 +6,8 @@
 > 难度:🟢 易 · 🟡 中 · 🔴 硬
 
 **边界变更(2026-07-30)**:原「v1 刻意不做」三项改为正式交付目标并已落地(§A ✅)。软类型原则不变:`type` 永不强制校验、永不阻止保存。  
-**优先级(2026-08-02)**:图 / Agent(§I)降优;主线 **§C 编辑器** + 非图杂项。切片见 [plan.md](./plan.md)。
+**优先级(2026-08-02)**:图 / Agent(§I)降优;主线 **§C 编辑器** + 非图杂项。切片见 [plan.md](./plan.md)。  
+**发布(2026-08-19)**:v0.1.0 已发布并合回 main;真机验收(图谱帧率 / 应用内 Agent 端到端)已全部完成。剩余活跃项只有 **§F 发布面**(Linux + macOS x64 补产物 / 签名 / Updater)与各「等信号」项。
 
 ---
 
@@ -91,7 +92,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
-| B-GRAPH-FPS | 万级帧率验收 | 🟡 | 🧪 | Cytoscape 主路径;生成器有;fps 数字仍靠本机 GUI(旧 Barnes-Hut 冒烟已随栈退役) |
+| B-GRAPH-FPS | 万级帧率验收 | 🟡 | ✅ | 2026-08-19 真机验收完成(force-graph Canvas 主路径;`GRAPH_MAX_NODES` 2000 top-K) |
 | B-QQL-MOCK-GAP | ~~mock 与 core 语义~~ | 🟡 | 🗑️ 已删 | mock `run_qql`→QQL-TS 随 QQL 用户面删除(2026-08-02) |
 | B-QQL-PARITY-CI | ~~TS↔Rust 同批查询差分~~ | 🟡 | 🗑️ 已删 | `qql/parity.test.ts` 随 QQL 用户面删除(2026-08-02);Rust core 单测仍在 |
 
@@ -101,6 +102,7 @@
 
 | ID | 项 | 难度 | 状态 | 说明 |
 |---|---|---|---|---|
+| B-RELEASE-ASSETS | v0.1.0 全平台产物补齐 | 🟢 | ⏳ | Release run 被取消,只剩 macOS aarch64 + Windows;**缺 Linux(ubuntu)与 macOS x64(macos-13)**。重跑 tag `v0.1.0` 的 release workflow 即可 |
 | B-SIGN-MAC | macOS 签名 + 公证 | 🟢 | 🔑 | 需 APPLE_* secrets |
 | B-SIGN-WIN | Windows 安装包签名 | 🟢 | 🔑 | 需证书 |
 | B-UPDATER | 自动更新 | 🟡 | 🔑 | 需密钥 + 是否上线决策 |
@@ -112,7 +114,7 @@
 
 ## G. 已完成(勿重复开坑)
 
-- F-GRAPH 主路径(Cytoscape + cose/preset)+ 多布局(力导向/分层/时间轴)+ 过滤/健康/落盘  
+- F-GRAPH 主路径(force-graph Canvas + d3-force / preset)+ 多布局(力导向/分层/时间轴)+ 过滤/健康/落盘(渲染栈 2026-08-09 由 Cytoscape 换为 force-graph)  
 - F-QUERY 引擎(Rust core + MCP `run_qql`)+ CONTAINS/STARTSWITH/ENDSWITH/IN + histogram;~~内联 qql(source)+ saved query~~ 用户面 2026-08-02 已删  
 - Live 索引 + watcher + 刷新索引自愈  
 - Excalidraw 画布;⌘F/⌘P;Nav TAGS;拖拽移动;git pull/push;类型文档提示  
@@ -139,7 +141,7 @@
 > **产品拍板(2026-08-02)**:**§I 图谱 polish(6A)整期推迟到很后**——图打磨 ROI 低、实现成本高(「图不好做」),本期不再开。引擎保留待远期。完整规格见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**。  
 > **例外(已落地)**:6B 的 **agent 侧 MCP 图工具**(`links` / read 简报 / write 审计 / 客户端配置)已随 MCP server 交付,见 §I-B ✅;**6D wiki 脚手架已交付**(2026-08-05),见 §I-D ✅;§I 真正剩余的是**人侧**——6A 图 polish 全部 + `B-GRAPH-HEALTH-UI`(+ 6C 语义可选)。  
 > **历史(2026-08-01)**:曾规划先图再 agent;**已被 2026-08-02 决策覆盖**。  
-> 引擎保留 **Cytoscape** + graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,剩余默认顺序 **6A → 6C**(6B MCP 侧 / 6D 已交付)。
+> 引擎保留 **force-graph Canvas**(2026-08-09 起;Cytoscape 已退役)+ graph-* 纯逻辑 + QQL(IR/MCP) + Rust core;若远期重启,剩余默认顺序 **6A → 6C**(6B MCP 侧 / 6D 已交付)。
 
 ### I-A · 6A 传统图 polish（人侧 · 本期推迟）
 
@@ -228,7 +230,7 @@
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / 媒体~~ ✅(QQL 差分 CI 随用户面删除,不再需要)  
 2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
 3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6B 库健康 + Agent 查库** ✅(2026-08-15) · **6D wiki 脚手架** ✅;剩图 polish / 可选死链 / 6C 随 §I 远期
-4. **本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 签名/Updater(凭证门) · `release/v0.1.0` 发布收口(合 main 已完成 `84accb0`)  
+4. ~~**本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 发布收口~~ ✅(2026-08-19 验收完成;v0.1.0 已发布并合 main);剩 `B-RELEASE-ASSETS` 补产物 + 签名/Updater(凭证门)  
 5. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
 
 完整竖切与验收见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。

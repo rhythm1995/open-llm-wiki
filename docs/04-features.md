@@ -11,18 +11,18 @@
 
 ## 两大差异化(Obsidian 靠插件拼、本项目做成原生:存在的理由)
 
-### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局 · Cytoscape)
+### F-GRAPH 图谱可视化 [P0] ✅ 主路径已落地(含多布局 · force-graph)
 
 **一句话**:把整个 vault 的 wikilink + frontmatter 关系画成一张可交互的关系图。
 
 - **数据来源**:`core::graph` 产出的统一关系图(正文 wikilink + frontmatter 关系,见 [03-data-model](./03-data-model.md))。
 - **节点** = note;**边** = link,按 `EdgeKind`(Wiki / Relation)区分。悬空链接为 ghost/unresolved 桩。
-- **渲染**:**Cytoscape.js**(懒加载 `CytoscapeLayer`)。力导向模式用内置 **cose** 布局;type 层 / 时间轴为 **preset** 坐标(`graph-modes`)。样式/簇色/环态在 `graph-style` / `graph-cluster`(纯逻辑可测)。大图 **top-K 按度数截断**(约 2000)。**已退役**:sigma/graphology WebGL、Worker FR、Barnes-Hut、LOD 网格簇、SVG 主路径。
+- **渲染**:**force-graph** Canvas(npm `force-graph@1.49.5`,懒加载 `ForceGraphLayer`,2026-08-09 起)。力导向模式用 **d3-force-3d**(`ForceParams` 映射 charge/link/collide;力参数 UI 已随设置「图谱」tab 移除,见 `B-GRAPH-FORCES`);type 层 / 时间轴为 **preset** 坐标(`graph-modes`)。样式/簇色/环态在 `graph-style` / `graph-cluster`(纯逻辑可测);相机软边界 + 空视口回图在 `graph-camera`。大图 **top-K 按度数截断**(`GRAPH_MAX_NODES` = 2000)。**已退役**:Cytoscape.js/cose、sigma/graphology WebGL、Worker FR、Barnes-Hut、LOD 网格簇、SVG 主路径。
 - **交互** ✅:点击跳转、缩放/平移、拖拽节点 + 自动 pin、Shift 框选、悬停邻域高亮、右键(聚焦 1 跳 / pin / 复制 `[[wikilink]]` / 隐藏类型)、N 跳邻域聚焦。
 - **过滤** ✅:type / tag / status / 关系种类 / 隐藏孤儿 / 隐藏 unresolved / 文本 query / 深度 hops。
 - **实时**:LiveVault 路径级 delta + watcher;`structureSignature` 结构 gate;坐标可落盘(`.open-llm-wiki/graph-layout.json`,默认 gitignore)。
 - **布局**:
-  - ✅ 力导向(默认,cose + 力参数滑条)。
+  - ✅ 力导向(默认,d3-force;力参数滑条已移除,`B-GRAPH-FORCES` ⏳)。
   - ✅ **按 type 分层**(B-GRAPH-LAYER)。
   - ✅ **按时间轴**(created/modified)(B-GRAPH-TIME)。
   - ✅ 布局模式切换 UI(B-GRAPH-LAYOUT-UI)。
@@ -79,8 +79,8 @@
 | F-THEMES | 主题 | P2 | ✅ | 深/浅;Settings 面板 ✅。 |
 | F-GIT | git 集成 | P2 | ✅ | commit/log/pull/push/归档。 |
 | F-TRASH | ~~回收站~~ | P2 | ➡️ | 归档并入 git。 |
-| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 六工具(list/read/write/search/qql/**vault_info**) ✅;图工具化见 Phase **6B**([12](./12-graph-and-agent-roadmap.md))。 |
-| F-AGENT | 应用内 Agent 侧栏(ACP 托管) | P2 | ✅ | Phase 7(2026-08-04 完工):picker/流式对话/权限三档/Model C 移交/SQLite 转录/git 归因面板;见 [11](./11-in-app-agent-roadmap.md)。真机端到端待用户验收。 |
+| F-AI | AI + MCP | P2 | 🟡 | 读侧 ✅;MCP v1 **8 工具**(list/read/write/links/search/qql/vault_info/**lint_vault**) ✅;图工具化见 Phase **6B**([12](./12-graph-and-agent-roadmap.md))。 |
+| F-AGENT | 应用内 Agent 侧栏(ACP 托管) | P2 | ✅ | Phase 7(2026-08-04 完工):picker/流式对话/权限三档/Model C 移交/SQLite 转录/git 归因面板;见 [11](./11-in-app-agent-roadmap.md)。真机端到端 ✅(2026-08-19 验收完成)。 |
 | F-L10N | 国际化 | P2 | ✅ | zh/en。 |
 | F-CANVAS | 画布 | P3 | ✅ | Excalidraw MIT。**孤立白板**:与图谱/QQL/wikilink/搜索完全解耦(不进 `build_index`);「新建」入口默认隐藏,底层保留(已有 `.canvas` 仍可编辑)。详见 [research/canvas-isolation](./research/canvas-isolation.md)。 |
 | F-SHEET | 表格 | P3 | ✅ | v2:多表/冻结/图表/md 嵌入/SUM+IronCalc;⛔ 不做 xlsx 全量/实时协作。 |
@@ -89,14 +89,14 @@
 
 ## 范围说明
 
-**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(Cytoscape + 多布局) / **QQL IR**(Rust + MCP,用户面 UI 已撤) / 类型文档 / git / 画布(孤立白板,入口隐藏)/ 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
+**已交付核心**:vault / 双模编辑 / wikilink / 列表+标签 / **图谱**(force-graph Canvas + 多布局) / **QQL IR**(Rust + MCP,用户面 UI 已撤) / 类型文档 / git / 画布(孤立白板,入口隐藏)/ 表格 / L10N / live 索引 / 命令注册表+三层搜索 等。
 
 **原 v1 边界 §A** ✅ · **§C 编辑器 / §D 菜单 / §H 命令搜索** ✅ · **大件 v1** ✅(插件深化 ⛔)。
 
 **当前仍开放 / 值得做**(非「功能空白」):
 
-1. **发布收口**:feat/phase1-core 已合 main(`84accb0`);`release/v0.1.0` 进行中;签名 / Updater 凭证门  
-2. **真机验收**:图谱 1k/5k 帧率(B-GRAPH-FPS);应用内 Agent 端到端(需本机 opencode / claude-code)  
+1. **发布面**(`B-RELEASE-ASSETS` + 凭证门):v0.1.0 已发布并合 main;**缺 Linux + macOS x64 产物**(release run 被取消);签名 / Updater 需 secrets  
+2. ~~**真机验收**~~ ✅ 全部完成(2026-08-19):图谱帧率(B-GRAPH-FPS)+ 应用内 Agent 端到端  
 3. **写作体验**:§C 主路径与保真门禁已收敛;可选微体验见 [plan §Editor](./plan.md)  
 4. **远期**:§I 人侧 6A 图 polish 与 6C 语义。6B MCP + 库健康/Agent 查库 + 6D 已交付。不要重开 QueryPanel。
 
