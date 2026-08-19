@@ -50,6 +50,19 @@ body {
   color: var(--color-bistre);
 }
 
+/* Interactive things read as clickable; decorative hovers (rule-row ink)
+   intentionally keep the default arrow so they don't promise a click. */
+a,
+button,
+summary {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px dashed rgb(26 22 20 / 0.45);
+  outline-offset: 3px;
+}
+
 .font-display {
   font-family: var(--font-display);
   font-weight: 400;
@@ -152,6 +165,7 @@ body {
 
 .nav-item:hover {
   color: var(--color-graphite);
+  background: rgb(26 22 20 / 0.05);
 }
 
 .nav-item-muted {
@@ -312,6 +326,59 @@ body {
   margin-top: 0.06em;
 }
 
+.log-row {
+  transition: background 240ms var(--ease-out);
+}
+
+.log-row:hover {
+  background: rgb(26 22 20 / 0.03);
+}
+
+.log-row .font-display {
+  transition:
+    color 200ms var(--ease-ui),
+    transform 300ms var(--ease-out);
+}
+
+.log-row:hover .font-display {
+  transform: translateX(6px);
+}
+
+.log-row .font-mono {
+  transition: color 200ms var(--ease-ui);
+}
+
+.log-row:hover .font-mono {
+  color: var(--color-bistre);
+}
+
+.faq-head {
+  transition: background 240ms var(--ease-out);
+}
+
+.faq-head:hover {
+  background: rgb(26 22 20 / 0.035);
+}
+
+.jump-menu a {
+  transition:
+    background 180ms var(--ease-ui),
+    color 180ms var(--ease-ui);
+}
+
+.jump-menu a:hover {
+  background: rgb(26 22 20 / 0.06);
+  color: var(--color-bistre);
+}
+
+.surfaces-track figure {
+  transition: transform 320ms var(--ease-out);
+}
+
+.surfaces-track figure:hover {
+  transform: translateY(-6px);
+}
+
 .shot {
   display: block;
   border: 1px dashed rgb(26 22 20 / 0.1);
@@ -397,13 +464,24 @@ body {
 
   .faq-panel,
   .faq-mark,
+  .faq-head,
   .nav-item,
   .btn-pill,
   .btn-hero,
   .rule-row::before,
   .rule-row-title,
-  .rule-row-body {
+  .rule-row-body,
+  .log-row,
+  .log-row .font-display,
+  .log-row .font-mono,
+  .jump-menu a,
+  .surfaces-track figure {
     transition: none;
+  }
+
+  .log-row:hover .font-display,
+  .surfaces-track figure:hover {
+    transform: none;
   }
 }
 
