@@ -59,7 +59,8 @@
 
 | 功能 | ID | 代码入口 |
 |---|---|---|
-| force-graph Canvas 渲染 + d3-force / preset | Phase6 栈 | `GraphView.tsx`,`ForceGraphLayer.tsx` |
+| force-graph Canvas 渲染 + d3-force / preset(2026-08-09 起;Cytoscape 已退役) | Phase6 栈 | `GraphView.tsx`,`ForceGraphLayer.tsx` |
+| 相机软边界 + 空视口回图 / 聚焦进出 | — | `graph-camera.ts` |
 | 过滤 / 健康 / 分层 / 时间轴 | B-GRAPH-* | `graph-*.ts` |
 | 布局落盘 `.open-llm-wiki/graph-layout.json` | B-GRAPH-POS-PERSIST | IPC `read/save_graph_layout` |
 | 规划(未完项) | §I | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) |

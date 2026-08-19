@@ -37,9 +37,9 @@ Tauri 2 外壳 + React 19:
 - ✅ mock-tauri 浏览器层(`ui/src/lib/mock.ts`),`pnpm --dir ui dev` 即开即用。
 - 评估:BlockNote 所见即所得编辑器延后到 v2(纯 Markdown round-trip 更稳、体积更小;见 [open-questions](./open-questions.md))。
 
-### Phase 3 — 图谱(差异化 #1)✅(演进至 Cytoscape)
+### Phase 3 — 图谱(差异化 #1)✅(演进至 force-graph)
 
-- ✅ F-GRAPH 主路径落地并**多次换栈**(历史:SVG/自研 FR → sigma WebGL → **Cytoscape.js + cose**,2026-08)。
+- ✅ F-GRAPH 主路径落地并**多次换栈**(历史:SVG/自研 FR → sigma WebGL → Cytoscape.js + cose → **force-graph Canvas + d3-force-3d**,2026-08-09 起)。
 - 节点按软类型/簇着色、按连接度变大小;wiki/relation 边区分;悬空链接 ghost;当前节点高亮;点击跳转。
 - ✅ **过滤面板**:type / tag / relation / status / 孤儿 / unresolved / N 跳邻域(`graph-filter.ts`)。
 - ✅ **平移缩放** / 框选 / pin / 右键 / 力参数 / 坐标落盘。
@@ -61,7 +61,7 @@ Tauri 2 外壳 + React 19:
 - ✅ F-WIKILINK 完整三件套:解析 + 反向链接 + **Cmd/Ctrl 点击 `[[link]]` 跳转** + **`[[` 自动补全**(纯逻辑 `wikilink.ts`,已测)。
 - ✅ F-FILETREE:折叠树 + 新建 + 重命名 + 删除。
 - ✅ 打包与分发 **CI 骨架**:`tauri.conf.json` bundle 配置完整;本地 `tauri build` 已出 `.app`/`.dmg`(运行时 diag_log 0 webview 报错);`.github/workflows/ci.yml`(测试)+ `release.yml`(tag/手动 → macOS/Linux/Windows 矩阵起草 Release)。默认未签名,配 secret 即签名/公证/Updater(详见 [backlog](./backlog.md) §F / [plan](./plan.md))。
-- **v1 尚未发布;MVP 可运行(可出安装包,签名/公证待用户凭证)。**
+- **v0.1.0 已发布(2026-08-18 GitHub Release,已合回 main)**;剩 Linux + macOS x64 产物补齐(`B-RELEASE-ASSETS`)与签名/公证凭证门。
 
 ### Phase 5+ — v2 增量(本次会话,v1 范围之外)✅
 
@@ -112,7 +112,7 @@ Tauri 2 外壳 + React 19:
 
 - ✅ **标签循环快捷键**:`tabReduce` 加 `cycle` 动作(环回到首/尾)+ 6 单测;`store.cycleTab(dir)` 切换并读盘;App 全局 keydown 挂 Ctrl+Tab / Ctrl+Shift+Tab / ⌘/Ctrl+Shift+[ ] / ⌘/Ctrl+PageUp/Down。浏览器 dev 抢占 Ctrl+Tab(已知),桌面 webview 可用。
 - 🔴 ~~**内联 ```qql 查询块渲染**~~ 已删 2026-08-02(`qql-widget`/`qql-block`/`saved-query` 全清;引擎 `run_qql` + Rust core 保留)。
-- ✅ **图谱渲染栈现为 Cytoscape**(见 Phase 3 / F-GRAPH);sigma/Worker/LOD 路径已退役。
+- ✅ **图谱渲染栈现为 force-graph Canvas + d3-force-3d**(2026-08-09 起;见 Phase 3 / F-GRAPH);Cytoscape/sigma/Worker/LOD 路径已退役。
 - ✅ **验证加固**:UI vitest + Playwright e2e;core cargo test;本地 `tauri build` 出未签名 dmg。
 
 ### Phase 6 — 图谱打磨 → Agent 结合（人侧推迟 · agent 侧 MCP 已落地）
@@ -121,7 +121,7 @@ Tauri 2 外壳 + React 19:
 > **2026-08-02 更新**:§I **人侧图 polish(6A)整期推迟到很后**(ROI 低 / 图不好做)。但 **6B 的 agent 侧 MCP 图工具已随 MCP server 落地**(`links` / read 简报 / write 审计 + 客户端配置);人侧仅剩 `B-GRAPH-HEALTH-UI` 未做。  
 > **完整规划**:[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) · ID 总表 [backlog §I](./backlog.md)。  
 > **参考(概念 only)**:varshithm7x 图 UX(MIT);inkeep OpenKnowledge agent/`links` 语义(**GPL 禁止拷代码**)。  
-> **保留**:Cytoscape 图主路径 · graph-* 纯逻辑 · QQL 作 IR/MCP · Rust IO-free · MIT。
+> **保留**:force-graph 图主路径 · graph-* 纯逻辑 · QQL 作 IR/MCP · Rust IO-free · Apache-2.0。
 
 | 子阶段 | 主题 | 关键 backlog | 状态 |
 |---|---|---|---|
@@ -141,7 +141,7 @@ Tauri 2 外壳 + React 19:
 - **安全与归因**:权限三档(逐次 / 宽松琥珀点 / 高危恒门控)+ 工具分类白名单;turn 级 git 快照进 `refs/agents/*`(不动 HEAD;非 git vault 走影子仓库),活动面板看 diff、采纳入 HEAD、撤销。
 - **协作与持久化**:Model C 跨 agent 移交(归一化 seed);每 vault 一 SQLite 转录(WAL)+ 历史会话回放。
 
-规划与完整实施状态见 **[11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md)** §10;ID 表见 [backlog §K](./backlog.md)。真机端到端(需本机 opencode / claude-code)留作用户验收。
+规划与完整实施状态见 **[11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md)** §10;ID 表见 [backlog §K](./backlog.md)。真机端到端 ✅(2026-08-19 验收完成)。
 
 ### 后续能力与诚实取舍
 
@@ -150,20 +150,20 @@ Tauri 2 外壳 + React 19:
 | 能力 | 状态 | 说明 |
 |---|---|---|
 | F-GIT | ✅ | commit/log/pull/push/归档。 |
-| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅;图工具化 ✅;库健康 + Agent 查库 ✅(非 QueryPanel)。 |
-| 应用内 Agent(ACP) | ✅ | Phase 7 完工(2026-08-04):Tier 1 + 完整 Tier 2,见 [11](./11-in-app-agent-roadmap.md);真机端到端待用户验收。 |
+| F-AI(+MCP) | 🟡 | 读侧 ✅;MCP v1 stdio ✅(8 tools);图工具化 ✅;库健康 + Agent 查库 ✅(非 QueryPanel)。 |
+| 应用内 Agent(ACP) | ✅ | Phase 7 完工(2026-08-04):Tier 1 + 完整 Tier 2,见 [11](./11-in-app-agent-roadmap.md);真机端到端 ✅(2026-08-19)。 |
 | F-L10N | ✅ | zh/en。 |
 | F-CANVAS | ✅ | Excalidraw MIT。孤立白板(与图谱/QQL 解耦);「新建」入口默认隐藏。 |
 | F-SHEET | ✅ | v2;⛔ xlsx 全量/实时协作。 |
 | F-PLUGIN | ⛔ | v1 宿主保留,不深化。 |
 | 编辑器双模 | ✅ | §C + 真 BN 引擎 RT 门禁收敛;见 FEATURE-INDEX。 |
 | 菜单·命令·搜索 | ✅ | 注册表 + 菜单 v2 + ⌘K/P/⇧F([10](./10-menus-and-search.md))。 |
-| 图谱 | 🟡 | Cytoscape+多布局 ✅;6A 人侧 polish **推迟**;6B MCP + 库健康 ✅;图内 HealthPanel 不打磨;B-GRAPH-FPS 🧪。 |
+| 图谱 | ✅ | force-graph Canvas+多布局 ✅;B-GRAPH-FPS ✅(2026-08-19);6A 人侧 polish **推迟**;6B MCP + 库健康 ✅;图内 HealthPanel 不打磨。 |
 | 类型文档 / QQL 扩展 | ✅ | QQL-TS 与差分 CI 随用户面删除(2026-08-02);引擎留 Rust core + MCP `run_qql`。 |
 | Live 索引 + 三层搜索 | ✅ | |
-| 打包与分发 | 🟡 | 本地 dmg ✅ + universal 脚本 ✅(`scripts/build-universal-dmg.sh`);签名/Updater 🔑;feat/phase1-core 已合 main(`84accb0`),`release/v0.1.0` 进行中。 |
+| 打包与分发 | 🟡 | 本地 dmg ✅ + universal 脚本 ✅(`scripts/build-universal-dmg.sh`);**v0.1.0 已发布并合 main**;缺 Linux + macOS x64 产物(`B-RELEASE-ASSETS`);签名/Updater 🔑。 |
 
-**原则**:不塞空心 stub。**本期收尾**:真机帧率 / 应用内 Agent 端到端 / 签名 / 发布收口。**远期重启 §I**:6A 人侧图 polish → 可选 6C 语义(6B MCP、库健康、6D 已交付)。**不要重建 QueryPanel。** TDD:纯逻辑先行 + 单测。
+**原则**:不塞空心 stub。**本期收尾**:~~真机帧率 / 应用内 Agent 端到端~~ ✅(2026-08-19)/ 补发布产物 / 签名。**远期重启 §I**:6A 人侧图 polish → 可选 6C 语义(6B MCP、库健康、6D 已交付)。**不要重建 QueryPanel。** TDD:纯逻辑先行 + 单测。
 
 ## 本次会话的明确产出(可验证)
 

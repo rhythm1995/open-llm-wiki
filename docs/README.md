@@ -38,7 +38,7 @@ The numbered specs and research notes are written in Chinese (implementation sou
 | [08-media-and-split-preview.md](./08-media-and-split-preview.md) | Attachments / media spec | updated with media work |
 | [09-big-features-v1.md](./09-big-features-v1.md) | SHEET / PLUGIN / MCP slices | shipped reference |
 | [10-menus-and-search.md](./10-menus-and-search.md) | Menus / commands / search | shipped reference |
-| [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | In-app agent (ACP-hosted) | shipped (Phase 7; desktop acceptance pending) |
+| [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | In-app agent (ACP-hosted) | shipped (Phase 7; desktop acceptance done 2026-08-19) |
 | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) | Graph polish → external agent (MCP) | 6A deferred; 6B MCP + **health / Ask Agent** shipped; 6D shipped; do not rebuild QueryPanel |
 | [13-client-logging.md](./13-client-logging.md) | Client logging | shipped reference |
 | [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki workflow (ingest / research / consolidate) + distill L2a + lint L1/L2 | shipped reference (still growing) |

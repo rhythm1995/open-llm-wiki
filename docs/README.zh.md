@@ -38,7 +38,7 @@
 | [08-media-and-split-preview.md](./08-media-and-split-preview.md) | 附件/媒体规格 | 随媒体迭代更新 |
 | [09-big-features-v1.md](./09-big-features-v1.md) | SHEET/PLUGIN/MCP 切片 | 已落地参考 |
 | [10-menus-and-search.md](./10-menus-and-search.md) | 菜单/命令/搜索 | 已落地参考 |
-| [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | 应用内 Agent(ACP 托管) | ✅ 已落地(Phase 7 完工,待真机验收) |
+| [11-in-app-agent-roadmap.md](./11-in-app-agent-roadmap.md) | 应用内 Agent(ACP 托管) | ✅ 已落地(Phase 7 完工,真机验收 2026-08-19 完成) |
 | [12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md) | 图 polish → 外部 Agent(MCP) | 6A 推迟;6B MCP + **库健康/Agent 查库** ✅;6D ✅;勿重建 QueryPanel |
 | [13-client-logging.md](./13-client-logging.md) | 客户端日志 | 已落地参考 |
 | [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki 工作流(ingest/research/consolidate)+ 蒸馏 L2a + lint L1/L2 | 已落地参考(持续增补) |

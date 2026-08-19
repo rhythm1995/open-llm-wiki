@@ -14,7 +14,7 @@
 | 样式 | **Tailwind CSS 4**(`@tailwindcss/vite`)+ 语义令牌 | 原子化样式;主题靠 `@theme` 的 CSS 变量切换,组件只引用令牌。 |
 | UI 组件 | **少量 Radix**(dialog / dropdown-menu / tabs / tooltip)+ **shadcn 模式**(cva/clsx/tailwind-merge)+ **Phosphor icons** | 无障碍的交互组件用 Radix;展示型组件自实现,降依赖体积。 |
 | 编辑器 | **CodeMirror 6 源码 + BlockNote WYSIWYG** 双模 | 同一 `.md`;frontmatter 侧栏。ReadingView(marked + DOMPurify)。保真:app wikilink + 真 BN 引擎往返门禁([FEATURE-INDEX](./FEATURE-INDEX.md))。 |
-| 图谱渲染 | **Cytoscape.js**(懒加载 `CytoscapeLayer`)+ 力导向 **cose** + 预设坐标(type 层/时间轴) | 交互/样式一体、可测纯逻辑在 `graph-*` lib;大图 top-K 截断;真机帧率见 [backlog](./backlog.md) B-GRAPH-FPS / [plan](./plan.md)。 |
+| 图谱渲染 | **force-graph** Canvas(npm `force-graph@1.49.5`,懒加载 `ForceGraphLayer`)+ **d3-force-3d** 力导向 + 预设坐标(type 层/时间轴) | 交互/样式一体、可测纯逻辑在 `graph-*` lib(model/filter/modes/camera/…);大图 top-K 截断(`GRAPH_MAX_NODES` 2000);帧率已真机验收(B-GRAPH-FPS ✅)。 |
 | 阅读渲染 | **marked 18 + DOMPurify 3** | Markdown → HTML + sanitize;F-READING 安全加固。 |
 | Canvas | **Excalidraw**(MIT) | 无限画布;懒加载隔离在 `CanvasView` chunk。**孤立白板**:不进 `build_index`、不参与图谱/QQL/wikilink(见 [research/canvas-isolation](./research/canvas-isolation.md));「新建」入口默认隐藏。 |
 | 包管理 | **pnpm**(workspace monorepo) | 快、磁盘高效。 |
@@ -26,23 +26,27 @@
 
 ```
 Open LLM Wiki/
-├── Cargo.toml            ← workspace 根:members = [core, app/src-tauri]
-├── core/                 ← Rust crate:纯逻辑(解析/图谱/查询/检索),IO-free,TDD 心脏
-│   └── src/{lib,parse,index,graph,qql,query,search,vault}.rs
-├── app/src-tauri/        ← Tauri 2 外壳(Rust):20 个命令 + run_git 子进程 + notify 监听,薄包装 core
-│   ├── src/{lib,main}.rs
-│   ├── tauri.conf.json   ← bundle 配置(含 resources: LICENSE 随包)
+├── Cargo.toml            ← workspace 根:members = [core, app/src-tauri, mcp]
+├── core/                 ← Rust crate:纯逻辑(解析/图谱/查询/检索/lint/media),IO-free,TDD 心脏
+│   └── src/{lib,parse,index,graph,qql,query,search,vault,lint,media}.rs
+├── app/src-tauri/        ← Tauri 2 外壳(Rust):60+ 命令(文件/git/索引/ACP/转录/onboarding/日志)+ notify 监听,薄包装 core
+│   ├── src/{lib,main,acp,transcript,git_attr,onboarding,logging}.rs
+│   ├── tauri.conf.json   ← bundle 配置(含 externalBin: MCP sidecar;resources: LICENSE 随包)
 │   └── icons/
+├── mcp/                  ← open-llm-wiki-mcp:独立 stdio MCP server(8 tools)+ 一键接入 onboard(setup/doctor/init)
+├── templates/wiki-starter/ ← LLM Wiki 脚手架(类型契约/Health QQL/skill/prompts)
 ├── ui/                   ← React 前端(Vite)
 │   └── src/
-│       ├── components/   ← Editor/ReadingView/GraphView/CytoscapeLayer/Nav/NoteListView/Inspector...
-│       ├── lib/          ← 纯逻辑(store/tabs/graph-model/graph-filter/graph-layout/graph-health/vault-watch/…)
+│       ├── components/   ← Editor/ReadingView/GraphView/ForceGraphLayer/Nav/NoteListView/Inspector/AgentPanel...
+│       ├── lib/          ← 纯逻辑(store/tabs/graph-model/graph-filter/graph-layout/graph-camera/graph-health/vault-watch/…)
 │       └── *.test.ts     ← Vitest 纯逻辑测试(node 环境)
+├── site/                 ← 官网(Vite + React):渲染 docs/user 为 /docs,部署 GitHub Pages
+├── packages/open-llm-wiki-skills/ ← npx 安装包(skill + hooks 模板)
 ├── tools/                ← 生成式脚本(gen-benchmark-vault.mjs)
 ├── .github/workflows/    ← ci.yml(测试)+ release.yml(打包矩阵)
 ├── licenses/             ← 第三方逐字许可证(如 blocknote-LICENSE.md)
 ├── THIRD_PARTY_NOTICES.md
-├── LICENSE               ← MIT
+├── LICENSE               ← Apache-2.0
 └── README.md
 ```
 
@@ -145,7 +149,7 @@ watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径�
 ## 性能策略
 
 - **索引**:打开 vault 一次 WalkDir;之后路径级 delta + `build_from_map`(core 纯函数,有单测)。`run_qql`/`search` 不扫盘。
-- **图谱**:`graph-model`(path-stable)+ **Cytoscape** 渲染;`cose` 力导向(滑条→布局参数);type 层/时间轴为 preset 坐标;`graph-filter` / health / cluster / style 纯逻辑可测。大图 **top-K 按度数截断**(~2000)。
+- **图谱**:`graph-model`(path-stable)+ **force-graph Canvas** 渲染;`d3-force-3d` 力导向(`ForceParams`);type 层/时间轴为 preset 坐标;`graph-filter` / health / cluster / style / camera 纯逻辑可测。大图 **top-K 按度数截断**(`GRAPH_MAX_NODES` 2000)。
 - **查询**:Rust 原生(`query::eval` 在 live 不可变快照上);MCP `run_qql` 为 agent/IR 入口。UI 搜索:⌘F 文档内、⌘P 快速打开、⌘K 命令(**无**独立 Query 面板)。
 - **编辑器**:CodeMirror 源码 + BlockNote WYSIWYG 双模;自动保存防抖。
 - **画布**:Excalidraw(MIT),懒加载。孤立白板 —— 不进图谱/QQL/wikilink 索引,「新建」入口默认隐藏(底层保留,见 [research/canvas-isolation](./research/canvas-isolation.md))。
@@ -159,7 +163,7 @@ watch_vault(root) / unwatch_vault()           // emit "vault-changed" + 路径�
 
 - **编辑器:CodeMirror + BlockNote 双模**:源码 round-trip 最稳;WYSIWYG 用 BlockNote(MPL-2.0)。`.md` 仍是真相源。
 - **UI 栈:Tailwind 4 + 少量 Radix**:展示型组件自实现,降依赖体积。
-- **图谱演进:SVG → 自研 FR/sigma WebGL → Cytoscape + cose**(2026-08):sigma/graphology/Worker Barnes-Hut/LOD 与 react-force-graph-2d 过渡层已退役;主路径 **Cytoscape.js**(懒加载)+ `ui/src/lib/graph-*` 纯逻辑。
+- **图谱演进:SVG → 自研 FR/sigma WebGL → Cytoscape + cose → force-graph Canvas + d3-force-3d**(2026-08-09 起):sigma/graphology/Worker Barnes-Hut/LOD 与 Cytoscape 均已退役;主路径 **force-graph**(`ForceGraphLayer` 懒加载)+ `ui/src/lib/graph-*` 纯逻辑。
 - **画布:Excalidraw 而非 tldraw**:默认 MIT 分发、可托管,无 source-available 生产限制。
 - **QQL 用户面收缩**:内联 ```qql / QueryPanel / TS 求值器 UI 已撤;QQL 保留为 **core IR + MCP `run_qql`**(见 [04](./04-features.md))。
 
