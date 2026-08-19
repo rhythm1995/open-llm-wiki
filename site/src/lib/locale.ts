@@ -172,8 +172,8 @@ export const faqs = {
       a: "No. Health shows scores and a next action. Ad-hoc questions go to Ask Agent. QQL exists for programs and agents, not for you to type.",
     },
     {
-      q: "Is this a copy of Obsidian?",
-      a: "No. It is an original Apache-2.0 implementation. Obsidian is a public feature comparison only. Source is not copied.",
+      q: "Is it free? What's the license?",
+      a: "Free and open source under Apache-2.0. Fork it, build it, keep your files. The code is an original implementation; every third-party dependency is tracked in THIRD_PARTY_NOTICES.md.",
     },
   ],
   zh: [
@@ -194,8 +194,8 @@ export const faqs = {
       a: "不用。库健康给出分数和下一步。临时问题点「问 Agent」。QQL 留给程序和 Agent，不是给你打字的。",
     },
     {
-      q: "这是 Obsidian 的复制品吗？",
-      a: "不是。这是原创的 Apache-2.0 实现。Obsidian 只作公开功能对照，源码未复制。",
+      q: "免费吗？什么许可？",
+      a: "开源免费，Apache-2.0。可以 fork、可以自己构建，文件始终是你的。代码为原创实现；第三方依赖全部登记在 THIRD_PARTY_NOTICES.md。",
     },
   ],
 } as const;

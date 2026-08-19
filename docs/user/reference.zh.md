@@ -32,7 +32,7 @@ macOS。Windows / Linux 把 `⌘` 换成 `Ctrl`。
 | `⌘W` | 关闭当前标签 |
 | `⌘F` | 当前笔记内查找 / 替换 |
 | `⌘,` | 设置 |
-| `⌘A` | 全选（桌面端） |
+| `⌘A` | 全选 |
 
 应用内简介：点顶栏 `⌘K` 旁的 logo。
 
@@ -45,7 +45,7 @@ macOS。Windows / Linux 把 `⌘` 换成 `Ctrl`。
 | 编辑器 | 默认。列表 + 正文 + Inspector |
 | 图谱 | 笔记关系网络 |
 | 库健康 | 分数、下一步、11 条锁定查询 |
-| Git | 桌面端、且 vault 是 git 仓库时：status / log / commit / pull / push |
+| Git | 仅当 vault 是 git 仓库时：status / log / commit / pull / push |
 
 没有「查询视图」。不要找 QueryPanel。
 
