@@ -34,5 +34,3 @@ The long form is [Concepts](./concepts.md).
 3. **The vault is the memory.** In-app ACP and one-click MCP attach to the same files. Chat is not memory.
 4. **Links over folders.** Put relationships in `[[wikilinks]]` and frontmatter. `type:` never blocks a save.
 5. **Health, not a query language.** Read scores and the next action. Ask Agent for ad-hoc questions.
-
-Screenshots are from the browser preview (same UI as the desktop app). Health’s eleven query details run on desktop; the preview still shows live graph scores.

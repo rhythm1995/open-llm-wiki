@@ -32,7 +32,7 @@ macOS. On Windows / Linux use `Ctrl` in place of `⌘`.
 | `⌘W` | Close current tab |
 | `⌘F` | Find / replace in the current note |
 | `⌘,` | Settings |
-| `⌘A` | Select all (desktop app) |
+| `⌘A` | Select all |
 
 In-app overview: click the logo next to `⌘K`.
 
@@ -45,7 +45,7 @@ Four icons on the left of the toolbar:
 | Editor | Default. List + body + inspector |
 | Graph | Note relationship network |
 | Health | Scores, next action, 11 locked queries |
-| Git | Desktop only, and only if the vault is a git repo: status / log / commit / pull / push |
+| Git | Only when the vault is a git repo: status / log / commit / pull / push |
 
 There is no query view. There is no QueryPanel.
 

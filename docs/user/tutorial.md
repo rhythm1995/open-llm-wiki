@@ -8,23 +8,15 @@
 
 This is a lesson, not a menu dump. When you finish you should have: opened a vault, read a note, followed a link, seen those notes on the graph, and read Health. The folder you walked is already a compiled wiki — and it is already memory, even before you attach an agent.
 
-You need: a Mac (or the browser preview already running) and about fifteen minutes. Do not change settings or wire an agent yet — those belong in the [how-to](./how-to.md).
+You need: the app installed, and about fifteen minutes. Do not change settings or wire an agent yet — those belong in the [how-to](./how-to.md).
 
 ## 1. Open the app
 
-**Desktop:** launch Open LLM Wiki. An unsigned build from source may be blocked once. Use *System Settings → Privacy & Security → Open Anyway*, or:
+Launch Open LLM Wiki. An unsigned build may be blocked once. Use *System Settings → Privacy & Security → Open Anyway*, or:
 
 ```bash
 xattr -cr "/Applications/Open LLM Wiki.app"
 ```
-
-**Browser preview (for development):**
-
-```bash
-pnpm --dir ui dev
-```
-
-Open <http://localhost:5173>. The preview loads a demo vault automatically — skip to step 3.
 
 ## 2. Open a vault
 
@@ -74,9 +66,7 @@ Click the heartbeat icon to open **Health**.
 
 ![Health: six scores and a next action](./images/health-en.png)
 
-Read the six tiles (source digestion, concept coverage, contested, orphans, single-source, unreviewed) and the next-action line. Do not learn how the eleven queries on the left are written.
-
-The browser preview says it will not run QQL; scores still come from the graph. On desktop the eleven queries run in the background and badges appear.
+Read the six tiles (source digestion, concept coverage, contested, orphans, single-source, unreviewed) and the next-action line. Do not learn how the eleven queries on the left are written. They run in the background and badges appear as they finish.
 
 ## You are done with the lesson
 

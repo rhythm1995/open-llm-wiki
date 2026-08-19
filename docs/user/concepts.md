@@ -79,7 +79,7 @@ What a person sees:
 3. One next-action sentence;
 4. Ad-hoc questions handed to an agent in natural language.
 
-QQL is still there: MCP `run_qql`, the desktop health sweep, `health/*.md` in the starter. It is an intermediate representation for programs and agents, not a language for you to type.
+QQL is still there: MCP `run_qql`, the background health sweep, `health/*.md` in the starter. It is an intermediate representation for programs and agents, not a language for you to type.
 
 ## The flywheel
 

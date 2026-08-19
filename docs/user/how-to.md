@@ -23,7 +23,7 @@ Each section is one job. First time in the app? Use the [tutorial](./tutorial.md
 2. Choose a Markdown folder on disk.
 3. Recently opened vaults appear on the welcome screen — click one.
 
-On desktop you can drop a folder onto the welcome screen. The browser preview uses an in-memory demo vault and cannot open a folder from disk.
+You can also drop a folder onto the welcome screen.
 
 ## Create a note
 
@@ -92,13 +92,10 @@ Canvas files (`.canvas`) are a separate whiteboard. They are not on the graph an
 
 1. Click the heartbeat icon.
 2. Read the six tiles and the next-action line first.
-3. The eleven items on the left are grouped as structure / evidence / trust. Open one for detail (desktop).
+3. The eleven items on the left are grouped as structure / evidence / trust. Open one for detail.
 4. Type a natural-language question at the top right and click **Ask Agent**. Do not write a query by hand.
 
 ![Health overview](./images/health-en.png)
-
-> [!NOTE]
-> The browser preview does not run those eleven QQL templates. It still shows live graph scores. On desktop the view sweeps the queries in the background and fills badges.
 
 Hunger targets: an `Active` concept wants at least two inbound links; `Contested` wants at least three. Short rows are highlighted.
 
@@ -106,7 +103,7 @@ Hunger targets: an `Active` concept wants at least two inbound links; `Contested
 
 The folder is the memory. Chat logs are not. Attach an agent to the same files you browse.
 
-### One-click for Cursor / Claude Code / others (desktop)
+### One-click for Cursor / Claude Code / others
 
 1. `⌘,` → **Agent memory** → one-click connect.
 2. The app writes user-level MCP config for the agents it finds, installs the `wiki-ingest` skill into this vault, and can seed wiki-starter if the folder is empty.
@@ -132,8 +129,6 @@ The agent then has eight tools: `list_notes`, `read_note`, `write_note`, `links`
 4. Send. Tool calls fold into cards. Permissions are three-tier: ask every time / relaxed / high-risk still gated.
 
 ![In-app Agent sidebar](./images/agent-en.png)
-
-The browser preview cannot see local agents and will tell you to install one.
 
 **Query vault** (`⌘K`) seeds a short natural-language instruction. It does not open a query editor.
 
@@ -163,4 +158,4 @@ The `EN` / `中` control in the status bar switches the UI language immediately.
 
 ## Report a problem
 
-Help → **Report Issue…**, or `⌘K` → **Report an issue**, or the card in the help guide, or Settings → Diagnostics. That opens [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues). On desktop, export diagnostic logs from Settings first.
+Help → **Report Issue…**, or `⌘K` → **Report an issue**, or the card in the help guide, or Settings → Diagnostics. That opens [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues). Export diagnostic logs from Settings first.

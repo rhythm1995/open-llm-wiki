@@ -79,7 +79,7 @@ Vault 就是你选中的那个文件夹。没有登录，没有厂商云，没�
 3. 一句「下一步」；
 4. 临时问题交给 Agent，用自然语言问。
 
-QQL 仍在：MCP 的 `run_qql`、桌面健康扫描、starter 里的 `health/*.md`。它是给程序和 Agent 的中间表示，不是给你打字的语言。
+QQL 仍在：MCP 的 `run_qql`、后台健康扫描、starter 里的 `health/*.md`。它是给程序和 Agent 的中间表示，不是给你打字的语言。
 
 ## 飞轮
 

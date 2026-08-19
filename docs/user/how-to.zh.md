@@ -23,7 +23,7 @@
 2. 选磁盘上的一个 Markdown 文件夹。
 3. 欢迎屏会列出最近打开过的库——点其中一个。
 
-桌面端可以把文件夹拖到欢迎屏。浏览器预览用的是内存演示库，不能打开磁盘上的文件夹。
+也可以把文件夹直接拖到欢迎屏。
 
 ## 新建笔记
 
@@ -92,13 +92,10 @@ contradicts: "[[Zettelkasten]]"
 
 1. 点心跳图标。
 2. 先看六格分数和「下一步」那一行。
-3. 左侧十一条按结构 / 证据 / 信任分组。点开看明细（桌面端）。
+3. 左侧十一条按结构 / 证据 / 信任分组。点开看明细。
 4. 右上角用自然语言提问，点 **问 Agent**。不要手写查询。
 
 ![库健康总览](./images/health-zh.png)
-
-> [!NOTE]
-> 浏览器预览不跑那十一条 QQL 模板，仍显示图谱即时分数。桌面端会在后台扫查询并填徽章。
 
 饥饿目标：`Active` 主张至少要 2 条入链，`Contested` 至少 3 条。不够的行会高亮。
 
@@ -106,7 +103,7 @@ contradicts: "[[Zettelkasten]]"
 
 文件夹才是记忆。聊天记录不是。让 Agent 接到你正在浏览的同一批文件上。
 
-### 一键接到 Cursor / Claude Code 等（桌面）
+### 一键接到 Cursor / Claude Code 等
 
 1. `⌘,` → **Agent 记忆** → 一键接入。
 2. 应用给探测到的 Agent 写用户级 MCP 配置，把 `wiki-ingest` skill 装进当前库；空文件夹还可以种 wiki-starter。
@@ -132,8 +129,6 @@ npx --yes open-llm-wiki-skills install . --hooks
 4. 发送。工具调用收成卡片。权限三档：每次问 / 宽松 / 高风险仍拦截。
 
 ![应用内 Agent 侧栏](./images/agent-zh.png)
-
-浏览器预览探测不到本机 Agent，会提示先安装。
 
 **查询 Vault**（`⌘K`）只预填一句自然语言指令。它不会打开查询编辑器。
 
@@ -163,4 +158,4 @@ Agent 应遵循 wiki-ingest：新写一篇 Summary，把 Source 标成 `Digested
 
 ## 反馈问题
 
-Help → **Report Issue…**，或 `⌘K` → **问题反馈**，或帮助手册里的卡片，或设置 → 诊断。会打开 [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues)。桌面端请先在设置里导出诊断日志。
+Help → **Report Issue…**，或 `⌘K` → **问题反馈**，或帮助手册里的卡片，或设置 → 诊断。会打开 [GitHub Issues](https://github.com/rhythm1995/open-llm-wiki/issues)。请先在设置里导出诊断日志。
