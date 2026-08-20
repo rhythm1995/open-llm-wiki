@@ -433,14 +433,13 @@ fn read_note(root: String, path: String) -> Result<String, String> {
     fs::read_to_string(&full).map_err(err)
 }
 
-#[tauri::command]
-fn write_note(
-    root: String,
-    path: String,
+fn write_note_impl(
+    root: &str,
+    path: &str,
     content: String,
-    state: State<LiveVaultState>,
+    state: &LiveVaultState,
 ) -> Result<(), String> {
-    let full = resolve_under(&root, &path)?;
+    let full = resolve_under(root, path)?;
     if let Some(parent) = full.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
@@ -450,12 +449,11 @@ fn write_note(
             logging::LogLevel::Error,
             "ipc.write_note",
             "write failed",
-            Some(serde_json::json!({ "path": &path, "err": e.to_string() })),
+            Some(serde_json::json!({ "path": path, "err": e.to_string() })),
         );
         err(e)
     })?;
-    // 路径级 delta:更新 live entries,不 WalkDir。
-    live_note_upsert(&state, &root, &path, Some(content));
+    live_note_upsert(state, root, path, Some(content));
     logging::emit(
         logging::LogLevel::Debug,
         "ipc.write_note",
@@ -463,6 +461,16 @@ fn write_note(
         Some(serde_json::json!({ "path": path, "bytes": nbytes })),
     );
     Ok(())
+}
+
+#[tauri::command]
+fn write_note(
+    root: String,
+    path: String,
+    content: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
+    write_note_impl(&root, &path, content, &state)
 }
 
 /// 读取图谱布局快照(B-GRAPH-POS-PERSIST)。
@@ -490,6 +498,29 @@ fn save_graph_layout(root: String, json: String) -> Result<(), String> {
 
 /// 将 base64 字节写入 vault 内相对路径(附件,非笔记;进 media files 表,不进 note index)。
 /// `bytes_base64` 可为纯 base64,或 `data:*;base64,...` data URL。
+fn save_attachment_impl(
+    root: &str,
+    path: &str,
+    bytes_base64: &str,
+    state: &LiveVaultState,
+) -> Result<(), String> {
+    let full = resolve_under(root, path)?;
+    if let Some(parent) = full.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    let raw = strip_data_url_base64(bytes_base64);
+    let bytes = decode_base64(raw)?;
+    fs::write(&full, bytes).map_err(err)?;
+    if let Ok(mut g) = state.0.lock() {
+        if let Some(live) = g.as_mut() {
+            if live.root == root {
+                live_media_upsert_file(live, root, path);
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn save_attachment(
     root: String,
@@ -497,22 +528,7 @@ fn save_attachment(
     bytes_base64: String,
     state: State<LiveVaultState>,
 ) -> Result<(), String> {
-    let full = resolve_under(&root, &path)?;
-    if let Some(parent) = full.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
-    let raw = strip_data_url_base64(&bytes_base64);
-    let bytes = decode_base64(raw)?;
-    fs::write(&full, bytes).map_err(err)?;
-    // 媒体索引:登记文件(引用仍等笔记保存后由 write_note 增量)。
-    if let Ok(mut g) = state.0.lock() {
-        if let Some(live) = g.as_mut() {
-            if live.root == root {
-                live_media_upsert_file(live, &root, &path);
-            }
-        }
-    }
-    Ok(())
+    save_attachment_impl(&root, &path, &bytes_base64, &state)
 }
 
 /// 附件相对路径是否已在磁盘上(unique 路径分配;不进 live index)。
@@ -576,16 +592,15 @@ fn ensure_live_media<'a>(
 }
 
 /// 全库媒体快照:stats + orphans + missing(只读 live;force 时先重载)。
-#[tauri::command]
-fn media_index(
-    root: String,
+fn media_index_impl(
+    root: &str,
     force: Option<bool>,
-    state: State<LiveVaultState>,
+    state: &LiveVaultState,
 ) -> Result<MediaSnapshot, String> {
     let force = force.unwrap_or(false);
     let mut g = state.0.lock().map_err(|e| e.to_string())?;
     if force || g.as_ref().map(|v| v.root != root).unwrap_or(true) {
-        *g = Some(load_live_from_disk(&root)?);
+        *g = Some(load_live_from_disk(root)?);
     }
     let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
     let st = live.media.stats();
@@ -608,33 +623,49 @@ fn media_index(
     })
 }
 
-/// 当前笔记引用的媒体(含 missing 占位:bytes=0)。
 #[tauri::command]
-fn media_of_note(
+fn media_index(
     root: String,
-    path: String,
+    force: Option<bool>,
     state: State<LiveVaultState>,
+) -> Result<MediaSnapshot, String> {
+    media_index_impl(&root, force, &state)
+}
+
+/// 当前笔记引用的媒体(含 missing 占位:bytes=0)。
+fn media_of_note_impl(
+    root: &str,
+    path: &str,
+    state: &LiveVaultState,
 ) -> Result<Vec<MediaMetaOut>, String> {
-    let g = ensure_live_media(&state, &root)?;
+    let g = ensure_live_media(state, root)?;
     let live = g.as_ref().ok_or_else(|| "live index missing".to_string())?;
     if live.root != root {
         return Err("live root mismatch".into());
     }
     Ok(live
         .media
-        .media_of(&path)
+        .media_of(path)
         .iter()
         .map(|m| media_meta_out(&live.media, m))
         .collect())
 }
 
+#[tauri::command]
+fn media_of_note(
+    root: String,
+    path: String,
+    state: State<LiveVaultState>,
+) -> Result<Vec<MediaMetaOut>, String> {
+    media_of_note_impl(&root, &path, &state)
+}
+
 /// 将附件移入 `.open-llm-wiki/media-trash/`(可还原目录树),并更新 media files 表。
 /// **不**在 delete_note 时自动调用——需 UI 确认后调用。
-#[tauri::command]
-fn trash_attachments(
-    root: String,
+fn trash_attachments_impl(
+    root: &str,
     paths: Vec<String>,
-    state: State<LiveVaultState>,
+    state: &LiveVaultState,
 ) -> Result<usize, String> {
     let mut moved = 0usize;
     for raw in &paths {
@@ -642,9 +673,8 @@ fn trash_attachments(
         if rel.is_empty() || rel.split('/').any(|s| s == ".." || s.starts_with('.')) {
             continue;
         }
-        let src = resolve_under(&root, &rel)?;
+        let src = resolve_under(root, &rel)?;
         if !src.is_file() {
-            // 仍从索引移除
             if let Ok(mut g) = state.0.lock() {
                 if let Some(live) = g.as_mut() {
                     if live.root == root {
@@ -655,18 +685,17 @@ fn trash_attachments(
             continue;
         }
         let trash_rel = format!(".open-llm-wiki/media-trash/{rel}");
-        let dst = resolve_under(&root, &trash_rel)?;
+        let dst = resolve_under(root, &trash_rel)?;
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent).map_err(err)?;
         }
-        // 碰撞:加时间戳后缀
         let dst = if dst.exists() {
             let stamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
             let alt = format!("{trash_rel}.{stamp}");
-            resolve_under(&root, &alt)?
+            resolve_under(root, &alt)?
         } else {
             dst
         };
@@ -681,6 +710,15 @@ fn trash_attachments(
         moved += 1;
     }
     Ok(moved)
+}
+
+#[tauri::command]
+fn trash_attachments(
+    root: String,
+    paths: Vec<String>,
+    state: State<LiveVaultState>,
+) -> Result<usize, String> {
+    trash_attachments_impl(&root, paths, &state)
 }
 
 /// 去掉 `data:…;base64,` 前缀(若有)。
@@ -798,6 +836,17 @@ fn decode_base64(input: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+fn create_note_impl(
+    root: &str,
+    path: &str,
+    content: String,
+    state: &LiveVaultState,
+) -> Result<(), String> {
+    write_note_impl(root, path, content, state)?;
+    git_commit_paths(root, &format!("Create {}", title_of(path)), &[path]);
+    Ok(())
+}
+
 #[tauri::command]
 fn create_note(
     root: String,
@@ -805,9 +854,14 @@ fn create_note(
     content: String,
     state: State<LiveVaultState>,
 ) -> Result<(), String> {
-    write_note(root.clone(), path.clone(), content, state)?;
-    // 结构操作自动提交(仅此路径);正文编辑不提交,保 commit 卫生。
-    git_commit_paths(&root, &format!("Create {}", title_of(&path)), &[&path]);
+    create_note_impl(&root, &path, content, &state)
+}
+
+fn delete_note_impl(root: &str, path: &str, state: &LiveVaultState) -> Result<(), String> {
+    let full = resolve_under(root, path)?;
+    fs::remove_file(&full).map_err(err)?;
+    live_note_upsert(state, root, path, None);
+    git_commit_paths(root, &format!("Delete {}", title_of(path)), &[path]);
     Ok(())
 }
 
@@ -817,25 +871,19 @@ fn delete_note(
     path: String,
     state: State<LiveVaultState>,
 ) -> Result<(), String> {
-    let full = resolve_under(&root, &path)?;
-    fs::remove_file(&full).map_err(err)?;
-    live_note_upsert(&state, &root, &path, None);
-    // 删除即提交:该笔记自此进入 git 历史,可在「归档」还原(到上次提交的内容)。
-    git_commit_paths(&root, &format!("Delete {}", title_of(&path)), &[&path]);
-    Ok(())
+    delete_note_impl(&root, &path, &state)
 }
 
-#[tauri::command]
-fn rename_note(
-    root: String,
-    from: String,
-    to: String,
-    state: State<LiveVaultState>,
+fn rename_note_impl(
+    root: &str,
+    from: &str,
+    to: &str,
+    state: &LiveVaultState,
 ) -> Result<(), String> {
     // 需要 live.media 做 refcount/搬图;缺失则先加载。
-    let _ = ensure_live(&state, &root);
-    let src = resolve_under(&root, &from)?;
-    let dst = resolve_under(&root, &to)?;
+    let _ = ensure_live(state, root);
+    let src = resolve_under(root, from)?;
+    let dst = resolve_under(root, to)?;
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent).map_err(err)?;
     }
@@ -878,8 +926,8 @@ fn rename_note(
                                 new_body =
                                     open_llm_wiki_core::rewrite_media_paths_in_body(&new_body, &moves);
                                 for m in &moves {
-                                    let msrc = resolve_under(&root, &m.from)?;
-                                    let mdst = resolve_under(&root, &m.to)?;
+                                    let msrc = resolve_under(root, &m.from)?;
+                                    let mdst = resolve_under(root, &m.to)?;
                                     if msrc.is_file() {
                                         if let Some(parent) = mdst.parent() {
                                             fs::create_dir_all(parent).map_err(err)?;
@@ -912,11 +960,21 @@ fn rename_note(
 
     let refs: Vec<&str> = commit_paths.iter().map(|s| s.as_str()).collect();
     git_commit_paths(
-        &root,
-        &format!("Rename {} → {}", title_of(&from), title_of(&to)),
+        root,
+        &format!("Rename {} → {}", title_of(from), title_of(to)),
         &refs,
     );
     Ok(())
+}
+
+#[tauri::command]
+fn rename_note(
+    root: String,
+    from: String,
+    to: String,
+    state: State<LiveVaultState>,
+) -> Result<(), String> {
+    rename_note_impl(&root, &from, &to, &state)
 }
 
 /// 索引快照(节点 + 统一边)。
@@ -2275,5 +2333,157 @@ mod git_tests {
         git_restore_note_inner(root, "gone.md").unwrap();
         let body = std::fs::read_to_string(format!("{root}/gone.md")).unwrap();
         assert!(body.contains("original body"));
+    }
+}
+
+/// IPC 契约:笔记 CRUD + 附件(真临时目录,无 Tauri runtime)。
+/// 命令层已抽 `*_impl`,此处直接打磁盘 + live 索引不变量。
+#[cfg(test)]
+mod ipc_contract_tests {
+    use super::{
+        attachment_exists, create_note_impl, delete_note_impl, encode_base64, list_vault,
+        media_index_impl, media_of_note_impl, read_attachment_data_url, read_graph_layout,
+        read_note, rename_note_impl, resolve_under, save_attachment_impl, save_graph_layout,
+        trash_attachments_impl, write_note_impl, LiveVaultState,
+    };
+    use std::sync::Mutex;
+
+    fn live() -> LiveVaultState {
+        LiveVaultState(Mutex::new(None))
+    }
+
+    fn tmp() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("olw-ipc-")
+            .tempdir()
+            .unwrap()
+    }
+
+    #[test]
+    fn list_vault_rejects_non_dir() {
+        let err = list_vault("/definitely-not-a-dir-olw".into())
+            .err()
+            .expect("non-dir should fail");
+        assert!(err.contains("不是目录"), "{err}");
+    }
+
+    #[test]
+    fn list_read_write_create_delete_roundtrip() {
+        let dir = tmp();
+        let root = dir.path().to_str().unwrap();
+        let state = live();
+        std::fs::write(dir.path().join("a.md"), "# A\n").unwrap();
+        std::fs::create_dir_all(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub/b.md"), "# B\n").unwrap();
+        std::fs::write(dir.path().join("ignore.txt"), "no").unwrap();
+        std::fs::write(dir.path().join("board.canvas"), "").unwrap();
+
+        let listed = list_vault(root.into()).unwrap();
+        let paths: Vec<_> = listed.iter().map(|e| e.path.as_str()).collect();
+        assert!(paths.contains(&"a.md"));
+        assert!(paths.contains(&"sub"));
+        assert!(paths.contains(&"sub/b.md"));
+        assert!(paths.contains(&"board.canvas"));
+        assert!(!paths.iter().any(|p| p.ends_with("ignore.txt")));
+
+        assert_eq!(read_note(root.into(), "a.md".into()).unwrap(), "# A\n");
+        assert!(read_note(root.into(), "nope.md".into()).is_err());
+        assert!(resolve_under(root, "../escape.md").is_err());
+
+        write_note_impl(root, "a.md", "# A\nedited\n".into(), &state).unwrap();
+        assert_eq!(
+            read_note(root.into(), "a.md".into()).unwrap(),
+            "# A\nedited\n"
+        );
+
+        create_note_impl(root, "c.md", "# C\n".into(), &state).unwrap();
+        assert!(dir.path().join("c.md").is_file());
+
+        delete_note_impl(root, "c.md", &state).unwrap();
+        assert!(!dir.path().join("c.md").exists());
+        assert!(delete_note_impl(root, "c.md", &state).is_err());
+    }
+
+    #[test]
+    fn rename_note_moves_file_and_same_dir_image() {
+        let dir = tmp();
+        let root = dir.path().to_str().unwrap();
+        let state = live();
+        std::fs::create_dir_all(dir.path().join("proj")).unwrap();
+        std::fs::write(dir.path().join("proj/shot.png"), b"PNG").unwrap();
+        std::fs::write(
+            dir.path().join("proj/a.md"),
+            "# A\n![](proj/shot.png)\n",
+        )
+        .unwrap();
+
+        rename_note_impl(root, "proj/a.md", "archive/a.md", &state).unwrap();
+        assert!(!dir.path().join("proj/a.md").exists());
+        let body = std::fs::read_to_string(dir.path().join("archive/a.md")).unwrap();
+        assert!(body.contains("archive/shot.png"), "{body}");
+        assert!(dir.path().join("archive/shot.png").is_file());
+        assert!(!dir.path().join("proj/shot.png").exists());
+    }
+
+    #[test]
+    fn graph_layout_missing_is_none_then_roundtrip() {
+        let dir = tmp();
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(read_graph_layout(root.into()).unwrap(), None);
+        save_graph_layout(root.into(), "{\"n\":1}".into()).unwrap();
+        assert_eq!(
+            read_graph_layout(root.into()).unwrap().as_deref(),
+            Some("{\"n\":1}")
+        );
+    }
+
+    #[test]
+    fn save_attachment_exists_data_url_and_orphan_trash() {
+        let dir = tmp();
+        let root = dir.path().to_str().unwrap();
+        let state = live();
+        let png = encode_base64(&[0x89, b'P', b'N', b'G', 0, 1, 2, 3]);
+        save_attachment_impl(root, "attachments/x.png", &png, &state).unwrap();
+        assert!(attachment_exists(root.into(), "attachments/x.png".into()).unwrap());
+        assert!(!attachment_exists(root.into(), "attachments/no.png".into()).unwrap());
+
+        let data = read_attachment_data_url(root.into(), "attachments/x.png".into()).unwrap();
+        assert!(data.starts_with("data:image/png;base64,"));
+        assert!(data.contains(&png));
+
+        save_attachment_impl(
+            root,
+            "attachments/y.png",
+            &format!("data:image/png;base64,{png}"),
+            &state,
+        )
+        .unwrap();
+
+        std::fs::write(
+            dir.path().join("note.md"),
+            "# N\n![](attachments/x.png)\n",
+        )
+        .unwrap();
+
+        let snap = media_index_impl(root, Some(true), &state).unwrap();
+        assert!(snap.files.iter().any(|p| p == "attachments/x.png"));
+        assert!(snap.orphans.iter().any(|o| o.path == "attachments/y.png"));
+        assert_eq!(snap.stats.orphans, 1);
+
+        let of = media_of_note_impl(root, "note.md", &state).unwrap();
+        assert!(of.iter().any(|m| m.path == "attachments/x.png"));
+
+        let n = trash_attachments_impl(
+            root,
+            vec!["attachments/y.png".into(), "../evil.png".into()],
+            &state,
+        )
+        .unwrap();
+        assert_eq!(n, 1);
+        assert!(!dir.path().join("attachments/y.png").exists());
+        assert!(dir
+            .path()
+            .join(".open-llm-wiki/media-trash/attachments/y.png")
+            .is_file());
     }
 }
