@@ -15,6 +15,14 @@
 
 ---
 
+### 2026-08-21 ZCode — Git 视图零提交/非仓库状态去红错(源头消化 unborn fatal)
+
+- **branch**: `zcode/git-unborn-ux`(从 `zcode/docs-anti-drift` HEAD 切出;未 commit)。
+- **做了**: 用户报:刚 init 的仓库点 Git 视图整屏红 `fatal: your current branch 'main' does not have any commits yet`。① app `lib.rs` 新增 `git_has_commits_inner`(`git rev-parse --verify --quiet HEAD` 退出码判定,不匹配 stderr 文案——fatal 文案随 git locale 本地化,前端匹配不可靠);`git_log_raw` / `git_deleted_notes` 在 unborn HEAD 时返回空历史/空列表,不再让 fatal 冒泡(顺带治好 ArchiveView 同样会炸的 `Promise.all`)。② `GitPanel.tsx`:refresh 先探 `git_is_repo`,非仓库渲染空态 + 「初始化 git」按钮(与 ArchiveView 共用 `git_init`,**保持 opt-in 不静默替用户 init**);log 为空(= 尚无首提)时显示首提引导文案而非仅"无提交历史";mock 下不再发起 git 调用(浏览器预览不再出现红色 mock 报错)。③ i18n 增 `git.notRepo*` / `git.init*` / `git.noCommitsHint` 中英镜像。
+- **理由 / 影响**: "零提交"与"非仓库"都是正常状态,红色 fatal 只该留给真错误(git 未装/IO)。关于是否自动 git init:结论是**不自动**——app 承诺"任意 Markdown 文件夹即 Vault",静默写 `.git/` 是用户未请求的副作用(目录可能在别的仓库内/用网盘同步/有意不用 git);保留一键手动入口(Git 视图 + 归档视图两处)。Rust 侧 unborn 判定走退出码,与 locale 无关。
+- **验证**: `cargo test -p open-llm-wiki-app` 63 绿(新增 unborn 回归测试)/ `-core` 11 绿;clippy 无新增警告(存量 9 条不变);ui typecheck + test:cov 102 文件 936 绿(新增 2 用例);e2e 23 绿。
+- **下一步 / 接手注意**: ① git 未配 user.name/email 时首提会吃 git 的 "Please tell me who you are" 红错(文案尚可读,暂保留原样;要更友好可在 git_init/commit 前探测并给设置引导)。② unborn 仓库 pull/push 仍可能红错,按钮未按"无远端/无上游"细分禁用。③ 本次未 commit,pending 用户 review。
+
 ### 2026-08-20 Grok — TDD §L-5 加厚 TabBar/Editor/NoteList + App 热键纯函数
 
 - **branch**: `zcode/docs-anti-drift`(未 commit)
