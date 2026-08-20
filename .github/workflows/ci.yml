@@ -41,6 +41,14 @@ jobs:
       - name: MCP server tests (open-llm-wiki-mcp)
         run: cargo test -p open-llm-wiki-mcp
 
+      - name: Skills installer tests
+        run: node --test packages/open-llm-wiki-skills/test/*.test.mjs
+
+      - name: Site lib tests
+        run: |
+          pnpm --dir site install --frozen-lockfile
+          pnpm --dir site test
+
       - name: UI typecheck
         run: pnpm --dir ui typecheck
 
