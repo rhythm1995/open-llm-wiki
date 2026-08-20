@@ -17,3 +17,29 @@ if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
 if (typeof Element !== "undefined" && !Element.prototype.scrollTo) {
   Element.prototype.scrollTo = function scrollTo() {};
 }
+
+// jsdom 无 ResizeObserver;图谱 / 部分面板挂载时测量容器。
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class ResizeObserver {
+    private readonly cb: ResizeObserverCallback;
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb;
+    }
+    observe(target: Element): void {
+      this.cb(
+        [
+          {
+            target,
+            contentRect: target.getBoundingClientRect(),
+            borderBoxSize: [],
+            contentBoxSize: [],
+            devicePixelContentBoxSize: [],
+          } as ResizeObserverEntry,
+        ],
+        this,
+      );
+    }
+    unobserve(): void {}
+    disconnect(): void {}
+  };
+}

@@ -10,6 +10,28 @@
  */
 
 
+/** 栏宽夹紧:不低于 min;有 max 时不超过 max。 */
+export function clampColWidth(raw: number, min: number, max?: number): number {
+  return Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, raw));
+}
+
+/** 一次拖拽位移 → 新栏宽。`side="right"` 向右变宽;`"left"` 向左变宽。 */
+export function colWidthFromDrag(
+  startW: number,
+  startX: number,
+  clientX: number,
+  side: "left" | "right",
+  min: number,
+  max?: number,
+): number {
+  const dir = side === "right" ? 1 : -1;
+  return clampColWidth(
+    Math.round(startW + (clientX - startX) * dir),
+    min,
+    max,
+  );
+}
+
 export function ColResizeHandle({
   width,
   min,
@@ -28,11 +50,8 @@ export function ColResizeHandle({
     e.preventDefault();
     const startX = e.clientX;
     const startW = width;
-    const dir = side === "right" ? 1 : -1;
     const move = (ev: MouseEvent) => {
-      const raw = Math.round(startW + (ev.clientX - startX) * dir);
-      const next = Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, raw));
-      onChange(next);
+      onChange(colWidthFromDrag(startW, startX, ev.clientX, side, min, max));
     };
     const up = () => {
       window.removeEventListener("mousemove", move);
@@ -49,6 +68,8 @@ export function ColResizeHandle({
   return (
     <div className="relative w-0 shrink-0 self-stretch">
       <div
+        data-testid="col-resize-handle"
+        data-side={side}
         onMouseDown={onDown}
         // 细灰高亮,不抢眼(命中区 4px 跨接缝,hover 显中性灰)。
         className="absolute -left-[2px] top-0 z-30 h-full w-[4px] cursor-col-resize hover:bg-overlay/40"

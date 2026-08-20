@@ -208,6 +208,23 @@ export function Nav({
     count?: number,
   ) => (
     <button
+      type="button"
+      key={
+        sel.kind === "type" || sel.kind === "tag" || sel.kind === "folder"
+          ? `${sel.kind}-${sel.id}`
+          : sel.kind
+      }
+      data-testid={
+        sel.kind === "inbox"
+          ? "nav-inbox"
+          : sel.kind === "all"
+            ? "nav-all"
+            : sel.kind === "type"
+              ? `nav-type-${sel.id || "untyped"}`
+              : sel.kind === "tag"
+                ? `nav-tag-${sel.id}`
+                : undefined
+      }
       onClick={() => onNavSelect(sel)}
       onContextMenu={(e) => {
         if (sel.kind === "type" || sel.kind === "tag") {
@@ -236,6 +253,8 @@ export function Nav({
     const open = openSections.has(key);
     return (
       <button
+        type="button"
+        data-testid={`nav-section-${key}`}
         onClick={() => toggleSection(key)}
         className="flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-overlay hover:text-subtext"
       >
@@ -304,6 +323,8 @@ export function Nav({
             <span className="inline-block size-[15px] shrink-0" aria-hidden />
           )}
           <button
+            type="button"
+            data-testid={`nav-folder-${node.path}`}
             onClick={() => onNavSelect({ kind: "folder", id: node.path })}
             className="flex min-w-0 flex-1 items-center gap-1.5 rounded py-1"
           >
@@ -323,7 +344,7 @@ export function Nav({
   const hasVault = snapshot !== null;
 
   return (
-    <div className="flex h-full flex-col bg-mantle">
+    <div className="flex h-full flex-col bg-mantle" data-testid="nav">
       {!hasVault ? (
         <p className="px-3 py-4 text-[12px] text-overlay">{t("sidebar.empty")}</p>
       ) : (

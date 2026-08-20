@@ -45,6 +45,11 @@ import { resolveWikiTarget } from "./lib/wikilink";
 import { isCanvasPath } from "./lib/canvas";
 import { isSheetPath } from "./lib/sheet";
 import {
+  findCloseRestore,
+  findOpenPlan,
+  matchAppHotkey,
+} from "./lib/app-hotkeys";
+import {
   buildIngestPrompt,
   detectWikiIngestSkill,
   digestEligibility,
@@ -658,41 +663,44 @@ export default function App() {
   pathRef.current = state.currentPath;
 
   // ⌘K 命令 · ⌘P 快开 · ⌘O 打开 vault · ⌘⇧F 库内全文。
-  // capture:true —— 编辑器可能 stopPropagation。
+  // capture:true —— 编辑器可能 stopPropagation。判定在 matchAppHotkey。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      const k = e.key.toLowerCase();
-      if (k === "k" && !e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
+      const action = matchAppHotkey(e, {
+        hasPath: !!pathRef.current,
+        viewIsEditor: false,
+        paletteOpen: false,
+      });
+      if (
+        action !== "toggle-commands" &&
+        action !== "toggle-files" &&
+        action !== "open-vault" &&
+        action !== "open-search" &&
+        action !== "open-settings" &&
+        action !== "close-tab"
+      ) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (action === "toggle-commands") {
         (document.activeElement as HTMLElement | null)?.blur();
         setPaletteMode("commands");
         setPaletteOpen((v) => !v);
-      } else if (k === "p" && !e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
+      } else if (action === "toggle-files") {
         (document.activeElement as HTMLElement | null)?.blur();
         setPaletteMode("files");
         setPaletteOpen((v) => !v);
-      } else if (k === "o" && !e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
+      } else if (action === "open-vault") {
         void actions.openPicker();
-      } else if (k === "f" && e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
+      } else if (action === "open-search") {
         setPaletteMode("search");
         setPaletteOpen(true);
-      } else if (k === "," && !e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
+      } else if (action === "open-settings") {
         setSettingsOpen(true);
-      } else if (k === "w" && !e.shiftKey) {
-        if (!pathRef.current) return;
-        e.preventDefault();
-        e.stopPropagation();
-        void actions.closeTab(pathRef.current);
+      } else if (action === "close-tab") {
+        const p = pathRef.current;
+        if (p) void actions.closeTab(p);
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -701,12 +709,11 @@ export default function App() {
 
   /** 打开文档内查找:进 editor、必要时切 source 以启用 CM 全文高亮。 */
   const openFind = useCallback(() => {
-    const path = pathRef.current;
-    if (!path || isCanvasPath(path) || isSheetPath(path)) return;
+    const plan = findOpenPlan(pathRef.current, editModeRef.current);
+    if (!plan.allowed) return;
     setView("editor");
-    const mode = editModeRef.current;
-    if (mode !== "source") {
-      findPrevModeRef.current = mode;
+    if (plan.switchToSource) {
+      findPrevModeRef.current = editModeRef.current;
       // 只临时切源码做高亮,不写进默认编辑模式。
       setEditMode("source");
     } else {
@@ -722,10 +729,9 @@ export default function App() {
       return h;
     });
     setFindOpen(false);
-    // 还原打开 Find 前的编辑模式。
-    const prev = findPrevModeRef.current;
+    const restore = findCloseRestore(findPrevModeRef.current);
     findPrevModeRef.current = null;
-    if (prev && prev !== "source") setEditMode(prev);
+    if (restore) setEditMode(restore);
   }, []);
 
   const commandExtras = useMemo((): Omit<
@@ -930,8 +936,9 @@ export default function App() {
   // ⌘F 文内查找(不含 Shift → 库搜是 ⌘⇧F)。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod || e.shiftKey || e.key.toLowerCase() !== "f") return;
+      if (matchAppHotkey(e, { hasPath: true, viewIsEditor: false, paletteOpen: false }) !== "find-in-doc") {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       if (findOpen) {
@@ -959,10 +966,17 @@ export default function App() {
   // ⌘S / Ctrl+S 立即保存(拦截浏览器的"保存网页")。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        void actions.saveNow();
+      if (
+        matchAppHotkey(e, {
+          hasPath: true,
+          viewIsEditor: false,
+          paletteOpen: false,
+        }) !== "save"
+      ) {
+        return;
       }
+      e.preventDefault();
+      void actions.saveNow();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -972,11 +986,18 @@ export default function App() {
   // 注:浏览器 dev 下 ⌘W 会被浏览器抢占关闭页签,仅在 Tauri 桌面 app 生效(见 deferred)。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w") {
-        if (view !== "editor" || !state.currentPath || paletteOpen) return;
-        e.preventDefault();
-        actions.closeTab(state.currentPath);
+      if (view !== "editor" || paletteOpen) return;
+      if (
+        matchAppHotkey(e, {
+          hasPath: !!state.currentPath,
+          viewIsEditor: false,
+          paletteOpen: false,
+        }) !== "close-tab"
+      ) {
+        return;
       }
+      e.preventDefault();
+      if (state.currentPath) actions.closeTab(state.currentPath);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -987,18 +1008,14 @@ export default function App() {
   // ⌘Shift+[] 与 PageUp/Down 在桌面 webview 内可用。见 deferred「标签循环快捷键」。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (view !== "editor" || paletteOpen) return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      let dir: 1 | -1 | null = null;
-      if (e.ctrlKey && e.key === "Tab") dir = e.shiftKey ? -1 : 1;
-      else if (e.shiftKey && e.key === "[") dir = -1;
-      else if (e.shiftKey && e.key === "]") dir = 1;
-      else if (e.key === "PageUp") dir = -1;
-      else if (e.key === "PageDown") dir = 1;
-      if (dir == null) return;
+      const action = matchAppHotkey(e, {
+        hasPath: true,
+        viewIsEditor: view === "editor",
+        paletteOpen,
+      });
+      if (action !== "cycle-tab-next" && action !== "cycle-tab-prev") return;
       e.preventDefault();
-      void actions.cycleTab(dir);
+      void actions.cycleTab(action === "cycle-tab-next" ? 1 : -1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

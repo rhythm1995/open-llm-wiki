@@ -90,8 +90,10 @@ export function AgentActivity({
   if (entries.length === 0) return null;
 
   return (
-    <div className="shrink-0 border-t border-crust">
+    <div className="shrink-0 border-t border-crust" data-testid="agent-activity">
       <button
+        type="button"
+        data-testid="agent-activity-toggle"
         onClick={() => setOpen((v) => !v)}
         title={t("agent.activityTip")}
         className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-text hover:bg-mantle"
@@ -112,6 +114,8 @@ export function AgentActivity({
                 <span className="shrink-0 tabular-nums text-overlay">{e.date}</span>
                 <span className="flex-1 truncate text-text">{e.stat}</span>
                 <button
+                  type="button"
+                  data-testid={`agent-activity-diff-${e.oid}`}
                   onClick={() => showDiff(e.oid)}
                   className="rounded px-1 py-0.5 text-[10px] text-blue hover:bg-surface"
                 >
@@ -127,6 +131,8 @@ export function AgentActivity({
                   </span>
                 ) : (
                   <button
+                    type="button"
+                    data-testid={`agent-activity-adopt-${e.oid}`}
                     onClick={() => void adopt(e.oid)}
                     title={t("agent.adopt")}
                     className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-green hover:bg-surface"
@@ -135,6 +141,8 @@ export function AgentActivity({
                   </button>
                 )}
                 <button
+                  type="button"
+                  data-testid={`agent-activity-revert-${e.oid}`}
                   onClick={() => void revert(e.oid)}
                   title={t("agent.revert")}
                   className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-red hover:bg-surface"
@@ -152,7 +160,10 @@ export function AgentActivity({
                 </div>
               )}
               {diffOid === e.oid && (
-                <pre className="m-1.5 max-h-40 overflow-auto rounded bg-crust/60 p-1.5 text-[10px] leading-tight text-overlay">
+                <pre
+                  data-testid="agent-activity-diff-body"
+                  className="m-1.5 max-h-40 overflow-auto rounded bg-crust/60 p-1.5 text-[10px] leading-tight text-overlay"
+                >
                   {diff || "…"}
                 </pre>
               )}

@@ -23,6 +23,18 @@ export function parseLinkInner(inner: string): ParsedLink {
   return { target: t, anchor: anchor ? anchor.trim() : null };
 }
 
+/** 光标列落在哪一段 `[[…]]` 上就返回其 target;否则 null。源码 ⌘-点击用。 */
+export function wikilinkTargetAtColumn(lineText: string, col: number): string | null {
+  const re = /\[\[([^\]]+)\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(lineText)) !== null) {
+    if (col >= m.index && col <= m.index + m[0].length) {
+      return parseLinkInner(m[1]).target;
+    }
+  }
+  return null;
+}
+
 /** 路径去扩展名(仅当扩展名在文件名段才剥),保留目录。 */
 function pathStem(path: string): string {
   const dot = path.lastIndexOf(".");

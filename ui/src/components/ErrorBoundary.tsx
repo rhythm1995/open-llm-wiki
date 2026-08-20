@@ -12,6 +12,14 @@ interface State {
   showDetail: boolean;
 }
 
+/** BlockNote/ProseMirror schema 校验失败 vs 其它渲染崩溃。 */
+export function isSchemaRenderError(error: Error): boolean {
+  const msg = error.message || String(error);
+  return (
+    /Invalid content for node|RangeError/i.test(msg) || error.name === "RangeError"
+  );
+}
+
 /**
  * ErrorBoundary —— 渲染层兜底,防止单个子树抛错导致整页白屏。
  *
@@ -51,12 +59,12 @@ export class ErrorBoundary extends Component<Props, State> {
     // 局部使用(如包某个视图):用调用方给的降级 UI,不挡全屏。
     if (this.props.fallback) return this.props.fallback;
     const msg = error.message || String(error);
-    const isSchema =
-      /Invalid content for node|RangeError/i.test(msg) ||
-      error.name === "RangeError";
+    const isSchema = isSchemaRenderError(error);
 
     return (
       <div
+        data-testid="error-boundary"
+        data-kind={isSchema ? "schema" : "generic"}
         style={{
           position: "fixed",
           inset: 0,
@@ -138,6 +146,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
           {showDetail && error.stack && (
             <pre
+              data-testid="error-boundary-stack"
               style={{
                 margin: "0 0 16px",
                 padding: 12,

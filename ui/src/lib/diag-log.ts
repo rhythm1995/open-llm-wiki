@@ -9,7 +9,8 @@ import { log } from "./logger";
 const isTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-function fmt(a: unknown): string {
+/** 把 console 参数压成一行,给 LogBus。Error 带 stack;循环引用走 String。 */
+export function formatLogArg(a: unknown): string {
   if (a instanceof Error) {
     const stack = a.stack ? `\n${a.stack}` : "";
     return `${a.name}: ${a.message}${stack}`;
@@ -48,17 +49,17 @@ export function installConsoleForwarder(): void {
     );
   });
   window.addEventListener("unhandledrejection", (e) => {
-    sendError(`unhandledrejection: ${fmt(e.reason)}`);
+    sendError(`unhandledrejection: ${formatLogArg(e.reason)}`);
   });
 
   const origErr = console.error.bind(console);
   console.error = (...args: unknown[]) => {
     origErr(...args);
-    sendError("console.error: " + args.map(fmt).join(" "));
+    sendError("console.error: " + args.map(formatLogArg).join(" "));
   };
   const origWarn = console.warn.bind(console);
   console.warn = (...args: unknown[]) => {
     origWarn(...args);
-    sendWarn("console.warn: " + args.map(fmt).join(" "));
+    sendWarn("console.warn: " + args.map(formatLogArg).join(" "));
   };
 }

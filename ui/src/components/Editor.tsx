@@ -59,7 +59,7 @@ import {
   replaceNext,
   replaceAll,
 } from "@codemirror/search";
-import { filterByTitles, openLinkContext, parseLinkInner } from "../lib/wikilink";
+import { filterByTitles, openLinkContext, wikilinkTargetAtColumn } from "../lib/wikilink";
 import { ipc } from "../lib/ipc";
 import type { Theme } from "../lib/theme";
 import type { TFunc } from "../lib/i18n";
@@ -490,15 +490,10 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
             if (pos == null) return false;
             const line = ed.state.doc.lineAt(pos);
             const col = pos - line.from;
-            LINK_RE.lastIndex = 0;
-            let m: RegExpExecArray | null;
-            while ((m = LINK_RE.exec(line.text)) !== null) {
-              if (col >= m.index && col <= m.index + m[0].length) {
-                onFollowRef.current(parseLinkInner(m[1]).target);
-                return true;
-              }
-            }
-            return false;
+            const target = wikilinkTargetAtColumn(line.text, col);
+            if (!target) return false;
+            onFollowRef.current(target);
+            return true;
           },
           contextmenu(e: MouseEvent) {
             e.preventDefault();
@@ -687,6 +682,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <button
             type="button"
             className={fmtBtn}
+            data-testid="editor-fmt-bold"
             title={t("editor.fmt.bold")}
             onClick={() => applyFormat(toggleBold)}
           >
@@ -695,6 +691,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <button
             type="button"
             className={fmtBtn}
+            data-testid="editor-fmt-italic"
             title={t("editor.fmt.italic")}
             onClick={() => applyFormat(toggleItalic)}
           >
@@ -748,6 +745,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <button
             type="button"
             className={fmtBtn}
+            data-testid="editor-fmt-task"
             title={t("editor.fmt.task")}
             onClick={() => applyFormat(toggleTaskList)}
           >
@@ -764,6 +762,7 @@ export const Editor = forwardRef<EditorHandle, Props>(function Editor(
           <button
             type="button"
             className={fmtBtn}
+            data-testid="editor-fmt-wikilink"
             title={t("editor.fmt.wikilink")}
             onClick={() => applyFormat(insertWikilink)}
           >

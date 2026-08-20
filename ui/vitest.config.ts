@@ -18,11 +18,11 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      // 阈值 = 当前基线(~68% stmts/lines、~64% branch、~62% funcs)减约 5%:防明显回退,
-      // 容得下新增未测组件的自然波动。基线随测试增加而抬;有意清理后再上调,不抄底。
+      // 阈值 = 当前基线减约 5%:防明显回退。2026-08-20 L-1 把原先未 import 的
+      // Editor/GraphView/Nav 等纳入覆盖率分母,branch 基线从 ~60 落到 ~58,门槛随之下调 1。
       thresholds: {
         statements: 63,
-        branches: 58,
+        branches: 57,
         functions: 56,
         lines: 63,
       },
