@@ -7,7 +7,7 @@
 
 **边界变更(2026-07-30)**:原「v1 刻意不做」三项改为正式交付目标并已落地(§A ✅)。软类型原则不变:`type` 永不强制校验、永不阻止保存。  
 **优先级(2026-08-02)**:图 / Agent(§I)降优;主线 **§C 编辑器** + 非图杂项。切片见 [plan.md](./plan.md)。  
-**发布(2026-08-19)**:v0.1.0 已发布并合回 main;真机验收(图谱帧率 / 应用内 Agent 端到端)已全部完成;**四平台产物已补齐**(`B-RELEASE-ASSETS` ✅,macos-13→macos-15-intel + apt 加固)。剩余活跃项只有 **§F 签名 / Updater**(凭证门)与各「等信号」项。
+**发布(2026-08-19)**:v0.1.0 已发布并合回 main;真机验收(图谱帧率 / 应用内 Agent 端到端)已全部完成;**四平台产物已补齐**(`B-RELEASE-ASSETS` ✅,macos-13→macos-15-intel + apt 加固)。剩余活跃项:**§F 签名 / Updater**(凭证门)与各「等信号」项。**§L TDD 补齐 ✅**(L-1–L-5,2026-08-20)。
 
 ---
 
@@ -225,13 +225,72 @@
 | B-AGENT-CTX-MODELC | 2 | 🔴 | ✅ | Model C 跨 agent 移交:线程绑 agent + 显式移交(归一化 seed,`normalizeForHandoff`)+ 转录多线程 |
 | B-AGENT-TIER0-TERM | 0 | 🔴 | ⛔ | 停靠终端;不在第一版 |
 
+## L. TDD 补齐(2026-08-20)
+
+> **单一入口**:已落地功能缺哪些行为测试。切片与验收见 [plan.md §TDD](./plan.md)。  
+> 分层:L-1 产品胶水优先 → L-2 IPC/MCP 契约 → L-3 加厚薄测 → L-4 App 壳邻接 → L-5 加厚已测组件 + 热键纯函数。core / `ui/src/lib` 纯逻辑不在此列(已齐)。  
+> 纪律:先红后绿;一条用例一件事;组件 props-driven,mock 停在 `ipc`。不挂整棵 `App.tsx`。
+
+### L-1 · 逻辑几乎没测(优先)
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-TDD-STORE | vault 生命周期 `store.ts` | 🟡 | ✅ | `store-lifecycle.test.tsx`:open / 恢复上次 / CRUD / tab / 防抖保存 / 切 vault |
+| B-TDD-EDITOR | Source `Editor.tsx` | 🟡 | ✅ | 空态 + 格式条落到 CM + Find 句柄 + 插图按钮。`md-format` 已测 |
+| B-TDD-GRAPH-UI | `GraphView` + `ForceGraphLayer` | 🟡 | ✅ | 空图 / 统计 / type 过滤 / 布局 / 点节点;ForceGraph 点击接线。Canvas 仿真 mock |
+| B-TDD-NAV | `Nav.tsx` 文件树 / 类型 / 标签 | 🟢 | ✅ | 筛选回调 + 计数 + 拖入文件夹。`nav-filter` 已测 |
+| B-TDD-SETTINGS | `SettingsPanel.tsx` | 🟢 | ✅ | 通用 patch + tab + 诊断。Agent 接入已有独立测 |
+| B-TDD-FINDBAR | `FindBar.tsx` | 🟢 | ✅ | 计数 / 下一上一 / 替换 / Esc / IME。`find-in-doc` 已测 |
+| B-TDD-GIT-UI | `GitPanel` + `ArchiveView` | 🟢 | ✅ | mock 横幅;桌面 status/log/commit;归档还原。Rust `git_tests` 已测真 git |
+| B-TDD-IRONCALC | `sheet-ironcalc.ts` 回退 | 🟢 | ✅ | wasm 失败 → `null`;可用时灌格并 `free`。`sheet.ts` 自研引擎已测 |
+| B-TDD-SKILLS | `open-llm-wiki-skills` 安装器 | 🟢 | ✅ | CLI `list`/`install`/`--force`/`--no-hooks`/拒非目录;CI `node --test` |
+| B-TDD-SITE | `site/src/lib` 纯逻辑 | 🟢 | ✅ | locale / shots / docs slug / markdown 消毒。不做 GSAP |
+
+### L-2 · 引擎有测、契约没测
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-TDD-IPC-NOTES | app 笔记 CRUD IPC | 🟡 | ✅ | `ipc_contract_tests`:list/read/write/create/delete/rename 真临时目录;改名搬同目录图 |
+| B-TDD-IPC-MEDIA | app 附件 IPC | 🟡 | ✅ | save/exists/data URL + media_index 孤儿 + trash 进 media-trash |
+| B-TDD-MCP-READ | MCP 未测 4 tool | 🟢 | ✅ | `list_notes` / `search_notes` / `run_qql` / `vault_info` 的 `tools_call` |
+
+### L-3 · 有测试但薄(后置)
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-TDD-AGENT-UI | Agent ToolCard / Activity | 🟡 | ✅ | 失败自动展开 / 长输出二级折叠;活动面板 diff/采纳/撤销确认 |
+| B-TDD-E2E-GRAPH | e2e 图谱过滤 + 反链 | 🟡 | ✅ | `graph-backlinks.spec.ts`:全库取消 Concept 节点变少;Zettelkasten 反链 Index 可跳 |
+| B-TDD-SHEET-UI | 表格冻结 / 图表 / 嵌入 | 🟡 | ✅ | SheetView 冻行列/加图/加表;sheet-block path 求值与缺文件占位 |
+
+### L-4 · App 壳邻接行为(有逻辑、非纯展示)
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-TDD-STATUS-CHIP | `statusChipClass` 色桶 | 🟢 | ✅ | 词根分桶 + 先匹配者赢;Inspector / NoteList 共用 |
+| B-TDD-CTX-MENU | `ContextMenu` | 🟢 | ✅ | 项点击/遮罩/Esc/滚动关闭;陈旧滚动忽略;视口夹紧 |
+| B-TDD-COL-RESIZE | `ColResizeHandle` | 🟢 | ✅ | 左右方向 + min/max 夹紧;松手卸监听 |
+| B-TDD-ERR-BOUNDARY | `ErrorBoundary` | 🟢 | ✅ | schema vs 普通文案;自定义 fallback;复制 stack |
+| B-TDD-READING-PANE | `ReadingPane` | 🟢 | ✅ | 空态 / markdown / wikilink / 图改写 / sheet 嵌入 / 陈旧渲染丢弃 |
+| B-TDD-DIAG-LOG | `formatLogArg` | 🟢 | ✅ | Error/string/JSON/循环引用;不测 Tauri 转发 |
+
+### L-5 · 加厚已测组件 + App 热键纯函数
+
+| ID | 项 | 难度 | 状态 | 说明 |
+|---|---|---|---|---|
+| B-TDD-TABBAR | `TabBar` 中键/右键/拖拽 | 🟢 | ✅ | 中键关、关其它、复制路径、reorderTab |
+| B-TDD-HOTKEYS | `matchAppHotkey` / Find 计划 | 🟢 | ✅ | ⌘K/P/O/F/S/W、循环标签;画布/表格拒 Find;关 Find 还原模式。不挂 App |
+| B-TDD-EDITOR-MORE | Source Editor 右键 + 拖图 | 🟢 | ✅ | 正文右键粗体;拖入 png → saveAttachment + md。⌘-点击列判定在 `wikilinkTargetAtColumn` |
+| B-TDD-NOTELIST-MORE | `NoteListView` 过滤/重命名/右键 | 🟢 | ✅ | 过滤、Esc/IME、归档委派、右键 rename/status/delete |
+| B-TDD-HOOKS | persist / theme / locale hooks | 🟢 | ✅ | localStorage 读写与 `t()` 跟语言走 |
+
 ## 建议实现顺序(产品向)
 
 1. ~~功能主路径 / 大件 v1 / 菜单搜索 / 媒体~~ ✅(QQL 差分 CI 随用户面删除,不再需要)  
 2. ~~§I · 6A 图 polish~~ — **本期不做,推迟到很后**(2026-08-02:图打磨 ROI 低 / 图不好做)  
 3. §I 部分落地:**6B agent 侧 MCP** ✅ · **6B 库健康 + Agent 查库** ✅(2026-08-15) · **6D wiki 脚手架** ✅;剩图 polish / 可选死链 / 6C 随 §I 远期
 4. ~~**本期收尾**:B-GRAPH-FPS 真机 · 应用内 Agent 真机端到端 · 发布收口~~ ✅(2026-08-19 验收完成;v0.1.0 已发布并合 main);~~`B-RELEASE-ASSETS` 补产物~~ ✅(2026-08-19 四平台产物齐);剩签名/Updater(凭证门)  
-5. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
+5. ~~**TDD 补齐**~~ ✅ §L-1 / L-2 / L-3 / L-4 / L-5(2026-08-20);见 [plan.md §TDD](./plan.md)  
+6. **远期重启 §I**:6A → 6C(6B MCP 侧 / 6D 已交付;顺序待产品再定)  
 
 完整竖切与验收见 **[12-graph-and-agent-roadmap.md](./12-graph-and-agent-roadmap.md)**(阶段名统一 **6A–6D**)。
 
