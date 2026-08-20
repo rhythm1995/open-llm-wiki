@@ -15,6 +15,53 @@
 
 ---
 
+### 2026-08-20 Grok — TDD §L-5 加厚 TabBar/Editor/NoteList + App 热键纯函数
+
+- **branch**: `zcode/docs-anti-drift`(未 commit)
+- **做了**:
+  1. 抽出 `matchAppHotkey` / `findOpenPlan` / `findCloseRestore`(App 接线,测试不挂壳);`wikilinkTargetAtColumn` 给源码 ⌘-点击。
+  2. 加厚:`TabBar` 中键/关其它/复制路径/拖拽;`NoteListView` 过滤/Esc·IME 重命名/右键/归档委派;`Editor` 右键粗体 + 拖 png;`Wysiwyg` wikilink 钮。
+  3. hooks:`usePersistentState` / `useTheme` / `useLocale` 读写盘。backlog / plan 记 L-5。
+- **验证**: ui typecheck 绿;vitest **934** 绿;覆盖率 statements **70.96** / branches **60.79** / functions **67.25** / lines **73.43**(门 63/57/56/63)。
+- **下一步**: 签名 / Updater(凭证门)。未 commit。AgentPanel / ForceGraphLayer / 挂 App 仍不划算。
+
+### 2026-08-20 Grok — TDD §L-4 App 壳邻接行为(有逻辑、非纯展示)
+
+- **branch**: `zcode/docs-anti-drift`(未 commit)
+- **做了**:
+  1. 抽可测纯函数:`clampColWidth` / `colWidthFromDrag`、`clampMenuPos` / `isFreshDismissEvent`、`isSchemaRenderError`、`formatLogArg`。
+  2. 组件契约:ContextMenu(项/遮罩/Esc/滚动/视口夹紧)、ColResizeHandle(方向+min/max+松手)、ErrorBoundary(schema vs 普通 / fallback / 复制)、ReadingPane(空态 / markdown / wikilink / 图改写 / sheet 嵌入 / 陈旧渲染丢弃)、status-chip 五色桶。
+  3. 不挂整棵 `App.tsx`。backlog / plan 记 L-4。
+- **验证**: ui typecheck 绿;vitest 901 绿(含 ReadingPane `root=null`);覆盖率 statements 69 / branches 59 / functions 65 / lines 71(门 63/57/56/63)。
+- **下一步**: 签名 / Updater(凭证门)。未 commit。App 热键 / 拖窗编排仍不测。
+
+### 2026-08-20 Grok — TDD §L-2/L-3 一次补完(IPC / MCP / Agent UI / 表格 / e2e)
+
+- **branch**: `zcode/docs-anti-drift`(未 commit)
+- **做了**:
+  1. **L-2**:app 笔记/附件 IPC 抽 `*_impl`,`ipc_contract_tests` 真临时目录 roundtrip(含改名搬图、孤儿 trash);MCP `list_notes` / `search_notes` / `run_qql` / `vault_info` 的 `tools_call`。
+  2. **L-3**:ToolCard(失败展开/长输出折叠)+ AgentActivity(diff/采纳/撤销确认);SheetView 冻行列/加图/加表 + sheet-block 嵌入;e2e `graph-backlinks.spec.ts`(全库过滤 Concept + 反链跳转)。
+  3. backlog §L / plan §TDD 标 ✅。
+- **验证**: ui typecheck 绿;vitest 853 绿;app 62 绿(1 ignore);mcp 30+30 绿;e2e 23 绿。
+- **下一步**: 签名 / Updater(凭证门)。未 commit。
+
+### 2026-08-20 Grok — TDD 缺口写入 backlog §L,并补齐 L-1 行为测试
+
+- **branch**: `zcode/docs-anti-drift`(未 commit)
+- **做了**:
+  1. 方案写入 `docs/plan.md` §TDD + `docs/backlog.md` §L(L-1 优先 / L-2 IPC·MCP 契约 / L-3 加厚);05 策略加缺口指针。
+  2. **L-1 全部补测**(先行为契约,mock 停在 ipc):`store-lifecycle`、Editor、GraphView、ForceGraphLayer、Nav、SettingsPanel、FindBar、GitPanel、ArchiveView、sheet-ironcalc、skills CLI、`site/src/lib`。组件加 `data-testid` 作可观测钩子。
+  3. CI:`node --test packages/open-llm-wiki-skills` + `pnpm --dir site test`。ui 覆盖率门槛 branches 58→57(原先未 import 的大组件进入分母)。
+- **验证**: ui typecheck 绿;vitest 840 绿;site 15 绿;skills 9 绿。
+- **下一步**: L-2 IPC 笔记/附件 CRUD + MCP 4 个未测 tool;`B-TDD-E2E-GRAPH` 等 L-3。
+
+### 2026-08-20 Grok — 盘点全库 TDD 缺口(只读,未改代码)
+
+- **branch**: `zcode/docs-anti-drift`(只读盘点,未 commit)
+- **做了**: 对照 `FEATURE-INDEX` / `docs/05-tdd-strategy.md` 与 core/ui/app/mcp/e2e 测试面。结论:core + `ui/src/lib` 纯逻辑基本齐;缺口在产品胶水——`store.ts` / `Editor.tsx` / `GraphView` / Nav / Settings / Git UI、~70 条 IPC 里大半无契约测、MCP 8 tools 有 4 个无 `tools_call` 测、skills installer 与 `site/` 无测。CI 未强制 core 行覆盖(05 文档里的 95% 门未落地);ui 覆盖率门是 63% 防回退,且 vitest 默认不计未 import 的大文件。
+- **理由 / 影响**: 回答「还有多少功能没补 TDD」;未动代码。
+- **下一步 / 接手注意**: 若要补测,ROI 最高是 `store` 生命周期、source `Editor`、图谱过滤 e2e、IPC 笔记/附件 CRUD、MCP `list_notes`/`search_notes`/`run_qql`/`vault_info`。官网与纯展示组件不必硬补。
+
 ### 2026-08-19 ZCode — 补齐 v0.1.0 全平台发布产物(release 修复)
 
 - **branch**: `zcode/docs-anti-drift`(已 push;`00832c2` fix(ci))
