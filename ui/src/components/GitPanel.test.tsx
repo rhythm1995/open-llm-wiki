@@ -1,5 +1,6 @@
 /**
- * GitPanel —— mock 横幅禁用远端;桌面刷 status/log、提交、冲突。
+ * GitPanel —— mock 横幅禁用远端;桌面刷 status/log、提交、冲突;
+ * 非 git 仓库空态一键 init;零提交仓库显示首提引导而非错误。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -14,6 +15,8 @@ const gitLogRaw = vi.fn(
 const gitCommit = vi.fn(async (..._args: unknown[]) => "ok");
 const gitPull = vi.fn(async (..._args: unknown[]) => "Already up to date.");
 const gitPush = vi.fn(async (..._args: unknown[]) => "pushed");
+const gitIsRepo = vi.fn(async (..._args: unknown[]) => true);
+const gitInit = vi.fn(async (..._args: unknown[]) => undefined);
 
 vi.mock("../lib/ipc", () => ({
   ipc: {
@@ -23,6 +26,8 @@ vi.mock("../lib/ipc", () => ({
     gitCommit: (...a: unknown[]) => gitCommit(...(a as [string, string])),
     gitPull: (...a: unknown[]) => gitPull(...(a as [string])),
     gitPush: (...a: unknown[]) => gitPush(...(a as [string])),
+    gitIsRepo: (...a: unknown[]) => gitIsRepo(...(a as [string])),
+    gitInit: (...a: unknown[]) => gitInit(...(a as [string])),
   },
 }));
 
@@ -43,8 +48,12 @@ describe("GitPanel", () => {
     gitCommit.mockClear();
     gitPull.mockClear();
     gitPush.mockClear();
+    gitIsRepo.mockClear();
+    gitInit.mockClear();
     gitStatusRaw.mockResolvedValue(" M dirty.md\n");
     gitLogRaw.mockResolvedValue("abc1234\tAda\t2026-08-01\tinit\n");
+    gitIsRepo.mockResolvedValue(true);
+    gitInit.mockResolvedValue(undefined);
   });
 
   it("无 root 显示空态", () => {
@@ -102,5 +111,35 @@ describe("GitPanel", () => {
     expect(await screen.findByTestId("git-error")).toHaveTextContent(
       "not a git repo",
     );
+  });
+
+  it("非 git 仓库:空态一键 init 后进入面板", async () => {
+    mockMode.current = false;
+    // 首次探测非仓库;init 后复测为仓库。
+    gitIsRepo.mockResolvedValueOnce(false).mockResolvedValue(true);
+    const user = userEvent.setup();
+    render(<GitPanel root="/v" t={t} />);
+    expect(await screen.findByTestId("git-not-repo")).toHaveTextContent(
+      "git.notRepo",
+    );
+    // 无仓库时不渲染提交表单,pull/push 也禁用。
+    expect(screen.queryByTestId("git-commit")).not.toBeInTheDocument();
+    expect(screen.getByTestId("git-pull")).toBeDisabled();
+    expect(screen.getByTestId("git-push")).toBeDisabled();
+    await user.click(screen.getByTestId("git-init"));
+    await waitFor(() => expect(gitInit).toHaveBeenCalledWith("/v"));
+    // init 后刷新,回到正常面板(status 可见)。
+    expect(await screen.findByText("dirty.md")).toBeInTheDocument();
+  });
+
+  it("零提交仓库:status 照常、log 空显示首提引导且无红错", async () => {
+    mockMode.current = false;
+    gitStatusRaw.mockResolvedValue("?? new.md\n");
+    gitLogRaw.mockResolvedValue("");
+    render(<GitPanel root="/v" t={t} />);
+    expect(await screen.findByText("new.md")).toBeInTheDocument();
+    expect(screen.getByText("git.noHistory")).toBeInTheDocument();
+    expect(screen.getByText("git.noCommitsHint")).toBeInTheDocument();
+    expect(screen.queryByTestId("git-error")).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,8 @@
  * 冲突(UU 等)在 status 刷后高亮横幅列出路径;解决方式诚实告知用户:
  * 在编辑器中打开冲突文件、手改冲突标记后 add+commit,再 pull/push。
  *
+ * 非 git 仓库渲染空态 + 「初始化 git」按钮(与 ArchiveView 同一入口,不静默
+ * 替用户 init);刚 init 尚无首提的仓库 log 为空,显示首提引导而非错误。
  * mock 模式下 git 不可用,显示提示横幅。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,6 +14,7 @@ import {
   ArrowsClockwise,
   ArrowDown,
   ArrowUp,
+  GitBranch,
   GitCommit,
   Warning,
 } from "@phosphor-icons/react";
@@ -58,13 +61,23 @@ export function GitPanel({ root, t }: Props) {
   const [committing, setCommitting] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [pushing, setPushing] = useState(false);
+  // null = 未知(初次加载 / mock);false = 非 git 仓库 → 初始化空态。
+  const [isRepo, setIsRepo] = useState<boolean | null>(null);
+  const [initializing, setInitializing] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const mock = ipc.isMock();
 
   const refresh = useCallback(async () => {
-    if (!root) return;
+    if (!root || mock) return;
     setLoading(true);
     setError(null);
     try {
+      const repo = await ipc.gitIsRepo(root);
+      setIsRepo(repo);
+      if (!repo) {
+        setData({ status: [], log: [] });
+        return;
+      }
       const [statusOut, logOut] = await Promise.all([
         ipc.gitStatusRaw(root),
         ipc.gitLogRaw(root),
@@ -79,7 +92,7 @@ export function GitPanel({ root, t }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [root]);
+  }, [root, mock]);
 
   useEffect(() => {
     if (root) void refresh();
@@ -87,11 +100,30 @@ export function GitPanel({ root, t }: Props) {
       setData({ status: [], log: [] });
       setError(null);
       setInfo(null);
+      setIsRepo(null);
+      setInitError(null);
+    }
+  }, [root, refresh]);
+
+  // 非 git 仓库空态的一键入口(与 ArchiveView 共用 git_init 命令)。
+  const initRepo = useCallback(async () => {
+    if (!root) return;
+    setInitializing(true);
+    setInitError(null);
+    try {
+      await ipc.gitInit(root);
+      await refresh();
+    } catch (e) {
+      setInitError(String(e));
+    } finally {
+      setInitializing(false);
     }
   }, [root, refresh]);
 
   const conflicts = useMemo(() => conflictPaths(data.status), [data.status]);
   const conflicted = hasConflicts(data.status);
+  // 桌面 + 非 git 仓库 → 初始化空态(不渲染提交表单/变更/历史)。
+  const notRepo = !mock && isRepo === false;
 
   const commit = useCallback(async () => {
     if (!root) return;
@@ -179,7 +211,7 @@ export function GitPanel({ root, t }: Props) {
           type="button"
           data-testid="git-pull"
           onClick={() => void pull()}
-          disabled={mock || pulling}
+          disabled={mock || pulling || notRepo}
           className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] text-subtext hover:bg-surface disabled:opacity-50"
           title={t("git.pull")}
         >
@@ -190,7 +222,7 @@ export function GitPanel({ root, t }: Props) {
           type="button"
           data-testid="git-push"
           onClick={() => void push()}
-          disabled={mock || pushing || conflicted}
+          disabled={mock || pushing || conflicted || notRepo}
           className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] text-subtext hover:bg-surface disabled:opacity-50"
           title={t("git.push")}
         >
@@ -206,6 +238,34 @@ export function GitPanel({ root, t }: Props) {
           className="mb-3 rounded border border-yellow/40 bg-yellow/10 px-2 py-1.5 text-[12px] text-yellow"
         >
           {t("git.mockHint")}
+        </div>
+      )}
+
+      {notRepo && (
+        <div
+          className="mb-3 flex flex-col gap-2"
+          data-testid="git-not-repo"
+        >
+          <div className="flex items-center gap-1.5 text-[12px] text-overlay">
+            <GitBranch size={13} />
+            <span>{t("git.notRepo")}</span>
+          </div>
+          <p className="text-[12px] text-overlay">{t("git.notRepoHint")}</p>
+          <button
+            type="button"
+            data-testid="git-init"
+            onClick={() => void initRepo()}
+            disabled={initializing}
+            className="mt-1 flex w-fit items-center gap-1 rounded bg-blue px-2.5 py-1 text-[12px] font-medium text-crust hover:opacity-90 disabled:opacity-50"
+          >
+            <GitBranch size={13} weight="bold" />
+            {initializing ? t("git.initializing") : t("git.init")}
+          </button>
+          {initError && (
+            <p className="text-[12px] text-red">
+              {t("git.initFailed", { msg: initError })}
+            </p>
+          )}
         </div>
       )}
 
@@ -242,93 +302,105 @@ export function GitPanel({ root, t }: Props) {
         </div>
       )}
 
-      {/* 提交(VS Code 式:commit 表单 + 按钮置顶,变更列表在下) */}
-      <section className="mb-4">
-        <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          {t("git.commitSection")}
-        </div>
-        <textarea
-          data-testid="git-commit-message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={t("git.commitPlaceholder")}
-          rows={2}
-          className="w-full resize-none rounded border border-surface bg-base px-2 py-1.5 text-[12px] text-text outline-none focus:border-blue"
-        />
-        <button
-          type="button"
-          data-testid="git-commit"
-          onClick={() => void commit()}
-          disabled={committing || !message.trim()}
-          className="mt-1.5 flex w-full items-center justify-center gap-1 rounded bg-green/20 px-2.5 py-1 text-[12px] text-green hover:bg-green/30 disabled:opacity-40"
-        >
-          <GitCommit size={13} />
-          {committing ? t("git.committing") : t("git.commitAll")}
-        </button>
-      </section>
+      {!notRepo && (
+        <>
+          {/* 提交(VS Code 式:commit 表单 + 按钮置顶,变更列表在下) */}
+          <section className="mb-4">
+            <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
+              {t("git.commitSection")}
+            </div>
+            <textarea
+              data-testid="git-commit-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={t("git.commitPlaceholder")}
+              rows={2}
+              className="w-full resize-none rounded border border-surface bg-base px-2 py-1.5 text-[12px] text-text outline-none focus:border-blue"
+            />
+            <button
+              type="button"
+              data-testid="git-commit"
+              onClick={() => void commit()}
+              disabled={committing || !message.trim()}
+              className="mt-1.5 flex w-full items-center justify-center gap-1 rounded bg-green/20 px-2.5 py-1 text-[12px] text-green hover:bg-green/30 disabled:opacity-40"
+            >
+              <GitCommit size={13} />
+              {committing ? t("git.committing") : t("git.commitAll")}
+            </button>
+          </section>
 
-      {/* 变更清单 */}
-      <section className="mb-4">
-        <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          {t("git.changes", { n: data.status.length })}
-        </div>
-        {data.status.length === 0 ? (
-          <p className="text-[12px] text-overlay">{t("git.clean")}</p>
-        ) : (
-          <ul className="space-y-0.5">
-            {data.status.map((e, i) => {
-              const label = statusLabel(e);
-              return (
-                <li
-                  key={`${e.path}-${i}`}
-                  className="flex items-center gap-2 text-[12px]"
-                >
-                  <span
-                    className={cn(
-                      "w-8 shrink-0 text-center font-mono",
-                      BADGE_COLOR[label] ?? "text-subtext",
-                    )}
-                  >
-                    {label}
-                  </span>
-                  <span className="truncate text-text">{e.path}</span>
-                  {e.renamedFrom && (
-                    <span className="truncate text-[11px] text-overlay">
-                      ← {e.renamedFrom}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+          {/* 变更清单 */}
+          <section className="mb-4">
+            <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
+              {t("git.changes", { n: data.status.length })}
+            </div>
+            {data.status.length === 0 ? (
+              <p className="text-[12px] text-overlay">{t("git.clean")}</p>
+            ) : (
+              <ul className="space-y-0.5">
+                {data.status.map((e, i) => {
+                  const label = statusLabel(e);
+                  return (
+                    <li
+                      key={`${e.path}-${i}`}
+                      className="flex items-center gap-2 text-[12px]"
+                    >
+                      <span
+                        className={cn(
+                          "w-8 shrink-0 text-center font-mono",
+                          BADGE_COLOR[label] ?? "text-subtext",
+                        )}
+                      >
+                        {label}
+                      </span>
+                      <span className="truncate text-text">{e.path}</span>
+                      {e.renamedFrom && (
+                        <span className="truncate text-[11px] text-overlay">
+                          ← {e.renamedFrom}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
-      {/* 最近提交 */}
-      <section>
-        <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
-          {t("git.recentCommits", { n: data.log.length })}
-        </div>
-        {data.log.length === 0 ? (
-          <p className="text-[12px] text-overlay">{t("git.noHistory")}</p>
-        ) : (
-          <ul className="space-y-1">
-            {data.log.map((c) => (
-              <li key={c.hash} className="text-[12px]">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[11px] text-mauve">
-                    {c.hash.slice(0, 7)}
-                  </span>
-                  <span className="truncate text-text">{c.subject}</span>
-                </div>
-                <div className="text-[11px] text-overlay">
-                  {c.author} · {c.date}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          {/* 最近提交 */}
+          <section>
+            <div className="mb-1 text-[11px] uppercase tracking-wide text-overlay">
+              {t("git.recentCommits", { n: data.log.length })}
+            </div>
+            {data.log.length === 0 ? (
+              <div>
+                <p className="text-[12px] text-overlay">
+                  {t("git.noHistory")}
+                </p>
+                {/* unborn 仓库(git log 为空 = 尚无首提):引导首提,不当错误。 */}
+                <p className="mt-0.5 text-[11px] text-overlay">
+                  {t("git.noCommitsHint")}
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {data.log.map((c) => (
+                  <li key={c.hash} className="text-[12px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] text-mauve">
+                        {c.hash.slice(0, 7)}
+                      </span>
+                      <span className="truncate text-text">{c.subject}</span>
+                    </div>
+                    <div className="text-[11px] text-overlay">
+                      {c.author} · {c.date}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

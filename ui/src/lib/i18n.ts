@@ -530,6 +530,13 @@ export const dict: Record<Locale, Record<string, string>> = {
     "git.conflictHint": "打开下列文件,解决冲突标记(<<<<<<<)后暂存并提交,再 pull/push。",
     "git.recentCommits": "最近提交({n})",
     "git.noHistory": "无提交历史。",
+    "git.noCommitsHint":
+      "写下提交信息并点上方「提交全部改动」,创建第一个提交。",
+    "git.notRepo": "当前 Vault 不是 git 仓库。",
+    "git.notRepoHint": "提交、历史与归档还原都走 git。初始化一个仓库即可启用。",
+    "git.init": "初始化 git 仓库",
+    "git.initializing": "初始化中…",
+    "git.initFailed": "初始化失败:{msg}",
     // 归档(并入 git:已删笔记可从历史还原 + 最近提交时间线)
     "archive.section.deleted": "已删除(可从 git 还原)",
     "archive.section.commits": "最近提交",
@@ -1225,6 +1232,14 @@ export const dict: Record<Locale, Record<string, string>> = {
     "git.conflictHint": "Open the files below, resolve conflict markers (<<<<<<<), then stage + commit before pull/push.",
     "git.recentCommits": "Recent commits ({n})",
     "git.noHistory": "No commit history.",
+    "git.noCommitsHint":
+      "Write a message above and choose “Commit all changes” to create the first commit.",
+    "git.notRepo": "This vault is not a git repository.",
+    "git.notRepoHint":
+      "Commits, history, and archive restore go through git. Initialize a repository to enable them.",
+    "git.init": "Initialize git repo",
+    "git.initializing": "Initializing…",
+    "git.initFailed": "Init failed: {msg}",
     // Archive (merged into git: deleted notes restorable from history + recent commits timeline)
     "archive.section.deleted": "Deleted (restorable from git)",
     "archive.section.commits": "Recent commits",
