@@ -1457,6 +1457,18 @@ fn git_is_repo_inner(root: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// 仓库是否已有提交(HEAD 可解析)。刚 `git init` 尚无首提时为 false:此时
+/// `git log` 会 fatal 退出,且报错文案随 git locale 本地化,前端无法可靠匹配。
+/// 对上层这是"空历史"的正常状态而非错误,须在此处以退出码判定、源头消化。
+fn git_has_commits_inner(root: &str) -> bool {
+    std::process::Command::new("git")
+        .current_dir(root)
+        .args(["rev-parse", "--verify", "--quiet", "HEAD"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 /// 笔记相对路径 → 显示标题:取末段,去 `.md` 扩展名。
 fn title_of(path: &str) -> String {
     let last = path.rsplit('/').next().unwrap_or(path);
@@ -1497,8 +1509,12 @@ fn git_status_raw(root: String) -> Result<String, String> {
 
 /// `git log` 的原始输出:`hash<TAB>author<TAB>date<TAB>subject`,每行一条。
 /// date 用 `--date=short` 即 `YYYY-MM-DD`。limit 默认 50。
+/// 零提交(unborn HEAD)返回空串——那不是错误,是"还没有历史"。
 #[tauri::command]
 fn git_log_raw(root: String, limit: Option<usize>) -> Result<String, String> {
+    if !git_has_commits_inner(&root) {
+        return Ok(String::new());
+    }
     let n = limit.unwrap_or(50);
     run_git(
         &root,
@@ -1546,6 +1562,10 @@ fn git_is_repo(root: String) -> Result<bool, String> {
 /// 只取最近一次。每条带删除提交哈希 + 日期(YYYY-MM-DD),供前端列出与还原。
 #[tauri::command]
 fn git_deleted_notes(root: String) -> Result<Vec<DeletedNote>, String> {
+    // 零提交 = 必无已删除笔记,免跑 git log 吃 unborn HEAD 的 fatal。
+    if !git_has_commits_inner(&root) {
+        return Ok(Vec::new());
+    }
     // 每个提交头一行 `__C__<hash> <date>`,其后跟随该提交删除的文件路径。
     let out = run_git(
         &root,
@@ -2252,8 +2272,8 @@ mod tests {
 #[cfg(test)]
 mod git_tests {
     use super::{
-        git_commit_paths, git_deleted_notes, git_init, git_is_repo_inner, git_restore_note_inner,
-        run_git,
+        git_commit_paths, git_deleted_notes, git_has_commits_inner, git_init, git_is_repo_inner,
+        git_log_raw, git_restore_note_inner, run_git,
     };
 
     /// 独占临时 vault + 设本地 git 身份(沙箱无全局 user 配置也能提交)+ 关 gpg 签名。
@@ -2281,6 +2301,36 @@ mod git_tests {
         // git_init 初始化(空目录无内容可提交,失败被静默吞掉,不影响 is_repo 判定)。
         git_init(root.to_string()).unwrap();
         assert!(git_is_repo_inner(root));
+    }
+
+    /// 刚 init、尚无首提的仓库(git_init 的初始提交会被静默跳过:空目录或 git
+    /// 未配身份):status 照常列出未跟踪文件;log / 已删笔记是**空**而非 fatal
+    /// ("your current branch does not have any commits yet")。
+    #[test]
+    fn unborn_repo_log_and_deleted_are_empty_not_fatal() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path().to_str().unwrap();
+        git_init(root.to_string()).unwrap(); // 空目录 → 首提静默跳过,HEAD unborn
+        assert!(git_is_repo_inner(root));
+        assert!(!git_has_commits_inner(root));
+
+        write(root, "note.md", "# N\n");
+        assert!(run_git(root, &["status", "--porcelain=v1"])
+            .unwrap()
+            .contains("?? note.md"));
+        assert_eq!(git_log_raw(root.to_string(), None).unwrap(), "");
+        assert!(git_deleted_notes(root.to_string()).unwrap().is_empty());
+
+        // 配好身份、做出首提后恢复正常历史。
+        run_git(root, &["config", "user.email", "test@openllmwiki.dev"]).unwrap();
+        run_git(root, &["config", "user.name", "Test"]).unwrap();
+        run_git(root, &["config", "commit.gpgsign", "false"]).unwrap();
+        run_git(root, &["add", "-A"]).unwrap();
+        run_git(root, &["commit", "-m", "first"]).unwrap();
+        assert!(git_has_commits_inner(root));
+        assert!(git_log_raw(root.to_string(), None)
+            .unwrap()
+            .contains("first"));
     }
 
     /// 「结构自动 + 内容手动」核心不变量:结构提交只含指定路径,
