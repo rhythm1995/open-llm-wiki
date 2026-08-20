@@ -1065,6 +1065,93 @@ mod tests {
         assert!(names.contains(&"lint_vault"));
     }
 
+    // ── list_notes / search_notes / run_qql / vault_info ────────────────────
+
+    #[test]
+    fn list_notes_returns_md_paths() {
+        let dir = fixture();
+        let notes = call_json(dir.path(), "list_notes", json!({}));
+        let mut paths: Vec<&str> = notes
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        paths.sort();
+        assert_eq!(paths, ["a.md", "b.md", "c.md", "d.md"]);
+    }
+
+    #[test]
+    fn search_notes_and_query_hits_body() {
+        let dir = fixture();
+        let hits = call_json(dir.path(), "search_notes", json!({ "query": "Gamma" }));
+        let paths: Vec<&str> = hits
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["path"].as_str().unwrap())
+            .collect();
+        assert!(paths.contains(&"c.md"), "{paths:?}");
+    }
+
+    #[test]
+    fn search_notes_missing_query_errors() {
+        let dir = fixture();
+        let res = tools_call(
+            dir.path(),
+            &json!({ "name": "search_notes", "arguments": json!({}) }),
+        );
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn run_qql_filters_by_type() {
+        let dir = fixture();
+        let rows = call_json(
+            dir.path(),
+            "run_qql",
+            json!({ "qql": "WHERE type = \"Concept\" RENDER list" }),
+        );
+        let paths: Vec<&str> = rows
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["path"].as_str().unwrap())
+            .collect();
+        assert_eq!(paths, ["a.md"]);
+    }
+
+    #[test]
+    fn run_qql_bad_syntax_errors() {
+        let dir = fixture();
+        let res = tools_call(
+            dir.path(),
+            &json!({
+                "name": "run_qql",
+                "arguments": json!({ "qql": "NOT A QUERY" })
+            }),
+        );
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn vault_info_reports_root_and_count() {
+        let dir = fixture();
+        let info = call_json(dir.path(), "vault_info", json!({}));
+        assert_eq!(info["notes"], 4);
+        let root = info["root"].as_str().unwrap();
+        assert_eq!(root, dir.path().to_string_lossy());
+    }
+
+    #[test]
+    fn four_read_tools_are_listed() {
+        let defs = tool_defs();
+        let names: Vec<&str> = defs.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        for n in ["list_notes", "search_notes", "run_qql", "vault_info"] {
+            assert!(names.contains(&n), "missing {n} in {names:?}");
+        }
+    }
+
     // ── dispatch(B-MCP-ONBOARD)────────────────────────────────────────────
 
     fn args(v: &[&str]) -> Vec<String> {
