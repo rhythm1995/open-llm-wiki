@@ -80,6 +80,23 @@ describe("WysiwygView", () => {
     expect(mockEditor.toggleStyles).toHaveBeenCalled();
   });
 
+  it("wikilink 按钮插入 inline chip", () => {
+    mockEditor.insertInlineContent.mockClear();
+    render(
+      <WysiwygView
+        content={PLAIN}
+        onChange={noop}
+        onFollow={noop}
+        noteTitles={[]}
+        hasNote={true}
+        theme="dark"
+        t={t}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("wysiwyg-fmt-wikilink"));
+    expect(mockEditor.insertInlineContent).toHaveBeenCalled();
+  });
+
   it("hasNote=false 时显示空态", () => {
     render(
       <WysiwygView

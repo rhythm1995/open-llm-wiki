@@ -224,6 +224,7 @@ export function SheetView({
         <input
           className="w-24 rounded border border-crust bg-base px-1 py-0.5 font-mono"
           value={chartRange}
+          data-testid="sheet-chart-range"
           onChange={(e) => setChartRange(e.target.value)}
           title={t("sheet.chartRange")}
         />

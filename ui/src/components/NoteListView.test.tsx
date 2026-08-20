@@ -5,7 +5,7 @@
  * ipc 异步读盘,留作集成/e2e 场景,不在此 props-driven 单测里展开。
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NoteListView } from "./NoteListView";
 import type { VaultSnapshot, NodeOut } from "../lib/ipc";
@@ -118,5 +118,98 @@ describe("NoteListView", () => {
     await user.clear(input);
     await user.type(input, "我的笔记{Enter}");
     expect(onRenameCommit).toHaveBeenCalledWith("untitled.md", "我的笔记");
+  });
+
+  it("Esc 取消重命名,IME Enter 不提交", () => {
+    const onRenameCommit = vi.fn();
+    const onRenameCancel = vi.fn();
+    render(
+      <NoteListView
+        root="/v"
+        snapshot={snap([node({ id: 0, path: "a.md", title: "Alpha", modified: 1 })])}
+        currentPath="a.md"
+        navSelection={null}
+        renamingPath="a.md"
+        onRenameCommit={onRenameCommit}
+        onRenameCancel={onRenameCancel}
+        onStartRename={vi.fn()}
+        actions={actions()}
+        t={t}
+      />,
+    );
+    const input = screen.getByTestId("rename-input");
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    expect(onRenameCommit).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(onRenameCancel).toHaveBeenCalled();
+  });
+
+  it("过滤框按标题收窄列表", async () => {
+    const user = userEvent.setup();
+    render(
+      <NoteListView
+        root="/v"
+        snapshot={snap([
+          node({ id: 0, path: "a.md", title: "Alpha", modified: 2 }),
+          node({ id: 1, path: "b.md", title: "Beta", modified: 1 }),
+        ])}
+        currentPath={null}
+        navSelection={null}
+        actions={actions()}
+        {...renameProps}
+        t={t}
+      />,
+    );
+    await user.type(screen.getByTestId("list-filter"), "alp");
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).toBeNull();
+  });
+
+  it("右键重命名 / 改 status / 删除走回调", async () => {
+    const user = userEvent.setup();
+    const onStartRename = vi.fn();
+    const setNoteStatus = vi.fn();
+    const deleteNote = vi.fn();
+    const a = { selectNote: vi.fn(), setNoteStatus, deleteNote } as unknown as VaultActions;
+    render(
+      <NoteListView
+        root="/v"
+        snapshot={snap([node({ id: 0, path: "a.md", title: "Alpha", modified: 1 })])}
+        currentPath={null}
+        navSelection={null}
+        renamingPath={null}
+        onRenameCommit={vi.fn()}
+        onRenameCancel={vi.fn()}
+        onStartRename={onStartRename}
+        actions={a}
+        t={t}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByText("Alpha"));
+    await user.click(screen.getByRole("menuitem", { name: "menu.rename" }));
+    expect(onStartRename).toHaveBeenCalledWith("a.md");
+
+    fireEvent.contextMenu(screen.getByText("Alpha"));
+    await user.click(screen.getByRole("menuitem", { name: "Active" }));
+    expect(setNoteStatus).toHaveBeenCalledWith("a.md", "Active");
+
+    fireEvent.contextMenu(screen.getByText("Alpha"));
+    await user.click(screen.getByRole("menuitem", { name: "menu.deleteFile" }));
+    expect(deleteNote).toHaveBeenCalledWith("a.md");
+  });
+
+  it("归档选择交给 ArchiveView(mock 横幅)", () => {
+    render(
+      <NoteListView
+        root="/v"
+        snapshot={snap([])}
+        currentPath={null}
+        navSelection={{ kind: "archive" }}
+        actions={actions()}
+        {...renameProps}
+        t={t}
+      />,
+    );
+    expect(screen.getByTestId("archive-mock-hint")).toBeInTheDocument();
   });
 });

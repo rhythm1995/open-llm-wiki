@@ -6,7 +6,8 @@
  * ironcalc WASM 引擎 mock 为不可用 → 走 native 求值;纯函数走真实实现。
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, act, fireEvent } from "@testing-library/react";
+import { render, act, fireEvent, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("../lib/sheet-ironcalc", () => ({
   evalSheetWithIroncalc: vi.fn(async () => null),
@@ -24,6 +25,58 @@ function formulaInput(container: HTMLElement) {
   if (!el) throw new Error("formula input not found");
   return el;
 }
+
+describe("SheetView 冻结 / 图表 / 多表", () => {
+  it("改冻结行列走 onSave", () => {
+    const onSave = vi.fn();
+    render(<SheetView content={emptySheetContent()} onSave={onSave} t={t} />);
+    fireEvent.change(screen.getByTestId("sheet-freeze-rows"), {
+      target: { value: "2" },
+    });
+    expect(onSave).toHaveBeenCalled();
+    const doc = JSON.parse(onSave.mock.calls.at(-1)![0] as string) as {
+      sheets: { freezeRows: number; freezeCols: number }[];
+    };
+    expect(doc.sheets[0]!.freezeRows).toBe(2);
+    fireEvent.change(screen.getByTestId("sheet-freeze-cols"), {
+      target: { value: "1" },
+    });
+    const doc2 = JSON.parse(onSave.mock.calls.at(-1)![0] as string) as {
+      sheets: { freezeCols: number }[];
+    };
+    expect(doc2.sheets[0]!.freezeCols).toBe(1);
+  });
+
+  it("添加图表后出现图表区", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(<SheetView content={emptySheetContent()} onSave={onSave} t={t} />);
+    expect(screen.queryByTestId("sheet-charts")).toBeNull();
+    fireEvent.change(screen.getByTestId("sheet-chart-range"), {
+      target: { value: "A1:B2" },
+    });
+    await user.click(screen.getByTestId("sheet-add-chart"));
+    expect(screen.getByTestId("sheet-charts")).toBeInTheDocument();
+    const saved = JSON.parse(onSave.mock.calls.at(-1)![0] as string) as {
+      charts: { range: string; type: string }[];
+    };
+    expect(saved.charts[0]!.range).toBe("A1:B2");
+    expect(saved.charts[0]!.type).toBe("bar");
+  });
+
+  it("加表页增加 tab", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(<SheetView content={emptySheetContent()} onSave={onSave} t={t} />);
+    const tabs = screen.getByTestId("sheet-tabs");
+    expect(tabs.querySelectorAll("button").length).toBeGreaterThanOrEqual(1);
+    await user.click(screen.getByTestId("sheet-add-tab"));
+    const saved = JSON.parse(onSave.mock.calls.at(-1)![0] as string) as {
+      sheets: unknown[];
+    };
+    expect(saved.sheets).toHaveLength(2);
+  });
+});
 
 describe("SheetView 公式栏草稿", () => {
   it("卸载时提交未落盘草稿(经 onFlush 定向写回本文件)", () => {

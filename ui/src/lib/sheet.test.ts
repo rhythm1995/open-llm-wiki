@@ -20,6 +20,7 @@ import {
 import {
   findSheetBlocks,
   parseSheetBlockBody,
+  rewriteMarkdownSheetBlocks,
   sheetBlockToHtml,
 } from "./sheet-block";
 
@@ -146,5 +147,22 @@ describe("sheet-block md", () => {
     const spec = parseSheetBlockBody("path: budgets/x.sheet\ntab: Sheet1\n");
     expect(spec.path).toBe("budgets/x.sheet");
     expect(spec.tab).toBe("Sheet1");
+  });
+
+  it("path embed 用 vault 正文求值", () => {
+    let doc = createEmptySheet();
+    doc = setCell(doc, "A1", "4");
+    doc = setCell(doc, "A2", "=A1*3");
+    const spec = parseSheetBlockBody("path: n.sheet\n");
+    const html = sheetBlockToHtml(spec, serializeSheet(doc));
+    expect(html).toContain("12");
+  });
+
+  it("rewrite 缺文件时占位", async () => {
+    const md = "x\n```sheet\npath: missing.sheet\n```\ny";
+    const out = await rewriteMarkdownSheetBlocks(md, async () => null);
+    expect(out).toContain("sheet not found: missing.sheet");
+    expect(out).toContain("x");
+    expect(out).toContain("y");
   });
 });

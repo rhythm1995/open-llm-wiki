@@ -5,7 +5,7 @@
  * 无 ipc 依赖,无需 vi.mock。覆盖:空态、标题渲染与回退、激活态、点击激活、× 关闭。
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TabBar } from "./TabBar";
 import type { VaultSnapshot } from "../lib/ipc";
@@ -110,5 +110,95 @@ describe("TabBar", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "common.close" }));
     expect(a.closeTab).toHaveBeenCalledWith("a.md");
     expect(a.selectNote).not.toHaveBeenCalled();
+  });
+
+  it("中键关闭当前页", () => {
+    const a = actions();
+    render(
+      <TabBar
+        openPaths={["a.md", "b.md"]}
+        activePath="a.md"
+        snapshot={snapshot({ "a.md": "Alpha", "b.md": "Beta" })}
+        actions={a}
+        t={t}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /Beta/ }), { button: 1 });
+    expect(a.closeTab).toHaveBeenCalledWith("b.md");
+  });
+
+  it("右键关闭其它页,单项时该项禁用", async () => {
+    const user = userEvent.setup();
+    const a = actions();
+    const { rerender } = render(
+      <TabBar
+        openPaths={["a.md", "b.md"]}
+        activePath="a.md"
+        snapshot={snapshot({ "a.md": "Alpha", "b.md": "Beta" })}
+        actions={a}
+        t={t}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /Alpha/ }));
+    await user.click(screen.getByRole("menuitem", { name: "tab.menu.closeOthers" }));
+    expect(a.closeTab).toHaveBeenCalledWith("b.md");
+    expect(a.closeTab).not.toHaveBeenCalledWith("a.md");
+
+    rerender(
+      <TabBar
+        openPaths={["a.md"]}
+        activePath="a.md"
+        snapshot={snapshot({ "a.md": "Alpha" })}
+        actions={a}
+        t={t}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /Alpha/ }));
+    expect(screen.getByRole("menuitem", { name: "tab.menu.closeOthers" })).toBeDisabled();
+  });
+
+  it("右键复制路径写入剪贴板", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    render(
+      <TabBar
+        openPaths={["dir/a.md"]}
+        activePath="dir/a.md"
+        snapshot={snapshot({ "dir/a.md": "Alpha" })}
+        actions={actions()}
+        t={t}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: /Alpha/ }));
+    await user.click(screen.getByRole("menuitem", { name: "tab.menu.copyPath" }));
+    expect(writeText).toHaveBeenCalledWith("dir/a.md");
+  });
+
+  it("拖到另一页调用 reorderTab", () => {
+    const a = actions();
+    render(
+      <TabBar
+        openPaths={["a.md", "b.md"]}
+        activePath="a.md"
+        snapshot={snapshot({ "a.md": "Alpha", "b.md": "Beta" })}
+        actions={a}
+        t={t}
+      />,
+    );
+    const from = screen.getByRole("tab", { name: /Alpha/ });
+    const to = screen.getByRole("tab", { name: /Beta/ });
+    const dt = {
+      setData: vi.fn(),
+      effectAllowed: "all",
+      dropEffect: "move",
+    };
+    fireEvent.dragStart(from, { dataTransfer: dt });
+    fireEvent.dragOver(to, { dataTransfer: dt });
+    fireEvent.drop(to, { dataTransfer: dt });
+    expect(a.reorderTab).toHaveBeenCalledWith(0, 1);
   });
 });

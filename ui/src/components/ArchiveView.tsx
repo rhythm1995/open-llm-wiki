@@ -115,15 +115,19 @@ export function ArchiveView({ root, actions, t }: Props) {
 
   if (!root) {
     return (
-      <p className="px-3 py-3 text-[12px] text-overlay">{t("git.empty")}</p>
+      <p className="px-3 py-3 text-[12px] text-overlay" data-testid="archive-view">
+        {t("git.empty")}
+      </p>
     );
   }
 
   // mock 模式:git 不可用 → 空态(与 GitPanel 一致,提示去桌面 app)。
   if (mock) {
     return (
-      <div className="px-3 py-3">
-        <p className="text-[12px] text-overlay">{t("archive.mockHint")}</p>
+      <div className="px-3 py-3" data-testid="archive-view">
+        <p className="text-[12px] text-overlay" data-testid="archive-mock-hint">
+          {t("archive.mockHint")}
+        </p>
       </div>
     );
   }
@@ -131,13 +135,15 @@ export function ArchiveView({ root, actions, t }: Props) {
   // 非 git 仓库:空态 + 初始化入口(geek 优先:一键 git init)。
   if (isRepo === false) {
     return (
-      <div className="flex flex-col gap-2 px-3 py-4">
+      <div className="flex flex-col gap-2 px-3 py-4" data-testid="archive-view">
         <div className="flex items-center gap-1.5 text-[12px] text-overlay">
           <GitBranch size={13} />
           <span>{t("archive.notRepo")}</span>
         </div>
         <p className="text-[12px] text-overlay">{t("archive.notRepoHint")}</p>
         <button
+          type="button"
+          data-testid="archive-init"
           onClick={() => void initRepo()}
           disabled={initializing}
           className="mt-1 flex w-fit items-center gap-1 rounded bg-blue px-2.5 py-1 text-[12px] font-medium text-crust hover:opacity-90 disabled:opacity-50"
@@ -155,7 +161,7 @@ export function ArchiveView({ root, actions, t }: Props) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" data-testid="archive-view">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-crust bg-mantle px-3 py-1.5">
         <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide text-overlay">
           {t("archive.section.deleted")}
@@ -195,6 +201,8 @@ export function ArchiveView({ root, actions, t }: Props) {
             return (
               <li key={d.path} className="group relative border-b border-crust/60">
                 <button
+                  type="button"
+                  data-testid={`archive-restore-${d.path}`}
                   onClick={() => restore(d.path)}
                   disabled={restoring !== null}
                   title={t("archive.restore")}

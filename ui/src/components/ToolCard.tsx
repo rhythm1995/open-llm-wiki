@@ -37,12 +37,16 @@ export function ToolCard({ rec }: { rec: ToolRecord }) {
 
   return (
     <div
+      data-testid="tool-card"
+      data-status={rec.status}
       className={cn(
         "self-start rounded border bg-mantle text-[11px]",
         failed ? "border-red/50" : "border-crust",
       )}
     >
       <button
+        type="button"
+        data-testid="tool-card-toggle"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-text hover:bg-surface"
       >
@@ -68,6 +72,8 @@ export function ToolCard({ rec }: { rec: ToolRecord }) {
           </pre>
           {longText && (
             <button
+              type="button"
+              data-testid="tool-card-more"
               onClick={() => setFullText((v) => !v)}
               className="mt-0.5 text-[10px] text-blue hover:underline"
             >

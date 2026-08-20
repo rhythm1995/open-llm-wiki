@@ -29,6 +29,12 @@ let ModelCtor: (new (
   language_id: string,
 ) => IronModel) | null = null;
 
+/** 测试用:丢掉懒加载单例,以便下一例重新 mock wasm。 */
+export function resetIroncalcForTests(): void {
+  initPromise = null;
+  ModelCtor = null;
+}
+
 /** 懒加载 wasm;测试环境通常失败 → false。 */
 export function ensureIroncalc(): Promise<boolean> {
   if (initPromise) return initPromise;

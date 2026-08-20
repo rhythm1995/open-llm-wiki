@@ -825,7 +825,10 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
 
   if (!snapshot || allNodes.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-overlay">
+      <div
+        className="flex h-full items-center justify-center text-overlay"
+        data-testid="graph-empty"
+      >
         <p className="text-[13px]">{t("graph.empty")}</p>
       </div>
     );
@@ -843,6 +846,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
   return (
     <div
       ref={containerRef}
+      data-testid="graph-view"
       className="relative h-full w-full overflow-hidden"
       style={{
         background: themeIsDark
@@ -957,7 +961,10 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
 
       {/* 左上:stats + 视野状态芯片(一等公民) */}
       <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[min(28rem,calc(100%-8rem))] flex-col gap-1.5">
-        <div className="w-fit rounded-lg bg-mantle/90 px-2.5 py-1 text-[11px] tracking-wide text-subtext shadow-sm ring-1 ring-crust/80 backdrop-blur-md">
+        <div
+          data-testid="graph-stats"
+          className="w-fit rounded-lg bg-mantle/90 px-2.5 py-1 text-[11px] tracking-wide text-subtext shadow-sm ring-1 ring-crust/80 backdrop-blur-md"
+        >
           {t("graph.stats", {
             nodes: renderIds.length,
             edges: linksRef.current.length,
@@ -972,6 +979,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
           {/* 稳定偏好:跟随当前 / 全库 */}
           <button
             type="button"
+            data-testid="graph-scope"
             onClick={() =>
               setScopeMode((s) =>
                 s === "neighborhood" ? "all" : "neighborhood",
@@ -1148,6 +1156,8 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
       {/* 顶栏:过滤(有徽章) + 更多(布局/重排/健康;范围已提到芯片) */}
       <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5">
         <button
+          type="button"
+          data-testid="graph-filter-toggle"
           onClick={() => {
             setShowFilters((v) => !v);
             setShowMore(false);
@@ -1166,6 +1176,8 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
             : t("graph.filter")}
         </button>
         <button
+          type="button"
+          data-testid="graph-more"
           onClick={() => {
             setShowMore((v) => !v);
             setShowFilters(false);
@@ -1188,6 +1200,7 @@ export function GraphView({ snapshot, currentId, actions, root, forces, t }: Pro
           <label className="mb-2 flex flex-col gap-1 text-overlay">
             <span>{t("graph.layout")}</span>
             <select
+              data-testid="graph-layout"
               value={layoutMode}
               onChange={(e) => setLayoutMode(e.target.value as LayoutMode)}
               className="cursor-pointer rounded-md bg-surface px-2 py-1.5 text-text outline-none ring-1 ring-crust"
@@ -1390,6 +1403,7 @@ function FilterPanel({
           >
             <input
               type="checkbox"
+              data-testid={`graph-filter-type-${tp === TYPELESS ? "typeless" : tp}`}
               checked={filters.types.has(tp)}
               onChange={() =>
                 onChange({ ...filters, types: toggleSet(filters.types, tp) })

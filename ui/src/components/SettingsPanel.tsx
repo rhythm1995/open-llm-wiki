@@ -175,6 +175,7 @@ function GeneralTab({
         <span className="mb-1.5 block text-overlay">{t("settings.theme")}</span>
         <select
           className={selectCls}
+          data-testid="settings-theme"
           value={settings.theme}
           onChange={(e) => onChange({ theme: e.target.value as Theme })}
         >
@@ -187,6 +188,7 @@ function GeneralTab({
         <span className="mb-1.5 block text-overlay">{t("settings.locale")}</span>
         <select
           className={selectCls}
+          data-testid="settings-locale"
           value={settings.locale}
           onChange={(e) => onChange({ locale: e.target.value as Locale })}
         >
@@ -201,6 +203,7 @@ function GeneralTab({
         </span>
         <select
           className={selectCls}
+          data-testid="settings-edit-mode"
           value={settings.defaultEditMode}
           onChange={(e) =>
             onChange({ defaultEditMode: e.target.value as EditMode })

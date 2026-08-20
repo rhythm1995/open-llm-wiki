@@ -75,6 +75,7 @@ export function TabBar({ openPaths, activePath, snapshot, actions, t }: Props) {
             key={path}
             ref={active ? activeRef : undefined}
             role="tab"
+            data-path={path}
             tabIndex={0}
             draggable
             onContextMenu={(e) => {

@@ -25,6 +25,28 @@ interface Props {
   onClose: () => void;
 }
 
+/** 只把打开之后发生的滚动当成关闭信号(忽略打开前惯性/scroll-into-view)。 */
+export function isFreshDismissEvent(eventTimeStamp: number, openTs: number): boolean {
+  return eventTimeStamp >= openTs;
+}
+
+/** 菜单定位:若会溢出视口则翻到内侧,至少留 `pad`。 */
+export function clampMenuPos(
+  pos: { x: number; y: number },
+  size: { width: number; height: number },
+  viewport: { width: number; height: number },
+  pad = 4,
+): { x: number; y: number } {
+  let { x, y } = pos;
+  if (x + size.width > viewport.width) {
+    x = Math.max(pad, viewport.width - size.width - pad);
+  }
+  if (y + size.height > viewport.height) {
+    y = Math.max(pad, viewport.height - size.height - pad);
+  }
+  return { x, y };
+}
+
 export function ContextMenu({ items, pos, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -40,7 +62,7 @@ export function ContextMenu({ items, pos, onClose }: Props) {
       if (e.key === "Escape") onClose();
     };
     const onScroll = (e: Event) => {
-      if (e.timeStamp < openTs) return;
+      if (!isFreshDismissEvent(e.timeStamp, openTs)) return;
       onClose();
     };
     const onBlur = () => onClose();
@@ -59,10 +81,10 @@ export function ContextMenu({ items, pos, onClose }: Props) {
     if (!pos || !ref.current) return;
     const el = ref.current;
     const { width, height } = el.getBoundingClientRect();
-    const pad = 4;
-    let { x, y } = pos;
-    if (x + width > window.innerWidth) x = Math.max(pad, window.innerWidth - width - pad);
-    if (y + height > window.innerHeight) y = Math.max(pad, window.innerHeight - height - pad);
+    const { x, y } = clampMenuPos(pos, { width, height }, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
   }, [pos]);
@@ -73,6 +95,7 @@ export function ContextMenu({ items, pos, onClose }: Props) {
     <>
       {/* 全屏透明捕获层:点击外部 / 再次右键 → 关闭。z-40 在菜单之下。 */}
       <div
+        data-testid="context-menu-backdrop"
         className="fixed inset-0 z-40"
         onClick={onClose}
         onContextMenu={(e) => {

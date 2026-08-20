@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterByTitles, nodeWikilink, openLinkContext, parseLinkInner, resolveTitleForTarget, resolveWikiTarget } from "./wikilink";
+import { filterByTitles, nodeWikilink, openLinkContext, parseLinkInner, resolveTitleForTarget, resolveWikiTarget, wikilinkTargetAtColumn } from "./wikilink";
 import type { NodeOut } from "./ipc";
 
 const N = (id: number, path: string, title: string): NodeOut => ({
@@ -19,6 +19,24 @@ const NODES: NodeOut[] = [
   N(1, "dir/the-note.md", "The Note"),
   N(2, "sub/gamma.md", "Gamma Real"),
 ];
+
+describe("wikilinkTargetAtColumn", () => {
+  it("列在链接内取出 target,别名仍跟 target", () => {
+    expect(wikilinkTargetAtColumn("see [[Foo|Bar]] here", 6)).toBe("Foo");
+    expect(wikilinkTargetAtColumn("see [[Foo|Bar]] here", 10)).toBe("Foo");
+  });
+
+  it("列在链接外或空行返回 null", () => {
+    expect(wikilinkTargetAtColumn("see [[Foo]] here", 0)).toBeNull();
+    expect(wikilinkTargetAtColumn("no links", 2)).toBeNull();
+  });
+
+  it("一行多个链接按列选中", () => {
+    const line = "[[A]] then [[B]]";
+    expect(wikilinkTargetAtColumn(line, 1)).toBe("A");
+    expect(wikilinkTargetAtColumn(line, 13)).toBe("B");
+  });
+});
 
 describe("parseLinkInner", () => {
   it("splits target / alias / anchor", () => {

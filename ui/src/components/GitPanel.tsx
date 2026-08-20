@@ -148,17 +148,25 @@ export function GitPanel({ root, t }: Props) {
 
   if (!root) {
     return (
-      <div className="flex h-full items-center justify-center text-overlay">
+      <div
+        className="flex h-full items-center justify-center text-overlay"
+        data-testid="git-panel"
+      >
         <p className="text-[13px]">{t("git.empty")}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-base p-4">
+    <div
+      className="flex h-full flex-col overflow-y-auto bg-base p-4"
+      data-testid="git-panel"
+    >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 className="text-[13px] font-semibold text-text">{t("view.git")}</h2>
         <button
+          type="button"
+          data-testid="git-refresh"
           onClick={() => void refresh()}
           disabled={loading}
           className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] text-subtext hover:bg-surface disabled:opacity-50"
@@ -168,6 +176,8 @@ export function GitPanel({ root, t }: Props) {
           {t("git.refresh")}
         </button>
         <button
+          type="button"
+          data-testid="git-pull"
           onClick={() => void pull()}
           disabled={mock || pulling}
           className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] text-subtext hover:bg-surface disabled:opacity-50"
@@ -177,6 +187,8 @@ export function GitPanel({ root, t }: Props) {
           {pulling ? t("git.pulling") : t("git.pull")}
         </button>
         <button
+          type="button"
+          data-testid="git-push"
           onClick={() => void push()}
           disabled={mock || pushing || conflicted}
           className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] text-subtext hover:bg-surface disabled:opacity-50"
@@ -189,13 +201,19 @@ export function GitPanel({ root, t }: Props) {
       </div>
 
       {mock && (
-        <div className="mb-3 rounded border border-yellow/40 bg-yellow/10 px-2 py-1.5 text-[12px] text-yellow">
+        <div
+          data-testid="git-mock-hint"
+          className="mb-3 rounded border border-yellow/40 bg-yellow/10 px-2 py-1.5 text-[12px] text-yellow"
+        >
           {t("git.mockHint")}
         </div>
       )}
 
       {conflicted && (
-        <div className="mb-3 rounded border border-mauve/40 bg-mauve/10 px-2 py-1.5 text-[12px] text-mauve">
+        <div
+          data-testid="git-conflicts"
+          className="mb-3 rounded border border-mauve/40 bg-mauve/10 px-2 py-1.5 text-[12px] text-mauve"
+        >
           <div className="font-medium">{t("git.conflictTitle")}</div>
           <p className="mt-0.5 text-[11px] opacity-90">{t("git.conflictHint")}</p>
           <ul className="mt-1 list-inside list-disc text-[11px]">
@@ -207,7 +225,10 @@ export function GitPanel({ root, t }: Props) {
       )}
 
       {error && (
-        <div className="mb-3 flex items-start gap-2 rounded border border-red/40 bg-red/10 px-2 py-1.5 text-[12px] text-red">
+        <div
+          data-testid="git-error"
+          className="mb-3 flex items-start gap-2 rounded border border-red/40 bg-red/10 px-2 py-1.5 text-[12px] text-red"
+        >
           <Warning size={14} weight="bold" className="mt-0.5 shrink-0" />
           <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-sans">
             {error}
@@ -227,6 +248,7 @@ export function GitPanel({ root, t }: Props) {
           {t("git.commitSection")}
         </div>
         <textarea
+          data-testid="git-commit-message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder={t("git.commitPlaceholder")}
@@ -234,6 +256,8 @@ export function GitPanel({ root, t }: Props) {
           className="w-full resize-none rounded border border-surface bg-base px-2 py-1.5 text-[12px] text-text outline-none focus:border-blue"
         />
         <button
+          type="button"
+          data-testid="git-commit"
           onClick={() => void commit()}
           disabled={committing || !message.trim()}
           className="mt-1.5 flex w-full items-center justify-center gap-1 rounded bg-green/20 px-2.5 py-1 text-[12px] text-green hover:bg-green/30 disabled:opacity-40"
