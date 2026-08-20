@@ -15,6 +15,13 @@
 
 ---
 
+### 2026-08-21 ZCode — git-unborn-ux 合入 main;main 上曾重放 docs 栈(合并对账记录)
+
+- **branch**: `main`(合并后推送 `93c10a5..3a115ec`);新工作分支 `zcode/next` 自 main 切出。
+- **做了**: 用户指示合并。发现 origin/main 已含 release PR #8-#17,且 docs-anti-drift 的 12 个提交被**重写 hash 后重放**到 main(93c10a5 等,内容与 `zcode/git-unborn-ux` 栈中原版逐字节一致)。合并时 3 个冲突(WORKLOG / GitPanel.tsx / GitPanel.test.tsx)本质都是"main 侧 = 我改动前的版本",按分支版解决;合并后 `git diff origin/main HEAD` 恰为本任务 5 文件改动,无夹带。
+- **验证**: 合并树上 typecheck + ui test 936 绿 + app cargo 63 绿后才 push main。
+- **下一步 / 接手注意**: ① `zcode/git-unborn-ux` 与 `zcode/docs-anti-drift` 分支可删(hash 与 main 不同但内容已全在)。② 上一条 WORKLOG 里"未 commit pending review"已过时,以本条为准。③ 昨条记录的留尾(git 身份未配时的首提红错、unborn 下 pull/push 未细分禁用)仍未做。
+
 ### 2026-08-21 ZCode — Git 视图零提交/非仓库状态去红错(源头消化 unborn fatal)
 
 - **branch**: `zcode/git-unborn-ux`(从 `zcode/docs-anti-drift` HEAD 切出;未 commit)。
