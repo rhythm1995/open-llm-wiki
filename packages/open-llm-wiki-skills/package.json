@@ -7,6 +7,9 @@
   "bin": {
     "open-llm-wiki-skills": "./bin/olw-skills.mjs"
   },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
   "files": [
     "bin",
     "skills",
