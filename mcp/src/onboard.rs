@@ -883,11 +883,8 @@ pub fn seed_vault(dir: &Path, force: bool) -> Result<SeedReport, String> {
             report.skipped.push((*rel).to_string());
             continue;
         }
-        if let Some(parent) = full.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("create {} failed: {e}", parent.display()))?;
-        }
-        fs::write(&full, content).map_err(|e| format!("write {} failed: {e}", full.display()))?;
+        // 原子写(doc 17 G1):starter 种子进 vault 同样不给云盘看半截文件的机会。
+        atomic_write(&full, content)?;
         report.written.push((*rel).to_string());
     }
     // Agent 发现路径:同一 SKILL 双写到 .agents 与 .claude(不覆盖已有)。
@@ -912,12 +909,8 @@ pub fn install_wiki_ingest_skill(dir: &Path) -> Result<SeedReport, String> {
             report.skipped.push(rel.to_string());
             continue;
         }
-        if let Some(parent) = full.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("create {} failed: {e}", parent.display()))?;
-        }
-        fs::write(&full, skill_body)
-            .map_err(|e| format!("write {} failed: {e}", full.display()))?;
+        // 原子写(doc 17 G1),同上。
+        atomic_write(&full, skill_body)?;
         report.written.push(rel.to_string());
     }
     Ok(report)
