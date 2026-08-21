@@ -1,0 +1,63 @@
+# Third-Party Notices
+
+Open LLM Wiki 本身的代码以 [Apache-2.0](./LICENSE) 许可(原创、独立的实现)。本文件
+诚实记录所有**直接依赖**及其许可。**默认分发无 source-available 生产限制** ——
+可本地与托管部署(仍须遵守各依赖自身的 OSI 条款,如 MPL 文件级 copyleft)。
+
+## 依赖许可一览
+
+| 依赖 | 许可 | 备注 |
+|---|---|---|
+| React 19 / react-dom | MIT | UI 框架。 |
+| Tauri 2 + 插件 | MIT / Apache-2.0 | 桌面壳(`@tauri-apps/*`)。 |
+| CodeMirror 6 | MIT | 编辑器(md 源码模式)。 |
+| BlockNote 0.52 | MPL-2.0 | 块编辑器(md WYSIWYG 模式,弱 copyleft,见下节)。 |
+| **@excalidraw/excalidraw** | **MIT** | 无限画布(F-CANVAS)。懒加载隔离在 `CanvasView` chunk。 |
+| **force-graph** | **MIT** | 图谱 Canvas 渲染与 d3-force 布局(F-GRAPH;`ForceGraphLayer` 懒加载;glow/粒子观感)。 |
+| Radix UI | MIT | 无障碍组件(对话框 / 下拉 / 标签页 / 工具提示)。 |
+| Tailwind CSS 4 | MIT | 原子 CSS。 |
+| Phosphor icons | MIT | 图标。 |
+| marked | MIT | Markdown → HTML 渲染(阅读视图)。 |
+| dompurify | Apache-2.0 / MPL | 阅读视图 HTML 清洗(F-READING 安全加固)。 |
+| **@ironcalc/wasm** | **MIT / Apache-2.0** | 表格公式引擎增强(F-SHEET);可选,失败回退内置求值。 |
+| serde / serde_yaml | MIT / Apache-2.0 | Rust 序列化。 |
+| walkdir | MIT / Unlicense | Rust 目录遍历。 |
+| which | MIT | PATH 二进制解析(app ACP 配方探测 + mcp agent 接入)。 |
+| toml_edit | MIT / Apache-2.0 | mcp 接入写 Codex `~/.codex/config.toml`(保格式保注释)。 |
+| Vitest / esbuild | MIT | 测试与构建(仅开发期)。 |
+| react-router-dom | MIT | 官网路由(`site/`)。 |
+| marked | MIT | 官网渲染 `docs/user` Markdown(与 UI 阅读视图同库)。 |
+| DOMPurify | Apache-2.0 / MPL | 官网文档 HTML 清洗。 |
+| Source Serif 4 / Geist / Geist Mono (Fontsource) | OFL-1.1 | 官网字体(自托管)。 |
+| gsap / @gsap/react | GSAP Standard (no charge) | 官网滚动叙事、晶格描边与文本拆分(`site/`)。插件随公共 `gsap` 包分发。 |
+
+完整传递依赖以 `cargo license`、`pnpm licenses list` 为准;上线前复核无
+GPL/AGPL 直染依赖(本项目严禁引入任何 copyleft 源码 —— 见 [README](./README.md)
+红线)。
+
+## 商用 / 托管部署
+
+Open LLM Wiki **默认以 MIT 分发**,画布使用 Excalidraw(MIT),**不**再捆绑
+tldraw。因此:**本地单机与作为托管 web 服务对公众部署**均不因画布引擎触发
+额外商用许可(仍须遵守 MIT 与其它依赖条款,如 BlockNote MPL-2.0)。
+
+历史版本曾使用 tldraw(source-available)。现已移除;磁盘上旧 `.canvas`
+(tldraw `TLEditorSnapshot`)可识别为只读遗留文件,不保证可编辑迁移。
+
+## BlockNote 许可(md WYSIWYG 模式)
+
+BlockNote(`@blocknote/core` `@blocknote/react` `@blocknote/mantine`,v0.52)是
+Notion 式块编辑器,用于 md 笔记的 **WYSIWYG 模式** —— 与 CodeMirror 源码模式
+并列,两者读写同一个 `.md`。许可全文见
+[`licenses/blocknote-LICENSE.md`](./licenses/blocknote-LICENSE.md)。
+
+BlockNote 是 **MPL-2.0**(弱 copyleft,OSI 认证):商用、生产部署、闭源衍生皆可,
+只需对**自己修改过的 MPL 文件**开源(文件级 copyleft,不传染 merely 链接它的
+代码)。本项目不修改 BlockNote 源文件,仅作为库引入,故无开源义务,保留本许可
+声明即可。
+
+### 归属
+
+BlockNote 由 TypeCellOS/BlockNote 维护(https://github.com/TypeCellOS/BlockNote)。
+Excalidraw 由 Excalidraw 项目维护(https://github.com/excalidraw/excalidraw)。
+force-graph 由 Vasco Asturiano 维护(https://github.com/vasturiano/force-graph)。

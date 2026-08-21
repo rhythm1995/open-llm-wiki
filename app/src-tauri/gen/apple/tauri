@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+/**
+ * Xcode「Build Rust Code」phase 的 tauri CLI 入口(project.yml 里 `node tauri ios
+ * xcode-script …` 以 gen/apple 为 cwd)。npm 安装的 CLI 没有全局 `tauri` 命令,
+ * 这里转发到仓库内 ui/node_modules 的 @tauri-apps/cli。
+ */
+require("../../../../ui/node_modules/@tauri-apps/cli/tauri.js");
