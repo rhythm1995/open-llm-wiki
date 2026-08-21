@@ -515,6 +515,23 @@ mod tests {
         unsafe { std::env::remove_var("OPEN_LLM_WIKI_HOME"); }
     }
 
+    /// doc 18 §5:iOS app 自有 ubiquity 容器(`iCloud~dev~openllmwiki~mobile`)下的
+    /// vault 桌面端打开时同样判 icloud → G3 git 闸门与提示照常生效(桌面↔iPhone 同步)。
+    #[test]
+    fn detect_own_mobile_container_is_icloud() {
+        let _g = env_lock();
+        let home = fake_home(false, false);
+        unsafe { std::env::set_var("OPEN_LLM_WIKI_HOME", home.path()); }
+        let vault = home
+            .path()
+            .join("Library/Mobile Documents/iCloud~dev~openllmwiki~mobile/Documents/v");
+        std::fs::create_dir_all(&vault).unwrap();
+        std::fs::write(vault.join("a.md"), "# A\n").unwrap();
+        let info = detect_storage_impl(vault.to_str().unwrap()).unwrap();
+        assert_eq!(info.kind, "icloud");
+        unsafe { std::env::remove_var("OPEN_LLM_WIKI_HOME"); }
+    }
+
     #[test]
     fn detect_icloud_and_managed_and_stub_eviction() {
         let _g = env_lock();

@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+	<!-- doc 18 §5 / M2:iCloud Documents 能力(桌面 ↔ iPhone 同步)。
+	     容器 id = iCloud.<bundle id>;后端 icloud_container_documents() 的路径
+	     形状(iCloud~dev~openllmwiki~mobile)与此对齐。
+	     模拟器 ad-hoc 签名可带此 entitlement;真机/TestFlight 需开发者账号
+	     的 provisioning profile 包含该容器(M3 凭证门)。 -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.dev.openllmwiki.mobile</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.dev.openllmwiki.mobile</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+	</array>
+</dict>
 </plist>

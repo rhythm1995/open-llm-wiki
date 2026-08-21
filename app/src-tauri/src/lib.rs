@@ -1188,25 +1188,39 @@ async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
     }
 }
 
-/// 用户 Documents 目录(无 crate 依赖;HOME/USERPROFILE + Documents)。
+/// iOS 自有 iCloud ubiquity 容器内的 Documents(bundle id 的 `.` 在容器目录名里
+/// 写作 `~`,与 gen/apple entitlements / tauri.ios.conf.json identifier 对齐)。
+/// 纯函数,路径形状由测试锁定。
+fn icloud_container_documents(home: &Path) -> PathBuf {
+    home.join("Library/Mobile Documents/iCloud~dev~openllmwiki~mobile/Documents")
+}
+
+/// 纯决策:vault 文档目录。iOS 且容器已存在(用户开了 iCloud)→ 容器 Documents,
+/// 桌面端直接读写同一路径即获得同步(doc 18 §5);否则 home/Documents(桌面语义不变)。
+fn choose_documents_dir(home: &Path, prefer_icloud_container: bool) -> PathBuf {
+    if prefer_icloud_container {
+        let c = icloud_container_documents(home);
+        if c.is_dir() {
+            return c;
+        }
+    }
+    home.join("Documents")
+}
+
+/// 用户 Documents 目录(HOME/USERPROFILE;iOS 上容器存在时优先容器)。
 fn documents_dir() -> Result<std::path::PathBuf, String> {
     if let Ok(d) = std::env::var("OPEN_LLM_WIKI_DOCUMENTS") {
         // 测试 / 可控环境可覆盖落盘位置。
         return Ok(std::path::PathBuf::from(d));
     }
-    #[cfg(windows)]
-    {
-        if let Ok(p) = std::env::var("USERPROFILE") {
-            return Ok(std::path::PathBuf::from(p).join("Documents"));
-        }
+    let home = if cfg!(windows) {
+        std::env::var("USERPROFILE")
+    } else {
+        std::env::var("HOME")
     }
-    #[cfg(not(windows))]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            return Ok(std::path::PathBuf::from(home).join("Documents"));
-        }
-    }
-    Err("cannot resolve Documents directory".into())
+    .map(std::path::PathBuf::from)
+    .map_err(|_| "cannot resolve Documents directory".to_string())?;
+    Ok(choose_documents_dir(&home, cfg!(target_os = "ios")))
 }
 
 /// 首次启动示例库种子文件(与 ui `sample-vault.ts` 对齐,双语欢迎向)。
@@ -2176,7 +2190,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        create_sample_vault, decode_base64, is_allowed_external_url, is_md_rel, live_apply,
+        choose_documents_dir, create_sample_vault, decode_base64,
+        icloud_container_documents, is_allowed_external_url, is_md_rel, live_apply,
         load_live_from_disk, normalize_rel, path_should_emit, platform_id, preview_of,
         should_open_external_now, strip_data_url_base64, LiveVault,
     };
@@ -2184,6 +2199,7 @@ mod tests {
     use open_llm_wiki_core::{parse_query, ResultSet, VaultIndex};
     use std::collections::BTreeMap;
     use std::fs;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn create_sample_vault_writes_welcome() {
@@ -2217,6 +2233,41 @@ mod tests {
     #[test]
     fn platform_id_is_known_value() {
         assert!(matches!(platform_id(), "ios" | "desktop"));
+    }
+
+    /// doc 18 §5:iOS 自有 ubiquity 容器路径形状(bundle id 的 `.` → `~`)。
+    #[test]
+    fn ios_icloud_container_documents_path_shape() {
+        assert_eq!(
+            icloud_container_documents(Path::new("/h")),
+            PathBuf::from(
+                "/h/Library/Mobile Documents/iCloud~dev~openllmwiki~mobile/Documents"
+            )
+        );
+    }
+
+    /// 容器偏好只在「iOS 语义 + 容器已存在」时生效;桌面语义恒 home/Documents。
+    #[test]
+    fn choose_documents_dir_prefers_existing_container_only_when_asked() {
+        let home = tempfile::tempdir().expect("tempdir");
+        // 不偏好(桌面):恒 home/Documents。
+        assert_eq!(
+            choose_documents_dir(home.path(), false),
+            home.path().join("Documents")
+        );
+        // 偏好但容器不存在(用户没开 iCloud):回退 home/Documents。
+        assert_eq!(
+            choose_documents_dir(home.path(), true),
+            home.path().join("Documents")
+        );
+        // 容器出现(同步就绪):偏好时用容器;桌面语义仍不动。
+        let c = icloud_container_documents(home.path());
+        fs::create_dir_all(&c).unwrap();
+        assert_eq!(choose_documents_dir(home.path(), true), c);
+        assert_eq!(
+            choose_documents_dir(home.path(), false),
+            home.path().join("Documents")
+        );
     }
 
     #[cfg(desktop)]
