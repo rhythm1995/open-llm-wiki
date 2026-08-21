@@ -1,0 +1,69 @@
+name: iOS build
+
+# iOS 构建流水线(doc 18 M3)。手动触发,产出**未签名**的模拟器 .app 作为
+# artifact,供内部安装验证(xcrun simctl 安装)。不做 App Store/TestFlight:
+# 那需要 APPLE_CERTIFICATE 等签名凭证(与桌面 release.yml 同一凭证门),
+# 凭证就绪后把下方注释块里的 export 步骤接上即可。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  simulator-app:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Install frontend deps
+        run: pnpm --dir ui install --frozen-lockfile
+
+      # 模拟器构建走 devUrl 还是内嵌 dist 由 tauri 决定;release/模拟器产物均
+      # 内嵌 frontendDist,先产出 ui/dist。
+      - name: Build frontend (ui/dist)
+        run: pnpm --dir ui build
+
+      - name: Build iOS app (unsigned, simulator)
+        run: ui/node_modules/.bin/tauri ios build --target aarch64-apple-ios-sim
+
+      # TestFlight / App Store(凭证门,凭证配置后启用):
+      #   env: APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY /
+      #        APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID(与 release.yml 桌面签名同源)
+      #   run: >
+      #     ui/node_modules/.bin/tauri ios build --target aarch64-apple-ios
+      #     --export-method app-store
+      #   然后用 xcrun altool / notarytool 上传。
+
+      - name: Collect .app artifact
+        run: |
+          APP=$(find app/src-tauri/gen/apple/build -name "*.app" -type d | head -1)
+          if [ -z "$APP" ]; then
+            APP=$(find ~/Library/Developer/Xcode/DerivedData -path "*Debug-iphonesimulator*" -name "*.app" -type d | head -1)
+          fi
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          mkdir -p artifact
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "artifact/$(basename "$APP").zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: open-llm-wiki-ios-simulator
+          path: artifact/
+          retention-days: 14

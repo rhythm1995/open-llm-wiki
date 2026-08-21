@@ -99,6 +99,42 @@ jobs:
       - name: App integration tests (open-llm-wiki-app, incl. git_tests)
         run: cargo test -p open-llm-wiki-app
 
+  ios-compile:
+    # iOS 交叉编译门(doc 18 M2):cfg(desktop) 门与 tauri.ios.conf.json 的
+    # externalBin 覆盖保证本 job 无需 mcp sidecar(本地已验证 build.rs 重跑通过)。
+    # 不做签名/打包 —— 无签名模拟器构建见 ios.yml,TestFlight 属 M3 凭证门。
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Install frontend deps
+        run: pnpm --dir ui install --frozen-lockfile
+
+      # generate_context! 编译期读 frontendDist,先产出 ui/dist。
+      - name: Build frontend (ui/dist)
+        run: pnpm --dir ui build
+
+      - name: iOS cross-compile check
+        run: cargo check --target aarch64-apple-ios -p open-llm-wiki-app
+
   e2e:
     # 前端集成 e2e:web mock 模式(无 Tauri runtime),只需 chromium + vite dev server。
     # 覆盖组件协作 / store 生命周期 / UI 关键路径;真后端(core/app)信心来自上面两个 job。
