@@ -1429,7 +1429,8 @@ async fn run_connection<E: AgentEmitter>(
                     let pre_image = std::fs::read_to_string(&path).ok();
                     let created = pre_image.is_none();
                     let (added, removed) = line_diff(pre_image.as_deref().unwrap_or(""), &request.content);
-                    match std::fs::write(&path, &request.content) {
+                    // G1 原子写(doc 17):agent 写 vault 同样 tmp→rename,云盘不见半截文件。
+                    match crate::storage::atomic_write_str(&path, &request.content) {
                         Ok(()) => {
                             let _ = responder.respond(WriteTextFileResponse::new());
                             em.emit_file_write(FileWritePayload {

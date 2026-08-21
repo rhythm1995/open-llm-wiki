@@ -10,8 +10,9 @@
 //!   只动工作树,不是 `git revert` 动 HEAD。用户对工作树完全掌控。
 //! - 采纳 = 把该 turn 的 diff **提交进 HEAD**(`commit-tree` + `update-ref HEAD`),
 //!   默认隔离 → 用户在活动面板显式点「采纳」才合入真实历史;不动用户暂存区。
-//! - 非 git 仓库:**影子仓库**(§4)——`<vault>/.open-llm-wiki/agent-shadow.git` 独立
-//!   git 目录镜像 vault 工作树,零污染用户文件(vault 内无 `.git`)。两条路径透明。
+//! - 非 git 仓库:**影子仓库**(§4)——app data 下 `agent-shadow/<vault-hash>.git`
+//!   独立 git 目录镜像 vault 工作树,零污染用户文件(vault 内无 `.git`,也不进
+//!   任何云盘同步目录;doc 17:旧版在 vault 内,首用时自动迁移)。两条路径透明。
 //!
 //! ## 归因口径
 //!
@@ -68,12 +69,70 @@ fn is_repo(root: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// 非 git vault 的影子仓库路径:`<vault>/.open-llm-wiki/agent-shadow.git`。
-/// 放在 app 私有目录里,vault 本身不被 `.git` 污染。
+/// vault root → FNV-1a-ish 稳定哈希(transcript db 同款;避路径非法字符)。
+fn vault_hash(root: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in root.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+/// 影子仓库位置:**app data 下**按 vault 哈希命名。
+/// 不进 vault = 不进 iCloud / 任何云盘同步 —— vault 内的 bare repo 是已知
+/// 损坏源(高频小文件 churn,doc 17 调研 §git-in-iCloud)。
 fn shadow_dir(root: &str) -> std::path::PathBuf {
+    crate::storage::app_data_base()
+        .join("agent-shadow")
+        .join(format!("{:016x}.git", vault_hash(root)))
+}
+
+/// v1 旧位置(vault 内)。仅供迁移探测。
+fn shadow_dir_legacy(root: &str) -> std::path::PathBuf {
     std::path::Path::new(root)
         .join(".open-llm-wiki")
         .join("agent-shadow.git")
+}
+
+/// 递归复制目录(copy 失败即整体失败)。
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> bool {
+    use walkdir::WalkDir;
+    for entry in WalkDir::new(src).min_depth(0) {
+        let Ok(e) = entry else { return false };
+        let rel = match e.path().strip_prefix(src) {
+            Ok(r) => r,
+            Err(_) => return false,
+        };
+        let target = dst.join(rel);
+        if e.file_type().is_dir() {
+            if std::fs::create_dir_all(&target).is_err() {
+                return false;
+            }
+        } else if std::fs::copy(e.path(), &target).is_err() {
+            return false;
+        }
+    }
+    true
+}
+
+/// 旧 vault 内影子仓库 → app data 迁移(best-effort:rename 优先,跨卷回退
+/// 递归 copy;都失败则留旧建新,不阻塞快照)。幂等:目标已存在即跳过。
+fn migrate_shadow_repo(root: &str) {
+    let legacy = shadow_dir_legacy(root);
+    let target = shadow_dir(root);
+    if !legacy.is_dir() || target.exists() {
+        return;
+    }
+    if let Some(p) = target.parent() {
+        let _ = std::fs::create_dir_all(p);
+    }
+    if std::fs::rename(&legacy, &target).is_ok() {
+        return;
+    }
+    if copy_dir_recursive(&legacy, &target) {
+        let _ = std::fs::remove_dir_all(&legacy);
+    }
 }
 
 /// 决定一次 git 调用该挂什么 env overlay。
@@ -87,6 +146,8 @@ fn repo_env(root: &str) -> Result<Vec<(String, String)>, String> {
     if is_repo(root) {
         return Ok(vec![]);
     }
+    // v1 影子仓库在 vault 内 —— 先搬到 app data(doc 17),再用新位置。
+    migrate_shadow_repo(root);
     let shadow = shadow_dir(root);
     if !shadow.exists() {
         if let Some(parent) = shadow.parent() {
@@ -522,10 +583,15 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// 非 git 仓库 → 影子仓库:快照照常落进 `<vault>/.open-llm-wiki/agent-shadow.git`,
-    /// vault 本身无 `.git`;活动可查;撤销逆向 apply 工作树。两条路径透明(§4)。
+    /// 非 git 仓库 → 影子仓库:**app data 下**(doc 17:不进 vault / 不进云盘同步),
+    /// vault 本身无 `.git` 也无 `.open-llm-wiki/agent-shadow.git`;活动可查;撤销逆向
+    /// apply 工作树。两条路径透明(§4)。
     #[test]
-    fn non_git_vault_uses_shadow_repo() {
+    fn non_git_vault_uses_shadow_repo_outside_vault() {
+        let _env = crate::storage::TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let appdata = tempfile::tempdir().unwrap();
+        // SAFETY: test-only, guarded by TEST_ENV_LOCK.
+        unsafe { std::env::set_var("OPEN_LLM_WIKI_APP_DATA", appdata.path()); }
         let dir = std::env::temp_dir().join(format!(
             "open-llm-wiki-gitattr-shadow-{}",
             std::process::id()
@@ -537,17 +603,25 @@ mod tests {
         // vault 内无 .git。
         assert!(!dir.join(".git").exists());
 
-        // agent 写入后快照:应建影子仓库并返回 Some。
+        // agent 写入后快照:应在 app data 建影子仓库并返回 Some。
         std::fs::write(dir.join("shadow-note.md"), "shadow write\n").unwrap();
         let snap = snapshot_turn(&root, "opencode", "post").unwrap();
         assert!(snap.is_some(), "影子仓库下快照应成功");
 
-        // vault 仍无 .git(零污染),影子仓库已建。
+        // vault 零污染;影子仓库在 app data 下(唯一一个)。
         assert!(!dir.join(".git").exists(), "vault 不应被 .git 污染");
         assert!(
-            dir.join(".open-llm-wiki/agent-shadow.git").exists(),
-            "影子仓库应已建"
+            !dir.join(".open-llm-wiki/agent-shadow.git").exists(),
+            "影子仓库不应再进 vault(doc 17)"
         );
+        let shadow_base = appdata.path().join("agent-shadow");
+        let mut entries = std::fs::read_dir(&shadow_base)
+            .expect("agent-shadow 目录应存在")
+            .map(|e| e.unwrap().path())
+            .collect::<Vec<_>>();
+        entries.sort();
+        assert_eq!(entries.len(), 1, "该 vault 应恰好一个影子仓库");
+        assert!(entries[0].to_string_lossy().ends_with(".git"), "{entries:?}");
 
         // 活动可查。
         let act = activity(&root, "opencode").unwrap();
@@ -559,6 +633,59 @@ mod tests {
         assert!(!dir.join("shadow-note.md").exists(), "撤销应移除 agent 写入");
 
         let _ = std::fs::remove_dir_all(&dir);
+        unsafe { std::env::remove_var("OPEN_LLM_WIKI_APP_DATA"); }
+    }
+
+    /// v1 旧位置(vault 内)→ app data 自动迁移:内容随迁、旧位置清空、
+    /// GIT_DIR 指向新位置。幂等(目标已存在跳过)。
+    #[test]
+    fn legacy_in_vault_shadow_repo_migrates_to_app_data() {
+        let _env = crate::storage::TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let appdata = tempfile::tempdir().unwrap();
+        // SAFETY: test-only, guarded by TEST_ENV_LOCK.
+        unsafe { std::env::set_var("OPEN_LLM_WIKI_APP_DATA", appdata.path()); }
+        let dir = std::env::temp_dir().join(format!(
+            "open-llm-wiki-gitattr-shadowmig-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let root = dir.to_string_lossy().to_string();
+
+        // 造 v1 旧影子仓库(bare init + 一个标记对象文件)。
+        let legacy = dir.join(".open-llm-wiki/agent-shadow.git");
+        std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        let out = std::process::Command::new("git")
+            .args(["init", "--bare", legacy.to_string_lossy().as_ref()])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git init --bare legacy");
+        std::fs::write(legacy.join("olw-migration-marker"), "v1").unwrap();
+
+        let env = repo_env(&root).unwrap();
+        let git_dir = env
+            .iter()
+            .find(|(k, _)| k == "GIT_DIR")
+            .map(|(_, v)| v.clone())
+            .expect("非 git vault 应挂影子仓库 env");
+        let target = shadow_dir(&root);
+        assert_eq!(git_dir, target.to_string_lossy(), "GIT_DIR 应指向 app data 新位置");
+        assert!(
+            git_dir.starts_with(appdata.path().to_string_lossy().as_ref()),
+            "新位置应在 app data 下:{git_dir}"
+        );
+        assert!(target.join("olw-migration-marker").exists(), "内容随迁");
+        assert!(!legacy.exists(), "旧位置应清空");
+
+        // 幂等:再次 repo_env 不报错、不重复迁移。
+        let env2 = repo_env(&root).unwrap();
+        assert_eq!(
+            env2.iter().find(|(k, _)| k == "GIT_DIR").map(|(_, v)| v.clone()),
+            Some(git_dir)
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+        unsafe { std::env::remove_var("OPEN_LLM_WIKI_APP_DATA"); }
     }
 
     /// 采纳:把 turn 触及的文件提交进 HEAD,且只提交这些路径 —— 不带走用户暂存的

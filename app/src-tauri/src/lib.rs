@@ -9,6 +9,7 @@ mod acp;
 mod git_attr;
 mod logging;
 mod onboarding;
+mod storage;
 mod transcript;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -430,7 +431,15 @@ fn list_vault(root: String) -> Result<Vec<VaultEntry>, String> {
 #[tauri::command]
 fn read_note(root: String, path: String) -> Result<String, String> {
     let full = resolve_under(&root, &path)?;
-    fs::read_to_string(&full).map_err(err)
+    // G6:iCloud dataless 文件的隐式下载可能长时间阻塞;超时回带 OLW_TIMEOUT 前缀
+    // 的错误,UI 识别后给"仍在下载"占位而非报错。
+    match storage::read_to_string_timeout(&full, storage::READ_TIMEOUT) {
+        Ok(storage::ReadOutcome::Content(s)) => Ok(s),
+        Ok(storage::ReadOutcome::Timeout) => {
+            Err(format!("OLW_TIMEOUT: {path}"))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 fn write_note_impl(
@@ -440,18 +449,16 @@ fn write_note_impl(
     state: &LiveVaultState,
 ) -> Result<(), String> {
     let full = resolve_under(root, path)?;
-    if let Some(parent) = full.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
     let nbytes = content.len();
-    fs::write(&full, &content).map_err(|e| {
+    // G1 原子写(tmp → rename):云盘同步者只看到完整文件;崩溃不截断。
+    storage::atomic_write_str(&full, &content).map_err(|e| {
         logging::emit(
             logging::LogLevel::Error,
             "ipc.write_note",
             "write failed",
-            Some(serde_json::json!({ "path": path, "err": e.to_string() })),
+            Some(serde_json::json!({ "path": path, "err": e })),
         );
-        err(e)
+        e
     })?;
     live_note_upsert(state, root, path, Some(content));
     logging::emit(
@@ -486,14 +493,11 @@ fn read_graph_layout(root: String) -> Result<Option<String>, String> {
     }
 }
 
-/// 写入图谱布局快照(自动创建 `.open-llm-wiki/` 目录)。
+/// 写入图谱布局快照(自动创建 `.open-llm-wiki/` 目录;G1 原子写)。
 #[tauri::command]
 fn save_graph_layout(root: String, json: String) -> Result<(), String> {
     let full = resolve_under(&root, ".open-llm-wiki/graph-layout.json")?;
-    if let Some(parent) = full.parent() {
-        fs::create_dir_all(parent).map_err(err)?;
-    }
-    fs::write(&full, &json).map_err(err)
+    storage::atomic_write_str(&full, &json)
 }
 
 /// 将 base64 字节写入 vault 内相对路径(附件,非笔记;进 media files 表,不进 note index)。
@@ -510,7 +514,8 @@ fn save_attachment_impl(
     }
     let raw = strip_data_url_base64(bytes_base64);
     let bytes = decode_base64(raw)?;
-    fs::write(&full, bytes).map_err(err)?;
+    // G1 原子写:附件同样不给云盘看到半截文件的机会。
+    storage::atomic_write(&full, &bytes)?;
     if let Ok(mut g) = state.0.lock() {
         if let Some(live) = g.as_mut() {
             if live.root == root {
@@ -941,10 +946,9 @@ fn rename_note_impl(
                                         }
                                     }
                                 }
-                                fs::write(&dst, &new_body).map_err(err)?;
+                                storage::atomic_write_str(&dst, &new_body)?;
                             }
-                            deltas.push((to_n.clone(), Some(new_body)));
-                        }
+                            deltas.push((to_n.clone(), Some(new_body)));                        }
                     }
                 } else if is_md_rel(&to_n) {
                     if let Ok(c) = fs::read_to_string(&dst) {
@@ -1275,10 +1279,8 @@ fn create_sample_vault() -> Result<String, String> {
     fs::create_dir_all(&root).map_err(err)?;
     for (rel, content) in sample_vault_seed_files() {
         let full = root.join(rel);
-        if let Some(parent) = full.parent() {
-            fs::create_dir_all(parent).map_err(err)?;
-        }
-        fs::write(&full, content).map_err(err)?;
+        // G1 原子写:示例库种子同样不例外。
+        storage::atomic_write_str(&full, content)?;
     }
     let path = root.to_string_lossy().to_string();
     logging::emit(
@@ -1481,7 +1483,12 @@ fn title_of(path: &str) -> String {
 /// 结构操作(创建/删除/重命名)的自动提交:**只暂存并提交给定路径**,不动其它
 /// 已暂存内容(正文编辑从未 `git add`,故不会被卷入),以保 commit 卫生。
 /// 非 git 仓库或无可提交时静默跳过(降级,不阻塞文件操作)。
+/// **G3 闸门**:iCloud vault 默认停用自动提交(icloud-managed 宽松;用户可经
+/// `set_git_automation` 显式开启)——iCloud 与 git 双同步引擎是已知损坏源(doc 17)。
 fn git_commit_paths(root: &str, message: &str, paths: &[&str]) {
+    if !storage::git_auto_allowed(root) {
+        return;
+    }
     if !git_is_repo_inner(root) {
         return;
     }
@@ -1648,8 +1655,15 @@ fn git_restore_note(
 
 /// 把 vault 初始化为 git 仓库(`git init`),并尝试一个初始提交(无 user 配置 /
 /// 空仓库时静默跳过)。供「归档」非 git 空态的「初始化 git」按钮。
+/// **G3 闸门**:iCloud vault 默认拒绝(同自动提交;可显式开启)。
 #[tauri::command]
 fn git_init(root: String) -> Result<(), String> {
+    if !storage::git_auto_allowed(&root) {
+        return Err(
+            "git automation is disabled for iCloud vaults by default (enable it in the Git panel)"
+                .into(),
+        );
+    }
     run_git(&root, &["init"])?;
     let _ = run_git(&root, &["add", "-A"]);
     let _ = run_git(&root, &["commit", "-m", "Initial commit"]);
@@ -1986,6 +2000,11 @@ pub fn run() {
             git_restore_note,
             git_init,
             watch_vault,
+            storage::detect_storage,
+            storage::create_icloud_vault,
+            storage::set_git_automation,
+            storage::scan_conflicts,
+            storage::icloud_available,
             acp::agent_list,
             acp::agent_start,
             acp::agent_prompt,
@@ -2383,6 +2402,66 @@ mod git_tests {
         git_restore_note_inner(root, "gone.md").unwrap();
         let body = std::fs::read_to_string(format!("{root}/gone.md")).unwrap();
         assert!(body.contains("original body"));
+    }
+
+    /// G3 闸门端到端(真系统 git):icloud vault 自动提交默认被拦、git_init 拒绝;
+    /// icloud-managed 宽松放行;显式开启后恢复。
+    #[test]
+    fn git_gate_icloud_vault_blocks_auto_commit_end_to_end() {
+        let _env = crate::storage::TEST_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let home = tempfile::Builder::new()
+            .prefix("olw-ghome-")
+            .tempdir()
+            .unwrap();
+        let cloud = home.path().join("Library/Mobile Documents/com~apple~CloudDocs");
+        std::fs::create_dir_all(cloud.join("Open LLM Wiki")).unwrap();
+        // D&D 痕迹 → Documents 下的 vault 判 icloud-managed。
+        std::fs::create_dir_all(cloud.join("Documents")).unwrap();
+        // SAFETY: test-only, guarded by TEST_ENV_LOCK.
+        unsafe { std::env::set_var("OPEN_LLM_WIKI_HOME", home.path()); }
+
+        // ── icloud vault:用户手工建过 git 仓库(绕过 git_init 闸门做 setup)。──
+        let v1 = cloud.join("v1");
+        std::fs::create_dir_all(&v1).unwrap();
+        let r1 = v1.to_str().unwrap();
+        run_git(r1, &["init"]).unwrap();
+        run_git(r1, &["config", "user.email", "t@dev"]).unwrap();
+        run_git(r1, &["config", "user.name", "T"]).unwrap();
+        run_git(r1, &["config", "commit.gpgsign", "false"]).unwrap();
+
+        write(r1, "a.md", "# A\n");
+        git_commit_paths(r1, "Create a", &["a.md"]);
+        assert!(
+            !git_has_commits_inner(r1),
+            "icloud vault 自动提交应被闸门拦下(默认关)"
+        );
+        // git_init 同样拒绝(带说明的错误)。
+        let e = git_init(r1.to_string()).unwrap_err();
+        assert!(e.contains("disabled"), "{e}");
+
+        // 显式开启 → 自动提交恢复。
+        crate::storage::set_git_automation(r1.to_string(), true).unwrap();
+        git_commit_paths(r1, "Create a", &["a.md"]);
+        assert!(git_has_commits_inner(r1), "显式开启后自动提交应恢复");
+        assert!(git_log_raw(r1.to_string(), None).unwrap().contains("Create a"));
+
+        // ── icloud-managed(~/Documents + D&D 同步):宽松,自动提交照常。──
+        let v2 = home.path().join("Documents/v2");
+        std::fs::create_dir_all(&v2).unwrap();
+        let r2 = v2.to_str().unwrap();
+        run_git(r2, &["init"]).unwrap();
+        run_git(r2, &["config", "user.email", "t@dev"]).unwrap();
+        run_git(r2, &["config", "user.name", "T"]).unwrap();
+        run_git(r2, &["config", "commit.gpgsign", "false"]).unwrap();
+        write(r2, "b.md", "# B\n");
+        git_commit_paths(r2, "Create b", &["b.md"]);
+        assert!(git_has_commits_inner(r2), "icloud-managed 应宽松放行(IC-1)");
+
+        // 清理:撤掉覆写,避免影响其它用例。
+        crate::storage::set_git_automation(r1.to_string(), false).unwrap();
+        unsafe { std::env::remove_var("OPEN_LLM_WIKI_HOME"); }
     }
 }
 

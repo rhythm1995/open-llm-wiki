@@ -2463,6 +2463,7 @@ name = "open-llm-wiki-app"
 version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
+ "libc",
  "notify",
  "open-llm-wiki-core",
  "open-llm-wiki-mcp",
