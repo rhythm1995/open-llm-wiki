@@ -454,6 +454,10 @@ export async function handle<T>(
   args: Record<string, unknown>,
 ): Promise<T> {
   switch (cmd) {
+    case "app_platform":
+      // 浏览器 mock 自报 "browser"(doc 18):移动壳在窄视口下用浏览器预览。
+      return "browser" as unknown as T;
+
     case "pick_vault":
       return MOCK_ROOT as unknown as T;
 

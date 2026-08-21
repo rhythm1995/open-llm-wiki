@@ -31,10 +31,15 @@ import { CenterToolbar } from "./components/CenterToolbar";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { HelpGuideDialog } from "./components/HelpGuideDialog";
-import { useVault } from "./lib/store";
+import { useVault, type VaultActions } from "./lib/store";
 import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
 import { usePersistentState } from "./lib/usePersistentState";
+import { useIsMobileLayout } from "./lib/platform";
+import { MobileTabBar, type MobileTab } from "./components/MobileTabBar";
+import { MobileTopBar } from "./components/MobileTopBar";
+import { MobileWelcome } from "./components/MobileWelcome";
+import { MobileMore } from "./components/MobileMore";
 import { GRAPH_FORCES_KEY } from "./lib/settings";
 import { DEFAULT_FORCES, normalizeForces, type ForceParams } from "./lib/graph-layout";
 import { ipc } from "./lib/ipc";
@@ -73,6 +78,7 @@ import {
 import {
   writeLastPath,
   readLastRoot,
+  readRecentRoots,
   forgetRecentRoot,
 } from "./lib/last-note";
 import { WelcomeEmpty } from "./components/WelcomeEmpty";
@@ -649,6 +655,59 @@ export default function App() {
     setView("editor");
   }, []);
 
+  // ── 移动壳(doc 18 M1):平台自适应分支的专属状态与回调 ──
+  // iOS / 窄视口浏览器(mock 预览)渲染 MobileShell;桌面三栏零改动。
+  const mobile = useIsMobileLayout();
+  const [mobileTab, setMobileTab] = useState<MobileTab>("notes");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mobileCreating, setMobileCreating] = useState(false);
+  const [mobileRecents, setMobileRecents] = useState<string[]>(() =>
+    readRecentRoots(),
+  );
+  // 回到欢迎台时刷新最近列表(可能刚 forget 过失效项)。
+  useEffect(() => {
+    if (!state.root) setMobileRecents(readRecentRoots());
+  }, [state.root]);
+
+  const handleNavSelectMobile = useCallback(
+    (sel: NavSelection) => {
+      handleNavSelect(sel);
+      setMobileTab("notes");
+      setDrawerOpen(false);
+    },
+    [handleNavSelect],
+  );
+
+  /** 抽屉里选笔记 → 关抽屉回编辑;其余 action 原样透传。 */
+  const mobileDrawerActions = useMemo<VaultActions>(
+    () => ({
+      ...actions,
+      selectNote: async (path: string) => {
+        void actions.selectNote(path);
+        setMobileTab("notes");
+        setDrawerOpen(false);
+      },
+    }),
+    [actions],
+  );
+
+  const mobileNewNote = useCallback(() => {
+    if (!state.root) return; // 欢迎台由「创建示例库」承担入口
+    openNewNote();
+  }, [state.root, openNewNote]);
+
+  const mobileCreateSample = useCallback(async () => {
+    setMobileCreating(true);
+    try {
+      const path = await ipc.createSampleVault();
+      await actions.openVault(path);
+    } catch {
+      /* 失败时 openVault/命令错误会进 state.error 横幅 */
+    } finally {
+      setMobileCreating(false);
+    }
+  }, [actions]);
+
   /**
    * 启动门闩:有 lastRoot 时先 pending,避免异步 openVault 完成前闪一下欢迎台/MG。
    * - pending: 冷启动且正在恢复 vault
@@ -692,6 +751,11 @@ export default function App() {
     setPaletteMode(mode);
     setPaletteOpen(true);
   }, []);
+
+  const mobileOpenSearch = useCallback(() => {
+    if (!state.root) return;
+    openPalette("search");
+  }, [state.root, openPalette]);
 
   // path 用 ref,避免 keydown 闭包拿到旧 path。
   const pathRef = useRef(state.currentPath);
@@ -1082,6 +1146,194 @@ export default function App() {
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
   }, [setRightWidth]);
+
+  // ── 移动壳分支(doc 18 M1):顶栏 + 主体(欢迎/编辑/图谱/更多)+ 抽屉 + 底栏。
+  // 编辑器固定 CodeMirror 源码模式(BlockNote 移动支持仍实验性,doc 18 §6);
+  // 画布/表格给占位;Git/Agent/MCP 入口不渲染;桌面三栏分支零改动。
+  if (mobile) {
+    return (
+      <div
+        className="flex h-screen flex-col bg-base"
+        data-testid="mobile-shell"
+      >
+        <MobileTopBar
+          title={contextLabel}
+          onOpenDrawer={() => setDrawerOpen(true)}
+          onOpenSearch={mobileOpenSearch}
+          onNewNote={mobileNewNote}
+          t={t}
+        />
+        {state.error && (
+          <div className="flex items-center gap-2 border-b border-red/40 bg-red/10 px-3 py-1.5 text-[12px] text-red">
+            <Warning size={14} weight="bold" className="shrink-0" />
+            <pre className="min-w-0 flex-1 truncate font-sans">
+              {mapStorageError(state.error, t("storage.readTimeout"))}
+            </pre>
+            <button
+              onClick={actions.clearError}
+              className="shrink-0 rounded p-0.5 hover:bg-red/20"
+              title={t("common.close")}
+            >
+              <X size={13} weight="bold" />
+            </button>
+          </div>
+        )}
+        {state.root && state.storage && (
+          <StorageBanner root={state.root} info={state.storage} t={t} />
+        )}
+        {state.root && state.conflicts.length > 0 && (
+          <ConflictNotice
+            root={state.root}
+            pairs={state.conflicts}
+            t={t}
+            onOpenNote={(p) => actions.selectNote(p)}
+          />
+        )}
+        <main className="relative flex min-h-0 flex-1 flex-col">
+          {!vaultBootReady ? (
+            <div
+              data-testid="vault-boot"
+              className="flex h-full items-center justify-center bg-base"
+              aria-busy="true"
+            >
+              <img
+                src="/olw-mark.png"
+                alt=""
+                width={40}
+                height={40}
+                className="h-10 w-10 animate-pulse object-contain opacity-70"
+                draggable={false}
+              />
+            </div>
+          ) : !state.root ? (
+            <MobileWelcome
+              t={t}
+              onCreateSample={() => void mobileCreateSample()}
+              recents={mobileRecents}
+              onOpenRoot={(root) => actions.openVault(root)}
+              busy={mobileCreating}
+            />
+          ) : (
+            <>
+              {mobileTab === "notes" && (
+                <div className="relative min-h-0 flex-1">
+                  {isSpecialFile ? (
+                    <div className="flex h-full items-center justify-center p-6 text-center text-[12px] text-subtext">
+                      {t("mobile.desktopOnly")}
+                    </div>
+                  ) : (
+                    <Editor
+                      ref={editorRef}
+                      value={state.content}
+                      onChange={actions.setContent}
+                      hasNote={state.currentPath !== null}
+                      theme={theme}
+                      noteTitles={noteTitles}
+                      root={state.root}
+                      onFollow={handleFollow}
+                      t={t}
+                      attachmentsDir={attachmentsDir}
+                      attachmentLayout={attachmentLayout}
+                      notePath={state.currentPath}
+                    />
+                  )}
+                </div>
+              )}
+              {mobileTab === "graph" && (
+                <GraphView
+                  snapshot={state.snapshot}
+                  currentId={currentNode?.id ?? null}
+                  actions={actions}
+                  root={state.root ?? ""}
+                  forces={forces}
+                  t={t}
+                />
+              )}
+              {mobileTab === "more" && (
+                <MobileMore
+                  t={t}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onToggleLocale={toggleLocale}
+                  onRefreshIndex={() => void actions.refreshIndex()}
+                  vaultName={vaultName}
+                  storageKind={state.storage?.kind ?? null}
+                />
+              )}
+            </>
+          )}
+          {/* 导航抽屉:Nav 智能视图(上)+ 笔记列表(下);选笔记即关抽屉回编辑。 */}
+          {drawerOpen && hasVault && (
+            <div
+              data-testid="mobile-drawer"
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-40 flex"
+            >
+              <div className="flex h-full w-[85%] max-w-[340px] flex-col bg-mantle shadow-xl">
+                <div className="flex h-[42%] min-h-0 shrink-0 flex-col overflow-hidden border-b border-crust">
+                  <Nav
+                    entries={state.entries}
+                    snapshot={state.snapshot}
+                    navSelection={navSelection}
+                    onNavSelect={handleNavSelectMobile}
+                    isEditorView={mobileTab === "notes"}
+                    onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
+                    onNewNoteInFolder={openNewNoteInFolder}
+                    t={t}
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <NoteListView
+                    root={state.root}
+                    snapshot={state.snapshot}
+                    currentPath={state.currentPath}
+                    navSelection={navSelection}
+                    renamingPath={renamingPath}
+                    onRenameCommit={commitRename}
+                    onRenameCancel={cancelRename}
+                    onStartRename={(p) => setRenamingPath(p)}
+                    actions={mobileDrawerActions}
+                    t={t}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label={t("mobile.drawer.close")}
+                className="min-w-0 flex-1 bg-black/40"
+                onClick={() => setDrawerOpen(false)}
+              />
+            </div>
+          )}
+        </main>
+        <MobileTabBar tab={mobileTab} onSelect={setMobileTab} t={t} />
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={(open) => {
+            setPaletteOpen(open);
+            if (!open) setPaletteMode("commands");
+          }}
+          snapshot={state.snapshot}
+          entryPaths={state.entries
+            .filter((e) => !e.is_dir)
+            .map((e) => e.path)}
+          recentPaths={state.openPaths}
+          actions={actions}
+          onNewNote={openNewNote}
+          onNewCanvas={openNewCanvas}
+          onNavigate={(v) => {
+            setView(v);
+            // 移动壳没有 editor/git 之外的视图承载:面板里选中即回到对应标签。
+            if (v === "graph") setMobileTab("graph");
+          }}
+          t={t}
+          mode={paletteMode}
+          commandExtras={commandExtras}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col">

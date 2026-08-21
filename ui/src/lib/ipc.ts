@@ -430,6 +430,12 @@ export const ipc = {
   /** 系统文件对话框手选 open-llm-wiki-mcp 二进制。 */
   onboardPickBinary: () => call<string | null>("onboard_pick_binary", {}),
 
+  /**
+   * 运行平台(doc 18):Tauri 后端返回 "ios" | "desktop";浏览器 mock 返回
+   * "browser"。UI 据此切移动壳 / 隐藏桌面专属入口(git / Agent / MCP)。
+   */
+  getPlatform: () => call<"ios" | "desktop" | "browser">("app_platform", {}),
+
   /** 浏览器 dev 用的标志:为 true 时 UI 应提示"当前为 mock 模式"。 */
   isMock: () => !isTauri,
 };
