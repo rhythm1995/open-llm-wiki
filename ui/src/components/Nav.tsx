@@ -78,6 +78,8 @@ interface Props {
   onMoveNote?: (fromPath: string, targetDir: string) => void;
   /** 在指定文件夹(相对 vault 路径)新建笔记;空串=根。 */
   onNewNoteInFolder?: (folderPath: string) => void;
+  /** 是否显示 Archive 智能视图(git 归档)。移动端无 git,传 false 隐藏(doc 18 §10.4)。 */
+  showArchive?: boolean;
   t: TFunc;
 }
 
@@ -91,6 +93,7 @@ export function Nav({
   isEditorView,
   onMoveNote,
   onNewNoteInFolder,
+  showArchive = true,
   t,
 }: Props) {
   // 分组折叠状态:VIEWS/TYPES/TAGS 默认展开,FOLDERS 默认收起。
@@ -365,6 +368,7 @@ export function Nav({
               isEditorView && sameSelection(navSelection, { kind: "all" }),
               nodes.length,
             )}
+            {showArchive && (
             <button
               data-testid="nav-archive"
               onClick={() => onNavSelect({ kind: "archive" })}
@@ -378,6 +382,7 @@ export function Nav({
               <Archive size={14} className="shrink-0 text-overlay" />
               <span className="min-w-0 flex-1 truncate">{t("nav.archive")}</span>
             </button>
+            )}
           </div>
 
           <div className="my-2 border-t border-crust" />

@@ -2,7 +2,9 @@
 <html lang="zh-CN" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover:iOS 全面屏下 env(safe-area-inset-*) 才有值,
+         移动壳顶/底栏据此避让刘海与手势条(doc 18 §10.4)。 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
     <link rel="icon" href="/favicon.ico" sizes="any" />

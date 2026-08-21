@@ -34,6 +34,8 @@ test.describe("移动壳(窄视口浏览器预览)", () => {
     const drawer = page.getByTestId("mobile-drawer");
     await expect(drawer).toBeVisible();
     await expect(drawer.getByTestId("nav")).toBeVisible();
+    // 移动端无 git:Archive(git 归档)入口隐藏(doc 18)。
+    await expect(drawer.getByTestId("nav-archive")).toHaveCount(0);
     await expect(drawer.getByText("Zettelkasten", { exact: true })).toBeVisible();
     await drawer.getByText("Zettelkasten", { exact: true }).click();
     await expect(page.getByTestId("mobile-drawer")).toHaveCount(0);

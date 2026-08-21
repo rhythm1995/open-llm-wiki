@@ -36,6 +36,10 @@ import { useTheme } from "./lib/useTheme";
 import { useLocale } from "./lib/useLocale";
 import { usePersistentState } from "./lib/usePersistentState";
 import { useIsMobileLayout } from "./lib/platform";
+import {
+  capGraphSnapshot,
+  MOBILE_GRAPH_NODE_CAP,
+} from "./lib/graph-cap";
 import { MobileTabBar, type MobileTab } from "./components/MobileTabBar";
 import { MobileTopBar } from "./components/MobileTopBar";
 import { MobileWelcome } from "./components/MobileWelcome";
@@ -669,6 +673,19 @@ export default function App() {
     if (!state.root) setMobileRecents(readRecentRoots());
   }, [state.root]);
 
+  /** 移动图谱降采样(doc 18 §10.4):当前笔记 + 度数前 N,边两端过滤。 */
+  const mobileGraphSnapshot = useMemo(
+    () =>
+      state.snapshot
+        ? capGraphSnapshot(
+            state.snapshot,
+            MOBILE_GRAPH_NODE_CAP,
+            state.currentPath,
+          )
+        : null,
+    [state.snapshot, state.currentPath],
+  );
+
   const handleNavSelectMobile = useCallback(
     (sel: NavSelection) => {
       handleNavSelect(sel);
@@ -1241,7 +1258,7 @@ export default function App() {
               )}
               {mobileTab === "graph" && (
                 <GraphView
-                  snapshot={state.snapshot}
+                  snapshot={mobileGraphSnapshot}
                   currentId={currentNode?.id ?? null}
                   actions={actions}
                   root={state.root ?? ""}
@@ -1280,6 +1297,7 @@ export default function App() {
                     isEditorView={mobileTab === "notes"}
                     onMoveNote={(from, dir) => void actions.moveNote(from, dir)}
                     onNewNoteInFolder={openNewNoteInFolder}
+                    showArchive={false}
                     t={t}
                   />
                 </div>
