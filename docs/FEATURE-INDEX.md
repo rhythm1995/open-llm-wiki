@@ -133,7 +133,7 @@
 | 提示层 | 一次性横幅(per root)/ Git 面板防护区 / 欢迎屏 iCloud 入口 | `StorageBanner.tsx`,`GitPanel.tsx`,`WelcomeEmpty.tsx` |
 | 规格 | 状态:已落地(M1+M2+M3) | [17-icloud-storage-plan.md](./17-icloud-storage-plan.md) |
 
-## iOS 移动端(doc 18 ✅ M0+M1)
+## iOS 移动端(doc 18 ✅ M0+M1+M2)
 
 | 功能 | 说明 | 代码入口 |
 |---|---|---|
@@ -142,7 +142,11 @@
 | iOS 轮询 watcher | 快照 (len,mtime) diff → 同款 `vault-changed` 事件;桌面 notify 路径零改动 | `app/src-tauri/src/watch_poll.rs` |
 | 移动壳(M1) | 顶栏 + 底部三标签(笔记/图谱/更多)+ Nav/列表抽屉;源码模式唯一编辑器 | `ui/src/components/Mobile*.tsx`,`App.tsx` 移动分支 |
 | 移动欢迎 | 创建示例库(落 app Documents,文件 app 可见)+ 最近 vault | `MobileWelcome.tsx` + Info.plist `UIFileSharingEnabled` |
-| 规格 | 剪裁决策(git/Agent/MCP 桌面专属)与 M2 计划 | [18-ios-client-feasibility.md](./18-ios-client-feasibility.md) |
+| iCloud 容器偏好(M2) | iOS 容器存在 → 示例库落 `iCloud~dev~openllmwiki~mobile/Documents`(桌面直读同路径即同步);桌面 detect 判 icloud | `lib.rs` `choose_documents_dir`,entitlements;storage 测试 |
+| 移动图谱降采样(M2) | 当前笔记 + 度数前 500 节点,边两端过滤 | `ui/src/lib/graph-cap.ts` |
+| Archive 移动隐藏(M2) | Nav `showArchive` prop,移动抽屉隐藏 git 归档入口 | `Nav.tsx` + e2e 断言 |
+| CI iOS 编译门 / 构建流水线(M2/M3) | `ios-compile` job(免 sidecar 交叉检查);`ios.yml` 手动无签名模拟器 .app + TestFlight 注释块 | `.github/workflows/ci.yml`, `ios.yml` |
+| 规格 | 剪裁决策(git/Agent/MCP 桌面专属)与 M3 凭证门 | [18-ios-client-feasibility.md](./18-ios-client-feasibility.md) |
 
 ## 诊断
 

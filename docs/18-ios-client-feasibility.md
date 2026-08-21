@@ -1,6 +1,6 @@
 # 18 — iOS 客户端可行性调研与 M0/M1 方案
 
-- 状态:**✅ M0+M1 已落地**(2026-08-22;iPhone 15 Pro 模拟器调试跑通,落地记录见 §10)
+- 状态:**✅ M0+M1+M2 已落地**(2026-08-22 两轮;iPhone 15 Pro 模拟器调试跑通;M3 = 上架凭证门,落地记录见 §10/§11)
 - 输入:仓库代码事实盘点(74 个 `#[tauri::command]`、UI 三栏壳、doc 17 G1–G6)+ 外部证据(Tauri 2 iOS 现状、gitoxide、BlockNote 移动支持、Obsidian 移动端架构)
 - 定位:**阅读 + 编辑 + 查询 + 图谱 + 文件同步**的移动端;git / Agent / MCP / 画布 / 表格全部桌面专属
 
@@ -72,9 +72,12 @@
 
 | 期 | 内容 | 验收 |
 |----|------|------|
-| **M0 构建通路** | iOS target 编译通过:`cfg(desktop)` 门(托盘/菜单/窗口行为/PATH)、轮询 watcher、`tauri.ios.conf.json`(去 externalBin)、`tauri ios init` 生成 gen/apple、Info.plist 文件共享键;模拟器能起 | `cargo check --target aarch64-apple-ios` 绿;iOS 模拟器显示应用并打开示例库 |
-| **M1 移动 MVP** | 移动壳(抽屉 + 底栏 + 移动欢迎)、源码模式编辑、搜索(CommandPalette 复用)、图谱、存储横幅/冲突提示复用、git/Agent 入口全隐藏 | 模拟器:新建示例库 → 编辑保存 → 搜索 → 图谱;桌面端 e2e + vitest 全绿,**零桌面回归** |
-| M2 打磨上架 | iCloud ubiquity container、真机 FPS 验收、safe-area/键盘细节、App Store 流水线、CI iOS job | TestFlight |
+| **M0 构建通路** ✅ 2026-08-22 | iOS target 编译通过:`cfg(desktop)` 门(托盘/菜单/窗口行为/PATH)、轮询 watcher、`tauri.ios.conf.json`(去 externalBin)、`tauri ios init` 生成 gen/apple、Info.plist 文件共享键;模拟器能起 | `cargo check --target aarch64-apple-ios` 绿;iOS 模拟器显示应用并打开示例库 |
+| **M1 移动 MVP** ✅ 2026-08-22 | 移动壳(抽屉 + 底栏 + 移动欢迎)、源码模式编辑、搜索(CommandPalette 复用)、图谱、存储横幅/冲突提示复用、git/Agent 入口全隐藏 | 模拟器:新建示例库 → 编辑保存 → 搜索 → 图谱;桌面端 e2e + vitest 全绿,**零桌面回归** |
+| **M2 打磨** ✅ 2026-08-22 | safe-area(viewport-fit=cover)、Nav Archive 移动隐藏、图谱移动降采样(度数前 500)、**iCloud ubiquity container 代码路径**(entitlements + 容器存在则示例库落容器,桌面 detect 判 icloud)、CI `ios-compile` 门 | 全测试门绿;模拟器带 entitlements 重装正常;§11 落地记录 |
+| **M3 上架(凭证门)** | TestFlight / App Store:签名凭证(APPLE_*,与桌面 release.yml 同源)→ `ios.yml` 已留 app-store export 注释块;真机 FPS 验收;iCloud 容器真机同步验证;WKWebView 后台恢复(tauri#14371)专项 | TestFlight 可安装;全上述项过 |
+
+**M2/M3 的切分原则**:一切不需要 Apple 开发者账号($99/年)与真机的都已落进 M2;M3 是纯凭证/设备门——流水线与代码路径已就位,凭证配好后按 `ios.yml` 内注释块接上即可。
 
 ## 9. 决策记录
 
@@ -107,10 +110,24 @@
 - 全绿:`cargo test -p core 165 / app 82(watch_poll 3 + platform 1 新增)/ mcp 30`;clippy 0 error;`cargo check --target aarch64-apple-ios` 0 warning 0 error;`pnpm typecheck`;`pnpm test 976`(+10);`pnpm e2e 30`(+`mobile-shell.spec.ts` 4:壳渲染/抽屉选笔记/图谱+更多/搜索入口);`pnpm build`。
 - **iPhone 15 Pro 模拟器实跑**(`tauri ios dev "iPhone 15 Pro"`):欢迎屏 → 点「创建示例库」→ 4 个种子文件原子写入沙箱 `Documents/Open LLM Wiki Demo/`(宿主核实)→ 编辑器打开 Welcome.md;宿主机直写 `watcher-probe.md` → ≤2s 轮询 diff → 前端增量索引 → 抽屉列表出现该笔记(**轮询 watcher 全链路实证**);命令桥日志 `ipc.create_sample_vault / index_vault / detect_storage` 全部执行。
 
-### 10.4 已知 M1 缺口(留 M2)
+### 10.4 已知 M1 缺口 → M2 处置(2026-08-22 第二轮)
 
-- Nav 智能视图含「Archive」项,移动端点入是 git 空态(git 不可用)——应隐藏,待打磨。
-- 图谱为桌面组件直接复用,真机 FPS 未验收(节点上限/降采样待做)。
-- 键盘弹起遮挡、WKWebView safe-area 首绘、后台恢复白屏(tauri#14371)等 iOS 细节未专项处理。
-- iCloud ubiquity container(桌面 ↔ iPhone 同步)需开发者账号 + 真机,M2。
-- CI 尚无 iOS job(release.yml 也未含 iOS lane);App Store 上架流水线 M2。
+| M1 缺口 | M2 处置 |
+|---|---|
+| Nav「Archive」项移动端是 git 空态 | ✅ Nav 增 `showArchive` prop,移动抽屉传 false;e2e 断言 |
+| 图谱真机 FPS 未验收 / 无降采样 | ✅ 移动端降采样已做(`graph-cap.ts`:当前笔记 + 度数前 500,边两端过滤);**真机 FPS 验收仍属 M3(需设备)** |
+| safe-area 首绘 / 键盘细节 | ✅ `viewport-fit=cover`(env() 生效前提)+ 顶/底栏 safe-area 内边距;键盘专项留 M3 观察 |
+| WKWebView 后台恢复白屏(tauri#14371) | ⏳ 上游 bug,M3 真机专项(模拟器不复现) |
+| iCloud ubiquity container | ✅ 代码路径已就位(entitlements + 容器偏好 + 桌面 detect 判 icloud,见 §11);**真机同步验证属 M3(需账号 + 设备)** |
+| CI 无 iOS job / 无构建流水线 | ✅ ci.yml 增 `ios-compile`(交叉编译门,已验证免 sidecar);ios.yml 手动无签名模拟器构建 + TestFlight 注释块 |
+
+## 11. M2 落地记录(2026-08-22 第二轮,TDD)
+
+1. **iCloud 容器代码路径**:`icloud_container_documents()`(路径形状测试锁定,容器目录名 `iCloud~dev~openllmwiki~mobile` 与 entitlements 对齐)+ `choose_documents_dir(home, prefer)` 纯决策(iOS 且容器存在 → 容器 Documents,否则 home/Documents;桌面语义不变,四分支测试);`create_sample_vault` 经 `documents_dir()` 自动获得该偏好。桌面端 `detect_storage` 对自家容器下 vault 判 **icloud**(新增 storage 测试)→ G3 git 闸门/doc 17 提示对「桌面打开 iPhone 同步库」照常生效。entitlements 已写入 gen/apple(iCloud Documents + 容器 id)。
+2. **移动打磨**:`graph-cap.ts`(降采样纯函数 + 4 测试;当前笔记无条件保留、度数 desc→id asc 取满、边两端过滤、悬空边跟随 from);Nav `showArchive` prop(移动隐藏,e2e 断言);`viewport-fit=cover`。
+3. **CI/流水线**:ci.yml 新增 `ios-compile` job(`cargo check --target aarch64-apple-ios`,已本地验证 tauri.ios.conf.json 的 externalBin 覆盖使其**无需** sidecar 步骤);新增 `ios.yml`(workflow_dispatch:无签名模拟器 .app artifact;TestFlight app-store export 以注释块就位,凭证门)。
+4. **验证**:cargo app 85(+3:容器路径形状 / choose 四分支 / detect 自家容器)✅;clippy 0 error ✅;ios target check 0 警告 ✅;typecheck ✅;vitest 980(+4)✅;e2e 30(含 Archive 隐藏断言)✅;模拟器带新 entitlements 重装 + 重部署正常(截图确认 Archive 隐藏、编辑/抽屉如常)。
+
+### 11.1 剩余(全部属 M3 凭证/设备门)
+
+签名凭证与 TestFlight、真机(FPS / iCloud 容器同步 / 键盘 / 后台恢复)、`ios.yml` 的 app-store lane 启用、App Store 审核。

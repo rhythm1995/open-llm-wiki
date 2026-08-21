@@ -1503,3 +1503,13 @@
   4. **实机验证**(iPhone 15 Pro 模拟器,`tauri ios dev "iPhone 15 Pro"`):欢迎 → 创建示例库(4 种子文件原子写入沙箱 Documents,宿主核实)→ 编辑器打开;宿主机直写 watcher-probe.md → ≤2s 轮询 → 增量索引 → 抽屉列表出现(**轮询 watcher 全链路实证**);命令桥日志 create_sample_vault/index_vault/detect_storage 全通。截图四张留证。
 - **验证**: cargo test core 165 / app 82(watch_poll 3 + platform 1 新增)/ mcp 30 ✅;clippy 0 error ✅;ios target check 干净 ✅;pnpm typecheck ✅;test 976(+10)✅;e2e 30(+4)✅;build ✅。
 - **遗留 / 下一步**(doc 18 §10.4):移动端隐藏 Nav「Archive」项;图谱真机 FPS + 节点上限;键盘/safe-area/后台恢复细节;iCloud ubiquity container(需开发者账号);CI iOS job 与上架流水线(M2)。tauri ios dev 仍在后台跑着可直接上手体验。
+
+### 2026-08-22 ZCode — iOS M2 落地(iCloud 容器路径 / 移动打磨 / CI 门 / 流水线,TDD)
+
+- **branch**: `zcode/next`。
+- **做了**(应用户要求继续实现后续里程碑;doc 18 里程碑重构为 M2 打磨[本轮落地] + M3 上架[凭证门]):
+  1. **iCloud ubiquity container 代码路径**:`icloud_container_documents`(容器目录名 `iCloud~dev~openllmwiki~mobile`,路径形状测试锁定)+ `choose_documents_dir` 纯决策(iOS 且容器存在 → 容器 Documents,否则 home/Documents,四分支测试;iOS 经 `documents_dir()` 自动生效,桌面语义不变);entitlements 写入 iCloud Documents 键;桌面 `detect_storage` 对自家容器 vault 判 icloud(新增 storage 测试)→ doc 17 防护对「桌面打开 iPhone 同步库」自动生效。真机同步验证属 M3(账号+设备)。
+  2. **移动打磨**:Nav `showArchive` prop(移动抽屉隐藏 git 归档入口,e2e 断言);`graph-cap.ts` 降采样(当前笔记无条件保留 + 度数 desc 取前 500、边两端过滤、悬空边跟随 from,4 测试,修过一次 from-only 过滤 bug);`viewport-fit=cover`(safe-area env() 前提)。
+  3. **CI/流水线**:ci.yml 增 `ios-compile` job(本地验证过 tauri.ios.conf.json externalBin 覆盖使其免 sidecar——强制 build.rs 重跑确认);新增 `ios.yml`(workflow_dispatch 无签名模拟器 .app artifact;TestFlight app-store export 注释块就位,凭证与桌面 release.yml 同源)。
+- **验证**:cargo app 85(+3)✅;clippy 0 error ✅;ios target check 0 警告 ✅;typecheck ✅;vitest 980(+4)✅;e2e 30(含 Archive 隐藏)✅;模拟器带新 entitlements 自动重装重部署正常(截图确认 Archive 消失、编辑/抽屉如常)。
+- **遗留 / 下一步**(全属 M3 凭证/设备门,doc 18 §11.1):签名 + TestFlight、真机 FPS/iCloud 同步/键盘/后台恢复(tauri#14371)专项、ios.yml app-store lane 启用。
