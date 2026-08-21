@@ -133,6 +133,17 @@
 | 提示层 | 一次性横幅(per root)/ Git 面板防护区 / 欢迎屏 iCloud 入口 | `StorageBanner.tsx`,`GitPanel.tsx`,`WelcomeEmpty.tsx` |
 | 规格 | 状态:已落地(M1+M2+M3) | [17-icloud-storage-plan.md](./17-icloud-storage-plan.md) |
 
+## iOS 移动端(doc 18 ✅ M0+M1)
+
+| 功能 | 说明 | 代码入口 |
+|---|---|---|
+| iOS 构建通路(M0) | `tauri ios init` gen/apple;托盘/菜单/窗口行为/PATH 全 `#[cfg(desktop)]`;`tauri.ios.conf.json` 去 sidecar | `app/src-tauri/gen/apple/`,`lib.rs` `run()` |
+| 平台标识 | `app_platform` 命令("ios"/"desktop")+ ipc `getPlatform`(mock→"browser") | `lib.rs`,`ui/src/lib/ipc.ts`,`mock.ts` |
+| iOS 轮询 watcher | 快照 (len,mtime) diff → 同款 `vault-changed` 事件;桌面 notify 路径零改动 | `app/src-tauri/src/watch_poll.rs` |
+| 移动壳(M1) | 顶栏 + 底部三标签(笔记/图谱/更多)+ Nav/列表抽屉;源码模式唯一编辑器 | `ui/src/components/Mobile*.tsx`,`App.tsx` 移动分支 |
+| 移动欢迎 | 创建示例库(落 app Documents,文件 app 可见)+ 最近 vault | `MobileWelcome.tsx` + Info.plist `UIFileSharingEnabled` |
+| 规格 | 剪裁决策(git/Agent/MCP 桌面专属)与 M2 计划 | [18-ios-client-feasibility.md](./18-ios-client-feasibility.md) |
+
 ## 诊断
 
 | 功能 | ID | 代码入口 |

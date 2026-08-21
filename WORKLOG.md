@@ -1492,3 +1492,14 @@
 - **完整性审计补齐(用户问"完整了吗"后对照 §9 验收复查,补 5 处)**: ① mcp onboard 种子/skill 写 vault 改原子写;② `icloud_available` 命令 + 欢迎屏未登录置灰(M2 验收原文是置灰,此前实现成点击才报错);③ Git 面板防护双向开关(可停用);④ eviction 按"已关闭时计数"记忆,计数上涨横幅重现(§7 承诺);⑤ 度量打点进现有 logging。doc 17 新增 §14 实机验证清单(代码无法替代的验收)。
 - **影响**: 非 geek 的全 Apple 用户获得零配置同步路径;iCloud 用户的所有写入不再有半截文件窗口;任何云盘目录下的 vault 都不再被 shadow repo churn;本地 + git 用户零变化(local 全程无新 UI)。
 - **遗留 / 下一步**: 未 commit(等用户指示);doc 17 §14 六项实机验证(iCloud 真机/iPhone/Windows)待有设备时执行;Windows CloudOther 检测为路径启发,实机后校准。
+
+### 2026-08-22 ZCode — iOS 客户端调研(doc 18)+ M0/M1 落地(TDD,模拟器调试跑通)
+
+- **branch**: `zcode/next`。
+- **做了**(应用户要求:调研写入文档 → M0+M1 按 TDD 落地并调通):
+  1. **doc 18**:可行性调研(架构有利因素 / 三个硬依赖处置 / 74 命令剪裁清单 / M0-M2 分期)+ 决策记录(git 移动端不做、轮询替代 notify、源码模式唯一编辑器、示例库落 app Documents)。登记 docs README ×2。
+  2. **M0**:`watch_poll.rs`(TDD:iOS 快照 (len,mtime) diff 轮询,emit 同款 `vault-changed`,桌面 notify 零改动;notify 移为 `cfg(not(ios))` 目标依赖);`app_platform` 命令;run() 拆「全平台日志 + 桌面专属(托盘/菜单/窗口/PATH)」两段 cfg 门;`tauri.ios.conf.json`(dev.openllmwiki.mobile,去 sidecar);`tauri ios init` gen/apple + Info.plist 文件共享键 + `gen/apple/tauri` CLI shim。`cargo check --target aarch64-apple-ios` 0 警告 0 错误。
+  3. **M1**:`lib/platform.ts`(resolveMobileLayout 纯函数:iOS 恒移动 / browser ≤768 移动预览 / desktop 恒三栏);MobileTabBar/TopBar/Welcome/More 四组件 + i18n 双语 17 键;App.tsx 移动分支(复用全部 store 与组件:Nav+列表抽屉、CodeMirror 源码编辑、图谱、更多;画布/表格占位;桌面分支零改动);e2e `mobile-shell.spec.ts`。
+  4. **实机验证**(iPhone 15 Pro 模拟器,`tauri ios dev "iPhone 15 Pro"`):欢迎 → 创建示例库(4 种子文件原子写入沙箱 Documents,宿主核实)→ 编辑器打开;宿主机直写 watcher-probe.md → ≤2s 轮询 → 增量索引 → 抽屉列表出现(**轮询 watcher 全链路实证**);命令桥日志 create_sample_vault/index_vault/detect_storage 全通。截图四张留证。
+- **验证**: cargo test core 165 / app 82(watch_poll 3 + platform 1 新增)/ mcp 30 ✅;clippy 0 error ✅;ios target check 干净 ✅;pnpm typecheck ✅;test 976(+10)✅;e2e 30(+4)✅;build ✅。
+- **遗留 / 下一步**(doc 18 §10.4):移动端隐藏 Nav「Archive」项;图谱真机 FPS + 节点上限;键盘/safe-area/后台恢复细节;iCloud ubiquity container(需开发者账号);CI iOS job 与上架流水线(M2)。tauri ios dev 仍在后台跑着可直接上手体验。
