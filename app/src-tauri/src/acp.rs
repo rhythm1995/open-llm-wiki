@@ -234,6 +234,8 @@ fn lcs_len(a: &[&str], b: &[&str]) -> usize {
 
 /// 把用户登录 shell 的 PATH 与若干常见安装目录并进当前进程 PATH(去重、仅追加)。
 /// 任一步失败都静默回退,绝不阻断启动。
+/// 仅桌面 run() 调用(iOS 不 spawn CLI agent,doc 18)。
+#[cfg_attr(not(desktop), allow(dead_code))]
 pub fn augment_path() {
     let mut segs: Vec<String> = std::env::var("PATH")
         .unwrap_or_default()
@@ -321,6 +323,7 @@ pub fn augment_path() {
 /// (`-lc`,仅读 `.zprofile`)取不到,于是 `npx`/`pnpm` 壳能找到入口、却找不到
 /// `node`,运行时报 `exec: node: not found`(claude-code / cursor 失败的根因)。
 /// 交互式有极少概率被 `.zshrc` 里的阻塞命令卡住,故带 4s 看门狗;超时即回退登录式。
+#[cfg_attr(not(desktop), allow(dead_code))]
 fn collect_shell_path() -> Option<String> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     // 1) 交互式登录(读 .zshrc → 含 nvm/fnm/volta 的 node)。带看门狗防卡。
@@ -335,6 +338,7 @@ fn collect_shell_path() -> Option<String> {
 /// 到点仍在跑就强杀,`wait_with_output` 随即返回失败 → 调用方走回退。stdin 接
 /// /dev/null 避免 TTY 等待;stdout 取最后一个换行后的内容以丢弃 profile/.zshrc 的
 /// stdout 噪声(PATH 本身不含换行)。
+#[cfg_attr(not(desktop), allow(dead_code))]
 fn run_shell_path(shell: &str, args: &[&str], watchdog: bool) -> Option<String> {
     let mut cmd = std::process::Command::new(shell);
     cmd.args(args)

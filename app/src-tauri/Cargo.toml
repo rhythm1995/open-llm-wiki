@@ -20,7 +20,6 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 walkdir = "2"
-notify = "6"
 # 纯逻辑大脑:path 依赖同 workspace 的 core。
 open-llm-wiki-core = { path = "../../core" }
 # Agent 记忆接入(B-MCP-ONBOARD):Settings 面板复用 mcp 侧的探测/接线/播种逻辑(lib 面)。
@@ -34,6 +33,11 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 # iCloud eviction 探测(G4):macOS 上读 stat.st_flags 的 SF_DATALESS 位。
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
+
+# 文件监听:桌面 notify(FSEvents/inotify/ReadDirectoryChanges);
+# iOS 无后端 → 不编译 notify,改用 watch_poll 快照轮询(doc 18)。
+[target.'cfg(not(target_os = "ios"))'.dependencies]
+notify = "6"
 
 [dev-dependencies]
 # 临时 vault 目录:git 集成测试(真实 round-trip 过系统 git)。

@@ -11,24 +11,40 @@ mod logging;
 mod onboarding;
 mod storage;
 mod transcript;
+mod watch_poll;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+// 桌面 watcher 专属(notify debounce);iOS 轮询在 watch_poll 内自持线程与集合。
+#[cfg(not(target_os = "ios"))]
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(not(target_os = "ios"))]
 use std::sync::mpsc;
 use std::sync::Mutex;
+#[cfg(not(target_os = "ios"))]
 use std::thread;
+// 外部 URL 去重窗口(桌面 open 子进程)专用。
+#[cfg(desktop)]
 use std::time::{Duration, Instant};
 
+// notify 仅桌面:iOS 无后端(FSEvents 为 macOS-only),改用 watch_poll 轮询(doc 18)。
+#[cfg(not(target_os = "ios"))]
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use open_llm_wiki_core::{
     apply_entry_deltas, frontmatter_str, lint_all, parse_query, tags as note_tags, type_of,
     EdgeKind, LintReport, ResultSet, Target, VaultIndex,
 };
 use serde::Serialize;
+#[cfg(desktop)]
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+#[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
+// 桌面:notify watcher emit;文件夹选择对话框。
+#[cfg(not(target_os = "ios"))]
+use tauri::Emitter;
+#[cfg(desktop)]
 use tauri_plugin_dialog::DialogExt;
 use walkdir::WalkDir;
 
@@ -1142,25 +1158,34 @@ fn log_export_bundle() -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-/// 系统文件夹选择对话框。
+/// 系统文件夹选择对话框(桌面)。iOS 无文件夹选择(dialog 插件移动端仅文件选择,
+/// 且 document picker 的安全域书签与"裸路径"模型不匹配,doc 18 §5)→ 返回 None,
+/// 移动端 vault 走 app Documents 示例库 / 最近列表。
 #[tauri::command]
 async fn pick_vault(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let folder = app.dialog().file().blocking_pick_folder();
-    let path = folder
-        .and_then(|p| p.into_path().ok())
-        .map(|p| p.to_string_lossy().to_string());
-    logging::emit(
-        logging::LogLevel::Info,
-        "ipc.pick_vault",
-        if path.is_some() {
-            "selected"
-        } else {
-            "cancelled"
-        },
-        path.as_ref()
-            .map(|p| serde_json::json!({ "path": p })),
-    );
-    Ok(path)
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        return Ok(None);
+    }
+    #[cfg(desktop)]
+    {
+        let folder = app.dialog().file().blocking_pick_folder();
+        let path = folder
+            .and_then(|p| p.into_path().ok())
+            .map(|p| p.to_string_lossy().to_string());
+        logging::emit(
+            logging::LogLevel::Info,
+            "ipc.pick_vault",
+            if path.is_some() {
+                "selected"
+            } else {
+                "cancelled"
+            },
+            path.as_ref().map(|p| serde_json::json!({ "path": p })),
+        );
+        Ok(path)
+    }
 }
 
 /// 用户 Documents 目录(无 crate 依赖;HOME/USERPROFILE + Documents)。
@@ -1296,43 +1321,59 @@ fn create_sample_vault() -> Result<String, String> {
 /// 供列表行右键「在 Finder 中显示」。走系统子进程,与 git 命令同一风格,不引入 opener 插件。
 #[tauri::command]
 fn reveal_in_finder(root: String, path: String) -> Result<(), String> {
-    let full = resolve_under(&root, &path)?;
-    // 平台分支:macOS `open -R <file>`、Windows `explorer /select,<file>`、
-    // Linux `xdg-open <parent>`(xdg-open 不能定位到具体文件,只能开父目录)。
-    #[cfg(target_os = "macos")]
-    let (program, args): (&str, Vec<String>) =
-        ("open", vec!["-R".into(), full.to_string_lossy().to_string()]);
-    #[cfg(target_os = "windows")]
-    let (program, args): (&str, Vec<String>) =
-        ("explorer", vec![format!("/select,{}", full.to_string_lossy().to_string())]);
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let (program, args): (&str, Vec<String>) = {
-        let parent = full
-            .parent()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| full.to_string_lossy().to_string());
-        ("xdg-open", vec![parent])
-    };
-    std::process::Command::new(program)
-        .args(&args)
-        .spawn()
-        .map_err(err)?;
-    Ok(())
+    #[cfg(not(desktop))]
+    {
+        let _ = (&root, &path);
+        return Err("reveal in file manager is desktop-only".into());
+    }
+    #[cfg(desktop)]
+    {
+        let full = resolve_under(&root, &path)?;
+        // 平台分支:macOS `open -R <file>`、Windows `explorer /select,<file>`、
+        // Linux `xdg-open <parent>`(xdg-open 不能定位到具体文件,只能开父目录)。
+        #[cfg(target_os = "macos")]
+        let (program, args): (&str, Vec<String>) =
+            ("open", vec!["-R".into(), full.to_string_lossy().to_string()]);
+        #[cfg(target_os = "windows")]
+        let (program, args): (&str, Vec<String>) =
+            ("explorer", vec![format!("/select,{}", full.to_string_lossy().to_string())]);
+        #[cfg(all(unix, not(target_os = "macos")))]
+        let (program, args): (&str, Vec<String>) = {
+            let parent = full
+                .parent()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|| full.to_string_lossy().to_string());
+            ("xdg-open", vec![parent])
+        };
+        std::process::Command::new(program)
+            .args(&args)
+            .spawn()
+            .map_err(err)?;
+        Ok(())
+    }
 }
 
+// 外部 URL 白名单与去重:桌面 open 子进程专用(iOS 无系统浏览器跳转,doc 18)。
+#[cfg(desktop)]
 const GITHUB_REPO_URL: &str = "https://github.com/rhythm1995/open-llm-wiki";
+#[cfg(desktop)]
 const GITHUB_PAGES_URL: &str = "https://rhythm1995.github.io/open-llm-wiki";
+#[cfg(desktop)]
 const PROJECT_ISSUES_URL: &str = "https://github.com/rhythm1995/open-llm-wiki/issues";
+#[cfg(desktop)]
 const USER_DOCS_URL: &str = "https://rhythm1995.github.io/open-llm-wiki/docs/start";
 
+#[cfg(desktop)]
 fn url_under_prefix(url: &str, prefix: &str) -> bool {
     url == prefix || url.starts_with(&format!("{prefix}/"))
 }
 
+#[cfg(desktop)]
 fn is_allowed_external_url(url: &str) -> bool {
     url_under_prefix(url, GITHUB_REPO_URL) || url_under_prefix(url, GITHUB_PAGES_URL)
 }
 
+#[cfg(desktop)]
 fn should_open_external_now(
     prev: Option<(&str, Duration)>,
     url: &str,
@@ -1344,54 +1385,82 @@ fn should_open_external_now(
     }
 }
 
+#[cfg(desktop)]
 struct LastExternalOpen {
     url: String,
     at: Instant,
 }
 
+#[cfg(desktop)]
 static LAST_EXTERNAL_OPEN: Mutex<Option<LastExternalOpen>> = Mutex::new(None);
+#[cfg(desktop)]
 const EXTERNAL_OPEN_WINDOW: Duration = Duration::from_millis(800);
 
 fn open_url_in_browser(url: &str) -> Result<(), String> {
-    if !is_allowed_external_url(url) {
-        return Err("blocked url".into());
-    }
+    #[cfg(not(desktop))]
     {
-        let mut guard = LAST_EXTERNAL_OPEN
-            .lock()
-            .map_err(|e| e.to_string())?;
-        if let Some(prev) = guard.as_ref() {
-            if !should_open_external_now(
-                Some((prev.url.as_str(), prev.at.elapsed())),
-                url,
-                EXTERNAL_OPEN_WINDOW,
-            ) {
-                return Ok(());
-            }
-        }
-        *guard = Some(LastExternalOpen {
-            url: url.to_string(),
-            at: Instant::now(),
-        });
+        let _ = url;
+        return Err("opening external URLs is desktop-only".into());
     }
-    #[cfg(target_os = "macos")]
-    let (program, args): (&str, Vec<String>) = ("open", vec![url.to_string()]);
-    #[cfg(target_os = "windows")]
-    let (program, args): (&str, Vec<String>) =
-        ("cmd", vec!["/C".into(), "start".into(), url.to_string()]);
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let (program, args): (&str, Vec<String>) = ("xdg-open", vec![url.to_string()]);
-    std::process::Command::new(program)
-        .args(&args)
-        .spawn()
-        .map_err(err)?;
-    Ok(())
+    #[cfg(desktop)]
+    {
+        if !is_allowed_external_url(url) {
+            return Err("blocked url".into());
+        }
+        {
+            let mut guard = LAST_EXTERNAL_OPEN
+                .lock()
+                .map_err(|e| e.to_string())?;
+            if let Some(prev) = guard.as_ref() {
+                if !should_open_external_now(
+                    Some((prev.url.as_str(), prev.at.elapsed())),
+                    url,
+                    EXTERNAL_OPEN_WINDOW,
+                ) {
+                    return Ok(());
+                }
+            }
+            *guard = Some(LastExternalOpen {
+                url: url.to_string(),
+                at: Instant::now(),
+            });
+        }
+        #[cfg(target_os = "macos")]
+        let (program, args): (&str, Vec<String>) = ("open", vec![url.to_string()]);
+        #[cfg(target_os = "windows")]
+        let (program, args): (&str, Vec<String>) =
+            ("cmd", vec!["/C".into(), "start".into(), url.to_string()]);
+        #[cfg(all(unix, not(target_os = "macos")))]
+        let (program, args): (&str, Vec<String>) = ("xdg-open", vec![url.to_string()]);
+        std::process::Command::new(program)
+            .args(&args)
+            .spawn()
+            .map_err(err)?;
+        Ok(())
+    }
 }
 
 /// 用系统浏览器打开白名单 https 地址(Issues / 用户文档)。
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     open_url_in_browser(&url)
+}
+
+// ───────────────────────── 平台标识(doc 18 iOS)─────────────────────────
+
+/// 编译期平台标识(纯函数可测)。UI 据此切移动壳、隐藏桌面专属入口(git/Agent/MCP)。
+fn platform_id() -> &'static str {
+    if cfg!(target_os = "ios") {
+        "ios"
+    } else {
+        "desktop"
+    }
+}
+
+/// 返回 "ios" | "desktop"。mock 浏览器不走此命令(ipc 层自判 "browser")。
+#[tauri::command]
+fn app_platform() -> String {
+    platform_id().to_string()
 }
 
 // ───────────────────────── git(F-GIT)─────────────────────────
@@ -1677,7 +1746,22 @@ fn git_init(root: String) -> Result<(), String> {
 // entries 再 build_from_map —— 不再 WalkDir 全库。漏事件时 UI 可 force index_vault
 // 全量自愈。过滤:只对 .md/.canvas 且无点段路径 emit。
 
+/// 桌面:持有 notify watcher(切 vault 时 drop 旧的);iOS:世代计数,
+/// watch_poll 循环每 tick 自查,世代变更即退出(doc 18)。
+#[cfg(not(target_os = "ios"))]
 struct WatcherState(Mutex<Option<RecommendedWatcher>>);
+#[cfg(target_os = "ios")]
+struct WatcherState(std::sync::Arc<Mutex<u64>>);
+
+impl WatcherState {
+    fn new() -> Self {
+        #[cfg(not(target_os = "ios"))]
+        let v = Self(Mutex::new(None));
+        #[cfg(target_os = "ios")]
+        let v = Self(std::sync::Arc::new(Mutex::new(0)));
+        v
+    }
+}
 
 /// 一条变化路径是否值得通知前端:.md/.canvas,且路径里没有点开头的段
 /// (与 build_index/list_vault 的 filter_entry 对齐,排除 .git/.obsidian/.trash 等)。
@@ -1697,6 +1781,7 @@ fn path_should_emit(p: &std::path::Path) -> bool {
 }
 
 /// 事件中命中过滤的相对路径(相对 vault root;统一 `/`)。
+#[cfg(not(target_os = "ios"))]
 fn event_rel_paths(root: &Path, ev: &notify::Event) -> Vec<String> {
     let mut out = Vec::new();
     for p in &ev.paths {
@@ -1710,10 +1795,13 @@ fn event_rel_paths(root: &Path, ev: &notify::Event) -> Vec<String> {
     out
 }
 
-/// 启动对 vault 的递归监听(切换 vault 时先停旧的)。
-/// debounce 后 emit `vault-changed` + 变更相对路径列表 → 前端 apply_vault_changes。
-#[tauri::command]
-fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Result<(), String> {
+/// 桌面实现:notify 递归监听 + 350ms debounce(与历史行为完全一致)。
+#[cfg(not(target_os = "ios"))]
+fn watch_vault_notify(
+    app: AppHandle,
+    state: &State<WatcherState>,
+    root: String,
+) -> Result<(), String> {
     // 先停旧 watcher(drop → channel 断开 → debounce 线程退出)。
     *state.0.lock().unwrap() = None;
     if root.is_empty() {
@@ -1763,29 +1851,53 @@ fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Resu
     Ok(())
 }
 
+/// iOS 实现:递增世代停旧循环,再起 watch_poll 轮询 watcher。
+/// emit 的事件名/payload 与桌面一致(`vault-changed` + 相对路径列表),前端零改动。
+#[cfg(target_os = "ios")]
+fn watch_vault_polling(
+    app: AppHandle,
+    state: State<WatcherState>,
+    root: String,
+) -> Result<(), String> {
+    let gen_arc = state.0.clone();
+    let my_gen = {
+        let mut g = gen_arc.lock().map_err(|e| e.to_string())?;
+        *g += 1;
+        *g
+    };
+    if root.is_empty() {
+        return Ok(()); // 只停旧循环
+    }
+    watch_poll::spawn_poll_watcher(app, PathBuf::from(root), gen_arc, my_gen);
+    Ok(())
+}
+
+/// 启动对 vault 的监听(桌面 notify 递归;iOS 轮询;切换 vault 时先停旧的)。
+/// 变更以 `vault-changed` + 相对路径列表 emit → 前端 apply_vault_changes。
+#[tauri::command]
+fn watch_vault(app: AppHandle, state: State<WatcherState>, root: String) -> Result<(), String> {
+    #[cfg(not(target_os = "ios"))]
+    {
+        watch_vault_notify(app, &state, root)
+    }
+    #[cfg(target_os = "ios")]
+    {
+        watch_vault_polling(app, state, root)
+    }
+}
+
 // ───────────────────────── 应用入口 ──────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(WatcherState(Mutex::new(None)))
+        .manage(WatcherState::new())
         .manage(LiveVaultState(Mutex::new(None)))
         .manage(acp::AcpState::default())
-        // 菜单栏 app 模式:主窗口点 × 只隐藏,app 与状态栏图标常驻 → 左键状态栏图标可重开。
-        // 不在此停 agent:app 继续运行、会话保留;真正退出(Cmd+Q / tray Quit)走 PredefinedMenuItem::quit
-        // → app.exit(0)(不触发 prevent_close),进程结束时 kill_on_drop / drop 清理 agent 子进程。
-        .on_window_event(move |window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
-            }
-        })
+        // L1 客户端日志(全平台,含 iOS):AppLog 目录 + profile
+        // (env OPEN_LLM_WIKI_LOG_PROFILE / debug→dev / release→prod)。
         .setup(|app| {
-            // B-AGENT-PATHFIX:GUI 启动 PATH 极简,先并回用户登录 PATH + 常见目录,
-            // 否则 agent_list 检测 / AcpAgent spawn 都会失败。
-            acp::augment_path();
-            // L1 客户端日志:AppLog 目录 + profile(env OPEN_LLM_WIKI_LOG_PROFILE / debug→dev / release→prod)。
             let log_dir = app
                 .path()
                 .app_log_dir()
@@ -1796,6 +1908,23 @@ pub fn run() {
             // acp(agent 子进程)的握手/流式/错误始终记到 debug——即使全局 prod(error+),
             // 便于排查「agent 连不上 / 握手卡住 / 流式不动」等问题。
             logging::set_target_min("acp", logging::LogLevel::Debug);
+            Ok(())
+        });
+
+    // ── 桌面专属(doc 18):菜单栏 app 模式(点 × 只隐藏 + 状态栏常驻)、原生菜单、
+    // agent PATH 修补。iOS 无窗口关闭概念、无原生菜单/托盘,且不 spawn CLI agent。
+    #[cfg(desktop)]
+    let builder = builder
+        .on_window_event(move |window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
+        .setup(|app| {
+            // B-AGENT-PATHFIX:GUI 启动 PATH 极简,先并回用户登录 PATH + 常见目录,
+            // 否则 agent_list 检测 / AcpAgent spawn 都会失败。
+            acp::augment_path();
 
             // 原生菜单:id 与 ui/src/lib/commands 注册表对齐(docs/10)。
             let file_new = MenuItemBuilder::with_id("new-note", "New Note")
@@ -1960,7 +2089,9 @@ pub fn run() {
                 })
                 .build(app)?;
             Ok(())
-        })
+        });
+
+    builder
         .invoke_handler(tauri::generate_handler![
             list_vault,
             read_note,
@@ -2000,6 +2131,7 @@ pub fn run() {
             git_restore_note,
             git_init,
             watch_vault,
+            app_platform,
             storage::detect_storage,
             storage::create_icloud_vault,
             storage::set_git_automation,
@@ -2045,7 +2177,7 @@ pub fn run() {
 mod tests {
     use super::{
         create_sample_vault, decode_base64, is_allowed_external_url, is_md_rel, live_apply,
-        load_live_from_disk, normalize_rel, path_should_emit, preview_of,
+        load_live_from_disk, normalize_rel, path_should_emit, platform_id, preview_of,
         should_open_external_now, strip_data_url_base64, LiveVault,
     };
     use std::time::Duration;
@@ -2081,6 +2213,13 @@ mod tests {
         assert!(!is_md_rel("x.canvas"));
     }
 
+    /// doc 18:iOS 端 ipc.getPlatform() 依赖此值切移动壳;取值域必须受控。
+    #[test]
+    fn platform_id_is_known_value() {
+        assert!(matches!(platform_id(), "ios" | "desktop"));
+    }
+
+    #[cfg(desktop)]
     #[test]
     fn external_url_allowlist_repo_and_pages() {
         assert!(is_allowed_external_url(
@@ -2108,6 +2247,7 @@ mod tests {
         assert!(!is_allowed_external_url("http://github.com/rhythm1995/open-llm-wiki"));
     }
 
+    #[cfg(desktop)]
     #[test]
     fn external_url_dedupes_same_url_inside_window() {
         let window = Duration::from_millis(800);
