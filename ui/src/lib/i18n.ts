@@ -207,6 +207,10 @@ export const dict: Record<Locale, Record<string, string>> = {
       "Vault 是本机上的一个 Markdown 笔记文件夹。打开已有目录,或创建示例 Vault 立刻体验。",
     "welcome.openFolder": "打开 Vault",
     "welcome.createSample": "创建示例 Vault",
+    "welcome.createIcloud": "在 iCloud 中创建(多设备同步)",
+    "welcome.icloudDefaultName": "我的知识库",
+    "welcome.icloudFailed": "未检测到 iCloud Drive,可先在本机创建。",
+    "welcome.icloudUnavailable": "未检测到 iCloud Drive(未登录或未开启)。",
     "welcome.recent": "最近打开",
     "welcome.removeRecent": "从列表移除",
     "welcome.dropHint": "也可以把文件夹拖进窗口",
@@ -550,6 +554,32 @@ export const dict: Record<Locale, Record<string, string>> = {
     "archive.initializing": "初始化中…",
     "archive.initFailed": "初始化失败:{msg}",
     "archive.mockHint": "mock 模式:归档历史不可用。请在桌面 app 中打开一个 git 仓库。",
+    // ── 存储防护(doc 17:iCloud/云盘提示、git 闸门、冲突副本、读超时)──
+    "storage.banner.icloud.title": "此资料库在 iCloud 里",
+    "storage.banner.icloud.body":
+      "建议:① 在 Finder 中右键资料库选「立即下载」并关闭「优化 Mac 储存空间」,保证搜索与图谱完整;② 避免两台设备同时编辑同一篇;③ 自动提交已默认停用(iCloud 与 Git 双同步会互相损坏),可在 Git 面板显式开启。",
+    "storage.banner.managed.title": "此资料库正由 iCloud 同步(桌面与文稿)",
+    "storage.banner.managed.body":
+      "系统开启了「桌面与文稿」同步,~/Documents 下的文件由 iCloud 托管。建议对资料库「保持下载」,并避免两台设备同时编辑同一篇。",
+    "storage.banner.other.title": "此资料库在云盘同步目录里",
+    "storage.banner.other.body":
+      "检测到云盘(OneDrive / Dropbox / iCloud for Windows 等)正在同步此文件夹。这类同步已知会产生重复文件或占位文件,建议资料库放在普通本地目录;继续使用请保持文件「始终保留在此设备」。",
+    "storage.banner.evicted":
+      "采样发现 {n} 个文件只存在于云端(未下载),搜索与图谱可能不完整。",
+    "storage.banner.dismiss": "知道了",
+    "storage.readTimeout": "这篇笔记仍在从 iCloud 下载,稍等片刻再试。",
+    "git.icloudGuard.title": "iCloud 资料库:自动提交已停用",
+    "git.icloudGuard.body":
+      "iCloud 与 Git 同时同步同一文件夹是已知的损坏来源。结构操作的自动提交与初始化已默认停用;手动提交仍可用。",
+    "git.icloudGuard.enable": "仍要启用自动提交",
+    "git.icloudGuard.disable": "停用自动提交",
+    "git.icloudGuard.enabledHint": "已启用(风险自担:请勿再让其它设备写入此库)",
+    "conflict.title": "发现疑似同步冲突副本({n})",
+    "conflict.body":
+      "两台设备同时编辑可能产生「名字 2.md」式副本。副本有时包含更新的内容——请对比后再决定保留哪份,本应用不会自动合并或删除。",
+    "conflict.openBase": "打开原文件",
+    "conflict.openCopy": "打开副本",
+    "conflict.ignore": "忽略此项",
     // 编辑/阅读切换
     "editor.toRead": "切换到阅读视图",
     "editor.toEdit": "切换到编辑视图",
@@ -916,6 +946,10 @@ export const dict: Record<Locale, Record<string, string>> = {
       "A vault is just a Markdown folder on your computer. Open an existing notes folder, or create a sample vault to explore.",
     "welcome.openFolder": "Open Vault folder",
     "welcome.createSample": "Create sample vault",
+    "welcome.createIcloud": "Create in iCloud (syncs across devices)",
+    "welcome.icloudDefaultName": "My Vault",
+    "welcome.icloudFailed": "iCloud Drive not detected — create locally for now.",
+    "welcome.icloudUnavailable": "iCloud Drive not detected (not signed in, or disabled).",
     "welcome.recent": "Recent",
     "welcome.removeRecent": "Remove from list",
     "welcome.dropHint": "You can also drop a folder onto this window",
@@ -1253,6 +1287,32 @@ export const dict: Record<Locale, Record<string, string>> = {
     "archive.initializing": "Initializing…",
     "archive.initFailed": "Init failed: {msg}",
     "archive.mockHint": "mock mode: archive history unavailable. Open a git repo in the desktop app.",
+    // ── Storage guards (doc 17: iCloud/cloud notices, git gate, conflict copies, read timeout) ──
+    "storage.banner.icloud.title": "This vault lives in iCloud",
+    "storage.banner.icloud.body":
+      "Suggestions: ① right-click the vault in Finder → Download Now, and turn off \"Optimize Mac Storage\" so search and graph stay complete; ② avoid editing the same note on two devices at once; ③ auto-commit is off by default (iCloud + Git on one folder is a known cause of corruption) — you can enable it in the Git panel.",
+    "storage.banner.managed.title": "This vault is synced by iCloud (Desktop & Documents)",
+    "storage.banner.managed.body":
+      "Desktop & Documents syncing is on, so ~/Documents is iCloud-managed. Keep the vault downloaded, and avoid editing the same note on two devices at once.",
+    "storage.banner.other.title": "This vault sits inside a cloud-synced folder",
+    "storage.banner.other.body":
+      "A cloud drive (OneDrive / Dropbox / iCloud for Windows…) is syncing this folder. Such sync is known to create duplicate or placeholder files; a plain local folder is recommended. If you continue, keep files \"Always keep on this device\".",
+    "storage.banner.evicted":
+      "{n} sampled files are cloud-only (not downloaded); search and graph may be incomplete.",
+    "storage.banner.dismiss": "Got it",
+    "storage.readTimeout": "This note is still downloading from iCloud — try again shortly.",
+    "git.icloudGuard.title": "iCloud vault: auto-commit is off",
+    "git.icloudGuard.body":
+      "Running iCloud and Git on the same folder is a known cause of corruption. Auto-commit for structural operations and repo init are off by default; manual commits still work.",
+    "git.icloudGuard.enable": "Enable auto-commit anyway",
+    "git.icloudGuard.disable": "Turn off auto-commit",
+    "git.icloudGuard.enabledHint": "Enabled (at your own risk: don't write to this vault from other devices)",
+    "conflict.title": "Possible sync-conflict copies found ({n})",
+    "conflict.body":
+      "Editing on two devices at once can create \"Name 2.md\" copies. The copy sometimes holds the newer edits — compare before keeping one; this app never merges or deletes them for you.",
+    "conflict.openBase": "Open original",
+    "conflict.openCopy": "Open copy",
+    "conflict.ignore": "Ignore this",
     "editor.toRead": "Switch to reading view",
     "editor.toEdit": "Switch to edit view",
     "editor.toSource": "Switch to source",

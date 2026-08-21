@@ -627,7 +627,60 @@ export async function handle<T>(
       // mock 无 OS fs,不监听;种子静态,浏览器 dev 靠手动 refresh。
       return undefined as unknown as T;
 
+    // ── 存储防护(doc 17):URL ?mock-storage= 可覆写类别(e2e/预览用)。
+    case "detect_storage":
+      return {
+        kind: mockStorageKind(),
+        cloud_docs_root:
+          mockStorageKind() === "local" ? null : "/mock/Library/Mobile Documents/com~apple~CloudDocs",
+        evicted_sampled: 0,
+        evicted_count: 0,
+      } as unknown as T;
+
+    case "create_icloud_vault": {
+      // mock:与 create_sample_vault 同款灌种(浏览器预览可演示完整流程)。
+      const { sampleVaultNotes, SAMPLE_VAULT_MOCK_ROOT } = await import(
+        "./sample-vault"
+      );
+      for (const n of sampleVaultNotes()) {
+        vault.set(n.path, n.content);
+      }
+      return SAMPLE_VAULT_MOCK_ROOT as unknown as T;
+    }
+
+    case "icloud_available":
+      // mock:始终可用(浏览器预览保留入口;置灰逻辑由组件单测覆盖)。
+      return true as unknown as T;
+
+    case "set_git_automation":
+      return undefined as unknown as T;
+
+    case "scan_conflicts":
+      return mockConflictPairs() as unknown as T;
+
     default:
       throw new Error(`mock: 未知命令 ${cmd}`);
   }
+}
+
+/** mock 存储类别:URL ?mock-storage=icloud|icloud-managed|cloud-other 覆写;默认 local。 */
+export function mockStorageKind(): "local" | "icloud" | "icloud-managed" | "cloud-other" {
+  if (typeof window === "undefined") return "local";
+  const v = new URLSearchParams(window.location.search).get("mock-storage");
+  if (v === "icloud" || v === "icloud-managed" || v === "cloud-other") return v;
+  return "local";
+}
+
+/** mock 冲突扫描:与 core conflict_pairs 同规则(X N.ext + X.ext 并存)。 */
+function mockConflictPairs(): { base: string; copy: string }[] {
+  const paths = [...vault.keys()].filter((p) => p.endsWith(".md")).sort();
+  const set = new Set(paths);
+  const out: { base: string; copy: string }[] = [];
+  for (const p of set) {
+    const m = /^(.*) (\d{1,3})\.md$/.exec(p);
+    if (!m) continue;
+    const base = `${m[1]}.md`;
+    if (m[1] && set.has(base)) out.push({ base, copy: p });
+  }
+  return out;
 }

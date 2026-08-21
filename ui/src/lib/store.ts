@@ -8,7 +8,15 @@
  * 选择性地把派生数据(当前节点、反链)一并算好,避免各组件重复遍历 edges。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ipc, type EdgeOut, type NodeOut, type VaultEntry, type VaultSnapshot } from "./ipc";
+import {
+  ipc,
+  type ConflictPair,
+  type EdgeOut,
+  type NodeOut,
+  type StorageInfo,
+  type VaultEntry,
+  type VaultSnapshot,
+} from "./ipc";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { tabReduce } from "./tabs";
@@ -23,6 +31,7 @@ import { applyTemplate, defaultTemplate } from "./template";
 import { removeFrontmatterKey, setFrontmatterValue } from "./frontmatter";
 import { buildAiContext } from "./ai-context";
 import { pickRestorableNote, readLastPath, writeLastRoot } from "./last-note";
+import { readGitAutomation } from "./storage-notice";
 import { resolveMoveTarget } from "./move-path";
 import {
   canCommitWatchResult,
@@ -47,6 +56,10 @@ export interface VaultState {
   dirty: boolean;
   saveState: "idle" | "saving" | "saved";
   error: string | null;
+  /** 存储类别探测(doc 17 G2;null = 未探测/不支持)。 */
+  storage: StorageInfo | null;
+  /** 疑似云同步冲突副本对(doc 17 G5)。 */
+  conflicts: ConflictPair[];
 }
 
 const INITIAL: VaultState = {
@@ -59,6 +72,8 @@ const INITIAL: VaultState = {
   dirty: false,
   saveState: "idle",
   error: null,
+  storage: null,
+  conflicts: [],
 };
 
 const SAVE_DEBOUNCE_MS = 800;
@@ -156,6 +171,19 @@ export function useVault() {
     }
   }, [refreshIndex]);
 
+  /**
+   * 刷新冲突副本扫描(doc 17 G5):watcher 批次落定后跟着刷一遍。
+   * 失败静默(提示卡缺一轮不致丢数据)。
+   */
+  const refreshConflicts = useCallback(async (root: string) => {
+    try {
+      const pairs = await ipc.scanConflicts(root);
+      setState((s) => (s.root !== root ? s : { ...s, conflicts: pairs }));
+    } catch {
+      /* 防护类探测失败不阻塞主流程 */
+    }
+  }, []);
+
   const openVault = useCallback(
     async (root: string): Promise<boolean> => {
       try {
@@ -182,6 +210,23 @@ export function useVault() {
         }
         // force:打开 vault 时全量 WalkDir 一次,建立 live index。
         const snap = await ipc.indexVault(root, true);
+        // doc 17 G2/G5:存储探测 + 冲突扫描(防护类,失败不阻塞打开)。
+        let storage: StorageInfo | null = null;
+        let conflicts: ConflictPair[] = [];
+        try {
+          storage = await ipc.detectStorage(root);
+          conflicts = await ipc.scanConflicts(root);
+        } catch {
+          /* 老 backend / mock 不支持时静默降级 */
+        }
+        // 恢复用户的 git 自动化覆写(曾对 icloud vault 显式开启过 → 重新告知后端)。
+        if (
+          storage?.kind === "icloud" &&
+          typeof window !== "undefined" &&
+          readGitAutomation((k) => window.localStorage.getItem(k), root) === true
+        ) {
+          void ipc.setGitAutomation(root, true).catch(() => {});
+        }
         // 切换/重开 vault 时清空导航历史(旧 vault 的栈无意义)。
         navHistory.current = emptyHistory;
         bumpNav();
@@ -193,6 +238,8 @@ export function useVault() {
           currentPath,
           openPaths: currentPath ? [currentPath] : [],
           content,
+          storage,
+          conflicts,
         });
         // 记下成功打开的根,下次启动恢复(Obsidian 同款行为)。
         writeLastRoot(root);
@@ -244,6 +291,7 @@ export function useVault() {
                     setState((s) =>
                       s.root !== expectedRoot ? s : { ...s, entries },
                     );
+                    void refreshConflicts(expectedRoot);
                     return;
                   }
                 } catch (e) {
@@ -299,6 +347,7 @@ export function useVault() {
                       setState((s) =>
                         s.root !== expectedRoot ? s : { ...s, entries },
                       );
+                      void refreshConflicts(expectedRoot);
                     }
                   } catch (e) {
                     if (
@@ -327,7 +376,7 @@ export function useVault() {
         return false;
       }
     },
-    [refreshIndex, stopWatch],
+    [refreshIndex, refreshConflicts, stopWatch],
   );
 
   const openPicker = useCallback(async () => {

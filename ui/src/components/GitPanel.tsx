@@ -34,6 +34,14 @@ import type { TFunc } from "../lib/i18n";
 interface Props {
   root: string | null;
   t: TFunc;
+  /** 存储类别(doc 17 G3):"icloud" 时展示防护区并解释后端为何拦下自动提交。 */
+  storageKind?: string | null;
+  /** 用户是否已对当前 icloud vault 显式启用自动提交。 */
+  gitAutomationEnabled?: boolean;
+  /** 「仍要启用自动提交」回调(App 持有持久化与后端覆写)。 */
+  onEnableGitAutomation?: () => void;
+  /** 「停用自动提交」回调(双向开关:启用后可再关)。 */
+  onDisableGitAutomation?: () => void;
 }
 
 interface GitState {
@@ -52,7 +60,14 @@ const BADGE_COLOR: Record<string, string> = {
   略: "text-overlay",
 };
 
-export function GitPanel({ root, t }: Props) {
+export function GitPanel({
+  root,
+  t,
+  storageKind = null,
+  gitAutomationEnabled = false,
+  onEnableGitAutomation,
+  onDisableGitAutomation,
+}: Props) {
   const [data, setData] = useState<GitState>({ status: [], log: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,6 +209,47 @@ export function GitPanel({ root, t }: Props) {
       className="flex h-full flex-col overflow-y-auto bg-base p-4"
       data-testid="git-panel"
     >
+      {/* doc 17 G3:icloud vault 且未显式启用 → 常驻防护区(状态说明,非弹窗)。 */}
+      {!mock && storageKind === "icloud" && !gitAutomationEnabled && (
+        <div
+          data-testid="git-icloud-guard"
+          className="mb-3 rounded-lg border border-yellow/40 bg-yellow/10 p-3 text-[12px] text-text"
+        >
+          <div className="flex items-center gap-1.5 font-medium">
+            <Warning size={13} weight="bold" className="text-yellow" />
+            {t("git.icloudGuard.title")}
+          </div>
+          <p className="mt-1 text-subtext">{t("git.icloudGuard.body")}</p>
+          {onEnableGitAutomation && (
+            <button
+              type="button"
+              data-testid="git-icloud-enable"
+              onClick={onEnableGitAutomation}
+              className="mt-1.5 rounded border border-surface1 bg-mantle px-2 py-0.5 text-[11px] font-medium hover:bg-surface0"
+            >
+              {t("git.icloudGuard.enable")}
+            </button>
+          )}
+        </div>
+      )}
+      {!mock && storageKind === "icloud" && gitAutomationEnabled && (
+        <div
+          data-testid="git-icloud-enabled-hint"
+          className="mb-3 flex items-center gap-2 rounded-lg border border-surface1 bg-mantle px-3 py-1.5 text-[11px] text-overlay"
+        >
+          <span className="min-w-0 flex-1">{t("git.icloudGuard.enabledHint")}</span>
+          {onDisableGitAutomation && (
+            <button
+              type="button"
+              data-testid="git-icloud-disable"
+              onClick={onDisableGitAutomation}
+              className="shrink-0 rounded border border-surface1 px-2 py-0.5 text-[11px] font-medium hover:bg-surface0"
+            >
+              {t("git.icloudGuard.disable")}
+            </button>
+          )}
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 className="text-[13px] font-semibold text-text">{t("view.git")}</h2>
         <button

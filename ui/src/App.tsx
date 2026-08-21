@@ -76,6 +76,13 @@ import {
   forgetRecentRoot,
 } from "./lib/last-note";
 import { WelcomeEmpty } from "./components/WelcomeEmpty";
+import { StorageBanner } from "./components/StorageBanner";
+import { ConflictNotice } from "./components/ConflictNotice";
+import {
+  mapStorageError,
+  readGitAutomation,
+  writeGitAutomation,
+} from "./lib/storage-notice";
 import {
   readWelcomeMgPlacement,
   writeWelcomeMgPlacement,
@@ -118,6 +125,34 @@ const SheetView = lazy(() =>
 
 export default function App() {
   const { state, currentNode, backlinks, navInfo, actions } = useVault();
+  // doc 17 G3:icloud vault 的 git 自动化覆写(本地持久化 + 后端 set_git_automation)。
+  const [gitAutoEnabled, setGitAutoEnabled] = useState(false);
+  useEffect(() => {
+    if (!state.root) return;
+    setGitAutoEnabled(
+      readGitAutomation((k) => window.localStorage.getItem(k), state.root) === true,
+    );
+  }, [state.root]);
+  const enableGitAutomation = () => {
+    if (!state.root) return;
+    void ipc.setGitAutomation(state.root, true).catch(() => {});
+    writeGitAutomation(
+      (k, v) => window.localStorage.setItem(k, v),
+      state.root,
+      true,
+    );
+    setGitAutoEnabled(true);
+  };
+  const disableGitAutomation = () => {
+    if (!state.root) return;
+    void ipc.setGitAutomation(state.root, false).catch(() => {});
+    writeGitAutomation(
+      (k, v) => window.localStorage.setItem(k, v),
+      state.root,
+      false,
+    );
+    setGitAutoEnabled(false);
+  };
   // 默认落地编辑页:不再记忆上次主视图(用户要求每次进入都是编辑器,而非图谱)。
   // 旧值 "open-llm-wiki.view" 仍可能残留在 localStorage,直接忽略即可。
   const [view, setView] = useState<MainView>("editor");
@@ -1091,7 +1126,9 @@ export default function App() {
       {state.error && (
         <div className="flex items-center gap-2 border-b border-red/40 bg-red/10 px-3 py-1.5 text-[12px] text-red">
           <Warning size={14} weight="bold" className="shrink-0" />
-          <pre className="min-w-0 flex-1 truncate font-sans">{state.error}</pre>
+          <pre className="min-w-0 flex-1 truncate font-sans">
+            {mapStorageError(state.error, t("storage.readTimeout"))}
+          </pre>
           <button
             onClick={actions.clearError}
             className="shrink-0 rounded p-0.5 hover:bg-red/20"
@@ -1100,6 +1137,18 @@ export default function App() {
             <X size={13} weight="bold" />
           </button>
         </div>
+      )}
+      {/* doc 17 提示层:存储类别一次性横幅 + 冲突副本提示卡(local 零打扰)。 */}
+      {state.root && state.storage && (
+        <StorageBanner root={state.root} info={state.storage} t={t} />
+      )}
+      {state.root && state.conflicts.length > 0 && (
+        <ConflictNotice
+          root={state.root}
+          pairs={state.conflicts}
+          t={t}
+          onOpenNote={(p) => actions.selectNote(p)}
+        />
       )}
       <div className="flex min-h-0 flex-1">
         {/* 区 1:导航(可隐藏)。智能视图 + VIEWS/TYPES/FOLDERS 分组。 */}
@@ -1187,6 +1236,18 @@ export default function App() {
                   const path = await ipc.createSampleVault();
                   const ok = await actions.openVault(path);
                   return ok ? path : null;
+                }}
+                onCreateIcloud={async () => {
+                  // doc 17 M2:一键创建到 CloudDocs/Open LLM Wiki/<本地化默认名>。
+                  try {
+                    const path = await ipc.createIcloudVault(
+                      t("welcome.icloudDefaultName"),
+                    );
+                    const ok = await actions.openVault(path);
+                    return ok ? path : null;
+                  } catch {
+                    return null;
+                  }
                 }}
                 onMgPlacementChange={setMgPlacement}
                 onOpenAgentOnboard={openAgentOnboard}
@@ -1450,7 +1511,16 @@ export default function App() {
                 onAskAgent={startVaultQuery}
               />
             )}
-            {view === "git" && <GitPanel root={state.root} t={t} />}
+            {view === "git" && (
+              <GitPanel
+                root={state.root}
+                t={t}
+                storageKind={state.storage?.kind ?? null}
+                gitAutomationEnabled={gitAutoEnabled}
+                onEnableGitAutomation={enableGitAutomation}
+                onDisableGitAutomation={disableGitAutomation}
+              />
+            )}
               </>
             )}
           </div>

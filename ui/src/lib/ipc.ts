@@ -175,7 +175,21 @@ export interface LintNodeRef {
   title: string;
 }
 
-export interface LintFinding {
+/** detect_storage 命令的 DTO(doc 17 G2;snake_case 与后端对齐)。 */
+export interface StorageInfo {
+  /** "local" | "icloud" | "icloud-managed" | "cloud-other" */
+  kind: "local" | "icloud" | "icloud-managed" | "cloud-other";
+  cloud_docs_root: string | null;
+  /** eviction 采样样本数(0 = 未采样 / 非 iCloud 类)。 */
+  evicted_sampled: number;
+  evicted_count: number;
+}
+
+/** scan_conflicts 命令的 DTO(doc 17 G5:疑似云同步冲突副本对)。 */
+export interface ConflictPair {
+  base: string;
+  copy: string;
+}export interface LintFinding {
   kind: string;
   subject: LintNodeRef;
   other: LintNodeRef | null;
@@ -323,6 +337,22 @@ export const ipc = {
    * mock 返回内存示例库根并灌入种子笔记。
    */
   createSampleVault: () => call<string>("create_sample_vault", {}),
+
+  // ── 存储防护(doc 17):iCloud/云盘检测、一键创建、git 闸门覆写、冲突扫描。
+  /** 探测 vault 存储类别 + eviction 采样(mock 支持 ?mock-storage= 覆写,供 e2e)。 */
+  detectStorage: (root: string) =>
+    call<StorageInfo>("detect_storage", { root }),
+  /** 在 iCloud Drive(CloudDocs/Open LLM Wiki/)下创建 vault;未登录 → Err。 */
+  createIcloudVault: (name: string) =>
+    call<string>("create_icloud_vault", { name }),
+  /** iCloud Drive 是否可用(欢迎屏据此置灰 iCloud 入口而非点击才失败)。 */
+  icloudAvailable: () => call<boolean>("icloud_available", {}),
+  /** 覆写 git 自动化闸门(icloud vault 默认关;显式 allowed=true 恢复)。 */
+  setGitAutomation: (root: string, allowed: boolean) =>
+    call<void>("set_git_automation", { root, allowed }),
+  /** 扫描疑似冲突副本(`X N.md` 与 `X.md` 并存);只提示,绝不自动处理。 */
+  scanConflicts: (root: string) =>
+    call<ConflictPair[]>("scan_conflicts", { root }),
   /** 在系统文件管理器中显示笔记(macOS Finder / Windows 资源管理器 / Linux)。桌面专用。 */
   revealInFinder: (root: string, path: string) =>
     call<void>("reveal_in_finder", { root, path }),

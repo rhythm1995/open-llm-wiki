@@ -142,4 +142,75 @@ describe("GitPanel", () => {
     expect(screen.getByText("git.noCommitsHint")).toBeInTheDocument();
     expect(screen.queryByTestId("git-error")).not.toBeInTheDocument();
   });
+
+  // ── doc 17 G3:iCloud 防护区 ──
+
+  it("icloud vault:显示防护区,「仍要启用」回调触发", async () => {
+    mockMode.current = false;
+    const onEnable = vi.fn();
+    render(
+      <GitPanel
+        root="/v"
+        t={t}
+        storageKind="icloud"
+        gitAutomationEnabled={false}
+        onEnableGitAutomation={onEnable}
+      />,
+    );
+    expect(await screen.findByTestId("git-icloud-guard")).toHaveTextContent(
+      "git.icloudGuard.title",
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("git-icloud-enable"));
+    expect(onEnable).toHaveBeenCalledOnce();
+  });
+
+  it("icloud vault 已显式启用:防护区换为已启用提示", async () => {
+    mockMode.current = false;
+    render(
+      <GitPanel
+        root="/v"
+        t={t}
+        storageKind="icloud"
+        gitAutomationEnabled={true}
+        onEnableGitAutomation={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByTestId("git-icloud-enabled-hint"),
+    ).toHaveTextContent("git.icloudGuard.enabledHint");
+    expect(screen.queryByTestId("git-icloud-guard")).not.toBeInTheDocument();
+  });
+
+  it("已启用后可再停用(双向开关)", async () => {
+    mockMode.current = false;
+    const onDisable = vi.fn();
+    render(
+      <GitPanel
+        root="/v"
+        t={t}
+        storageKind="icloud"
+        gitAutomationEnabled={true}
+        onEnableGitAutomation={vi.fn()}
+        onDisableGitAutomation={onDisable}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByTestId("git-icloud-disable"));
+    expect(onDisable).toHaveBeenCalledOnce();
+  });
+
+  it("local / icloud-managed / 未传 storageKind:不出防护区(IC-1 宽松)", async () => {
+    mockMode.current = false;
+    for (const kind of [null, "local", "icloud-managed", "cloud-other"]) {
+      const { unmount } = render(
+        <GitPanel root="/v" t={t} storageKind={kind} gitAutomationEnabled={false} />,
+      );
+      expect(screen.queryByTestId("git-icloud-guard")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("git-icloud-enabled-hint"),
+      ).not.toBeInTheDocument();
+      unmount();
+    }
+  });
 });

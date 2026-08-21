@@ -10,15 +10,16 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import {
+  Cloud,
   FolderOpen,
   Sparkle,
   ClockCounterClockwise,
   X,
 } from "@phosphor-icons/react";
+import { ipc } from "../lib/ipc";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { TFunc } from "../lib/i18n";
 import { readRecentRoots, forgetRecentRoot } from "../lib/last-note";
-import { ipc } from "../lib/ipc";
 import { WelcomePhilosophyMg } from "./WelcomePhilosophyMg";
 import {
   readWelcomeMgPlacement,
@@ -34,6 +35,8 @@ export interface WelcomeEmptyProps {
   onOpenRoot: (root: string) => Promise<boolean>;
   /** 创建示例库并打开;返回路径或 null。 */
   onCreateSample: () => Promise<string | null>;
+  /** 在 iCloud Drive 下创建并打开(doc 17 M2);返回路径或 null(未登录 iCloud)。 */
+  onCreateIcloud: () => Promise<string | null>;
   /** 忙碌态(打开/创建中)禁用按钮。 */
   busy?: boolean;
   /** MG 收起到 corner 后通知父级(刷新顶栏 logo)。 */
@@ -54,6 +57,7 @@ export function WelcomeEmpty({
   onOpenVault,
   onOpenRoot,
   onCreateSample,
+  onCreateIcloud,
   busy = false,
   onMgPlacementChange,
   onOpenAgentOnboard,
@@ -70,6 +74,23 @@ export function WelcomeEmpty({
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [rememberCorner, setRememberCorner] = useState(true);
   const blocked = busy || localBusy;
+
+  // doc 17 M2 验收:未登录 iCloud → 入口置灰并说明,而非点击才失败。
+  const [icloudOk, setIcloudOk] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    ipc
+      .icloudAvailable()
+      .then((ok) => {
+        if (!cancelled) setIcloudOk(ok);
+      })
+      .catch(() => {
+        /* 老 backend 无此命令:保持可用,点击后走失败回退文案 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const showHeroMg = placement === "hero" && !sessionMgHidden;
 
@@ -148,6 +169,21 @@ export function WelcomeEmpty({
       else refreshRecent();
     } catch (e) {
       setErr(String(e));
+    } finally {
+      setLocalBusy(false);
+    }
+  };
+
+  // doc 17 M2:在 iCloud 下创建(CloudDocs/Open LLM Wiki/<名字>);未登录 → 失败提示并引导本地。
+  const handleIcloud = async () => {
+    setLocalBusy(true);
+    setErr(null);
+    try {
+      const path = await onCreateIcloud();
+      if (!path) setErr(t("welcome.icloudFailed"));
+      else refreshRecent();
+    } catch (e) {
+      setErr(t("welcome.icloudFailed"));
     } finally {
       setLocalBusy(false);
     }
@@ -236,6 +272,24 @@ export function WelcomeEmpty({
             <Sparkle size={18} weight="bold" className="text-blue" />
             {t("welcome.createSample")}
           </button>
+          <button
+            type="button"
+            data-testid="welcome-create-icloud"
+            disabled={blocked || !icloudOk}
+            onClick={() => void handleIcloud()}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-surface1 bg-mantle px-4 text-[13px] font-medium text-text transition hover:bg-surface0 disabled:opacity-50"
+          >
+            <Cloud size={18} weight="bold" className="text-blue" />
+            {t("welcome.createIcloud")}
+          </button>
+          {!icloudOk && (
+            <p
+              data-testid="welcome-icloud-unavailable"
+              className="text-left text-[11px] text-overlay"
+            >
+              {t("welcome.icloudUnavailable")}
+            </p>
+          )}
           {onOpenAgentOnboard && !ipc.isMock() && (
             <button
               type="button"
