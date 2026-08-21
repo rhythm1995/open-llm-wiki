@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 790" width="1000" height="790">
+  <style>text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; }</style>
+  <defs>
+    <marker id="ab" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+    <marker id="ag" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+  </defs>
+  <rect width="1000" height="790" fill="#ffffff"/>
+  <text x="500" y="34" text-anchor="middle" font-size="18" font-weight="600" fill="#111827">iCloud 存储支持 — 产品三层架构</text>
+  <rect x="24" y="56" width="856" height="150" rx="10" fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6,4"/>
+  <text x="38" y="78" font-size="12" font-weight="600" fill="#6b7280">入口层 · 前端 UI（ui/）</text>
+  <rect x="44" y="96" width="196" height="64" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="142.0" y="120.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">欢迎屏 · 存储三选一</text>
+  <text x="142.0" y="138.0" text-anchor="middle" font-size="11" fill="#6b7280">iCloud / 本机 / 现有</text>
+  <rect x="264" y="96" width="196" height="64" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="362.0" y="120.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">目录选择器</text>
+  <text x="362.0" y="138.0" text-anchor="middle" font-size="11" fill="#6b7280">iCloud Drive 快捷入口</text>
+  <rect x="484" y="96" width="196" height="64" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="582.0" y="120.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">Git 面板</text>
+  <text x="582.0" y="138.0" text-anchor="middle" font-size="11" fill="#6b7280">防护状态与开关</text>
+  <rect x="704" y="96" width="196" height="64" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="802.0" y="120.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">提示横幅</text>
+  <text x="802.0" y="138.0" text-anchor="middle" font-size="11" fill="#6b7280">一次性 · 不打扰</text>
+  <rect x="24" y="258" width="856" height="196" rx="10" fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6,4"/>
+  <text x="38" y="280" font-size="12" font-weight="600" fill="#6b7280">防护层 · Tauri 命令（app/src-tauri）</text>
+  <rect x="44" y="296" width="268" height="62" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="178.0" y="319.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">detect_storage</text>
+  <text x="178.0" y="337.0" text-anchor="middle" font-size="11" fill="#6b7280">路径判定 → storage_kind</text>
+  <rect x="332" y="296" width="268" height="62" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="466.0" y="319.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">atomic_write</text>
+  <text x="466.0" y="337.0" text-anchor="middle" font-size="11" fill="#6b7280">同目录 tmp → rename</text>
+  <rect x="620" y="296" width="268" height="62" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="754.0" y="319.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">git guard</text>
+  <text x="754.0" y="337.0" text-anchor="middle" font-size="11" fill="#6b7280">iCloud 内默认关自动提交</text>
+  <rect x="44" y="376" width="268" height="62" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="178.0" y="399.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">shadow repo 迁移</text>
+  <text x="178.0" y="417.0" text-anchor="middle" font-size="11" fill="#6b7280">移至 app data，不进 vault</text>
+  <rect x="332" y="376" width="268" height="62" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="466.0" y="399.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">eviction 探测</text>
+  <text x="466.0" y="417.0" text-anchor="middle" font-size="11" fill="#6b7280">SF_DATALESS 采样</text>
+  <rect x="620" y="376" width="268" height="62" rx="8" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="754.0" y="399.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">conflict scan</text>
+  <text x="754.0" y="417.0" text-anchor="middle" font-size="11" fill="#6b7280">检测「 N.md」冲突副本</text>
+  <rect x="24" y="506" width="856" height="210" rx="10" fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-dasharray="6,4"/>
+  <text x="38" y="528" font-size="12" font-weight="600" fill="#6b7280">存储层</text>
+  <rect x="44" y="546" width="260" height="120" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="174.0" y="586.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">本地 vault</text>
+  <text x="174.0" y="604.0" text-anchor="middle" font-size="11" fill="#6b7280">+ .git 可用</text>
+  <text x="174.0" y="619.0" text-anchor="middle" font-size="11" fill="#6b7280">纯文件系统</text>
+  <text x="174.0" y="634.0" text-anchor="middle" font-size="11" fill="#6b7280">geek 首选</text>
+  <rect x="324" y="546" width="260" height="120" rx="8" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5"/>
+  <text x="454.0" y="586.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">iCloud Drive vault</text>
+  <text x="454.0" y="604.0" text-anchor="middle" font-size="11" fill="#6b7280">bird / fileproviderd</text>
+  <text x="454.0" y="619.0" text-anchor="middle" font-size="11" fill="#6b7280">dataless 文件</text>
+  <text x="454.0" y="634.0" text-anchor="middle" font-size="11" fill="#6b7280">LWW 冲突模型</text>
+  <rect x="604" y="546" width="260" height="120" rx="8" fill="#f0fdfa" stroke="#5eead4" stroke-width="1.5"/>
+  <text x="734.0" y="586.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">App Data（app 数据目录）</text>
+  <text x="734.0" y="604.0" text-anchor="middle" font-size="11" fill="#6b7280">transcript DB</text>
+  <text x="734.0" y="619.0" text-anchor="middle" font-size="11" fill="#6b7280">shadow repo</text>
+  <text x="734.0" y="634.0" text-anchor="middle" font-size="11" fill="#6b7280">不同步 · 不进 vault</text>
+  <line x1="452" y1="206" x2="452" y2="256" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+  <rect x="466" y="216" width="66" height="18" fill="#ffffff" opacity="0.95"/>
+  <text x="499" y="229" text-anchor="middle" font-size="11" fill="#2563eb">invoke IPC</text>
+  <line x1="452" y1="454" x2="452" y2="504" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+  <rect x="466" y="464" width="58" height="18" fill="#ffffff" opacity="0.95"/>
+  <text x="495" y="477" text-anchor="middle" font-size="11" fill="#2563eb">文件 IO</text>
+  <path d="M 880,570 C 950,570 950,120 882,118" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ag)"/>
+  <rect x="906" y="330" width="80" height="18" fill="#ffffff" opacity="0.95"/>
+  <text x="946" y="343" text-anchor="middle" font-size="11" fill="#6b7280">vault-changed</text>
+  <g transform="translate(44,746)">
+    <line x1="0" y1="8" x2="30" y2="8" stroke="#2563eb" stroke-width="2" marker-end="url(#ab)"/>
+    <text x="36" y="12" font-size="12" fill="#6b7280">IPC 调用 / 文件 IO</text>
+    <line x1="190" y1="8" x2="220" y2="8" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ag)"/>
+    <text x="226" y="12" font-size="12" fill="#6b7280">vault-changed 事件回流（去抖后）</text>
+  </g>
+</svg>

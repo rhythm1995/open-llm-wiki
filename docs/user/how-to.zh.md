@@ -150,6 +150,13 @@ npx --yes open-llm-wiki-skills install . --hooks
 
 Agent 应遵循 wiki-ingest：新写一篇 Summary，把 Source 标成 `Digested`，创建 Entity / Concept，并在 `index.md` 加一行。不得改 Source 正文。
 
+## 把资料库放进 iCloud
+
+1. 欢迎屏点 **在 iCloud 中创建**,资料库会建在 iCloud 云盘的 `Open LLM Wiki` 文件夹下。
+2. 保持资料库"已下载":在 Finder 右键 → **立即下载**;系统设置里可考虑关闭"优化 Mac 储存空间"。
+3. 避免两台设备同时编辑同一篇。冲突会表现为「名字 2.md」副本——应用会提示你对比,绝不自动合并或删除。
+4. iCloud 资料库内 Git 自动提交默认停用(iCloud 与 Git 同步同一文件夹是已知损坏源);可在 Git 面板显式开启。
+
 ## 改语言、主题、默认编辑模式
 
 `⌘,` 打开设置。深 / 浅色、简体中文 / English、默认源码 / 所见即所得、附件布局都在这里。全部只存在这台机器。

@@ -118,6 +118,21 @@
 | 归档=git 历史还原 | 无 `.trash/` 笔记机制 | `ArchiveView.tsx`,`git_*` IPC |
 | 正文手动提交 | GitPanel | `GitPanel.tsx` |
 
+## 存储防护(doc 17 ✅)
+
+| 功能 | 说明 | 代码入口 |
+|---|---|---|
+| 存储类别判定(纯) | local / icloud / icloud-managed / cloud-other + 冲突配对 + git 放行决策 | `core/src/storage.rs` |
+| 原子写(G1) | 同目录 tmp→rename,全部 vault 写入点(笔记/附件/布局/ACP/种子) | `app/src-tauri/src/storage.rs` `atomic_write` |
+| detect_storage + eviction 采样(G2/G4) | 打开 vault 探测类别;`.icloud` stub + SF_DATALESS 有界采样 | `storage.rs` `detect_storage` |
+| 一键创建 iCloud vault | `CloudDocs/Open LLM Wiki/<名字>`(用户不进 ~/Library) | `storage.rs` `create_icloud_vault` |
+| git 闸门(G3,IC-1 宽松) | icloud 默认关自动提交/git_init(可覆写);icloud-managed 放行 | `storage.rs` `git_auto_allowed` + `lib.rs` |
+| shadow repo 迁 app data | v1 vault 内位置自动迁移;不再进任何云盘同步 | `git_attr.rs` `migrate_shadow_repo` |
+| 读超时(G6) | dataless 隐式下载 10s 超时 →「仍在下载」占位 | `storage.rs` `read_to_string_timeout`,`read_note` |
+| 冲突副本扫描(G5) | `X N.md` 与 `X.md` 并存 → 提示卡,绝不自动处理 | `storage.rs` `scan_conflicts`,`ConflictNotice.tsx` |
+| 提示层 | 一次性横幅(per root)/ Git 面板防护区 / 欢迎屏 iCloud 入口 | `StorageBanner.tsx`,`GitPanel.tsx`,`WelcomeEmpty.tsx` |
+| 规格 | 状态:已落地(M1+M2+M3) | [17-icloud-storage-plan.md](./17-icloud-storage-plan.md) |
+
 ## 诊断
 
 | 功能 | ID | 代码入口 |

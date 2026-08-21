@@ -44,6 +44,8 @@ The numbered specs and research notes are written in Chinese (implementation sou
 | [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki workflow (ingest / research / consolidate) + distill L2a + lint L1/L2 | shipped reference (still growing) |
 | [15-owf-format.md](./15-owf-format.md) | **OWF-1 format** (binding + version pin; `format: owf/1` + tolerant rules; archive of alternatives in §9) | in force |
 | [16-first-run-mg-philosophy.md](./16-first-run-mg-philosophy.md) | First-run philosophy MG: narrative + brand constraints + **reproducible prompts** | reviewed v4; embedded in WelcomeEmpty |
+| [17-icloud-storage-plan.md](./17-icloud-storage-plan.md) | **iCloud storage support** product plan (entry / G1–G6 guards / copy / milestones, 3 diagrams) | ✅ shipped 2026-08-21 (M1+M2+M3; §13 landing record) |
+| [research/icloud-vault-storage.md](./research/icloud-vault-storage.md) | iCloud vault storage feasibility survey (15 sources: Sonoma dataless files, LWW conflicts, git-in-iCloud churn) | reference; basis for doc 17 |
 | [research/agent-memory-survey.md](./research/agent-memory-survey.md) | Agent long-term memory survey (40 sources / 54 evidence); **§7.4 = priority order for the four follow-ups** | reference |
 | [research/conversation-to-vault-distillation.md](./research/conversation-to-vault-distillation.md) | Conversation → vault distillation | L2a is in doc 14 §1.1; L1/L2b UI waits on signal |
 | [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) | Trust / provenance frontmatter | **P0 L1 shipped** (starter + Health) |

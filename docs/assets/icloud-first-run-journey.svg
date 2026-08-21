@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 850" width="960" height="850">
+  <style>text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; }</style>
+  <defs>
+    <marker id="ab" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2563eb"/></marker>
+    <marker id="ag" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/></marker>
+  </defs>
+  <rect width="960" height="850" fill="#ffffff"/>
+  <text x="480" y="30" text-anchor="middle" font-size="18" font-weight="600" fill="#111827">首次运行 — 存储选择用户旅程</text>
+  <rect x="400" y="44" width="160" height="38" rx="19" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="480.0" y="68.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">首次运行 · 欢迎屏</text>
+  <path d="M 480,82 L 480,106" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <polygon points="480,111 566,148 480,185 394,148" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="480" y="152" text-anchor="middle" font-size="12.5" font-weight="600" fill="#111827">选择存储位置</text>
+  <path d="M 394,148 L 182,148 L 182,226" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="259" y="129" width="59" height="16" fill="#ffffff" opacity="0.95"/>
+  <text x="288" y="141" text-anchor="middle" font-size="11" fill="#2563eb">选 iCloud</text>
+  <path d="M 480,185 L 480,226" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="492" y="197" width="20" height="16" fill="#ffffff" opacity="0.95"/>
+  <text x="502" y="209" text-anchor="middle" font-size="11" fill="#2563eb">默认</text>
+  <path d="M 566,148 L 778,148 L 778,226" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="656" y="129" width="33" height="16" fill="#ffffff" opacity="0.95"/>
+  <text x="672" y="141" text-anchor="middle" font-size="11" fill="#2563eb">打开现有</text>
+  <rect x="62" y="230" width="240" height="62" rx="8" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5"/>
+  <text x="182.0" y="257.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">A · iCloud Drive</text>
+  <text x="182.0" y="275.0" text-anchor="middle" font-size="11" fill="#6b7280">全 Apple 用户推荐</text>
+  <rect x="360" y="230" width="240" height="62" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="480.0" y="257.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">B · 本机文件夹</text>
+  <text x="480.0" y="275.0" text-anchor="middle" font-size="11" fill="#6b7280">默认 ~/Documents</text>
+  <rect x="658" y="230" width="240" height="62" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="778.0" y="257.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">C · 打开现有资料库</text>
+  <text x="778.0" y="275.0" text-anchor="middle" font-size="11" fill="#6b7280">系统目录选择器</text>
+  <rect x="62" y="324" width="240" height="62" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="182.0" y="351.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">一键创建 vault</text>
+  <text x="182.0" y="369.0" text-anchor="middle" font-size="11" fill="#6b7280">CloudDocs/Open LLM Wiki/名字</text>
+  <rect x="62" y="418" width="240" height="68" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="182.0" y="448.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">iCloud 引导横幅</text>
+  <text x="182.0" y="466.0" text-anchor="middle" font-size="11" fill="#6b7280">保持下载 · 勿同时编辑</text>
+  <text x="182.0" y="480.0" text-anchor="middle" font-size="11" fill="#6b7280">git 自动化默认关</text>
+  <path d="M 182,292 L 182,320" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <path d="M 182,386 L 182,414" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="360" y="324" width="240" height="56" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="480.0" y="348.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">创建于 ~/Documents</text>
+  <text x="480.0" y="366.0" text-anchor="middle" font-size="11" fill="#6b7280">现有默认行为</text>
+  <polygon points="480,421 584,460 480,499 376,460" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="480" y="464" text-anchor="middle" font-size="12.5" font-weight="600" fill="#111827">Desktop &amp;amp; Documents 同步?</text>
+  <path d="M 480,380 L 480,418" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <path d="M 378,460 L 306,460" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="316" y="431" width="52" height="16" fill="#ffffff" opacity="0.95"/>
+  <text x="342" y="443" text-anchor="middle" font-size="11" fill="#2563eb">是 · 已托管</text>
+  <rect x="360" y="534" width="240" height="56" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="480.0" y="558.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">纯本地 vault</text>
+  <text x="480.0" y="576.0" text-anchor="middle" font-size="11" fill="#6b7280">.git 可用 · geek 路径</text>
+  <path d="M 480,499 L 480,530" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="491" y="505" width="14" height="16" fill="#ffffff" opacity="0.95"/>
+  <text x="498" y="517" text-anchor="middle" font-size="11" fill="#2563eb">否</text>
+  <rect x="658" y="324" width="240" height="56" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="778.0" y="348.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">目录选择器浏览</text>
+  <text x="778.0" y="366.0" text-anchor="middle" font-size="11" fill="#6b7280">侧栏含 iCloud Drive</text>
+  <rect x="658" y="418" width="240" height="68" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="778.0" y="448.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">detect_storage 判定</text>
+  <text x="778.0" y="466.0" text-anchor="middle" font-size="11" fill="#6b7280">路径前缀 + D&amp;D 启发式</text>
+  <path d="M 778,292 L 778,320" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <path d="M 778,380 L 778,414" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="330" y="620" width="300" height="44" rx="22" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="480.0" y="647.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">storage_kind = local | icloud</text>
+  <path d="M 182,486 L 182,642 L 326,642" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <path d="M 480,590 L 480,618" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <path d="M 778,486 L 778,642 L 634,642" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="730" y="534" width="97" height="16" fill="#ffffff" opacity="0.95"/>
+  <text x="778" y="546" text-anchor="middle" font-size="11" fill="#2563eb">local / icloud</text>
+  <rect x="330" y="694" width="300" height="50" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <text x="480.0" y="715.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">应用防护策略 G1–G6</text>
+  <text x="480.0" y="733.0" text-anchor="middle" font-size="11" fill="#6b7280">原子写 · git guard · 探测</text>
+  <path d="M 480,664 L 480,690" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+  <rect x="330" y="772" width="300" height="42" rx="21" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+  <text x="480.0" y="798.0" text-anchor="middle" font-size="14" font-weight="600" fill="#111827">日常使用:编辑 · 图谱 · QQL</text>
+  <path d="M 480,744 L 480,768" fill="none" stroke="#2563eb" stroke-width="1.6" marker-end="url(#ab)"/>
+</svg>

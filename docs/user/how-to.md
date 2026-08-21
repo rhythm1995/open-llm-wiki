@@ -150,6 +150,13 @@ Use this when you have a `type: Source` (or untyped material) and you want an ag
 
 The agent should follow wiki-ingest: write a new Summary, mark the Source `Digested`, create Entity / Concept pages, and add a line to `index.md`. It must not rewrite the Source body.
 
+## Store the vault in iCloud
+
+1. On the welcome screen, click **Create in iCloud**. The vault is created under iCloud Drive → `Open LLM Wiki`.
+2. Keep the vault downloaded: right-click it in Finder → **Download Now**, and consider turning off "Optimize Mac Storage" in System Settings.
+3. Avoid editing the same note on two devices at once. Conflicts show up as "Name 2.md" copies — the app flags them for you to compare, and never merges or deletes on its own.
+4. Git auto-commit is off by default in iCloud vaults (iCloud and Git syncing one folder is a known cause of corruption). You can enable it in the Git panel.
+
 ## Change language, theme, default edit mode
 
 `⌘,` opens Settings. Dark / light theme, 简体中文 / English UI, default source / wysiwyg, and attachment layout live there. Everything stays on this machine.

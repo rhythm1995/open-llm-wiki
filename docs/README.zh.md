@@ -44,6 +44,8 @@
 | [14-llm-wiki-workflow.md](./14-llm-wiki-workflow.md) | LLM Wiki 工作流(ingest/research/consolidate)+ 蒸馏 L2a + lint L1/L2 | 已落地参考(持续增补) |
 | [15-owf-format.md](./15-owf-format.md) | **OWF-1 格式规范**(档 1:装订现状 + 钉版本;`format: owf/1` 声明 + 宽容规则测试锁;档 2 候选项存档 §9) | ✅ 已生效 |
 | [16-first-run-mg-philosophy.md](./16-first-run-mg-philosophy.md) | 首次启动理念 MG：叙事 + 品牌硬约束 + **可复制生成/优化 prompt** | 审阅满意 v4；已嵌 WelcomeEmpty |
+| [17-icloud-storage-plan.md](./17-icloud-storage-plan.md) | **iCloud 存储支持**产品方案（入口 / G1–G6 防护 / 文案 / 分期，含 3 张示意图） | ✅ 已落地 2026-08-21（M1+M2+M3；§13 落地记录） |
+| [research/icloud-vault-storage.md](./research/icloud-vault-storage.md) | iCloud vault 存储可行性调研（15 来源：dataless 文件 / LWW 冲突 / git-in-iCloud churn） | 参考；17 号方案依据 |
 | [research/agent-memory-survey.md](./research/agent-memory-survey.md) | agent 长期记忆调研(40 来源 / 54 证据);**§7.4 = 四专项的优先级与排序依据** | 参考 |
 | [research/conversation-to-vault-distillation.md](./research/conversation-to-vault-distillation.md) | 对话→vault 蒸馏管道:调研+方案(survey §7.3③) | L2a 已写进 doc 14 §1.1;L1/L2b UI 等信号 |
 | [research/trust-provenance-frontmatter.md](./research/trust-provenance-frontmatter.md) | 信任分级/provenance frontmatter:调研+方案(survey §7.3⑥) | **P0 L1 已落地**(模板+Health);L2 写入路径等探针 |

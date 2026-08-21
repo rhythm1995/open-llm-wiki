@@ -1463,3 +1463,32 @@
 - **做了**: ① 基础指针规则:链接/按钮/summary 一律 pointer(浏览器 button 默认是箭头),装饰性 hover(规则行墨水)保持默认箭头不误导可点击;补 :focus-visible 虚线描边。② hover 动效(克制、纸张风):nav 项加浅色胶囊底;handbook 文档行 hover 背景微染 + 标题右移 6px + mono 副文提亮;FAQ 问题头背景微染(新增 .faq-head 钩子);Jump 菜单项 hover 胶囊;Surfaces 截图卡 hover 上浮 6px。全部 transition 240-320ms 自定义 ease,reduce-motion 下 transition 与位移一并禁用。
 - **验证**: typecheck/build 过;无头 Chrome 断言 cursor(pointer)、nav 背景、log-row 位移(translateX 6px)、faq-head 背景全部生效。
 - **另答用户问**: 首次创建示例库不会 git init(create_sample_vault 只建目录+种子文件);git 初始化是归档视图空态的手动按钮(git_init = init + add -A + 尽力 initial commit)。
+
+### 2026-08-21 ZCode — iCloud vault 存储可行性调研(未改代码)
+
+- **branch**: `zcode/next`。
+- **做了**: 应用户要求调研「vault 放 iCloud 降低非 geek 用户门槛」是否可行。产出报告 `docs/research/icloud-vault-storage.md`:机制层(Sonoma 后 dataless 文件 / LWW 冲突 / 半截文件上传)、Obsidian 社区经验、逐条映射本项目代码(审计行号:非原子 fs::write lib.rs:447、git 自动 commit 与 shadow repo、点过滤对 `.icloud` stub 的影响、notify 兜底机制)。核心结论:可有条件支持;最重要的发现是示例库默认 `~/Documents` 在 Desktop&Documents 同步开启时已经落在 iCloud 里,防护是现状刚需。P0 建议:原子写(仓库已有范式 onboard.rs:395)、iCloud 路径检测+提示、vault 在 iCloud 内默认关 git 自动化与 shadow repo。
+- **验证**: 纯调研,无代码改动;证据 15 个来源交叉验证,报告内附。
+- **影响 / 下一步**: 若采纳,按报告 P0→P2 排期;建议先做一次 Desktop&Documents 同步下的 spike 实证。
+
+### 2026-08-21 ZCode — iCloud 存储产品方案(基于上条调研,含示意图)
+
+- **branch**: `zcode/next`。
+- **做了**: 应用户要求基于调研出产品方案。新增 `docs/17-icloud-storage-plan.md`(编号系列):定位「允许+引导+防护」、iCloud 为欢迎屏三选项之一而非默认;六道防护 G1–G6(原子写/detect_storage/git guard/shadow repo 迁 App Data/eviction 探测/冲突副本检测),shadow repo 迁出 vault 为关键决策;含后端接口、双语文案、M1–M3 分期与验收标准、取舍记录。三张示意图经 fireworks-tech-graph 生成(SVG+PNG,rsvg-convert 导出,视觉模型校验零缺陷):`docs/assets/icloud-first-run-journey.png`(用户旅程)、`icloud-plan-architecture.png`(三层架构)、`icloud-open-sequence.png`(打开检测时序)。同步登记:docs README/README.zh 文档地图 + open-questions.md 新增 IC-1~IC-3。
+- **验证**: 三张 PNG 经视觉模型逐项检查(中文渲染/无重叠/箭头连接/画布裁切)全部通过;纯文档改动,未动代码。
+- **影响 / 下一步**: 方案待排期;M1(P0)与是否采纳在 open-questions IC-1~IC-3 拍板后可开工。
+
+### 2026-08-21 ZCode — iCloud 存储支持全量落地(doc 17 M1+M2+M3,TDD)
+
+- **branch**: `zcode/next`(未 commit,待用户指示)。
+- **拍板输入**: 用户对 IC-1~IC-3 的答复:① icloud-managed 宽松(git 自动化不关);② 欢迎屏嵌合位置任选(选:不重构,加一枚 iCloud 按钮);③ eviction 采样时机不重要(选默认:打开时一次)。
+- **做了**: 按上一条产品方案一次性落地 G1–G6:
+  1. **core** 新增 `storage.rs`(纯判定,单测+proptest):`classify_storage`(local/icloud/icloud-managed/cloud-other)、`is_icloud_stub`(旧 `.x.icloud` 占位)、`conflict_pairs`(`X N.md`+`X.md` 配对,4 位数字不算)、`git_auto_allowed`(IC-1 宽松矩阵)。
+  2. **app** 新增 `storage.rs`:`atomic_write`(同目录 tmp+fsync+rename)接入**全部**写入点(write_note/附件/graph-layout/改名正文重写/示例库种子/ACP agent 写);`detect_storage`(fs 探测 + eviction 有界采样 200:`.icloud` stub 与 macOS `SF_DATALESS` via libc,仅 macOS 加依赖);`create_icloud_vault`(CloudDocs/Open LLM Wiki/ 下唯一命名,未登录报错);`set_git_automation` 覆写;`scan_conflicts`;`read_to_string_timeout`(10s,fifo 真阻塞测试)。git 闸门接入 `git_commit_paths` 与 `git_init`(icloud 默认拦,显式开启恢复)。
+  3. **shadow repo 迁移**:`git_attr.rs` 新位置 `app data/agent-shadow/<fnv>.git`(env `OPEN_LLM_WIKI_APP_DATA` 可注入);v1 vault 内旧位置首用自动搬(rename→递归 copy 兜底,幂等),既有测试改断言 + 新增迁移测试。
+  4. **ui**:`storage-notice.ts`(一次性横幅键/git 覆写三态/冲突忽略清单,纯函数);`StorageBanner`(local 零渲染,三类文案 + eviction 行,per-root 持久化关闭);`ConflictNotice`(列出冲突对、打开原/副本、忽略此项持久化);`WelcomeEmpty` 增"在 iCloud 中创建";`GitPanel` 增防护区 + "仍要启用";App 接线(openVault 探测、watcher 批次后重扫冲突、覆写恢复、OLW_TIMEOUT 错误映射"仍在下载");mock 支持 `?mock-storage=` 覆写。
+  5. **docs**:17 号状态 → 已落地 + §13 落地记录;open-questions IC-1~3 标已拍板;FEATURE-INDEX 增"存储防护"节;user how-to 双语增"Store the vault in iCloud"(168/168 行对齐);docs README/zh 状态更新。
+- **验证(TDD,测试先行)**: `cargo test -p open-llm-wiki-core`(165 passed,storage 12 例)✅;`cargo test -p open-llm-wiki-app`(78 passed,新增 atomic/detect/create/闸门端到端/shadow 迁移/fifo 超时/icloud_available ~21 例)✅;`cargo test -p open-llm-wiki-mcp`(30 passed,onboard 原子化后复绿)✅;clippy 无 error ✅;`pnpm typecheck` ✅;`pnpm test:cov`(966 passed)✅;`pnpm e2e`(26 passed,storage-notice.spec 3 例:local 零打扰 / icloud 横幅+持久关闭 / cloud-other)✅;`pnpm build` ✅。
+- **完整性审计补齐(用户问"完整了吗"后对照 §9 验收复查,补 5 处)**: ① mcp onboard 种子/skill 写 vault 改原子写;② `icloud_available` 命令 + 欢迎屏未登录置灰(M2 验收原文是置灰,此前实现成点击才报错);③ Git 面板防护双向开关(可停用);④ eviction 按"已关闭时计数"记忆,计数上涨横幅重现(§7 承诺);⑤ 度量打点进现有 logging。doc 17 新增 §14 实机验证清单(代码无法替代的验收)。
+- **影响**: 非 geek 的全 Apple 用户获得零配置同步路径;iCloud 用户的所有写入不再有半截文件窗口;任何云盘目录下的 vault 都不再被 shadow repo churn;本地 + git 用户零变化(local 全程无新 UI)。
+- **遗留 / 下一步**: 未 commit(等用户指示);doc 17 §14 六项实机验证(iCloud 真机/iPhone/Windows)待有设备时执行;Windows CloudOther 检测为路径启发,实机后校准。
