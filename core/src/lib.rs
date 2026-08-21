@@ -24,6 +24,7 @@ pub mod parse;
 pub mod qql;
 pub mod query;
 pub mod search;
+pub mod storage;
 pub mod vault;
 
 pub use graph::{aliases_of, Edge, EdgeKind, Graph, NodeId, OrphanMode, Target};
@@ -49,4 +50,8 @@ pub use media::{
     MediaStats,
 };
 pub use search::SearchIndex;
+pub use storage::{
+    classify_storage, conflict_pairs, git_auto_allowed, is_icloud_stub, ConflictPair, StorageKind,
+    StorageProbes,
+};
 pub use vault::{apply_entry_deltas, entries_to_vec, EntryDelta, VaultIndex};
